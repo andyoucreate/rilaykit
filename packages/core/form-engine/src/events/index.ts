@@ -3,7 +3,7 @@ import type {
   EventSubscriptionOptions,
   StreamlineEvents,
   UnsubscribeFunction,
-} from '../types/index.js';
+} from '../types';
 
 // Event middleware type
 export type EventMiddleware = (

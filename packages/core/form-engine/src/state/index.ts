@@ -12,7 +12,7 @@ import type {
   RendererId,
   ValidationError,
   ValidationResult,
-} from '../types/index.js';
+} from '../types';
 
 // Builder state types
 export interface BuilderState {
