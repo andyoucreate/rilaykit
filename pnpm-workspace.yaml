@@ -1,10 +1,4 @@
 packages:
-  - 'packages/core/*'
-  - 'packages/adapters/*'
-  - 'packages/renderers/*'
-  - 'packages/builders/*'
-  - 'packages/devtools/*'
-  - 'packages/plugins/*'
-  - 'packages/cli'
-  - 'packages/streamline'
-  - 'apps/*' 
+  - 'packages/*'
+  - 'apps/*'
+  - 'tools/*'
