@@ -1,7 +1,5 @@
 import type {
-  FormConfiguration,
-  FormFieldRow,
-  StreamlineConfig,
+  FormFieldRow
 } from "@streamline/core";
 import React from "react";
 import { FormField } from "./FormField";
@@ -188,82 +186,8 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
           return renderRow ? renderRow(row, rowElement) : rowElement;
         })}
       </div>
-
-      {/* Form Actions */}
-      {(showSubmitButton || showResetButton || customActions) && (
-        <div className="flex gap-4 justify-end items-center flex-wrap pt-4 border-t border-gray-200 mt-4">
-          {showResetButton && (
-            <button
-              type="reset"
-              className="px-6 py-3 border border-gray-300 rounded-md bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              disabled={state.isSubmitting || !state.isDirty}
-            >
-              {resetButtonText}
-            </button>
-          )}
-
-          {showSubmitButton && (
-            <button
-              type="submit"
-              className="px-6 py-3 border border-blue-600 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 hover:border-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              disabled={state.isSubmitting || hasErrors}
-            >
-              {state.isSubmitting ? "Submitting..." : submitButtonText}
-            </button>
-          )}
-
-          {customActions}
-        </div>
-      )}
     </form>
   );
 };
 
 FormRenderer.displayName = "FormRenderer";
-
-export interface FormWithProviderProps extends FormRendererProps {
-  configuration: StreamlineConfig;
-  formConfig: FormConfiguration;
-  initialData?: Record<string, any>;
-  onFormSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onFormValidate?: (data: Record<string, any>) => any;
-  validateOnChange?: boolean;
-  validateOnBlur?: boolean;
-  debounceMs?: number;
-}
-
-/**
- * FormWithProvider component that wraps FormRenderer with FormProvider
- * Use this for standalone forms that don't already have a FormProvider
- */
-export const FormWithProvider: React.FC<FormWithProviderProps> = ({
-  configuration,
-  formConfig,
-  initialData,
-  onFormSubmit,
-  onFormValidate,
-  validateOnChange,
-  validateOnBlur,
-  debounceMs,
-  ...rendererProps
-}) => {
-  // Import FormProvider here to avoid circular dependencies
-  const { FormProvider } = require("./FormProvider");
-
-  return (
-    <FormProvider
-      configuration={configuration}
-      formConfig={formConfig}
-      initialData={initialData}
-      onSubmit={onFormSubmit}
-      onValidate={onFormValidate}
-      validateOnChange={validateOnChange}
-      validateOnBlur={validateOnBlur}
-      debounceMs={debounceMs}
-    >
-      <FormRenderer {...rendererProps} />
-    </FormProvider>
-  );
-};
-
-FormWithProvider.displayName = "FormWithProvider";

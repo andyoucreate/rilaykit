@@ -116,6 +116,7 @@ function formReducer(state: FormState, action: FormAction): FormState {
       } else {
         newValidating.delete(action.fieldId);
       }
+      
       return {
         ...state,
         validating: newValidating,

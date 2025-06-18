@@ -2,11 +2,7 @@
 export { Form } from "./components/Form";
 export { FormField } from "./components/FormField";
 export { FormProvider, useFormContext } from "./components/FormProvider";
-export {
-  FormRenderer,
-  FormRow,
-  FormWithProvider
-} from "./components/FormRenderer";
+export { FormRenderer, FormRow } from "./components/FormRenderer";
 
 // Builders
 export { FormBuilder } from "./builders/FormBuilder";
@@ -28,7 +24,6 @@ export type {
 } from "./components/FormProvider";
 export type {
   FormRendererProps,
-  FormRowProps,
-  FormWithProviderProps
+  FormRowProps
 } from "./components/FormRenderer";
 
