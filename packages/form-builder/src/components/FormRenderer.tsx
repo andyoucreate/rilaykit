@@ -1,193 +1,202 @@
 import type {
-  FormFieldRow
+  FormConfiguration,
+  FormFieldRow,
+  FormRowRendererProps
 } from "@streamline/core";
-import React from "react";
+import { FormBody } from "./FormBody";
 import { FormField } from "./FormField";
-import { useFormContext } from "./FormProvider";
+import { FormSubmitButton } from "./FormSubmitButton";
 
 export interface FormRowProps {
   row: FormFieldRow;
   className?: string;
 }
 
-/**
- * FormRow component that renders a row of fields
- */
-export const FormRow: React.FC<FormRowProps> = ({ row, className = "" }) => {
-  const { state, configuration, setValue, setTouched, isFieldValidating } =
-    useFormContext();
-
-  // Calculate spacing classes with Tailwind
-  const getSpacingClass = (spacing?: string) => {
-    switch (spacing) {
-      case "tight":
-        return "gap-2";
-      case "loose":
-        return "gap-6";
-      default:
-        return "gap-4";
-    }
+export const DefaultFormRowRenderer = ({
+  row,
+  children,
+  className,
+  spacing,
+  alignment,
+}: FormRowRendererProps) => {
+  const getColumnSpan = (totalFields: number, maxColumns: number) => {
+    // Calculate how many columns each field should span
+    if (totalFields === 1) return 12; // Full width
+    if (totalFields === 2) return 6;  // Half width each
+    if (totalFields === 3) return 4;  // Third width each
+    return Math.floor(12 / totalFields); // Distribute evenly
   };
 
-  // Calculate alignment classes with Tailwind
-  const getAlignmentClass = (alignment?: string) => {
-    switch (alignment) {
-      case "start":
-        return "items-start";
-      case "center":
-        return "items-center";
-      case "end":
-        return "items-end";
-      case "stretch":
-        return "items-stretch";
-      default:
-        return "items-stretch";
-    }
-  };
+  const spacingClass = {
+    tight: 'gap-2',
+    normal: 'gap-4',
+    loose: 'gap-6',
+  }[spacing || row.spacing || 'normal'];
 
-  // Calculate column width for responsive layout with Tailwind
-  const getColumnClass = (fieldsCount: number) => {
-    if (fieldsCount === 1) return "w-full";
-    if (fieldsCount === 2) return "w-full md:w-1/2";
-    if (fieldsCount === 3) return "w-full md:w-1/3";
-    return "w-full md:flex-1"; // fallback
-  };
-
-  const rowClasses = [
-    "flex flex-col md:flex-row w-full",
-    getSpacingClass(row.spacing),
-    getAlignmentClass(row.alignment),
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const columnClass = getColumnClass(row.fields.length);
+  const alignmentClass = {
+    start: 'items-start',
+    center: 'items-center',
+    end: 'items-end',
+    stretch: 'items-stretch',
+  }[alignment || row.alignment || 'stretch'];
 
   return (
-    <div
-      className={rowClasses}
+    <div 
+      className={`streamline-form-row grid grid-cols-12 ${spacingClass} ${alignmentClass} ${className || ''}`}
       data-row-id={row.id}
-      data-fields-count={row.fields.length}
       data-max-columns={row.maxColumns}
+      data-spacing={row.spacing}
+      data-alignment={row.alignment}
     >
-      {row.fields.map((fieldConfig) => (
-        <div
-          key={fieldConfig.id}
-          className={`flex flex-col min-w-0 ${columnClass}`}
-        >
-          <FormField
-            id={fieldConfig.id}
-            formData={state.formData}
-            errors={state.errors}
-            touched={state.touched}
-            disabled={state.isSubmitting}
-            onChange={setValue}
-            onBlur={setTouched}
-            configuration={configuration}
-            fieldConfig={fieldConfig}
-            isValidating={isFieldValidating(fieldConfig.id)}
-          />
-        </div>
-      ))}
+      {children}
     </div>
   );
 };
 
-FormRow.displayName = "FormRow";
+export function FormRow({ row, className }: FormRowProps) {
+  // Les enfants sont les FormField wrappés dans des divs avec les bonnes classes
+  const getColumnSpan = (totalFields: number) => {
+    if (totalFields === 1) return 12;
+    if (totalFields === 2) return 6;
+    if (totalFields === 3) return 4;
+    return Math.floor(12 / totalFields);
+  };
 
-export interface FormRendererProps {
-  className?: string;
-  showSubmitButton?: boolean;
-  submitButtonText?: string;
-  showResetButton?: boolean;
-  resetButtonText?: string;
-  customActions?: React.ReactNode;
-  renderField?: (
-    fieldId: string,
-    fieldElement: React.ReactElement
-  ) => React.ReactElement;
-  renderRow?: (
-    row: FormFieldRow,
-    rowElement: React.ReactElement
-  ) => React.ReactElement;
-  onSubmit?: (event: React.FormEvent) => void;
-  onReset?: (event: React.FormEvent) => void;
+  const columnSpan = getColumnSpan(row.fields.length);
+
+  const children = (
+    <>
+      {row.fields.map((fieldConfig) => (
+        <div
+          key={fieldConfig.id}
+          className={`col-span-${columnSpan}`}
+          style={{ gridColumn: `span ${columnSpan}` }}
+        >
+          <FormField fieldConfig={fieldConfig} />
+        </div>
+      ))}
+    </>
+  );
+
+  const rowProps: FormRowRendererProps = {
+    row,
+    children,
+    className,
+    spacing: row.spacing,
+    alignment: row.alignment,
+  };
+
+  return DefaultFormRowRenderer(rowProps);
 }
 
-/**
- * FormRenderer component that renders the complete form
- * Uses FormProvider context for state management
- */
-export const FormRenderer: React.FC<FormRendererProps> = ({
-  className = "",
+export interface FormRendererProps {
+  formConfig: FormConfiguration;
+  className?: string;
+  rowClassName?: string;
+  showFieldErrors?: boolean;
+  showValidationIndicators?: boolean;
+  showSubmitButton?: boolean;
+  submitButtonProps?: {
+    text?: string;
+    loadingText?: string;
+    className?: string;
+  };
+}
+
+export function FormRenderer({
+  formConfig,
+  className,
+  rowClassName,
+  showFieldErrors = true,
+  showValidationIndicators = true,
   showSubmitButton = true,
-  submitButtonText = "Submit",
-  showResetButton = false,
-  resetButtonText = "Reset",
-  customActions,
-  renderField,
-  renderRow,
-  onSubmit,
-  onReset,
-}) => {
-  const { state, formConfig, submitForm, resetForm, validateForm } =
-    useFormContext();
+  submitButtonProps,
+}: FormRendererProps) {
+  const formRows = (
+    <>
+      {formConfig.rows.map((row) => {
+        // Utilise le renderer personnalisé s'il est configuré
+        if (formConfig.renderConfig?.rowRenderer) {
+          const children = (
+            <>
+              {row.fields.map((fieldConfig) => {
+                const getColumnSpan = (totalFields: number) => {
+                  if (totalFields === 1) return 12;
+                  if (totalFields === 2) return 6;
+                  if (totalFields === 3) return 4;
+                  return Math.floor(12 / totalFields);
+                };
 
-  // Handle form submission
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+                const columnSpan = getColumnSpan(row.fields.length);
 
-    if (onSubmit) {
-      onSubmit(event);
-    } else {
-      await submitForm();
-    }
-  };
+                return (
+                  <div
+                    key={fieldConfig.id}
+                    className={`col-span-${columnSpan}`}
+                    style={{ gridColumn: `span ${columnSpan}` }}
+                  >
+                    <FormField fieldConfig={fieldConfig} />
+                  </div>
+                );
+              })}
+            </>
+          );
 
-  // Handle form reset
-  const handleReset = (event: React.FormEvent) => {
-    event.preventDefault();
+          const rowProps: FormRowRendererProps = {
+            row,
+            children,
+            className: rowClassName,
+            spacing: row.spacing,
+            alignment: row.alignment,
+          };
 
-    if (onReset) {
-      onReset(event);
-    } else {
-      resetForm();
-    }
-  };
+          return formConfig.renderConfig.rowRenderer(rowProps);
+        }
 
-  // Check if form has any errors
-  const hasErrors = Object.values(state.errors).some(
-    (errors) => errors.length > 0
+        // Utilise le renderer par défaut
+        return (
+          <FormRow 
+            key={row.id} 
+            row={row} 
+            className={rowClassName}
+          />
+        );
+      })}
+      
+      {/* Global form validation summary (optional) */}
+      {showFieldErrors && (
+        <FormValidationSummary formConfig={formConfig} />
+      )}
+    </>
   );
-
-  const formClasses = [
-    "flex flex-col gap-4 max-w-full",
-    state.isSubmitting ? "opacity-80 pointer-events-none" : "",
-    state.isDirty ? "form-dirty" : "form-pristine",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   return (
-    <form
-      className={formClasses}
-      onSubmit={handleSubmit}
-      onReset={handleReset}
-      data-form-id={formConfig.id}
-      noValidate
-    >
-      <div className="flex flex-col gap-4">
-        {formConfig.rows.map((row) => {
-          const rowElement = <FormRow key={row.id} row={row} />;
-
-          // Allow custom row rendering
-          return renderRow ? renderRow(row, rowElement) : rowElement;
-        })}
-      </div>
-    </form>
+    <div className={`streamline-form-renderer ${className || ''}`}>
+      <FormBody formConfig={formConfig}>
+        {formRows}
+      </FormBody>
+      
+      {showSubmitButton && (
+        <div className="streamline-form-actions mt-6">
+          <FormSubmitButton 
+            text={submitButtonProps?.text}
+            loadingText={submitButtonProps?.loadingText}
+            className={submitButtonProps?.className}
+          />
+        </div>
+      )}
+    </div>
   );
-};
+}
 
-FormRenderer.displayName = "FormRenderer";
+interface FormValidationSummaryProps {
+  formConfig: FormConfiguration;
+}
+
+function FormValidationSummary({ formConfig }: FormValidationSummaryProps) {
+  // This would be connected to form state to show global errors
+  // For now, it's a placeholder that can be enhanced
+  return null;
+}
+
+export default FormRenderer; 

@@ -213,10 +213,46 @@ export interface CompletionConfig {
   readonly customCompletionStep?: StepRenderer;
 }
 
+// Form structural renderers
+export interface FormRowRendererProps {
+  row: FormFieldRow;
+  children: React.ReactNode;
+  className?: string;
+  spacing?: "tight" | "normal" | "loose";
+  alignment?: "start" | "center" | "end" | "stretch";
+}
+
+export interface FormBodyRendererProps {
+  formConfig: FormConfiguration;
+  children: React.ReactNode;
+  className?: string;
+}
+
+export interface FormSubmitButtonRendererProps {
+  isSubmitting: boolean;
+  isValid: boolean;
+  isDirty: boolean;
+  onSubmit: () => void;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export type FormRowRenderer = (props: FormRowRendererProps) => React.ReactElement;
+export type FormBodyRenderer = (props: FormBodyRendererProps) => React.ReactElement;
+export type FormSubmitButtonRenderer = (props: FormSubmitButtonRendererProps) => React.ReactElement;
+
+// Form renderer configuration
+export interface FormRenderConfig {
+  readonly rowRenderer?: FormRowRenderer;
+  readonly bodyRenderer?: FormBodyRenderer;
+  readonly submitButtonRenderer?: FormSubmitButtonRenderer;
+}
+
 export interface FormConfiguration {
   readonly id: string;
   readonly schema?: any; // Can be Zod, Yup, or custom schema
   readonly config: StreamlineConfig; // Reference to StreamlineConfig
   readonly rows: FormFieldRow[];
   readonly allFields: FormFieldConfig[]; // Liste plate pour compatibilité
+  readonly renderConfig?: FormRenderConfig; // Configuration pour les renderers
 }

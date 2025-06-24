@@ -334,6 +334,7 @@ export class FormBuilder {
       allFields: this.getFields(), // Liste plate pour compatibilité
       schema: this.schema,
       config: this.config,
+      renderConfig: this.config.getRenderConfig(), // Inclure la configuration de rendu
     };
   }
 

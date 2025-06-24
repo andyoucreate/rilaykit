@@ -1,482 +1,385 @@
 import type {
   FormConfiguration,
-  FormFieldConfig,
-  StreamlineConfig,
-  ValidationContext,
   ValidationError,
   ValidationResult,
-} from '@streamline/core';
+} from "@streamline/core";
 import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useMemo,
   useReducer,
   useRef,
-} from 'react';
+} from "react";
 
-// Form state types
 export interface FormState {
-  readonly formData: Record<string, any>;
-  readonly errors: Record<string, ValidationError[]>;
-  readonly warnings: Record<string, ValidationError[]>;
-  readonly touched: Set<string>;
-  readonly validating: Set<string>;
-  readonly isDirty: boolean;
-  readonly isSubmitting: boolean;
-  readonly isValid: boolean;
-  readonly submitAttempted: boolean;
+  values: Record<string, any>;
+  errors: Record<string, ValidationError[]>;
+  warnings: Record<string, ValidationError[]>;
+  touched: Set<string>;
+  isValidating: Set<string>;
+  isDirty: boolean;
+  isValid: boolean;
+  isSubmitting: boolean;
 }
 
-// Form actions
-type FormAction =
-  | { type: 'SET_VALUE'; fieldId: string; value: any }
-  | { type: 'SET_ERRORS'; fieldId: string; errors: ValidationError[] }
-  | { type: 'SET_WARNINGS'; fieldId: string; warnings: ValidationError[] }
-  | { type: 'SET_TOUCHED'; fieldId: string }
-  | { type: 'SET_VALIDATING'; fieldId: string; isValidating: boolean }
-  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
-  | { type: 'SET_SUBMIT_ATTEMPTED'; attempted: boolean }
-  | { type: 'RESET_FORM'; initialData?: Record<string, any> }
-  | { type: 'RESET_FIELD'; fieldId: string }
-  | { type: 'SET_FORM_DATA'; data: Record<string, any> };
-
-// Form context interface
 export interface FormContextValue {
-  state: FormState;
-  configuration: StreamlineConfig;
+  formState: FormState;
   formConfig: FormConfiguration;
-  
-  // Field operations
   setValue: (fieldId: string, value: any) => void;
-  setTouched: (fieldId: string) => void;
-  validateField: (fieldId: string) => Promise<void>;
-  resetField: (fieldId: string) => void;
-  
-  // Form operations
-  validateForm: () => Promise<boolean>;
-  submitForm: () => Promise<void>;
-  resetForm: (initialData?: Record<string, any>) => void;
-  setFormData: (data: Record<string, any>) => void;
-  
-  // Helpers
-  getFieldError: (fieldId: string) => ValidationError[] | undefined;
-  getFieldWarnings: (fieldId: string) => ValidationError[] | undefined;
-  isFieldTouched: (fieldId: string) => boolean;
-  isFieldValidating: (fieldId: string) => boolean;
-  getFieldValue: (fieldId: string) => any;
+  setError: (fieldId: string, errors: ValidationError[]) => void;
+  setWarning: (fieldId: string, warnings: ValidationError[]) => void;
+  clearError: (fieldId: string) => void;
+  clearWarning: (fieldId: string) => void;
+  markFieldTouched: (fieldId: string) => void;
+  setFieldValidating: (fieldId: string, isValidating: boolean) => void;
+  validateField: (fieldId: string, value?: any) => Promise<ValidationResult>;
+  validateAllFields: () => Promise<boolean>;
+  reset: (values?: Record<string, any>) => void;
+  submit: () => Promise<void>;
 }
 
-// Form reducer
+type FormAction =
+  | { type: "SET_VALUE"; fieldId: string; value: any }
+  | { type: "SET_ERROR"; fieldId: string; errors: ValidationError[] }
+  | { type: "SET_WARNING"; fieldId: string; warnings: ValidationError[] }
+  | { type: "CLEAR_ERROR"; fieldId: string }
+  | { type: "CLEAR_WARNING"; fieldId: string }
+  | { type: "MARK_TOUCHED"; fieldId: string }
+  | { type: "SET_VALIDATING"; fieldId: string; isValidating: boolean }
+  | { type: "SET_SUBMITTING"; isSubmitting: boolean }
+  | { type: "RESET"; values?: Record<string, any> }
+  | { type: "UPDATE_VALIDATION_STATE" };
+
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
-    case 'SET_VALUE':
+    case "SET_VALUE":
+      const newValues = { ...state.values, [action.fieldId]: action.value };
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          [action.fieldId]: action.value,
-        },
+        values: newValues,
         isDirty: true,
       };
-      
-    case 'SET_ERRORS':
+
+    case "SET_ERROR":
       return {
         ...state,
-        errors: {
-          ...state.errors,
-          [action.fieldId]: action.errors,
-        },
-        isValid: Object.values({
-          ...state.errors,
-          [action.fieldId]: action.errors,
-        }).every(errors => errors.length === 0),
+        errors: { ...state.errors, [action.fieldId]: action.errors },
+        isValid: false,
       };
-      
-    case 'SET_WARNINGS':
+
+    case "SET_WARNING":
       return {
         ...state,
-        warnings: {
-          ...state.warnings,
-          [action.fieldId]: action.warnings,
-        },
+        warnings: { ...state.warnings, [action.fieldId]: action.warnings },
       };
-      
-    case 'SET_TOUCHED':
+
+    case "CLEAR_ERROR":
+      const newErrors = { ...state.errors };
+      delete newErrors[action.fieldId];
+      return {
+        ...state,
+        errors: newErrors,
+      };
+
+    case "CLEAR_WARNING":
+      const newWarnings = { ...state.warnings };
+      delete newWarnings[action.fieldId];
+      return {
+        ...state,
+        warnings: newWarnings,
+      };
+
+    case "MARK_TOUCHED":
       return {
         ...state,
         touched: new Set([...state.touched, action.fieldId]),
       };
-      
-    case 'SET_VALIDATING':
-      const newValidating = new Set(state.validating);
+
+    case "SET_VALIDATING":
+      const newValidating = new Set(state.isValidating);
       if (action.isValidating) {
         newValidating.add(action.fieldId);
       } else {
         newValidating.delete(action.fieldId);
       }
-      
       return {
         ...state,
-        validating: newValidating,
+        isValidating: newValidating,
       };
-      
-    case 'SET_SUBMITTING':
+
+    case "SET_SUBMITTING":
       return {
         ...state,
         isSubmitting: action.isSubmitting,
       };
-      
-    case 'SET_SUBMIT_ATTEMPTED':
+
+    case "RESET":
       return {
-        ...state,
-        submitAttempted: action.attempted,
-      };
-      
-    case 'RESET_FORM':
-      return {
-        formData: action.initialData || {},
+        values: action.values || {},
         errors: {},
         warnings: {},
         touched: new Set(),
-        validating: new Set(),
+        isValidating: new Set(),
         isDirty: false,
-        isSubmitting: false,
         isValid: true,
-        submitAttempted: false,
+        isSubmitting: false,
       };
-      
-    case 'RESET_FIELD':
-      const newErrors = { ...state.errors };
-      const newWarnings = { ...state.warnings };
-      const newTouched = new Set(state.touched);
-      const newValidatingSet = new Set(state.validating);
-      
-      delete newErrors[action.fieldId];
-      delete newWarnings[action.fieldId];
-      newTouched.delete(action.fieldId);
-      newValidatingSet.delete(action.fieldId);
-      
+
+    case "UPDATE_VALIDATION_STATE":
+      const hasErrors = Object.keys(state.errors).some(
+        (key) => state.errors[key].length > 0
+      );
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          [action.fieldId]: undefined,
-        },
-        errors: newErrors,
-        warnings: newWarnings,
-        touched: newTouched,
-        validating: newValidatingSet,
+        isValid: !hasErrors,
       };
-      
-    case 'SET_FORM_DATA':
-      return {
-        ...state,
-        formData: action.data,
-        isDirty: true,
-      };
-      
+
     default:
       return state;
   }
 }
 
-// Create context
 const FormContext = createContext<FormContextValue | null>(null);
 
-// Custom hook to use form context
-export function useFormContext(): FormContextValue {
-  const context = useContext(FormContext);
-  if (!context) {
-    throw new Error('useFormContext must be used within a FormProvider');
-  }
-  return context;
-}
-
-// FormProvider props
 export interface FormProviderProps {
-  configuration: StreamlineConfig;
-  formConfig: FormConfiguration;
-  initialData?: Record<string, any>;
-  onSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onValidate?: (data: Record<string, any>) => ValidationResult | Promise<ValidationResult>;
-  validateOnChange?: boolean;
-  validateOnBlur?: boolean;
-  debounceMs?: number;
   children: React.ReactNode;
+  formConfig: FormConfiguration;
+  defaultValues?: Record<string, any>;
+  onSubmit?: (data: Record<string, any>) => void | Promise<void>;
+  onFieldChange?: (
+    fieldId: string,
+    value: any,
+    formData: Record<string, any>
+  ) => void;
+  className?: string;
 }
 
-/**
- * FormProvider component that manages form state and provides context
- */
-export const FormProvider: React.FC<FormProviderProps> = ({
-  configuration,
-  formConfig,
-  initialData = {},
-  onSubmit,
-  onValidate,
-  validateOnChange = true,
-  validateOnBlur = true,
-  debounceMs = 300,
+export function FormProvider({
   children,
-}) => {
-  // Initialize form state
-  const initialState: FormState = useMemo(() => ({
-    formData: initialData,
+  formConfig,
+  defaultValues = {},
+  onSubmit,
+  onFieldChange,
+  className,
+}: FormProviderProps) {
+  const initialState: FormState = {
+    values: defaultValues,
     errors: {},
     warnings: {},
     touched: new Set(),
-    validating: new Set(),
+    isValidating: new Set(),
     isDirty: false,
-    isSubmitting: false,
     isValid: true,
-    submitAttempted: false,
-  }), [initialData]);
+    isSubmitting: false,
+  };
 
-  const [state, dispatch] = useReducer(formReducer, initialState);
+  const [formState, dispatch] = useReducer(formReducer, initialState);
 
-  // Refs for debouncing
-  const validateTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
-  
-  // Memoize all fields for efficient lookup
-  const allFields = useMemo(() => {
-    return formConfig.allFields.reduce((acc, field) => {
-      acc[field.id] = field;
-      return acc;
-    }, {} as Record<string, FormFieldConfig>);
-  }, [formConfig.allFields]);
+  const validationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Validate individual field
-  const validateField = useCallback(
-    async (fieldId: string) => {
-      const fieldConfig = allFields[fieldId];
-      const componentConfig = configuration.getComponent(fieldConfig?.componentId);
-      
-      if (!fieldConfig || !componentConfig) return;
+  const setError = useCallback((fieldId: string, errors: ValidationError[]) => {
+    dispatch({ type: "SET_ERROR", fieldId, errors });
+    dispatch({ type: "UPDATE_VALIDATION_STATE" });
+  }, []);
 
-      dispatch({ type: 'SET_VALIDATING', fieldId, isValidating: true });
-
-      try {
-        const value = state.formData[fieldId];
-        const validationConfig = fieldConfig.validation || componentConfig.validation;
-        
-        if (validationConfig?.validator) {
-          const context: ValidationContext = {
-            fieldId,
-            formData: state.formData,
-            fieldProps: fieldConfig.props,
-            touched: state.touched.has(fieldId),
-            dirty: state.isDirty,
-          };
-
-          const result = await validationConfig.validator(value, context, fieldConfig.props);
-          
-          dispatch({ type: 'SET_ERRORS', fieldId, errors: result.errors });
-          if (result.warnings) {
-            dispatch({ type: 'SET_WARNINGS', fieldId, warnings: result.warnings });
-          }
-        } else {
-          // No validation configured, clear errors
-          dispatch({ type: 'SET_ERRORS', fieldId, errors: [] });
-        }
-      } catch (error) {
-        console.error(`Validation error for field ${fieldId}:`, error);
-        dispatch({
-          type: 'SET_ERRORS',
-          fieldId,
-          errors: [{
-            code: 'validation_error',
-            message: 'Validation error occurred',
-          }],
-        });
-      } finally {
-        dispatch({ type: 'SET_VALIDATING', fieldId, isValidating: false });
-      }
+  const setWarning = useCallback(
+    (fieldId: string, warnings: ValidationError[]) => {
+      dispatch({ type: "SET_WARNING", fieldId, warnings });
     },
-    [state.formData, state.touched, state.isDirty, allFields, configuration]
+    []
   );
 
-  // Debounced validation function
-  const debouncedValidateField = useCallback(
-    (fieldId: string, value: any) => {
-      // Clear existing timeout
-      if (validateTimeouts.current[fieldId]) {
-        clearTimeout(validateTimeouts.current[fieldId]);
-      }
-      
-      // Set new timeout
-      validateTimeouts.current[fieldId] = setTimeout(async () => {
-        await validateField(fieldId);
-        delete validateTimeouts.current[fieldId];
-      }, debounceMs);
+  const clearError = useCallback((fieldId: string) => {
+    dispatch({ type: "CLEAR_ERROR", fieldId });
+    dispatch({ type: "UPDATE_VALIDATION_STATE" });
+  }, []);
+
+  const clearWarning = useCallback((fieldId: string) => {
+    dispatch({ type: "CLEAR_WARNING", fieldId });
+  }, []);
+
+  const markFieldTouched = useCallback((fieldId: string) => {
+    dispatch({ type: "MARK_TOUCHED", fieldId });
+  }, []);
+
+  const setFieldValidating = useCallback(
+    (fieldId: string, isValidating: boolean) => {
+      dispatch({ type: "SET_VALIDATING", fieldId, isValidating });
     },
-    [debounceMs, validateField]
+    []
   );
 
-  // Set field value
   const setValue = useCallback(
     (fieldId: string, value: any) => {
-      dispatch({ type: 'SET_VALUE', fieldId, value });
-      
-      if (validateOnChange) {
-        debouncedValidateField(fieldId, value);
+      dispatch({ type: "SET_VALUE", fieldId, value });
+
+      // Call field change callback
+      if (onFieldChange) {
+        const newValues = { ...formState.values, [fieldId]: value };
+        onFieldChange(fieldId, value, newValues);
       }
     },
-    [validateOnChange, debouncedValidateField]
+    [formState.values, onFieldChange]
   );
 
-  // Set field as touched
-  const setTouched = useCallback(
-    (fieldId: string) => {
-      dispatch({ type: 'SET_TOUCHED', fieldId });
-      
-      if (validateOnBlur) {
-        validateField(fieldId);
+  const validateField = useCallback(
+    async (fieldId: string, value?: any): Promise<ValidationResult> => {
+      const fieldConfig = formConfig.allFields.find((f) => f.id === fieldId);
+      if (!fieldConfig?.validation?.validator) {
+        return { isValid: true, errors: [] };
       }
+
+      // Use provided value or current form value
+      const fieldValue =
+        value !== undefined ? value : formState.values[fieldId];
+
+      // Clear existing timeout for this field
+      const existingTimeout = validationTimeouts.current.get(fieldId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      // Create validation context
+      const context = {
+        fieldId,
+        formData: formState.values,
+        fieldProps: fieldConfig.props,
+        touched: formState.touched.has(fieldId),
+        dirty: formState.isDirty,
+      };
+
+      const debounceMs = fieldConfig.validation.debounceMs || 0;
+
+      return new Promise((resolve) => {
+        const performValidation = async () => {
+          setFieldValidating(fieldId, true);
+
+          try {
+            const result = await fieldConfig.validation!.validator!(
+              fieldValue,
+              context,
+              fieldConfig.props
+            );
+
+            if (result.errors.length > 0) {
+              setError(fieldId, result.errors);
+            } else {
+              clearError(fieldId);
+            }
+
+            if (result.warnings && result.warnings.length > 0) {
+              setWarning(fieldId, result.warnings);
+            } else {
+              clearWarning(fieldId);
+            }
+
+            resolve(result);
+          } catch (error) {
+            const errorResult: ValidationResult = {
+              isValid: false,
+              errors: [
+                {
+                  code: "validation_error",
+                  message:
+                    error instanceof Error ? error.message : "Validation error",
+                },
+              ],
+            };
+
+            setError(fieldId, errorResult.errors);
+            resolve(errorResult);
+          } finally {
+            setFieldValidating(fieldId, false);
+          }
+        };
+
+        if (debounceMs > 0) {
+          const timeout = setTimeout(performValidation, debounceMs);
+          validationTimeouts.current.set(fieldId, timeout);
+        } else {
+          performValidation();
+        }
+      });
     },
-    [validateOnBlur, validateField]
+    [
+      formConfig,
+      formState.values,
+      formState.touched,
+      formState.isDirty,
+      setError,
+      setWarning,
+      clearError,
+      clearWarning,
+      setFieldValidating,
+    ]
   );
 
-  // Reset individual field
-  const resetField = useCallback((fieldId: string) => {
-    dispatch({ type: 'RESET_FIELD', fieldId });
-  }, []);
-
-  // Validate entire form
-  const validateForm = useCallback(async () => {
-    const validationPromises = formConfig.allFields.map(field => 
+  const validateAllFields = useCallback(async (): Promise<boolean> => {
+    const validationPromises = formConfig.allFields.map((field) =>
       validateField(field.id)
     );
-    
-    await Promise.all(validationPromises);
-    
-    // Custom form-level validation
-    if (onValidate) {
-      try {
-        const result = await onValidate(state.formData);
-        if (!result.isValid) {
-          // Handle form-level errors
-          result.errors.forEach(error => {
-            const fieldId = error.path?.[0] || '_form';
-            dispatch({ type: 'SET_ERRORS', fieldId, errors: [error] });
-          });
-        }
-        return result.isValid;
-      } catch (error) {
-        console.error('Form validation error:', error);
-        return false;
-      }
-    }
-    
-    return state.isValid;
-  }, [formConfig.allFields, validateField, onValidate, state.formData, state.isValid]);
 
-  // Submit form
-  const submitForm = useCallback(async () => {
-    dispatch({ type: 'SET_SUBMIT_ATTEMPTED', attempted: true });
-    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+    const results = await Promise.all(validationPromises);
+    return results.every((result) => result.isValid);
+  }, [formConfig, validateField]);
+
+  const reset = useCallback((values?: Record<string, any>) => {
+    dispatch({ type: "RESET", values });
+  }, []);
+
+  const submit = useCallback(async () => {
+    if (!onSubmit) return;
+
+    dispatch({ type: "SET_SUBMITTING", isSubmitting: true });
 
     try {
-      const isFormValid = await validateForm();
-      
-      if (isFormValid && onSubmit) {
-        await onSubmit(state.formData);
+      // Validate all fields before submission
+      const isValid = await validateAllFields();
+
+      if (!isValid) {
+        throw new Error("Form validation failed");
       }
-    } catch (error) {
-      console.error('Form submission error:', error);
+
+      await onSubmit(formState.values);
     } finally {
-      dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
+      dispatch({ type: "SET_SUBMITTING", isSubmitting: false });
     }
-  }, [validateForm, onSubmit, state.formData]);
+  }, [onSubmit, formState.values, validateAllFields]);
 
-  // Reset form
-  const resetForm = useCallback((initialData?: Record<string, any>) => {
-    dispatch({ type: 'RESET_FORM', initialData });
-  }, []);
-
-  // Set form data
-  const setFormData = useCallback((data: Record<string, any>) => {
-    dispatch({ type: 'SET_FORM_DATA', data });
-  }, []);
-
-  // Helper functions
-  const getFieldError = useCallback(
-    (fieldId: string) => state.errors[fieldId],
-    [state.errors]
-  );
-
-  const getFieldWarnings = useCallback(
-    (fieldId: string) => state.warnings[fieldId],
-    [state.warnings]
-  );
-
-  const isFieldTouched = useCallback(
-    (fieldId: string) => state.touched.has(fieldId),
-    [state.touched]
-  );
-
-  const isFieldValidating = useCallback(
-    (fieldId: string) => state.validating.has(fieldId),
-    [state.validating]
-  );
-
-  const getFieldValue = useCallback(
-    (fieldId: string) => state.formData[fieldId],
-    [state.formData]
-  );
-
-  // Context value
-  const contextValue: FormContextValue = useMemo(() => ({
-    state,
-    configuration,
+  const contextValue: FormContextValue = {
+    formState,
     formConfig,
     setValue,
-    setTouched,
+    setError,
+    setWarning,
+    clearError,
+    clearWarning,
+    markFieldTouched,
+    setFieldValidating,
     validateField,
-    resetField,
-    validateForm,
-    submitForm,
-    resetForm,
-    setFormData,
-    getFieldError,
-    getFieldWarnings,
-    isFieldTouched,
-    isFieldValidating,
-    getFieldValue,
-  }), [
-    state,
-    configuration,
-    formConfig,
-    setValue,
-    setTouched,
-    validateField,
-    resetField,
-    validateForm,
-    submitForm,
-    resetForm,
-    setFormData,
-    getFieldError,
-    getFieldWarnings,
-    isFieldTouched,
-    isFieldValidating,
-    getFieldValue,
-  ]);
+    validateAllFields,
+    reset,
+    submit,
+  };
 
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(validateTimeouts.current).forEach(timeout => {
-        clearTimeout(timeout);
-      });
-    };
-  }, []);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submit();
+  };
 
   return (
     <FormContext.Provider value={contextValue}>
-      {children}
+      <form onSubmit={handleSubmit} className={className} noValidate>
+        {children}
+      </form>
     </FormContext.Provider>
   );
-};
+}
 
-FormProvider.displayName = 'FormProvider'; 
+export function useFormContext(): FormContextValue {
+  const context = useContext(FormContext);
+  if (!context) {
+    throw new Error("useFormContext must be used within a FormProvider");
+  }
+  return context;
+}

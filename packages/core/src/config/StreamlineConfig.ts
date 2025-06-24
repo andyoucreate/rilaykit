@@ -1,6 +1,10 @@
 import type {
   ComponentConfig,
   ComponentType,
+  FormBodyRenderer,
+  FormRenderConfig,
+  FormRowRenderer,
+  FormSubmitButtonRenderer,
   InputType,
   LayoutType,
 } from "../types";
@@ -11,6 +15,7 @@ import type {
  */
 export class StreamlineConfig {
   private components = new Map<string, ComponentConfig>();
+  private formRenderConfig: FormRenderConfig = {};
 
   /**
    * Add a component to the configuration
@@ -32,6 +37,63 @@ export class StreamlineConfig {
 
     this.components.set(componentId, fullConfig as ComponentConfig);
     return this;
+  }
+
+  /**
+   * Set custom row renderer
+   * @param renderer - Custom row renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setRowRenderer(renderer: FormRowRenderer): this {
+    this.formRenderConfig = {
+      ...this.formRenderConfig,
+      rowRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom body renderer
+   * @param renderer - Custom body renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setBodyRenderer(renderer: FormBodyRenderer): this {
+    this.formRenderConfig = {
+      ...this.formRenderConfig,
+      bodyRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom submit button renderer
+   * @param renderer - Custom submit button renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setSubmitButtonRenderer(renderer: FormSubmitButtonRenderer): this {
+    this.formRenderConfig = {
+      ...this.formRenderConfig,
+      submitButtonRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set complete render configuration
+   * @param config - Form render configuration
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setRenderConfig(config: FormRenderConfig): this {
+    this.formRenderConfig = config;
+    return this;
+  }
+
+  /**
+   * Get current render configuration
+   * @returns Current form render configuration
+   */
+  getRenderConfig(): FormRenderConfig {
+    return { ...this.formRenderConfig };
   }
 
   /**
@@ -138,6 +200,11 @@ export class StreamlineConfig {
     byType: Record<ComponentType, number>;
     bySubType: Record<string, number>;
     byCategory: Record<string, number>;
+    hasCustomRenderers: {
+      row: boolean;
+      body: boolean;
+      submitButton: boolean;
+    };
   } {
     const components = Array.from(this.components.values());
 
@@ -156,6 +223,11 @@ export class StreamlineConfig {
         acc[category] = (acc[category] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
+      hasCustomRenderers: {
+        row: Boolean(this.formRenderConfig.rowRenderer),
+        body: Boolean(this.formRenderConfig.bodyRenderer),
+        submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
+      },
     };
   }
 

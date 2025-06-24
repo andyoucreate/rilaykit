@@ -1,125 +1,128 @@
-import type {
-  FormConfiguration,
-  StreamlineConfig,
-  ValidationResult,
-} from '@streamline/core';
-import React from 'react';
-import { FormProvider, FormProviderProps } from './FormProvider';
-import { FormRenderer, FormRendererProps } from './FormRenderer';
+import type { FormConfiguration } from "@streamline/core";
+import { FormProvider, useFormContext } from "./FormProvider";
+import { FormRenderer } from "./FormRenderer";
 
-export interface FormProps extends 
-  Omit<FormProviderProps, 'children'>,
-  Omit<FormRendererProps, 'onSubmit' | 'onReset'> {
-  
-  // Provider-specific props (re-exposed for clarity)
-  configuration: StreamlineConfig;
+export interface FormProps {
   formConfig: FormConfiguration;
-  initialData?: Record<string, any>;
+  defaultValues?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onValidate?: (data: Record<string, any>) => ValidationResult | Promise<ValidationResult>;
-  
-  // Form-level event handlers
-  onFormSubmit?: (event: React.FormEvent, data: Record<string, any>) => void;
-  onFormReset?: (event: React.FormEvent) => void;
-  
-  // Additional form options
-  autoComplete?: 'on' | 'off';
-  id?: string;
-  name?: string;
-  encType?: string;
-  method?: 'get' | 'post';
-  target?: string;
-  noValidate?: boolean;
+  onFieldChange?: (
+    fieldId: string,
+    value: any,
+    formData: Record<string, any>
+  ) => void;
+  className?: string;
+  rowClassName?: string;
+  showFieldErrors?: boolean;
+  showValidationIndicators?: boolean;
+  showSubmitButton?: boolean;
+  submitButtonText?: string;
+  submitButtonLoadingText?: string;
+  submitButtonClassName?: string;
 }
 
-/**
- * Complete Form component that combines FormProvider and FormRenderer
- * This is the main component users should use for creating forms
- */
-export const Form: React.FC<FormProps> = ({
-  // Provider props
-  configuration,
+function FormContent({
   formConfig,
-  initialData,
-  onSubmit,
-  onValidate,
-  validateOnChange,
-  validateOnBlur,
-  debounceMs,
-  
-  // Renderer props
   className,
+  rowClassName,
+  showFieldErrors,
+  showValidationIndicators,
   showSubmitButton,
   submitButtonText,
-  showResetButton,
-  resetButtonText,
-  customActions,
-  renderField,
-  renderRow,
-  
-  // Form-specific props
-  onFormSubmit,
-  onFormReset,
-  autoComplete = 'on',
-  id,
-  name,
-  encType,
-  method,
-  target,
-  noValidate = true,
-  
-  ...restProps
-}) => {
-  
-  // Handle form submission with additional form event
-  const handleSubmit = (event: React.FormEvent) => {
-    if (onFormSubmit) {
-      // Get form data from provider context - this will be handled by FormRenderer
-      onFormSubmit(event, {});
-    }
-  };
+  submitButtonLoadingText,
+  submitButtonClassName,
+}: Omit<FormProps, "defaultValues" | "onSubmit" | "onFieldChange">) {
+  return (
+    <>
+      <FormRenderer
+        formConfig={formConfig}
+        className={className}
+        rowClassName={rowClassName}
+        showFieldErrors={showFieldErrors}
+        showValidationIndicators={showValidationIndicators}
+        showSubmitButton={showSubmitButton}
+        submitButtonProps={{
+          text: submitButtonText,
+          loadingText: submitButtonLoadingText,
+          className: submitButtonClassName,
+        }}
+      />
 
-  // Handle form reset
-  const handleReset = (event: React.FormEvent) => {
-    if (onFormReset) {
-      onFormReset(event);
-    }
-  };
+      {/* Form State Debug Info (development only) */}
+      {process.env.NODE_ENV === "development" && <FormDebugInfo />}
+    </>
+  );
+}
+
+function FormDebugInfo() {
+  const { formState } = useFormContext();
 
   return (
+    <details className="mt-6 p-4 bg-gray-100 rounded">
+      <summary className="cursor-pointer font-medium">Form Debug Info</summary>
+      <pre className="mt-2 text-sm overflow-auto">
+        {JSON.stringify(
+          {
+            values: formState.values,
+            errors: Object.fromEntries(
+              Object.entries(formState.errors).filter(
+                ([, errors]) => errors.length > 0
+              )
+            ),
+            warnings: Object.fromEntries(
+              Object.entries(formState.warnings).filter(
+                ([, warnings]) => warnings.length > 0
+              )
+            ),
+            touched: Array.from(formState.touched),
+            isValidating: Array.from(formState.isValidating),
+            isDirty: formState.isDirty,
+            isValid: formState.isValid,
+            isSubmitting: formState.isSubmitting,
+          },
+          null,
+          2
+        )}
+      </pre>
+    </details>
+  );
+}
+
+export function Form({
+  formConfig,
+  defaultValues,
+  onSubmit,
+  onFieldChange,
+  className,
+  rowClassName,
+  showFieldErrors = true,
+  showValidationIndicators = true,
+  showSubmitButton = true,
+  submitButtonText,
+  submitButtonLoadingText,
+  submitButtonClassName,
+}: FormProps) {
+  return (
     <FormProvider
-      configuration={configuration}
       formConfig={formConfig}
-      initialData={initialData}
+      defaultValues={defaultValues}
       onSubmit={onSubmit}
-      onValidate={onValidate}
-      validateOnChange={validateOnChange}
-      validateOnBlur={validateOnBlur}
-      debounceMs={debounceMs}
+      onFieldChange={onFieldChange}
+      className="streamline-form"
     >
-      <FormRenderer
+      <FormContent
+        formConfig={formConfig}
         className={className}
+        rowClassName={rowClassName}
+        showFieldErrors={showFieldErrors}
+        showValidationIndicators={showValidationIndicators}
         showSubmitButton={showSubmitButton}
         submitButtonText={submitButtonText}
-        showResetButton={showResetButton}
-        resetButtonText={resetButtonText}
-        customActions={customActions}
-        renderField={renderField}
-        renderRow={renderRow}
-        onSubmit={handleSubmit}
-        onReset={handleReset}
-        {...restProps}
+        submitButtonLoadingText={submitButtonLoadingText}
+        submitButtonClassName={submitButtonClassName}
       />
     </FormProvider>
   );
-};
+}
 
-Form.displayName = 'Form';
-
-// Export hook for accessing form context
-export { useFormContext } from './FormProvider';
-
-// Export types for TypeScript users
-export type { FormContextValue, FormState } from './FormProvider';
-export type { FormRendererProps, FormRowProps } from './FormRenderer';
-
+export default Form;
