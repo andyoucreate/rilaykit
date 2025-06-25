@@ -1,38 +1,42 @@
-import type {
-  ComponentRenderProps,
-  FormFieldConfig
-} from "@streamline/core";
+import type { ComponentRenderProps } from "@streamline/core";
 import clsx from "clsx";
 import React, { useCallback } from "react";
 import { useFormContext } from "./FormProvider";
 
 export interface FormFieldProps {
-  fieldConfig: FormFieldConfig;
+  fieldId: string;
   disabled?: boolean;
   customProps?: Record<string, any>;
   className?: string;
 }
 
 export function FormField({
-  fieldConfig,
+  fieldId,
   disabled = false,
   customProps = {},
   className,
 }: FormFieldProps) {
-  const {
-    formState,
-    formConfig,
-    setValue,
-    markFieldTouched,
-    validateField,
-  } = useFormContext();
+  const { formState, formConfig, setValue, markFieldTouched, validateField } =
+    useFormContext();
+
+  // Get field configuration from context
+  const fieldConfig = formConfig.allFields.find(
+    (field) => field.id === fieldId
+  );
+
+  if (!fieldConfig) {
+    throw new Error(
+      `Field with ID "${fieldId}" not found in form configuration`
+    );
+  }
 
   // Get component configuration
-  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId);
-  
+  const componentConfig = formConfig.config.getComponent(
+    fieldConfig.componentId
+  );
+
   if (!componentConfig) {
-    console.warn(`Component with ID "${fieldConfig.componentId}" not found`);
-    return null;
+    throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }
 
   const fieldValue = formState.values[fieldConfig.id];
@@ -42,19 +46,22 @@ export function FormField({
   const isFieldValidating = formState.isValidating.has(fieldConfig.id);
 
   // Handle field value change
-  const handleChange = useCallback((value: any) => {
-    setValue(fieldConfig.id, value);
-    
-    // Auto-validate on change if configured
-    if (fieldConfig.validation?.validateOnChange) {
-      validateField(fieldConfig.id, value);
-    }
-  }, [fieldConfig.id, fieldConfig.validation, setValue, validateField]);
+  const handleChange = useCallback(
+    (value: any) => {
+      setValue(fieldConfig.id, value);
+
+      // Auto-validate on change if configured
+      if (fieldConfig.validation?.validateOnChange) {
+        validateField(fieldConfig.id, value);
+      }
+    },
+    [fieldConfig.id, fieldConfig.validation, setValue, validateField]
+  );
 
   // Handle field blur
   const handleBlur = useCallback(() => {
     markFieldTouched(fieldConfig.id);
-    
+
     // Auto-validate on blur if configured
     if (fieldConfig.validation?.validateOnBlur) {
       validateField(fieldConfig.id);
@@ -64,11 +71,14 @@ export function FormField({
   // Check conditional logic
   const shouldShow = React.useMemo(() => {
     if (!fieldConfig.conditional) return true;
-    
+
     try {
       return fieldConfig.conditional.condition(formState.values);
     } catch (error) {
-      console.warn(`Conditional evaluation failed for field "${fieldConfig.id}":`, error);
+      console.warn(
+        `Conditional evaluation failed for field "${fieldConfig.id}":`,
+        error
+      );
       return true;
     }
   }, [fieldConfig.conditional, formState.values, fieldConfig.id]);
@@ -76,12 +86,13 @@ export function FormField({
   // Apply conditional actions
   const conditionalProps = React.useMemo(() => {
     if (!fieldConfig.conditional || !shouldShow) return {};
-    
+
     const action = fieldConfig.conditional.action;
+
     switch (action) {
-      case 'disable':
+      case "disable":
         return { disabled: true };
-      case 'require':
+      case "require":
         return { required: true };
       default:
         return {};
@@ -89,7 +100,7 @@ export function FormField({
   }, [fieldConfig.conditional, shouldShow]);
 
   // Don't render if hidden by conditional
-  if (!shouldShow && fieldConfig.conditional?.action === 'hide') {
+  if (!shouldShow && fieldConfig.conditional?.action === "hide") {
     return null;
   }
 
@@ -115,7 +126,7 @@ export function FormField({
   };
 
   return (
-    <div 
+    <div
       className={clsx("streamline-form-field", className)}
       data-field-id={fieldConfig.id}
       data-field-type={componentConfig.subType}
@@ -125,4 +136,4 @@ export function FormField({
   );
 }
 
-export default FormField; 
+export default FormField;

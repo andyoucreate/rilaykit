@@ -83,6 +83,40 @@ importers:
         specifier: ^5.3.0
         version: 5.8.3
 
+  packages/workflow:
+    dependencies:
+      '@streamline/core':
+        specifier: workspace:*
+        version: link:../core
+      '@streamline/form-builder':
+        specifier: workspace:*
+        version: link:../form-builder
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.23
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.23)
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.19.1)
+      react:
+        specifier: ^19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.1.0(react@19.1.0)
+      typescript:
+        specifier: ^5.3.0
+        version: 5.8.3
+
 packages:
 
   /@ampproject/remapping@2.3.0:

@@ -1,28 +1,35 @@
 import type { FormBodyRendererProps } from "@streamline/core";
-import clsx from "clsx";
+import { useFormContext } from "./FormProvider";
+import FormRow from "./FormRow";
 
-export interface FormBodyProps extends FormBodyRendererProps {}
+export interface FormBodyProps {
+  className?: string;
+}
 
-export const DefaultFormBodyRenderer = ({
-  formConfig,
-  children,
-  className,
-}: FormBodyRendererProps) => {
-  return (
-    <div
-      className={clsx("streamline-form-body", className)}
-      data-form-id={formConfig.id}
-    >
-      {children}
-    </div>
-  );
-};
+export function FormBody({ className }: FormBodyProps) {
+  const { formConfig } = useFormContext();
 
-export function FormBody(props: FormBodyProps) {
-  const renderer =
-    props.formConfig.renderConfig?.bodyRenderer || DefaultFormBodyRenderer;
+  const bodyRenderer = formConfig.renderConfig?.bodyRenderer;
 
-  return renderer(props);
+  if (!bodyRenderer) {
+    throw new Error(
+      `No bodyRenderer configured for form "${formConfig.id}". ` +
+        `Please configure a bodyRenderer using config.setBodyRenderer() or config.setFormRenderConfig().`
+    );
+  }
+
+  // Render all rows using FormRow component
+  const renderedRows = formConfig.rows.map((row) => (
+    <FormRow key={row.id} row={row} />
+  ));
+
+  const bodyProps: FormBodyRendererProps = {
+    formConfig,
+    children: renderedRows,
+    className,
+  };
+
+  return bodyRenderer(bodyProps);
 }
 
 export default FormBody;

@@ -1,63 +1,26 @@
 import type { FormSubmitButtonRendererProps } from "@streamline/core";
-import clsx from "clsx";
+import React from "react";
 import { useFormContext } from "./FormProvider";
 
-export interface FormSubmitButtonProps
-  extends Omit<
-    FormSubmitButtonRendererProps,
-    "isSubmitting" | "isValid" | "isDirty" | "onSubmit"
-  > {
-  text?: string;
-  loadingText?: string;
-  // Props héritées du contexte automatiquement
+export interface FormSubmitButtonProps {
+  className?: string;
+  children?: React.ReactNode;
 }
 
-export const DefaultFormSubmitButtonRenderer = ({
-  isSubmitting,
-  isValid,
-  isDirty,
-  onSubmit,
-  className,
-  children,
-}: FormSubmitButtonRendererProps) => {
-  return (
-    <button
-      type="submit"
-      onClick={onSubmit}
-      disabled={isSubmitting || !isValid}
-      className={clsx(
-        "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200",
-        className
-      )}
-    >
-      {children || (
-        <>
-          {isSubmitting ? (
-            <>
-              <span className="inline-block animate-spin mr-2">⏳</span>
-              Submitting...
-            </>
-          ) : (
-            "Submit"
-          )}
-        </>
-      )}
-    </button>
-  );
-};
-
 export function FormSubmitButton({
-  text = "Submit",
-  loadingText = "Submitting...",
   className,
   children,
 }: FormSubmitButtonProps) {
   const { formState, submit, formConfig } = useFormContext();
 
-  // Utilise le renderer personnalisé s'il est configuré, sinon utilise le défaut
-  const renderer =
-    formConfig.renderConfig?.submitButtonRenderer ||
-    DefaultFormSubmitButtonRenderer;
+  const renderer = formConfig.renderConfig?.submitButtonRenderer;
+
+  if (!renderer) {
+    throw new Error(
+      `No submitButtonRenderer configured for form "${formConfig.id}". ` +
+      `Please configure a submitButtonRenderer using config.setSubmitButtonRenderer() or config.setFormRenderConfig().`
+    );
+  }
 
   const props: FormSubmitButtonRendererProps = {
     isSubmitting: formState.isSubmitting,
@@ -65,18 +28,7 @@ export function FormSubmitButton({
     isDirty: formState.isDirty,
     onSubmit: submit,
     className,
-    children: children || (
-      <>
-        {formState.isSubmitting ? (
-          <>
-            <span className="inline-block animate-spin mr-2">⏳</span>
-            {loadingText}
-          </>
-        ) : (
-          text
-        )}
-      </>
-    ),
+    children,
   };
 
   return renderer(props);

@@ -7,15 +7,20 @@ import type {
   FormSubmitButtonRenderer,
   InputType,
   LayoutType,
+  StepRenderer,
+  WorkflowNavigationRenderer,
+  WorkflowRenderConfig,
+  WorkflowStepperRenderer,
 } from "../types";
 
 /**
- * Main configuration class for Streamline form components
+ * Main configuration class for Streamline form components and workflows
  * Manages component registration, retrieval, and configuration
  */
 export class StreamlineConfig {
   private components = new Map<string, ComponentConfig>();
   private formRenderConfig: FormRenderConfig = {};
+  private workflowRenderConfig: WorkflowRenderConfig = {};
 
   /**
    * Add a component to the configuration
@@ -79,21 +84,92 @@ export class StreamlineConfig {
   }
 
   /**
-   * Set complete render configuration
+   * Set complete form render configuration
    * @param config - Form render configuration
    * @returns The StreamlineConfig instance for chaining
    */
-  setRenderConfig(config: FormRenderConfig): this {
+  setFormRenderConfig(config: FormRenderConfig): this {
     this.formRenderConfig = config;
     return this;
   }
 
   /**
-   * Get current render configuration
+   * Get current form render configuration
    * @returns Current form render configuration
    */
-  getRenderConfig(): FormRenderConfig {
+  getFormRenderConfig(): FormRenderConfig {
     return { ...this.formRenderConfig };
+  }
+
+  /**
+   * Set custom step renderer for workflows
+   * @param renderer - Custom step renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setStepRenderer(renderer: StepRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      stepRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom stepper renderer for workflows
+   * @param renderer - Custom stepper renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setStepperRenderer(renderer: WorkflowStepperRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      stepperRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom workflow navigation renderer
+   * @param renderer - Custom workflow navigation renderer function
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setWorkflowNavigationRenderer(renderer: WorkflowNavigationRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      navigationRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set complete workflow render configuration
+   * @param config - Workflow render configuration
+   * @returns The StreamlineConfig instance for chaining
+   */
+  setWorkflowRenderConfig(config: WorkflowRenderConfig): this {
+    this.workflowRenderConfig = config;
+    return this;
+  }
+
+  /**
+   * Get current workflow render configuration
+   * @returns Current workflow render configuration
+   */
+  getWorkflowRenderConfig(): WorkflowRenderConfig {
+    return { ...this.workflowRenderConfig };
+  }
+
+  /**
+   * @deprecated Use getFormRenderConfig() instead
+   */
+  getRenderConfig(): FormRenderConfig {
+    return this.getFormRenderConfig();
+  }
+
+  /**
+   * @deprecated Use setFormRenderConfig() instead
+   */
+  setRenderConfig(config: FormRenderConfig): this {
+    return this.setFormRenderConfig(config);
   }
 
   /**
@@ -192,8 +268,8 @@ export class StreamlineConfig {
   }
 
   /**
-   * Get statistics about registered components
-   * @returns Object with component statistics
+   * Get statistics about registered components and renderers
+   * @returns Object with comprehensive statistics
    */
   getStats(): {
     total: number;
@@ -201,9 +277,14 @@ export class StreamlineConfig {
     bySubType: Record<string, number>;
     byCategory: Record<string, number>;
     hasCustomRenderers: {
+      // Form renderers
       row: boolean;
       body: boolean;
       submitButton: boolean;
+      // Workflow renderers
+      step: boolean;
+      stepper: boolean;
+      workflowNavigation: boolean;
     };
   } {
     const components = Array.from(this.components.values());
@@ -224,9 +305,14 @@ export class StreamlineConfig {
         return acc;
       }, {} as Record<string, number>),
       hasCustomRenderers: {
+        // Form renderers
         row: Boolean(this.formRenderConfig.rowRenderer),
         body: Boolean(this.formRenderConfig.bodyRenderer),
         submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
+        // Workflow renderers
+        step: Boolean(this.workflowRenderConfig.stepRenderer),
+        stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
+        workflowNavigation: Boolean(this.workflowRenderConfig.navigationRenderer),
       },
     };
   }
