@@ -1,6 +1,6 @@
-import type { FormFieldRow, FormRowRendererProps } from "@streamline/core";
-import FormField from "./FormField";
-import { useFormContext } from "./FormProvider";
+import type { FormFieldRow, FormRowRendererProps } from '@streamline/core';
+import FormField from './FormField';
+import { useFormContext } from './FormProvider';
 
 export interface FormRowProps {
   row: FormFieldRow;
@@ -14,17 +14,13 @@ export function FormRow({ row, className }: FormRowProps) {
 
   if (!rowRenderer) {
     throw new Error(
-      `No rowRenderer configured for form "${formConfig.id}". ` +
-        `Please configure a rowRenderer using config.setRowRenderer() or config.setFormRenderConfig().`
+      `No rowRenderer configured for form "${formConfig.id}". Please configure a rowRenderer using config.setRowRenderer() or config.setFormRenderConfig().`
     );
   }
 
   // Create FormField components for each field in the row
   const fieldComponents = row.fields.map((field) => (
-    <FormField 
-      key={field.id} 
-      fieldId={field.id}
-    />
+    <FormField key={field.id} fieldId={field.id} />
   ));
 
   // Use FormRowRenderer with the field components as children
@@ -39,4 +35,4 @@ export function FormRow({ row, className }: FormRowProps) {
   return rowRenderer(rowProps);
 }
 
-export default FormRow; 
+export default FormRow;

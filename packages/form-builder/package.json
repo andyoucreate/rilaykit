@@ -4,9 +4,7 @@
   "description": "Form building utilities and components for Streamline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -16,12 +14,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "forms",
-    "form-builder",
-    "typescript"
-  ],
+  "keywords": ["react", "forms", "form-builder", "typescript"],
   "author": "Streamline Team",
   "license": "MIT",
   "dependencies": {

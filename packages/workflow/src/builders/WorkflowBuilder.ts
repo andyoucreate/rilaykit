@@ -13,8 +13,8 @@ import type {
   WorkflowConfig,
   WorkflowOptimizations,
   WorkflowPlugin,
-  WorkflowVersion
-} from "@streamline/core";
+  WorkflowVersion,
+} from '@streamline/core';
 
 /**
  * Workflow builder class for creating complex multi-step workflows
@@ -139,7 +139,7 @@ export class WorkflowBuilder {
       permissions?: StepPermissions;
     }>
   ): this {
-    stepConfigs.forEach((config) => {
+    for (const config of stepConfigs) {
       this.addStep(config.stepId, config.title, config.formConfig, {
         description: config.description,
         allowSkip: config.allowSkip,
@@ -147,7 +147,7 @@ export class WorkflowBuilder {
         hooks: config.hooks,
         permissions: config.permissions,
       });
-    });
+    }
     return this;
   }
 
@@ -244,13 +244,13 @@ export class WorkflowBuilder {
       );
       if (missingDeps.length > 0) {
         throw new Error(
-          `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(", ")}`
+          `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
         );
       }
     }
 
     this.plugins.push(plugin);
-    
+
     // Install the plugin
     try {
       plugin.install(this);
@@ -279,10 +279,7 @@ export class WorkflowBuilder {
    * @param updates - Updates to apply
    * @returns WorkflowBuilder instance for chaining
    */
-  updateStep(
-    stepId: string,
-    updates: Partial<Omit<StepConfig, "id">>
-  ): this {
+  updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
       throw new Error(`Step with ID "${stepId}" not found`);
@@ -368,16 +365,14 @@ export class WorkflowBuilder {
 
     // Check for empty workflow
     if (this.steps.length === 0) {
-      errors.push("Workflow must have at least one step");
+      errors.push('Workflow must have at least one step');
     }
 
     // Check for duplicate step IDs
     const stepIds = this.steps.map((step) => step.id);
-    const duplicateStepIds = stepIds.filter(
-      (id, index) => stepIds.indexOf(id) !== index
-    );
+    const duplicateStepIds = stepIds.filter((id, index) => stepIds.indexOf(id) !== index);
     if (duplicateStepIds.length > 0) {
-      errors.push(`Duplicate step IDs: ${duplicateStepIds.join(", ")}`);
+      errors.push(`Duplicate step IDs: ${duplicateStepIds.join(', ')}`);
     }
 
     // Check for circular dependencies in conditional branches
@@ -391,7 +386,7 @@ export class WorkflowBuilder {
         );
         if (missingDeps.length > 0) {
           errors.push(
-            `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(", ")}`
+            `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
           );
         }
       }
@@ -418,7 +413,10 @@ export class WorkflowBuilder {
       dynamicSteps: this.steps.filter((step) => step.isDynamic).length,
       conditionalBranches: this.branches.length,
       pluginsInstalled: this.plugins.length,
-      estimatedFields: this.steps.reduce((total, step) => total + step.formConfig.allFields.length, 0),
+      estimatedFields: this.steps.reduce(
+        (total, step) => total + step.formConfig.allFields.length,
+        0
+      ),
       hasPersistence: Boolean(this.persistence),
       hasAnalytics: Boolean(this.analytics),
     };
@@ -432,7 +430,7 @@ export class WorkflowBuilder {
     const errors = this.validate();
 
     if (errors.length > 0) {
-      throw new Error(`Workflow validation failed: ${errors.join(", ")}`);
+      throw new Error(`Workflow validation failed: ${errors.join(', ')}`);
     }
 
     return {
@@ -497,4 +495,4 @@ export class WorkflowBuilder {
 
     return this;
   }
-} 
+}

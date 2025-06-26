@@ -1,15 +1,6 @@
-import type {
-  FormConfiguration,
-  ValidationError,
-  ValidationResult,
-} from "@streamline/core";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useReducer,
-  useRef,
-} from "react";
+import type { FormConfiguration, ValidationError, ValidationResult } from '@streamline/core';
+import type React from 'react';
+import { createContext, useCallback, useContext, useReducer, useRef } from 'react';
 
 export interface FormState {
   values: Record<string, any>;
@@ -39,63 +30,66 @@ export interface FormContextValue {
 }
 
 type FormAction =
-  | { type: "SET_VALUE"; fieldId: string; value: any }
-  | { type: "SET_ERROR"; fieldId: string; errors: ValidationError[] }
-  | { type: "SET_WARNING"; fieldId: string; warnings: ValidationError[] }
-  | { type: "CLEAR_ERROR"; fieldId: string }
-  | { type: "CLEAR_WARNING"; fieldId: string }
-  | { type: "MARK_TOUCHED"; fieldId: string }
-  | { type: "SET_VALIDATING"; fieldId: string; isValidating: boolean }
-  | { type: "SET_SUBMITTING"; isSubmitting: boolean }
-  | { type: "RESET"; values?: Record<string, any> }
-  | { type: "UPDATE_VALIDATION_STATE" };
+  | { type: 'SET_VALUE'; fieldId: string; value: any }
+  | { type: 'SET_ERROR'; fieldId: string; errors: ValidationError[] }
+  | { type: 'SET_WARNING'; fieldId: string; warnings: ValidationError[] }
+  | { type: 'CLEAR_ERROR'; fieldId: string }
+  | { type: 'CLEAR_WARNING'; fieldId: string }
+  | { type: 'MARK_TOUCHED'; fieldId: string }
+  | { type: 'SET_VALIDATING'; fieldId: string; isValidating: boolean }
+  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
+  | { type: 'RESET'; values?: Record<string, any> }
+  | { type: 'UPDATE_VALIDATION_STATE' };
 
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
-    case "SET_VALUE":
+    case 'SET_VALUE': {
       const newValues = { ...state.values, [action.fieldId]: action.value };
       return {
         ...state,
         values: newValues,
         isDirty: true,
       };
+    }
 
-    case "SET_ERROR":
+    case 'SET_ERROR':
       return {
         ...state,
         errors: { ...state.errors, [action.fieldId]: action.errors },
         isValid: false,
       };
 
-    case "SET_WARNING":
+    case 'SET_WARNING':
       return {
         ...state,
         warnings: { ...state.warnings, [action.fieldId]: action.warnings },
       };
 
-    case "CLEAR_ERROR":
+    case 'CLEAR_ERROR': {
       const newErrors = { ...state.errors };
       delete newErrors[action.fieldId];
       return {
         ...state,
         errors: newErrors,
       };
+    }
 
-    case "CLEAR_WARNING":
+    case 'CLEAR_WARNING': {
       const newWarnings = { ...state.warnings };
       delete newWarnings[action.fieldId];
       return {
         ...state,
         warnings: newWarnings,
       };
+    }
 
-    case "MARK_TOUCHED":
+    case 'MARK_TOUCHED':
       return {
         ...state,
         touched: new Set([...state.touched, action.fieldId]),
       };
 
-    case "SET_VALIDATING":
+    case 'SET_VALIDATING': {
       const newValidating = new Set(state.isValidating);
       if (action.isValidating) {
         newValidating.add(action.fieldId);
@@ -106,14 +100,15 @@ function formReducer(state: FormState, action: FormAction): FormState {
         ...state,
         isValidating: newValidating,
       };
+    }
 
-    case "SET_SUBMITTING":
+    case 'SET_SUBMITTING':
       return {
         ...state,
         isSubmitting: action.isSubmitting,
       };
 
-    case "RESET":
+    case 'RESET':
       return {
         values: action.values || {},
         errors: {},
@@ -125,14 +120,13 @@ function formReducer(state: FormState, action: FormAction): FormState {
         isSubmitting: false,
       };
 
-    case "UPDATE_VALIDATION_STATE":
-      const hasErrors = Object.keys(state.errors).some(
-        (key) => state.errors[key].length > 0
-      );
+    case 'UPDATE_VALIDATION_STATE': {
+      const hasErrors = Object.keys(state.errors).some((key) => state.errors[key].length > 0);
       return {
         ...state,
         isValid: !hasErrors,
       };
+    }
 
     default:
       return state;
@@ -146,11 +140,7 @@ export interface FormProviderProps {
   formConfig: FormConfiguration;
   defaultValues?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onFieldChange?: (
-    fieldId: string,
-    value: any,
-    formData: Record<string, any>
-  ) => void;
+  onFieldChange?: (fieldId: string, value: any, formData: Record<string, any>) => void;
   className?: string;
 }
 
@@ -178,40 +168,34 @@ export function FormProvider({
   const validationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const setError = useCallback((fieldId: string, errors: ValidationError[]) => {
-    dispatch({ type: "SET_ERROR", fieldId, errors });
-    dispatch({ type: "UPDATE_VALIDATION_STATE" });
+    dispatch({ type: 'SET_ERROR', fieldId, errors });
+    dispatch({ type: 'UPDATE_VALIDATION_STATE' });
   }, []);
 
-  const setWarning = useCallback(
-    (fieldId: string, warnings: ValidationError[]) => {
-      dispatch({ type: "SET_WARNING", fieldId, warnings });
-    },
-    []
-  );
+  const setWarning = useCallback((fieldId: string, warnings: ValidationError[]) => {
+    dispatch({ type: 'SET_WARNING', fieldId, warnings });
+  }, []);
 
   const clearError = useCallback((fieldId: string) => {
-    dispatch({ type: "CLEAR_ERROR", fieldId });
-    dispatch({ type: "UPDATE_VALIDATION_STATE" });
+    dispatch({ type: 'CLEAR_ERROR', fieldId });
+    dispatch({ type: 'UPDATE_VALIDATION_STATE' });
   }, []);
 
   const clearWarning = useCallback((fieldId: string) => {
-    dispatch({ type: "CLEAR_WARNING", fieldId });
+    dispatch({ type: 'CLEAR_WARNING', fieldId });
   }, []);
 
   const markFieldTouched = useCallback((fieldId: string) => {
-    dispatch({ type: "MARK_TOUCHED", fieldId });
+    dispatch({ type: 'MARK_TOUCHED', fieldId });
   }, []);
 
-  const setFieldValidating = useCallback(
-    (fieldId: string, isValidating: boolean) => {
-      dispatch({ type: "SET_VALIDATING", fieldId, isValidating });
-    },
-    []
-  );
+  const setFieldValidating = useCallback((fieldId: string, isValidating: boolean) => {
+    dispatch({ type: 'SET_VALIDATING', fieldId, isValidating });
+  }, []);
 
   const setValue = useCallback(
     (fieldId: string, value: any) => {
-      dispatch({ type: "SET_VALUE", fieldId, value });
+      dispatch({ type: 'SET_VALUE', fieldId, value });
 
       // Call field change callback
       if (onFieldChange) {
@@ -230,8 +214,7 @@ export function FormProvider({
       }
 
       // Use provided value or current form value
-      const fieldValue =
-        value !== undefined ? value : formState.values[fieldId];
+      const fieldValue = value !== undefined ? value : formState.values[fieldId];
 
       // Clear existing timeout for this field
       const existingTimeout = validationTimeouts.current.get(fieldId);
@@ -279,9 +262,8 @@ export function FormProvider({
               isValid: false,
               errors: [
                 {
-                  code: "validation_error",
-                  message:
-                    error instanceof Error ? error.message : "Validation error",
+                  code: 'validation_error',
+                  message: error instanceof Error ? error.message : 'Validation error',
                 },
               ],
             };
@@ -315,34 +297,32 @@ export function FormProvider({
   );
 
   const validateAllFields = useCallback(async (): Promise<boolean> => {
-    const validationPromises = formConfig.allFields.map((field) =>
-      validateField(field.id)
-    );
+    const validationPromises = formConfig.allFields.map((field) => validateField(field.id));
 
     const results = await Promise.all(validationPromises);
     return results.every((result) => result.isValid);
   }, [formConfig, validateField]);
 
   const reset = useCallback((values?: Record<string, any>) => {
-    dispatch({ type: "RESET", values });
+    dispatch({ type: 'RESET', values });
   }, []);
 
   const submit = useCallback(async () => {
     if (!onSubmit) return;
 
-    dispatch({ type: "SET_SUBMITTING", isSubmitting: true });
+    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
     try {
       // Validate all fields before submission
       const isValid = await validateAllFields();
 
       if (!isValid) {
-        throw new Error("Form validation failed");
+        throw new Error('Form validation failed');
       }
 
       await onSubmit(formState.values);
     } finally {
-      dispatch({ type: "SET_SUBMITTING", isSubmitting: false });
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
     }
   }, [onSubmit, formState.values, validateAllFields]);
 
@@ -379,7 +359,7 @@ export function FormProvider({
 export function useFormContext(): FormContextValue {
   const context = useContext(FormContext);
   if (!context) {
-    throw new Error("useFormContext must be used within a FormProvider");
+    throw new Error('useFormContext must be used within a FormProvider');
   }
   return context;
 }

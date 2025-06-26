@@ -1,4 +1,4 @@
-import type { WorkflowAnalytics, WorkflowContext, WorkflowPlugin } from "@streamline/core";
+import type { WorkflowAnalytics, WorkflowContext, WorkflowPlugin } from '@streamline/core';
 
 export interface AnalyticsPluginConfig {
   providers: {
@@ -33,9 +33,9 @@ export interface AnalyticsPluginConfig {
 }
 
 export class AnalyticsPlugin implements WorkflowPlugin {
-  name = "analytics";
-  version = "1.0.0";
-  
+  name = 'analytics';
+  version = '1.0.0';
+
   private config: AnalyticsPluginConfig;
   private performanceData = new Map<string, number>();
 
@@ -62,7 +62,7 @@ export class AnalyticsPlugin implements WorkflowPlugin {
           workflow_id: workflowId,
           duration_ms: duration,
           form_data_keys: this.config.includeFormData ? Object.keys(data) : undefined,
-          ...this.config.includeFormData ? { form_data: data } : {},
+          ...(this.config.includeFormData ? { form_data: data } : {}),
         });
       },
 
@@ -114,7 +114,7 @@ export class AnalyticsPlugin implements WorkflowPlugin {
           step_index: context.currentStepIndex,
           workflow_id: context.workflowId,
           error_count: errors.length,
-          error_codes: errors.map(e => e.code),
+          error_codes: errors.map((e) => e.code),
           ...this.getContextData(context),
         });
       },
@@ -135,8 +135,9 @@ export class AnalyticsPlugin implements WorkflowPlugin {
   }
 
   private track(eventName: string, properties: Record<string, any>) {
-    const mappedEventName = this.config.eventMapping?.[eventName as keyof typeof this.config.eventMapping] || eventName;
-    
+    const mappedEventName =
+      this.config.eventMapping?.[eventName as keyof typeof this.config.eventMapping] || eventName;
+
     // Add timestamp
     const enrichedProperties = {
       ...properties,
@@ -145,22 +146,22 @@ export class AnalyticsPlugin implements WorkflowPlugin {
     };
 
     // Track to all configured providers
-    Object.entries(this.config.providers).forEach(([provider, config]) => {
+    for (const [provider, config] of Object.entries(this.config.providers)) {
       switch (provider) {
         case 'googleAnalytics':
           this.trackGoogleAnalytics(mappedEventName, enrichedProperties, config as any);
           break;
         case 'mixpanel':
-          this.trackMixpanel(mappedEventName, enrichedProperties, config as any);
+          this.trackMixpanel(mappedEventName, enrichedProperties);
           break;
         case 'amplitude':
-          this.trackAmplitude(mappedEventName, enrichedProperties, config as any);
+          this.trackAmplitude(mappedEventName, enrichedProperties);
           break;
         case 'custom':
           this.trackCustom(mappedEventName, enrichedProperties, config as any);
           break;
       }
-    });
+    }
   }
 
   private trackGoogleAnalytics(eventName: string, properties: Record<string, any>, config: any) {
@@ -172,13 +173,13 @@ export class AnalyticsPlugin implements WorkflowPlugin {
     }
   }
 
-  private trackMixpanel(eventName: string, properties: Record<string, any>, config: any) {
+  private trackMixpanel(eventName: string, properties: Record<string, any>) {
     if (typeof window !== 'undefined' && (window as any).mixpanel) {
       (window as any).mixpanel.track(eventName, properties);
     }
   }
 
-  private trackAmplitude(eventName: string, properties: Record<string, any>, config: any) {
+  private trackAmplitude(eventName: string, properties: Record<string, any>) {
     if (typeof window !== 'undefined' && (window as any).amplitude) {
       (window as any).amplitude.getInstance().logEvent(eventName, properties);
     }
@@ -210,20 +211,23 @@ export class AnalyticsPlugin implements WorkflowPlugin {
       is_first_step: context.isFirstStep,
       is_last_step: context.isLastStep,
       visited_steps_count: context.visitedSteps.size,
-      browser_info: typeof window !== 'undefined' ? {
-        user_agent: navigator.userAgent,
-        language: navigator.language,
-        platform: navigator.platform,
-      } : undefined,
+      browser_info:
+        typeof window !== 'undefined'
+          ? {
+              user_agent: navigator.userAgent,
+              language: navigator.language,
+              platform: navigator.platform,
+            }
+          : undefined,
     };
   }
 
   private calculateCompletionPercentage(data: Record<string, any>): number {
     const totalFields = Object.keys(data).length;
-    const completedFields = Object.values(data).filter(value => 
-      value !== null && value !== undefined && value !== ''
+    const completedFields = Object.values(data).filter(
+      (value) => value !== null && value !== undefined && value !== ''
     ).length;
-    
+
     return totalFields > 0 ? (completedFields / totalFields) * 100 : 0;
   }
 }
@@ -231,4 +235,4 @@ export class AnalyticsPlugin implements WorkflowPlugin {
 // Factory function for easy plugin creation
 export function createAnalyticsPlugin(config: AnalyticsPluginConfig): AnalyticsPlugin {
   return new AnalyticsPlugin(config);
-} 
+}

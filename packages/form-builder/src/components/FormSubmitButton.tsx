@@ -1,24 +1,20 @@
-import type { FormSubmitButtonRendererProps } from "@streamline/core";
-import React from "react";
-import { useFormContext } from "./FormProvider";
+import type { FormSubmitButtonRendererProps } from '@streamline/core';
+import type React from 'react';
+import { useFormContext } from './FormProvider';
 
 export interface FormSubmitButtonProps {
   className?: string;
   children?: React.ReactNode;
 }
 
-export function FormSubmitButton({
-  className,
-  children,
-}: FormSubmitButtonProps) {
+export function FormSubmitButton({ className, children }: FormSubmitButtonProps) {
   const { formState, submit, formConfig } = useFormContext();
 
   const renderer = formConfig.renderConfig?.submitButtonRenderer;
 
   if (!renderer) {
     throw new Error(
-      `No submitButtonRenderer configured for form "${formConfig.id}". ` +
-      `Please configure a submitButtonRenderer using config.setSubmitButtonRenderer() or config.setFormRenderConfig().`
+      `No submitButtonRenderer configured for form "${formConfig.id}". Please configure a submitButtonRenderer using config.setSubmitButtonRenderer() or config.setFormRenderConfig().`
     );
   }
 

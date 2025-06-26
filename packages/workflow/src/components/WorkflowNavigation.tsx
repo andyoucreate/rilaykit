@@ -1,5 +1,5 @@
-import type { WorkflowNavigationRendererProps } from "@streamline/core";
-import { useWorkflowContext } from "./WorkflowProvider";
+import type { WorkflowNavigationRendererProps } from '@streamline/core';
+import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowNavigationProps {
   className?: string;
@@ -18,16 +18,14 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
   } = useWorkflowContext();
 
   const navigationRenderer = workflowConfig.renderConfig?.navigationRenderer;
-  
+
   if (!navigationRenderer) {
     throw new Error(
-      `No navigationRenderer configured for workflow "${workflowConfig.id}". ` +
-        `Please configure a navigationRenderer using config.setWorkflowNavigationRenderer() or config.setWorkflowRenderConfig().`
+      `No navigationRenderer configured for workflow "${workflowConfig.id}". Please configure a navigationRenderer using config.setWorkflowNavigationRenderer() or config.setWorkflowRenderConfig().`
     );
   }
 
-  const canGoNext =
-    !workflowState.isTransitioning && !workflowState.isSubmitting;
+  const canGoNext = !workflowState.isTransitioning && !workflowState.isSubmitting;
   const canGoPrevious =
     context.currentStepIndex > 0 &&
     workflowConfig.navigation?.allowBackNavigation !== false &&

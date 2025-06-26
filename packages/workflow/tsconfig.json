@@ -8,15 +8,8 @@
     "sourceMap": true,
     "composite": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.*",
-    "**/*.spec.*"
-  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.*", "**/*.spec.*"],
   "references": [
     {
       "path": "../core"
@@ -25,4 +18,4 @@
       "path": "../form-builder"
     }
   ]
-} 
+}

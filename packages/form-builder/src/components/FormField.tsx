@@ -1,7 +1,7 @@
-import type { ComponentRenderProps } from "@streamline/core";
-import clsx from "clsx";
-import React, { useCallback } from "react";
-import { useFormContext } from "./FormProvider";
+import type { ComponentRenderProps } from '@streamline/core';
+import clsx from 'clsx';
+import React, { useCallback } from 'react';
+import { useFormContext } from './FormProvider';
 
 export interface FormFieldProps {
   fieldId: string;
@@ -16,24 +16,17 @@ export function FormField({
   customProps = {},
   className,
 }: FormFieldProps) {
-  const { formState, formConfig, setValue, markFieldTouched, validateField } =
-    useFormContext();
+  const { formState, formConfig, setValue, markFieldTouched, validateField } = useFormContext();
 
   // Get field configuration from context
-  const fieldConfig = formConfig.allFields.find(
-    (field) => field.id === fieldId
-  );
+  const fieldConfig = formConfig.allFields.find((field) => field.id === fieldId);
 
   if (!fieldConfig) {
-    throw new Error(
-      `Field with ID "${fieldId}" not found in form configuration`
-    );
+    throw new Error(`Field with ID "${fieldId}" not found in form configuration`);
   }
 
   // Get component configuration
-  const componentConfig = formConfig.config.getComponent(
-    fieldConfig.componentId
-  );
+  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId);
 
   if (!componentConfig) {
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
@@ -75,10 +68,7 @@ export function FormField({
     try {
       return fieldConfig.conditional.condition(formState.values);
     } catch (error) {
-      console.warn(
-        `Conditional evaluation failed for field "${fieldConfig.id}":`,
-        error
-      );
+      console.warn(`Conditional evaluation failed for field "${fieldConfig.id}":`, error);
       return true;
     }
   }, [fieldConfig.conditional, formState.values, fieldConfig.id]);
@@ -90,9 +80,9 @@ export function FormField({
     const action = fieldConfig.conditional.action;
 
     switch (action) {
-      case "disable":
+      case 'disable':
         return { disabled: true };
-      case "require":
+      case 'require':
         return { required: true };
       default:
         return {};
@@ -100,7 +90,7 @@ export function FormField({
   }, [fieldConfig.conditional, shouldShow]);
 
   // Don't render if hidden by conditional
-  if (!shouldShow && fieldConfig.conditional?.action === "hide") {
+  if (!shouldShow && fieldConfig.conditional?.action === 'hide') {
     return null;
   }
 
@@ -127,7 +117,7 @@ export function FormField({
 
   return (
     <div
-      className={clsx("streamline-form-field", className)}
+      className={clsx('streamline-form-field', className)}
       data-field-id={fieldConfig.id}
       data-field-type={componentConfig.subType}
     >

@@ -11,7 +11,7 @@ import type {
   WorkflowNavigationRenderer,
   WorkflowRenderConfig,
   WorkflowStepperRenderer,
-} from "../types";
+} from '../types';
 
 /**
  * Main configuration class for Streamline form components and workflows
@@ -30,7 +30,7 @@ export class StreamlineConfig {
    */
   addComponent<TProps = any>(
     subType: InputType | LayoutType,
-    config: Omit<ComponentConfig<TProps>, "id" | "subType"> & { id?: string }
+    config: Omit<ComponentConfig<TProps>, 'id' | 'subType'> & { id?: string }
   ): this {
     const componentId = config.id || `${config.type}-${subType}-${Date.now()}`;
 
@@ -187,9 +187,7 @@ export class StreamlineConfig {
    * @returns Array of matching components
    */
   getComponentsByType(type: ComponentType): ComponentConfig[] {
-    return Array.from(this.components.values()).filter(
-      (comp) => comp.type === type
-    );
+    return Array.from(this.components.values()).filter((comp) => comp.type === type);
   }
 
   /**
@@ -198,9 +196,7 @@ export class StreamlineConfig {
    * @returns Array of matching components
    */
   getComponentsBySubType(subType: InputType | LayoutType): ComponentConfig[] {
-    return Array.from(this.components.values()).filter(
-      (comp) => comp.subType === subType
-    );
+    return Array.from(this.components.values()).filter((comp) => comp.subType === subType);
   }
 
   /**
@@ -209,9 +205,7 @@ export class StreamlineConfig {
    * @returns Array of matching components
    */
   getComponentsByCategory(category: string): ComponentConfig[] {
-    return Array.from(this.components.values()).filter(
-      (comp) => comp.category === category
-    );
+    return Array.from(this.components.values()).filter((comp) => comp.category === category);
   }
 
   /**
@@ -261,9 +255,9 @@ export class StreamlineConfig {
    * @returns The StreamlineConfig instance for chaining
    */
   import(config: Record<string, ComponentConfig>): this {
-    Object.entries(config).forEach(([id, componentConfig]) => {
+    for (const [id, componentConfig] of Object.entries(config)) {
       this.components.set(id, componentConfig);
-    });
+    }
     return this;
   }
 
@@ -291,19 +285,28 @@ export class StreamlineConfig {
 
     return {
       total: components.length,
-      byType: components.reduce((acc, comp) => {
-        acc[comp.type] = (acc[comp.type] || 0) + 1;
-        return acc;
-      }, {} as Record<ComponentType, number>),
-      bySubType: components.reduce((acc, comp) => {
-        acc[comp.subType] = (acc[comp.subType] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
-      byCategory: components.reduce((acc, comp) => {
-        const category = comp.category || "uncategorized";
-        acc[category] = (acc[category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
+      byType: components.reduce(
+        (acc, comp) => {
+          acc[comp.type] = (acc[comp.type] || 0) + 1;
+          return acc;
+        },
+        {} as Record<ComponentType, number>
+      ),
+      bySubType: components.reduce(
+        (acc, comp) => {
+          acc[comp.subType] = (acc[comp.subType] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
+      byCategory: components.reduce(
+        (acc, comp) => {
+          const category = comp.category || 'uncategorized';
+          acc[category] = (acc[category] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
       hasCustomRenderers: {
         // Form renderers
         row: Boolean(this.formRenderConfig.rowRenderer),
@@ -329,18 +332,16 @@ export class StreamlineConfig {
     const ids = components.map((comp) => comp.id);
     const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
     if (duplicateIds.length > 0) {
-      errors.push(`Duplicate component IDs found: ${duplicateIds.join(", ")}`);
+      errors.push(`Duplicate component IDs found: ${duplicateIds.join(', ')}`);
     }
 
     // Check for components without renderers
-    const componentsWithoutRenderer = components.filter(
-      (comp) => !comp.renderer
-    );
+    const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
     if (componentsWithoutRenderer.length > 0) {
       errors.push(
         `Components without renderer: ${componentsWithoutRenderer
           .map((comp) => comp.id)
-          .join(", ")}`
+          .join(', ')}`
       );
     }
 

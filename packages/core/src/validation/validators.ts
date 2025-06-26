@@ -1,19 +1,17 @@
-import { z } from "zod";
+import { z } from 'zod';
 import type {
   ValidationContext,
   ValidationError,
   ValidationResult,
   ValidatorFunction,
-} from "../types";
+} from '../types';
 
 /**
  * Create a Zod-based validator
  * @param schema - Zod schema to validate against
  * @returns Validator function
  */
-export const createZodValidator = <T>(
-  schema: z.ZodSchema<T>
-): ValidatorFunction => {
+export const createZodValidator = <T>(schema: z.ZodSchema<T>): ValidatorFunction => {
   return async (value) => {
     try {
       await schema.parseAsync(value);
@@ -38,8 +36,8 @@ export const createZodValidator = <T>(
         isValid: false,
         errors: [
           {
-            code: "unknown",
-            message: "Unknown validation error",
+            code: 'unknown',
+            message: 'Unknown validation error',
           },
         ],
       };
@@ -58,7 +56,7 @@ export const createCustomValidator = (
     context: ValidationContext
   ) => boolean | string | Promise<boolean | string>
 ): ValidatorFunction => {
-  return async (value, context, props) => {
+  return async (value, context, _props) => {
     try {
       const result = await validationFn(value, context);
 
@@ -71,8 +69,8 @@ export const createCustomValidator = (
           isValid: false,
           errors: [
             {
-              code: "validation_failed",
-              message: "Validation failed",
+              code: 'validation_failed',
+              message: 'Validation failed',
             },
           ],
         };
@@ -83,7 +81,7 @@ export const createCustomValidator = (
         isValid: false,
         errors: [
           {
-            code: "validation_failed",
+            code: 'validation_failed',
             message: String(result),
           },
         ],
@@ -93,9 +91,8 @@ export const createCustomValidator = (
         isValid: false,
         errors: [
           {
-            code: "validation_error",
-            message:
-              error instanceof Error ? error.message : "Validation error",
+            code: 'validation_error',
+            message: error instanceof Error ? error.message : 'Validation error',
           },
         ],
       };
@@ -111,14 +108,14 @@ export const createCustomValidator = (
  */
 export const combineValidators = (
   validators: ValidatorFunction[],
-  mode: "all" | "any" = "all"
+  mode: 'all' | 'any' = 'all'
 ): ValidatorFunction => {
   return async (value, context, props) => {
     const results = await Promise.all(
       validators.map((validator) => validator(value, context, props))
     );
 
-    if (mode === "all") {
+    if (mode === 'all') {
       const allErrors = results.flatMap((result) => result.errors);
       const allWarnings = results.flatMap((result) => result.warnings || []);
 
@@ -127,25 +124,23 @@ export const combineValidators = (
         errors: allErrors,
         warnings: allWarnings.length > 0 ? allWarnings : undefined,
       };
-    } else {
-      // mode === 'any'
-      const hasValidResult = results.some((result) => result.isValid);
-
-      if (hasValidResult) {
-        const warnings = results.flatMap((result) => result.warnings || []);
-        return {
-          isValid: true,
-          errors: [],
-          warnings: warnings.length > 0 ? warnings : undefined,
-        };
-      } else {
-        const allErrors = results.flatMap((result) => result.errors);
-        return {
-          isValid: false,
-          errors: allErrors,
-        };
-      }
     }
+    // mode === 'any'
+    const hasValidResult = results.some((result) => result.isValid);
+
+    if (hasValidResult) {
+      const warnings = results.flatMap((result) => result.warnings || []);
+      return {
+        isValid: true,
+        errors: [],
+        warnings: warnings.length > 0 ? warnings : undefined,
+      };
+    }
+    const allErrors = results.flatMap((result) => result.errors);
+    return {
+      isValid: false,
+      errors: allErrors,
+    };
   };
 };
 
@@ -175,9 +170,9 @@ export const commonValidators = {
   /**
    * Required field validator
    */
-  required: (message = "This field is required"): ValidatorFunction =>
+  required: (message = 'This field is required'): ValidatorFunction =>
     createCustomValidator((value) => {
-      if (value === null || value === undefined || value === "") {
+      if (value === null || value === undefined || value === '') {
         return message;
       }
       return true;
@@ -186,39 +181,31 @@ export const commonValidators = {
   /**
    * Email validation
    */
-  email: (message = "Invalid email format"): ValidatorFunction =>
+  email: (message = 'Invalid email format'): ValidatorFunction =>
     createZodValidator(z.string().email(message)),
 
   /**
    * Minimum length validation
    */
   minLength: (min: number, message?: string): ValidatorFunction =>
-    createZodValidator(
-      z.string().min(min, message || `Minimum ${min} characters required`)
-    ),
+    createZodValidator(z.string().min(min, message || `Minimum ${min} characters required`)),
 
   /**
    * Maximum length validation
    */
   maxLength: (max: number, message?: string): ValidatorFunction =>
-    createZodValidator(
-      z.string().max(max, message || `Maximum ${max} characters allowed`)
-    ),
+    createZodValidator(z.string().max(max, message || `Maximum ${max} characters allowed`)),
 
   /**
    * Pattern/regex validation
    */
-  pattern: (regex: RegExp, message = "Invalid format"): ValidatorFunction =>
+  pattern: (regex: RegExp, message = 'Invalid format'): ValidatorFunction =>
     createZodValidator(z.string().regex(regex, message)),
 
   /**
    * Number range validation
    */
-  numberRange: (
-    min?: number,
-    max?: number,
-    message?: string
-  ): ValidatorFunction => {
+  numberRange: (min?: number, max?: number, message?: string): ValidatorFunction => {
     let schema = z.number();
 
     if (min !== undefined) {
@@ -235,28 +222,25 @@ export const commonValidators = {
   /**
    * URL validation
    */
-  url: (message = "Invalid URL format"): ValidatorFunction =>
+  url: (message = 'Invalid URL format'): ValidatorFunction =>
     createZodValidator(z.string().url(message)),
 
   /**
    * Phone number validation (basic)
    */
-  phoneNumber: (message = "Invalid phone number format"): ValidatorFunction =>
+  phoneNumber: (message = 'Invalid phone number format'): ValidatorFunction =>
     createZodValidator(z.string().regex(/^\+?[\d\s\-\(\)]+$/, message)),
 
   /**
    * Custom async validation with debouncing
    */
   asyncValidation: (
-    asyncFn: (
-      value: any,
-      context: ValidationContext
-    ) => Promise<boolean | string>,
+    asyncFn: (value: any, context: ValidationContext) => Promise<boolean | string>,
     debounceMs = 300
   ): ValidatorFunction => {
     const debounceMap = new Map<string, NodeJS.Timeout>();
 
-    return (value, context, props) => {
+    return (value, context, _props) => {
       return new Promise((resolve) => {
         const key = `${context.fieldId}-${JSON.stringify(value)}`;
 
@@ -277,11 +261,8 @@ export const commonValidators = {
                 isValid: false,
                 errors: [
                   {
-                    code: "async_validation_failed",
-                    message:
-                      typeof result === "string"
-                        ? result
-                        : "Async validation failed",
+                    code: 'async_validation_failed',
+                    message: typeof result === 'string' ? result : 'Async validation failed',
                   },
                 ],
               });
@@ -291,11 +272,8 @@ export const commonValidators = {
               isValid: false,
               errors: [
                 {
-                  code: "async_validation_error",
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : "Async validation error",
+                  code: 'async_validation_error',
+                  message: error instanceof Error ? error.message : 'Async validation error',
                 },
               ],
             });

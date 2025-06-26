@@ -1,25 +1,19 @@
-import React from "react";
-import { StreamlineConfig } from "../config/StreamlineConfig";
+import type React from 'react';
+import type { StreamlineConfig } from '../config/StreamlineConfig';
 
 // Component types
-export type ComponentType = "input" | "layout";
+export type ComponentType = 'input' | 'layout';
 export type InputType =
-  | "text"
-  | "email"
-  | "password"
-  | "number"
-  | "select"
-  | "checkbox"
-  | "textarea"
-  | "file"
-  | "date";
-export type LayoutType =
-  | "heading"
-  | "paragraph"
-  | "container"
-  | "divider"
-  | "spacer"
-  | "alert";
+  | 'text'
+  | 'email'
+  | 'password'
+  | 'number'
+  | 'select'
+  | 'checkbox'
+  | 'textarea'
+  | 'file'
+  | 'date';
+export type LayoutType = 'heading' | 'paragraph' | 'container' | 'divider' | 'spacer' | 'alert';
 
 // Validation types
 export interface ValidationResult {
@@ -67,9 +61,9 @@ export interface ValidationConfig<TProps = any> {
 }
 
 // Component renderer
-export interface ComponentRenderer<TProps = any> {
-  (props: ComponentRenderProps<TProps>): React.ReactElement;
-}
+export type ComponentRenderer<TProps = any> = (
+  props: ComponentRenderProps<TProps>
+) => React.ReactElement;
 
 export interface ComponentRenderProps<TProps = any> {
   id: string;
@@ -89,7 +83,7 @@ export interface ComponentRenderProps<TProps = any> {
 export interface ComponentOptions<TProps = any> {
   readonly configurable?: Array<{
     key: keyof TProps;
-    type: "string" | "number" | "boolean" | "select" | "array";
+    type: 'string' | 'number' | 'boolean' | 'select' | 'array';
     label: string;
     options?: any[];
     default?: any;
@@ -126,14 +120,14 @@ export interface FormFieldRow {
   readonly id: string;
   readonly fields: FormFieldConfig[];
   readonly maxColumns?: number; // Max 3 per default
-  readonly spacing?: "tight" | "normal" | "loose";
-  readonly alignment?: "start" | "center" | "end" | "stretch";
+  readonly spacing?: 'tight' | 'normal' | 'loose';
+  readonly alignment?: 'start' | 'center' | 'end' | 'stretch';
 }
 
 // Conditional configuration
 export interface ConditionalConfig {
   readonly condition: (formData: Record<string, any>) => boolean;
-  readonly action: "show" | "hide" | "disable" | "require";
+  readonly action: 'show' | 'hide' | 'disable' | 'require';
 }
 
 // ===== WORKFLOW SYSTEM TYPES =====
@@ -141,7 +135,11 @@ export interface ConditionalConfig {
 // Async Lifecycle Hooks
 export interface StepLifecycleHooks {
   readonly onBeforeEnter?: (stepData: any, allData: any, context: WorkflowContext) => Promise<void>;
-  readonly onAfterLeave?: (stepData: any, allData: any, context: WorkflowContext) => Promise<boolean>;
+  readonly onAfterLeave?: (
+    stepData: any,
+    allData: any,
+    context: WorkflowContext
+  ) => Promise<boolean>;
   readonly onValidate?: (stepData: any, context: WorkflowContext) => Promise<ValidationResult>;
   readonly onTransform?: (stepData: any, context: WorkflowContext) => Promise<any>;
   readonly onError?: (error: Error, context: WorkflowContext) => Promise<void>;
@@ -216,12 +214,10 @@ export interface StepValidationConfig {
 
 export interface StepConditionalConfig {
   readonly condition: (formData: Record<string, any>, context: WorkflowContext) => boolean;
-  readonly action: "show" | "hide" | "skip";
+  readonly action: 'show' | 'hide' | 'skip';
 }
 
-export interface StepRenderer {
-  (props: StepRenderProps): React.ReactElement;
-}
+export type StepRenderer = (props: StepRenderProps) => React.ReactElement;
 
 export interface StepRenderProps {
   step: StepConfig;
@@ -258,9 +254,18 @@ export interface WorkflowAnalytics {
   readonly onWorkflowComplete?: (workflowId: string, duration: number, data: any) => void;
   readonly onWorkflowAbandon?: (workflowId: string, currentStep: string, data: any) => void;
   readonly onStepStart?: (stepId: string, timestamp: number, context: WorkflowContext) => void;
-  readonly onStepComplete?: (stepId: string, duration: number, data: any, context: WorkflowContext) => void;
+  readonly onStepComplete?: (
+    stepId: string,
+    duration: number,
+    data: any,
+    context: WorkflowContext
+  ) => void;
   readonly onStepSkip?: (stepId: string, reason: string, context: WorkflowContext) => void;
-  readonly onValidationError?: (stepId: string, errors: ValidationError[], context: WorkflowContext) => void;
+  readonly onValidationError?: (
+    stepId: string,
+    errors: ValidationError[],
+    context: WorkflowContext
+  ) => void;
   readonly onError?: (error: Error, context: WorkflowContext) => void;
 }
 
@@ -356,7 +361,9 @@ export interface WorkflowNavigationRendererProps {
 }
 
 export type WorkflowStepperRenderer = (props: WorkflowStepperRendererProps) => React.ReactElement;
-export type WorkflowNavigationRenderer = (props: WorkflowNavigationRendererProps) => React.ReactElement;
+export type WorkflowNavigationRenderer = (
+  props: WorkflowNavigationRendererProps
+) => React.ReactElement;
 
 // Workflow Render Configuration
 export interface WorkflowRenderConfig {
@@ -370,8 +377,8 @@ export interface FormRowRendererProps {
   row: FormFieldRow;
   children: React.ReactNode;
   className?: string;
-  spacing?: "tight" | "normal" | "loose";
-  alignment?: "start" | "center" | "end" | "stretch";
+  spacing?: 'tight' | 'normal' | 'loose';
+  alignment?: 'start' | 'center' | 'end' | 'stretch';
 }
 
 export interface FormBodyRendererProps {

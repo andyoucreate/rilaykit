@@ -1,25 +1,15 @@
-import type { FormConfiguration } from "@streamline/core";
-import { FormProvider } from "./FormProvider";
+import type { FormConfiguration } from '@streamline/core';
+import { FormProvider } from './FormProvider';
 
 export interface FormProps {
   formConfig: FormConfiguration;
   defaultValues?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onFieldChange?: (
-    fieldId: string,
-    value: any,
-    formData: Record<string, any>
-  ) => void;
+  onFieldChange?: (fieldId: string, value: any, formData: Record<string, any>) => void;
   className?: string;
   children: React.ReactNode;
 }
-export function Form({
-  formConfig,
-  defaultValues,
-  onSubmit,
-  onFieldChange,
-  children,
-}: FormProps) {
+export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, children }: FormProps) {
   return (
     <FormProvider
       formConfig={formConfig}

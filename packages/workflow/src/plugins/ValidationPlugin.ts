@@ -1,4 +1,9 @@
-import type { ValidationError, ValidationResult, WorkflowContext, WorkflowPlugin } from "@streamline/core";
+import type {
+  ValidationError,
+  ValidationResult,
+  WorkflowContext,
+  WorkflowPlugin,
+} from '@streamline/core';
 
 export interface ValidationPluginConfig {
   schema?: {
@@ -12,25 +17,34 @@ export interface ValidationPluginConfig {
     minLength?: Record<string, number>;
     maxLength?: Record<string, number>;
     pattern?: Record<string, RegExp>;
-    custom?: Record<string, (value: any, context: WorkflowContext) => ValidationResult | Promise<ValidationResult>>;
+    custom?: Record<
+      string,
+      (value: any, context: WorkflowContext) => ValidationResult | Promise<ValidationResult>
+    >;
   };
   crossFieldValidation?: Array<{
     fields: string[];
-    validator: (values: Record<string, any>, context: WorkflowContext) => ValidationResult | Promise<ValidationResult>;
+    validator: (
+      values: Record<string, any>,
+      context: WorkflowContext
+    ) => ValidationResult | Promise<ValidationResult>;
     message: string;
   }>;
-  asyncRules?: Record<string, {
-    url: string;
-    debounceMs?: number;
-    method?: 'GET' | 'POST';
-    headers?: Record<string, string>;
-  }>;
+  asyncRules?: Record<
+    string,
+    {
+      url: string;
+      debounceMs?: number;
+      method?: 'GET' | 'POST';
+      headers?: Record<string, string>;
+    }
+  >;
   onValidationComplete?: (result: ValidationResult, context: WorkflowContext) => void;
 }
 
 export class ValidationPlugin implements WorkflowPlugin {
-  name = "validation";
-  version = "1.0.0";
+  name = 'validation';
+  version = '1.0.0';
   dependencies = [];
 
   private config: ValidationPluginConfig;
@@ -43,30 +57,33 @@ export class ValidationPlugin implements WorkflowPlugin {
   install(workflowBuilder: any) {
     // Add validation hooks to all steps
     const steps = workflowBuilder.getSteps();
-    
-    steps.forEach((step: any) => {
+
+    for (const step of steps) {
       const originalHooks = step.hooks || {};
-      
+
       workflowBuilder.updateStep(step.id, {
         hooks: {
           ...originalHooks,
           onValidate: async (stepData: any, context: WorkflowContext) => {
             const result = await this.validateStep(stepData, context);
-            
+
             if (this.config.onValidationComplete) {
               this.config.onValidationComplete(result, context);
             }
-            
+
             return result;
           },
         },
       });
-    });
+    }
   }
 
-  private async validateStep(stepData: Record<string, any>, context: WorkflowContext): Promise<ValidationResult> {
+  private async validateStep(
+    stepData: Record<string, any>,
+    context: WorkflowContext
+  ): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
-    
+
     try {
       // Schema validation
       if (this.config.schema) {
@@ -97,22 +114,27 @@ export class ValidationPlugin implements WorkflowPlugin {
     } catch (error) {
       return {
         isValid: false,
-        errors: [{
-          code: 'VALIDATION_ERROR',
-          message: `Validation failed: ${error instanceof Error ? error.message : String(error)}`,
-        }],
+        errors: [
+          {
+            code: 'VALIDATION_ERROR',
+            message: `Validation failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
       };
     }
   }
 
-  private async validateWithSchema(data: Record<string, any>, context: WorkflowContext): Promise<ValidationResult> {
+  private async validateWithSchema(
+    data: Record<string, any>,
+    context: WorkflowContext
+  ): Promise<ValidationResult> {
     if (!this.config.schema?.schema) {
       return { isValid: true, errors: [] };
     }
 
     try {
       switch (this.config.schema.type) {
-        case 'zod':
+        case 'zod': {
           const zodResult = this.config.schema.schema.safeParse(data);
           if (!zodResult.success) {
             return {
@@ -125,10 +147,13 @@ export class ValidationPlugin implements WorkflowPlugin {
             };
           }
           break;
+        }
 
         case 'yup':
           try {
-            await this.config.schema.schema.validate(data, { abortEarly: false });
+            await this.config.schema.schema.validate(data, {
+              abortEarly: false,
+            });
           } catch (err: any) {
             return {
               isValid: false,
@@ -136,35 +161,45 @@ export class ValidationPlugin implements WorkflowPlugin {
                 code: 'YUP_VALIDATION_ERROR',
                 message: innerErr.message,
                 path: innerErr.path ? [innerErr.path] : undefined,
-              })) || [{
-                code: 'YUP_VALIDATION_ERROR',
-                message: err.message,
-              }],
+              })) || [
+                {
+                  code: 'YUP_VALIDATION_ERROR',
+                  message: err.message,
+                },
+              ],
             };
           }
           break;
 
-        case 'custom':
+        case 'custom': {
           const customResult = await this.config.schema.schema(data, context);
           if (!customResult.isValid) {
             return customResult;
           }
           break;
+        }
       }
 
       return { isValid: true, errors: [] };
     } catch (error) {
       return {
         isValid: false,
-        errors: [{
-          code: 'SCHEMA_VALIDATION_ERROR',
-          message: `Schema validation failed: ${error instanceof Error ? error.message : String(error)}`,
-        }],
+        errors: [
+          {
+            code: 'SCHEMA_VALIDATION_ERROR',
+            message: `Schema validation failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          },
+        ],
       };
     }
   }
 
-  private async validateWithRules(data: Record<string, any>, context: WorkflowContext): Promise<ValidationResult> {
+  private async validateWithRules(
+    data: Record<string, any>,
+    context: WorkflowContext
+  ): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
 
     // Required fields
@@ -252,10 +287,12 @@ export class ValidationPlugin implements WorkflowPlugin {
         if (data[field]) {
           const result = await validator(data[field], context);
           if (!result.isValid) {
-            errors.push(...result.errors.map(error => ({
-              ...error,
-              path: [field],
-            })));
+            errors.push(
+              ...result.errors.map((error) => ({
+                ...error,
+                path: [field],
+              }))
+            );
           }
         }
       }
@@ -264,7 +301,10 @@ export class ValidationPlugin implements WorkflowPlugin {
     return { isValid: errors.length === 0, errors };
   }
 
-  private async validateCrossField(allData: Record<string, any>, context: WorkflowContext): Promise<ValidationResult> {
+  private async validateCrossField(
+    allData: Record<string, any>,
+    context: WorkflowContext
+  ): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
 
     if (!this.config.crossFieldValidation) {
@@ -299,7 +339,10 @@ export class ValidationPlugin implements WorkflowPlugin {
     return { isValid: errors.length === 0, errors };
   }
 
-  private async validateAsync(data: Record<string, any>, context: WorkflowContext): Promise<ValidationResult> {
+  private async validateAsync(
+    data: Record<string, any>,
+    context: WorkflowContext
+  ): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
 
     if (!this.config.asyncRules) {
@@ -318,9 +361,10 @@ export class ValidationPlugin implements WorkflowPlugin {
       return new Promise<ValidationError | null>((resolve) => {
         const timer = setTimeout(async () => {
           try {
-            const url = rule.method === 'GET' 
-              ? `${rule.url}?value=${encodeURIComponent(data[field])}`
-              : rule.url;
+            const url =
+              rule.method === 'GET'
+                ? `${rule.url}?value=${encodeURIComponent(data[field])}`
+                : rule.url;
 
             const response = await fetch(url, {
               method: rule.method || 'POST',
@@ -332,7 +376,7 @@ export class ValidationPlugin implements WorkflowPlugin {
             });
 
             const result = await response.json();
-            
+
             if (!result.isValid) {
               resolve({
                 code: 'ASYNC_VALIDATION_ERROR',
@@ -342,7 +386,7 @@ export class ValidationPlugin implements WorkflowPlugin {
             } else {
               resolve(null);
             }
-          } catch (error) {
+          } catch {
             resolve({
               code: 'ASYNC_VALIDATION_ERROR',
               message: `Async validation failed for ${field}`,
@@ -356,7 +400,7 @@ export class ValidationPlugin implements WorkflowPlugin {
     });
 
     const results = await Promise.all(validationPromises);
-    errors.push(...results.filter(result => result !== null) as ValidationError[]);
+    errors.push(...(results.filter((result) => result !== null) as ValidationError[]));
 
     return { isValid: errors.length === 0, errors };
   }
@@ -365,4 +409,4 @@ export class ValidationPlugin implements WorkflowPlugin {
 // Factory function
 export function createValidationPlugin(config: ValidationPluginConfig): ValidationPlugin {
   return new ValidationPlugin(config);
-} 
+}

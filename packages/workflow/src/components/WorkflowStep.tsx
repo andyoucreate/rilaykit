@@ -1,7 +1,7 @@
-import type { StepConfig, StepRenderProps } from "@streamline/core";
-import { FormProvider } from "@streamline/form-builder";
-import React from "react";
-import { useWorkflowContext } from "./WorkflowProvider";
+import type { StepConfig, StepRenderProps } from '@streamline/core';
+import { FormProvider } from '@streamline/form-builder';
+import React from 'react';
+import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowStepProps {
   step: StepConfig;
@@ -26,27 +26,22 @@ export function WorkflowStep({ step }: WorkflowStepProps) {
     try {
       return step.conditional.condition(context.allData, context);
     } catch (error) {
-      console.warn(
-        `Conditional evaluation failed for step "${step.id}":`,
-        error
-      );
+      console.warn(`Conditional evaluation failed for step "${step.id}":`, error);
       return true;
     }
   }, [step.conditional, step.id, context]);
 
   // Don't render if hidden by conditional
-  if (!shouldShow && step.conditional?.action === "hide") {
+  if (!shouldShow && step.conditional?.action === 'hide') {
     return null;
   }
 
   // Use step renderer from StreamlineConfig
-  const stepRenderer =
-    workflowConfig.renderConfig?.stepRenderer ?? step.customRenderer;
+  const stepRenderer = workflowConfig.renderConfig?.stepRenderer ?? step.customRenderer;
 
   if (!stepRenderer) {
     throw new Error(
-      `No stepRenderer configured for workflow "${workflowConfig.id}". ` +
-        `Please configure a stepRenderer using config.setStepRenderer() or config.setWorkflowRenderConfig().`
+      `No stepRenderer configured for workflow "${workflowConfig.id}". Please configure a stepRenderer using config.setStepRenderer() or config.setWorkflowRenderConfig().`
     );
   }
 

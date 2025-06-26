@@ -1,23 +1,19 @@
-import type { WorkflowStepperRendererProps } from "@streamline/core";
-import { useWorkflowContext } from "./WorkflowProvider";
+import type { WorkflowStepperRendererProps } from '@streamline/core';
+import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowStepperProps {
   onStepClick?: (stepIndex: number) => void;
   className?: string;
 }
 
-export function WorkflowStepper({
-  onStepClick,
-  className,
-}: WorkflowStepperProps) {
+export function WorkflowStepper({ onStepClick, className }: WorkflowStepperProps) {
   const { workflowConfig, workflowState, goToStep } = useWorkflowContext();
 
   const stepperRenderer = workflowConfig.renderConfig?.stepperRenderer;
 
   if (!stepperRenderer) {
     throw new Error(
-      `No stepperRenderer configured for workflow "${workflowConfig.id}". ` +
-        `Please configure a stepperRenderer using config.setStepperRenderer() or config.setWorkflowRenderConfig().`
+      `No stepperRenderer configured for workflow "${workflowConfig.id}". Please configure a stepperRenderer using config.setStepperRenderer() or config.setWorkflowRenderConfig().`
     );
   }
 
