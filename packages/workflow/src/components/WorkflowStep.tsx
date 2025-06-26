@@ -1,4 +1,5 @@
 import type { StepConfig, StepRenderProps } from "@streamline/core";
+import { FormProvider } from "@streamline/form-builder";
 import React from "react";
 import { useWorkflowContext } from "./WorkflowProvider";
 
@@ -39,7 +40,8 @@ export function WorkflowStep({ step }: WorkflowStepProps) {
   }
 
   // Use step renderer from StreamlineConfig
-  const stepRenderer = workflowConfig.renderConfig?.stepRenderer ?? step.customRenderer;
+  const stepRenderer =
+    workflowConfig.renderConfig?.stepRenderer ?? step.customRenderer;
 
   if (!stepRenderer) {
     throw new Error(
@@ -83,7 +85,16 @@ export function WorkflowStep({ step }: WorkflowStepProps) {
     context,
   };
 
-  return stepRenderer(stepRenderProps);
+  return (
+    <FormProvider
+      formConfig={step.formConfig}
+      onSubmit={handleNext}
+      defaultValues={context.allData}
+      onFieldChange={handleFieldChange}
+    >
+      {stepRenderer(stepRenderProps)}
+    </FormProvider>
+  );
 }
 
 export default WorkflowStep;
