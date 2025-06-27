@@ -2,7 +2,7 @@
 export * from './types';
 
 // Configuration
-export { StreamlineConfig } from './config/StreamlineConfig';
+export { RilayConfig } from './config/RilayConfig';
 
 // Validation utilities
 export * from './validation/validators';

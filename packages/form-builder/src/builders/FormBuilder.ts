@@ -5,23 +5,27 @@ import type {
   FormFieldRow,
   InputType,
   LayoutType,
-  StreamlineConfig,
+  RilayConfig,
   ValidationConfig,
-} from '@streamline/core';
+} from '@rilay/core';
 /**
  * Form builder class for creating form configurations
  * Simplified API with matrix support
  */
 export class FormBuilder {
-  private config: StreamlineConfig;
+  private config: RilayConfig;
   private rows: FormFieldRow[] = [];
   private schema: any = null;
   private formId: string;
   private rowCounter = 0;
 
-  constructor(config: StreamlineConfig, formId?: string) {
+  constructor(config: RilayConfig, formId?: string) {
     this.config = config;
     this.formId = formId || `form-${Date.now()}`;
+  }
+
+  static create(config: RilayConfig, formId?: string): FormBuilder {
+    return new FormBuilder(config, formId);
   }
 
   /**

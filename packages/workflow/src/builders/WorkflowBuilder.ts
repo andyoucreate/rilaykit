@@ -5,23 +5,23 @@ import type {
   FormConfiguration,
   NavigationConfig,
   PersistenceStrategy,
+  RilayConfig,
   StepConfig,
   StepLifecycleHooks,
   StepPermissions,
-  StreamlineConfig,
   WorkflowAnalytics,
   WorkflowConfig,
   WorkflowOptimizations,
   WorkflowPlugin,
   WorkflowVersion,
-} from '@streamline/core';
+} from '@rilay/core';
 
 /**
  * Workflow builder class for creating complex multi-step workflows
  * Supports async hooks, dynamic steps, conditional branches, and much more
  */
 export class WorkflowBuilder {
-  private config: StreamlineConfig;
+  private config: RilayConfig;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -35,16 +35,20 @@ export class WorkflowBuilder {
   private version?: WorkflowVersion;
   private plugins: WorkflowPlugin[] = [];
 
-  constructor(
-    config: StreamlineConfig,
-    workflowId: string,
-    workflowName: string,
-    description?: string
-  ) {
+  constructor(config: RilayConfig, workflowId: string, workflowName: string, description?: string) {
     this.config = config;
     this.workflowId = workflowId;
     this.workflowName = workflowName;
     this.workflowDescription = description;
+  }
+
+  static create(
+    config: RilayConfig,
+    workflowId: string,
+    workflowName: string,
+    description?: string
+  ): WorkflowBuilder {
+    return new WorkflowBuilder(config, workflowId, workflowName, description);
   }
 
   /**

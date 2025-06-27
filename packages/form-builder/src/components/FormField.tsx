@@ -1,4 +1,4 @@
-import type { ComponentRenderProps } from '@streamline/core';
+import type { ComponentRenderProps } from '@rilay/core';
 import clsx from 'clsx';
 import React, { useCallback } from 'react';
 import { useFormContext } from './FormProvider';

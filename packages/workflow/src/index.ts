@@ -43,7 +43,7 @@ export type {
   WorkflowRenderConfig,
   WorkflowStepperRenderer,
   WorkflowVersion,
-} from '@streamline/core';
+} from '@rilay/core';
 
 // Component types
 export type {

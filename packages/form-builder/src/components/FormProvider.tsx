@@ -1,4 +1,4 @@
-import type { FormConfiguration, ValidationError, ValidationResult } from '@streamline/core';
+import type { FormConfiguration, ValidationError, ValidationResult } from '@rilay/core';
 import type React from 'react';
 import { createContext, useCallback, useContext, useReducer, useRef } from 'react';
 
@@ -152,6 +152,7 @@ export function FormProvider({
   onFieldChange,
   className,
 }: FormProviderProps) {
+  console.log(formConfig.renderConfig);
   const initialState: FormState = {
     values: defaultValues,
     errors: {},
@@ -300,6 +301,7 @@ export function FormProvider({
     const validationPromises = formConfig.allFields.map((field) => validateField(field.id));
 
     const results = await Promise.all(validationPromises);
+
     return results.every((result) => result.isValid);
   }, [formConfig, validateField]);
 
@@ -317,10 +319,13 @@ export function FormProvider({
       const isValid = await validateAllFields();
 
       if (!isValid) {
-        throw new Error('Form validation failed');
+        return;
       }
 
       await onSubmit(formState.values);
+    } catch (error) {
+      // Log any unexpected errors from onSubmit
+      console.error('Error during form submission:', error);
     } finally {
       dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
     }

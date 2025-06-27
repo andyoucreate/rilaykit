@@ -1,7 +1,7 @@
 {
-  "name": "@streamline/core",
+  "name": "@rilay/core",
   "version": "1.0.0",
-  "description": "Core types, configurations, and utilities for Streamline form library",
+  "description": "Core types, configurations, and utilities for the Rilay form library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -15,7 +15,7 @@
     "clean": "rm -rf dist"
   },
   "keywords": ["react", "forms", "typescript", "validation", "builder-pattern"],
-  "author": "Streamline Team",
+  "author": "Rilay Team",
   "license": "MIT",
   "peerDependencies": {
     "react": ">=18.0.0",

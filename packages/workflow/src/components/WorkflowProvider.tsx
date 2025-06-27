@@ -5,7 +5,7 @@ import type {
   ValidationResult,
   WorkflowConfig,
   WorkflowContext,
-} from '@streamline/core';
+} from '@rilay/core';
 import clsx from 'clsx';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';

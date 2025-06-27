@@ -1,5 +1,5 @@
 {
-  "name": "@streamline/monorepo",
+  "name": "@rilay/monorepo",
   "version": "1.0.0",
   "description": "A next-generation React form library with modularity, type safety, and extensibility at its core",
   "private": true,

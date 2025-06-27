@@ -14,19 +14,23 @@ import type {
 } from '../types';
 
 /**
- * Main configuration class for Streamline form components and workflows
+ * Main configuration class for Rilay form components and workflows
  * Manages component registration, retrieval, and configuration
  */
-export class StreamlineConfig {
+export class RilayConfig {
   private components = new Map<string, ComponentConfig>();
   private formRenderConfig: FormRenderConfig = {};
   private workflowRenderConfig: WorkflowRenderConfig = {};
+
+  static create(): RilayConfig {
+    return new RilayConfig();
+  }
 
   /**
    * Add a component to the configuration
    * @param subType - The component subtype (e.g., 'text', 'email', 'heading')
    * @param config - Component configuration without id and subType
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   addComponent<TProps = any>(
     subType: InputType | LayoutType,
@@ -47,7 +51,7 @@ export class StreamlineConfig {
   /**
    * Set custom row renderer
    * @param renderer - Custom row renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setRowRenderer(renderer: FormRowRenderer): this {
     this.formRenderConfig = {
@@ -60,7 +64,7 @@ export class StreamlineConfig {
   /**
    * Set custom body renderer
    * @param renderer - Custom body renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setBodyRenderer(renderer: FormBodyRenderer): this {
     this.formRenderConfig = {
@@ -73,7 +77,7 @@ export class StreamlineConfig {
   /**
    * Set custom submit button renderer
    * @param renderer - Custom submit button renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setSubmitButtonRenderer(renderer: FormSubmitButtonRenderer): this {
     this.formRenderConfig = {
@@ -86,7 +90,7 @@ export class StreamlineConfig {
   /**
    * Set complete form render configuration
    * @param config - Form render configuration
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setFormRenderConfig(config: FormRenderConfig): this {
     this.formRenderConfig = config;
@@ -104,7 +108,7 @@ export class StreamlineConfig {
   /**
    * Set custom step renderer for workflows
    * @param renderer - Custom step renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setStepRenderer(renderer: StepRenderer): this {
     this.workflowRenderConfig = {
@@ -117,7 +121,7 @@ export class StreamlineConfig {
   /**
    * Set custom stepper renderer for workflows
    * @param renderer - Custom stepper renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setStepperRenderer(renderer: WorkflowStepperRenderer): this {
     this.workflowRenderConfig = {
@@ -130,7 +134,7 @@ export class StreamlineConfig {
   /**
    * Set custom workflow navigation renderer
    * @param renderer - Custom workflow navigation renderer function
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setWorkflowNavigationRenderer(renderer: WorkflowNavigationRenderer): this {
     this.workflowRenderConfig = {
@@ -143,7 +147,7 @@ export class StreamlineConfig {
   /**
    * Set complete workflow render configuration
    * @param config - Workflow render configuration
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   setWorkflowRenderConfig(config: WorkflowRenderConfig): this {
     this.workflowRenderConfig = config;
@@ -252,7 +256,7 @@ export class StreamlineConfig {
   /**
    * Import configuration from a plain object
    * @param config - Object with component configurations
-   * @returns The StreamlineConfig instance for chaining
+   * @returns The RilayConfig instance for chaining
    */
   import(config: Record<string, ComponentConfig>): this {
     for (const [id, componentConfig] of Object.entries(config)) {

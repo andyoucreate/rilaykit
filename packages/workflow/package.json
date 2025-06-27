@@ -1,7 +1,7 @@
 {
-  "name": "@streamline/workflow",
+  "name": "@rilay/workflow",
   "version": "1.0.0",
-  "description": "Workflow and multi-step form utilities for Streamline",
+  "description": "Workflow and multi-step form utilities for Rilay",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -15,11 +15,12 @@
     "clean": "rm -rf dist"
   },
   "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
-  "author": "Streamline Team",
-  "license": "MIT",
+  "author": "Rilay Team",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
   "dependencies": {
-    "@streamline/core": "workspace:*",
-    "@streamline/form-builder": "workspace:*",
+    "@rilay/core": "workspace:*",
+    "@rilay/form-builder": "workspace:*",
     "clsx": "^2.1.1"
   },
   "peerDependencies": {

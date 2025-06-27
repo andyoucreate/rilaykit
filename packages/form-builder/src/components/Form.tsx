@@ -1,4 +1,4 @@
-import type { FormConfiguration } from '@streamline/core';
+import type { FormConfiguration } from '@rilay/core';
 import { FormProvider } from './FormProvider';
 
 export interface FormProps {

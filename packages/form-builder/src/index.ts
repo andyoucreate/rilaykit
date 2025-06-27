@@ -20,8 +20,8 @@ export type {
   FormRowRendererProps,
   FormSubmitButtonRenderer,
   FormSubmitButtonRendererProps,
-  StreamlineConfig,
-} from '@streamline/core';
+  RilayConfig,
+} from '@rilay/core';
 
 // Component types
 export type { FormProps } from './components/Form';

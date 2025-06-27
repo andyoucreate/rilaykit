@@ -1,4 +1,4 @@
-import type { WorkflowNavigationRendererProps } from '@streamline/core';
+import type { WorkflowNavigationRendererProps } from '@rilay/core';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowNavigationProps {

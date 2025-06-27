@@ -1,5 +1,5 @@
-import type { StepConfig, StepRenderProps } from '@streamline/core';
-import { FormProvider } from '@streamline/form-builder';
+import type { StepConfig, StepRenderProps } from '@rilay/core';
+import { FormProvider } from '@rilay/form-builder';
 import React from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 

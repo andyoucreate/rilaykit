@@ -1,4 +1,5 @@
-import type { FormBodyRendererProps } from '@streamline/core';
+import type { FormBodyRendererProps } from '@rilay/core';
+import { useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 import FormRow from './FormRow';
 
@@ -18,7 +19,10 @@ export function FormBody({ className }: FormBodyProps) {
   }
 
   // Render all rows using FormRow component
-  const renderedRows = formConfig.rows.map((row) => <FormRow key={row.id} row={row} />);
+  const renderedRows = useMemo(
+    () => formConfig.rows.map((row) => <FormRow key={row.id} row={row} />),
+    [formConfig.rows]
+  );
 
   const bodyProps: FormBodyRendererProps = {
     formConfig,
