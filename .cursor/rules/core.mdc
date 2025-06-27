@@ -1,0 +1,200 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Core Coding Principles
+
+## 🎯 Philosophy
+These are the fundamental coding principles that guide all development in this project. Every code change should align with these core values.
+
+## 1. 🔄 DRY - Don't Repeat Yourself
+
+### Code Duplication Rules
+- **No duplicate logic**: If you write the same code twice, extract it into a function/component
+- **Share common types**: Use shared interfaces across packages via [packages/core/src/types/index.ts](mdc:packages/core/src/types/index.ts)
+- **Reusable utilities**: Create helper functions instead of copying logic
+- **Component reusability**: Build composable components that can be used in multiple contexts
+
+### DRY Implementation Strategies
+```typescript
+// ❌ BAD - Repeated validation logic
+const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const validateUserEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// ✅ GOOD - Single source of truth
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const validateEmail = (email: string) => EMAIL_REGEX.test(email);
+```
+
+### Configuration Centralization
+- **RilayConfig**: Single source for component configurations
+- **Type definitions**: Centralized in core package
+- **Validation patterns**: Shared validators via [packages/core/src/validation/validators.ts](mdc:packages/core/src/validation/validators.ts)
+
+## 2. 🚫 YAGNI - You Aren't Gonna Need It
+
+### Feature Development Rules
+- **Build for current needs**: Only implement features that are explicitly required
+- **No speculative coding**: Don't add "just in case" functionality  
+- **Simple solutions first**: Choose the simplest approach that works
+- **Incremental complexity**: Add complexity only when proven necessary
+
+### YAGNI Guidelines
+```typescript
+// ❌ BAD - Over-engineering for future needs
+interface UserConfig {
+  id: string;
+  settings: {
+    theme?: 'light' | 'dark' | 'auto' | 'custom';
+    customTheme?: ThemeConfig;
+    advancedOptions?: AdvancedConfig;
+    experimentalFeatures?: ExperimentalConfig;
+  };
+}
+
+// ✅ GOOD - Current requirements only
+interface UserConfig {
+  id: string;
+  theme: 'light' | 'dark';
+}
+```
+
+### Architecture Decisions
+- **Start simple**: Begin with basic implementations
+- **Refactor when needed**: Improve architecture when requirements change
+- **Avoid abstractions**: Don't create abstractions until you have 3+ similar cases
+- **Minimal APIs**: Expose only necessary methods/properties
+
+## 3. ✨ Aesthetic & Clear Code
+
+### Code Readability
+- **Self-documenting code**: Code should explain itself without comments
+- **Meaningful names**: Use descriptive variable and function names
+- **Consistent formatting**: Follow [biome.json](mdc:biome.json) configuration
+- **Logical structure**: Organize code in intuitive patterns
+
+### Naming Conventions
+```typescript
+// ❌ BAD - Unclear names
+const validateField = (f: any, d: any) => {
+  const r = f.validator(d.value, d.context);
+  return r.isValid;
+};
+
+// ✅ GOOD - Clear, descriptive names
+const validateFormField = (fieldConfig: FormFieldConfig, validationData: ValidationData) => {
+  const validationResult = fieldConfig.validator(
+    validationData.value, 
+    validationData.context
+  );
+  return validationResult.isValid;
+};
+```
+
+### Code Organization
+- **Logical grouping**: Group related functionality together
+- **Import order**: External libraries → internal packages → relative imports
+- **Type definitions first**: Interfaces before implementations
+- **Consistent indentation**: Use project settings for formatting
+
+### Function Design
+```typescript
+// ❌ BAD - Long, complex function
+const processFormData = (data: any, config: any, options: any) => {
+  // 50+ lines of mixed logic
+};
+
+// ✅ GOOD - Small, focused functions
+const validateFormData = (data: FormData, config: FormConfig) => { /* ... */ };
+const transformFormData = (data: FormData) => { /* ... */ };
+const submitFormData = (data: FormData, options: SubmitOptions) => { /* ... */ };
+
+const processFormData = (data: FormData, config: FormConfig, options: SubmitOptions) => {
+  const isValid = validateFormData(data, config);
+  if (!isValid) return { success: false };
+  
+  const transformedData = transformFormData(data);
+  return submitFormData(transformedData, options);
+};
+```
+
+## 🛠️ Implementation Guidelines
+
+### TypeScript Best Practices
+- **Strict typing**: Use specific types instead of `any`
+- **Interface over type**: Prefer interfaces for object shapes
+- **Readonly properties**: Use `readonly` for immutable data
+- **Generic constraints**: Use proper type constraints for generics
+
+### Component Development
+- **Single responsibility**: Each component should have one clear purpose
+- **Props interface**: Always define clear prop interfaces
+- **Default props**: Provide sensible defaults when possible
+- **Error boundaries**: Handle errors gracefully
+
+### State Management
+- **Immutable updates**: Never mutate state directly
+- **Minimal state**: Store only necessary data in state
+- **Derived state**: Calculate values instead of storing them
+- **Clear actions**: Use descriptive action types and creators
+
+## 📋 Code Review Checklist
+
+### Before Committing
+- [ ] **DRY**: No duplicate code or logic
+- [ ] **YAGNI**: Only necessary features implemented
+- [ ] **Readability**: Code is self-explanatory
+- [ ] **Types**: Proper TypeScript usage
+- [ ] **Tests**: Critical functionality tested
+- [ ] **Performance**: No obvious performance issues
+
+### Quality Indicators
+- **Functions < 20 lines**: Keep functions small and focused
+- **Files < 300 lines**: Split large files into modules
+- **Clear imports**: Easy to understand dependencies
+- **Consistent patterns**: Similar problems solved similarly
+
+## 🚨 Red Flags to Avoid
+
+### Code Smells
+- **Magic numbers**: Use named constants
+- **Long parameter lists**: Use configuration objects
+- **Deep nesting**: Flatten with early returns
+- **Commented code**: Remove unused code blocks
+- **God objects**: Break down large classes/components
+
+### Anti-Patterns
+```typescript
+// ❌ AVOID - Magic numbers and unclear logic
+if (user.age > 18 && user.status === 1 && checkPermission(user, 'admin')) {
+  // Complex logic here
+}
+
+// ✅ PREFER - Clear constants and readable conditions
+const MINIMUM_AGE = 18;
+const ACTIVE_STATUS = 1;
+const isEligibleUser = user.age >= MINIMUM_AGE && 
+                      user.status === ACTIVE_STATUS && 
+                      hasAdminPermissions(user);
+
+if (isEligibleUser) {
+  // Handle eligible user
+}
+```
+
+## 🎨 Aesthetic Guidelines
+
+### Visual Consistency
+- **Consistent spacing**: Follow formatting rules
+- **Logical ordering**: Import → types → components → logic
+- **Clear separation**: Use blank lines to separate concerns
+- **Aligned code**: Keep related code visually aligned
+
+### Code Beauty Principles
+- **Symmetry**: Balance in code structure
+- **Rhythm**: Consistent patterns throughout
+- **Clarity**: Obvious intent and flow
+- **Simplicity**: Elegant solutions over complex ones
+
+Remember: **Code is read far more often than it's written**. Prioritize clarity and maintainability over cleverness.
