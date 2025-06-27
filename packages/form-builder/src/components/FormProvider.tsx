@@ -198,13 +198,20 @@ export function FormProvider({
     (fieldId: string, value: any) => {
       dispatch({ type: 'SET_VALUE', fieldId, value });
 
+      // Clear existing errors when value changes
+      // This ensures errors are cleared when user corrects their input
+      if (formState.errors[fieldId] && formState.errors[fieldId].length > 0) {
+        dispatch({ type: 'CLEAR_ERROR', fieldId });
+        dispatch({ type: 'UPDATE_VALIDATION_STATE' });
+      }
+
       // Call field change callback
       if (onFieldChange) {
         const newValues = { ...formState.values, [fieldId]: value };
         onFieldChange(fieldId, value, newValues);
       }
     },
-    [formState.values, onFieldChange]
+    [formState.values, formState.errors, onFieldChange]
   );
 
   const validateField = useCallback(

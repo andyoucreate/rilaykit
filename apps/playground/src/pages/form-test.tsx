@@ -239,7 +239,7 @@ export default function FormTestPage() {
     firstName: z.string().min(1, 'First name is required'),
     lastName: z.string().min(1, 'Last name is required'),
     email: z.string().email('Invalid email address'),
-    age: z
+    age: z.coerce
       .number({
         invalid_type_error: 'Age must be a number',
         required_error: 'Age is required',
@@ -302,7 +302,6 @@ export default function FormTestPage() {
       },
       { validation: { validator: createZodValidator(formSchema.shape.bio) } }
     )
-    .setSchema(formSchema)
     .build();
 
   const handleSubmit = (data: Record<string, any>) => {

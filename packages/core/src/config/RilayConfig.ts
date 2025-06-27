@@ -163,13 +163,6 @@ export class RilayConfig {
   }
 
   /**
-   * @deprecated Use getFormRenderConfig() instead
-   */
-  getRenderConfig(): FormRenderConfig {
-    return this.getFormRenderConfig();
-  }
-
-  /**
    * @deprecated Use setFormRenderConfig() instead
    */
   setRenderConfig(config: FormRenderConfig): this {

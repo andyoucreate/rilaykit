@@ -15,7 +15,6 @@ import type {
 export class FormBuilder {
   private config: RilayConfig;
   private rows: FormFieldRow[] = [];
-  private schema: any = null;
   private formId: string;
   private rowCounter = 0;
 
@@ -145,16 +144,6 @@ export class FormBuilder {
   }
 
   /**
-   * Set validation schema for the entire form
-   * @param schema - Validation schema (Zod, Yup, or custom)
-   * @returns FormBuilder instance for chaining
-   */
-  setSchema(schema: any): this {
-    this.schema = schema;
-    return this;
-  }
-
-  /**
    * Set form ID
    * @param id - Form identifier
    * @returns FormBuilder instance for chaining
@@ -263,7 +252,6 @@ export class FormBuilder {
       ...row,
       fields: row.fields.map((field) => ({ ...field })),
     }));
-    cloned.schema = this.schema;
     cloned.rowCounter = this.rowCounter;
     return cloned;
   }
@@ -318,9 +306,8 @@ export class FormBuilder {
       id: this.formId,
       rows: [...this.rows],
       allFields: this.getFields(), // Liste plate pour compatibilité
-      schema: this.schema,
       config: this.config,
-      renderConfig: this.config.getRenderConfig(), // Inclure la configuration de rendu
+      renderConfig: this.config.getFormRenderConfig(), // Inclure la configuration de rendu
     };
   }
 
@@ -332,7 +319,6 @@ export class FormBuilder {
     return {
       id: this.formId,
       rows: this.rows,
-      schema: this.schema,
     };
   }
 
@@ -350,10 +336,6 @@ export class FormBuilder {
       this.rows = json.rows;
       // Update row counter
       this.rowCounter = this.rows.length;
-    }
-
-    if (json.schema) {
-      this.schema = json.schema;
     }
 
     return this;

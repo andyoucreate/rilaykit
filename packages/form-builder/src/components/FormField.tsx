@@ -41,22 +41,38 @@ export function FormField({
   // Handle field value change
   const handleChange = useCallback(
     (value: any) => {
+      const hadErrors = fieldErrors.length > 0;
       setValue(fieldConfig.id, value);
 
-      // Auto-validate on change if configured
-      if (fieldConfig.validation?.validateOnChange) {
+      // Auto-validate on change if:
+      // - Explicitly configured with validateOnChange
+      // - Field had errors (immediate feedback on correction)
+      // - Field is touched (user has interacted with it before)
+      if (
+        fieldConfig.validation?.validateOnChange ||
+        (hadErrors && fieldConfig.validation?.validator) ||
+        (isFieldTouched && fieldConfig.validation?.validator)
+      ) {
         validateField(fieldConfig.id, value);
       }
     },
-    [fieldConfig.id, fieldConfig.validation, setValue, validateField]
+    [
+      fieldConfig.id,
+      fieldConfig.validation,
+      setValue,
+      validateField,
+      fieldErrors.length,
+      isFieldTouched,
+    ]
   );
 
   // Handle field blur
   const handleBlur = useCallback(() => {
     markFieldTouched(fieldConfig.id);
 
-    // Auto-validate on blur if configured
-    if (fieldConfig.validation?.validateOnBlur) {
+    // Auto-validate on blur if configured OR if field has validation
+    // This ensures validation is triggered when user leaves the field
+    if (fieldConfig.validation?.validateOnBlur || fieldConfig.validation?.validator) {
       validateField(fieldConfig.id);
     }
   }, [fieldConfig.id, fieldConfig.validation, markFieldTouched, validateField]);
