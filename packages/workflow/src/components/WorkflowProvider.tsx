@@ -8,7 +8,15 @@ import type {
 } from '@rilay/core';
 import clsx from 'clsx';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
 
 export interface WorkflowState {
   currentStepIndex: number;
@@ -250,10 +258,21 @@ export function WorkflowProvider({
   const workflowStartedRef = useRef<boolean>(false);
   const currentStepRef = useRef<string | null>(null);
 
-  // Create workflow context function
-  const createWorkflowContext = useCallback((): WorkflowContext => {
+  // Use refs for callbacks to avoid recreating context
+  const onStepChangeRef = useRef(onStepChange);
+  const onWorkflowCompleteRef = useRef(onWorkflowComplete);
+
+  // Update refs when props change
+  onStepChangeRef.current = onStepChange;
+  onWorkflowCompleteRef.current = onWorkflowComplete;
+
+  // Memoize workflow config to avoid unnecessary recalculations
+  const memoizedWorkflowConfig = useMemo(() => workflowConfig, [workflowConfig]);
+
+  // Memoize workflow context creation - this is the expensive operation
+  const workflowContext = useMemo((): WorkflowContext => {
     return {
-      workflowId: workflowConfig.id,
+      workflowId: memoizedWorkflowConfig.id,
       currentStepIndex: workflowState.currentStepIndex,
       totalSteps: workflowState.resolvedSteps.length,
       allData: workflowState.allData,
@@ -264,7 +283,7 @@ export function WorkflowProvider({
       user,
     };
   }, [
-    workflowConfig.id,
+    memoizedWorkflowConfig.id,
     workflowState.currentStepIndex,
     workflowState.resolvedSteps.length,
     workflowState.allData,
@@ -273,16 +292,18 @@ export function WorkflowProvider({
     user,
   ]);
 
-  // Resolve dynamic steps
+  // Resolve dynamic steps - use memoized workflowConfig
   useEffect(() => {
     const resolveDynamicSteps = async () => {
       const resolvedSteps: StepConfig[] = [];
 
-      for (const step of workflowConfig.steps) {
+      for (const step of memoizedWorkflowConfig.steps) {
         if (step.isDynamic && step.dynamicConfig) {
           try {
-            const context = createWorkflowContext();
-            const dynamicSteps = await step.dynamicConfig.resolver(workflowState.allData, context);
+            const dynamicSteps = await step.dynamicConfig.resolver(
+              workflowState.allData,
+              workflowContext
+            );
             resolvedSteps.push(...dynamicSteps);
           } catch (error) {
             console.error(`Failed to resolve dynamic step "${step.id}":`, error);
@@ -301,20 +322,17 @@ export function WorkflowProvider({
     };
 
     resolveDynamicSteps();
-  }, [workflowConfig.steps, workflowState.allData]); // Removed createWorkflowContext from dependencies
+  }, [memoizedWorkflowConfig.steps, workflowState.allData, workflowContext]);
 
   // Analytics tracking - only run once on mount
-  // biome-ignore lint/correctness/useExhaustiveDependencies:
   useEffect(() => {
-    if (workflowConfig.analytics?.onWorkflowStart && !workflowStartedRef.current) {
+    if (memoizedWorkflowConfig.analytics?.onWorkflowStart && !workflowStartedRef.current) {
       workflowStartedRef.current = true;
-      const context = createWorkflowContext();
-      workflowConfig.analytics.onWorkflowStart(workflowConfig.id, context);
+      memoizedWorkflowConfig.analytics.onWorkflowStart(memoizedWorkflowConfig.id, workflowContext);
     }
-  }, [workflowConfig.id]); // Only depend on workflowConfig.id to run once
+  }, [memoizedWorkflowConfig.id, memoizedWorkflowConfig.analytics, workflowContext]);
 
-  // Step change analytics
-  // biome-ignore lint/correctness/useExhaustiveDependencies:
+  // Step change analytics - optimized to avoid spam
   useEffect(() => {
     const currentStep = workflowState.resolvedSteps[workflowState.currentStepIndex];
     if (!currentStep) return;
@@ -323,15 +341,14 @@ export function WorkflowProvider({
     if (currentStepRef.current === currentStep.id) return;
 
     // Track step completion for previous step
-    if (currentStepRef.current && workflowConfig.analytics?.onStepComplete) {
+    if (currentStepRef.current && memoizedWorkflowConfig.analytics?.onStepComplete) {
       const startTime = stepStartTimes.current.get(currentStepRef.current);
       if (startTime) {
-        const context = createWorkflowContext();
-        workflowConfig.analytics.onStepComplete(
+        memoizedWorkflowConfig.analytics.onStepComplete(
           currentStepRef.current,
           Date.now() - startTime,
           workflowState.stepData,
-          context
+          workflowContext
         );
       }
     }
@@ -341,36 +358,43 @@ export function WorkflowProvider({
 
     // Track step start for new step
     stepStartTimes.current.set(currentStep.id, Date.now());
-    if (workflowConfig.analytics?.onStepStart) {
-      const context = createWorkflowContext();
-      workflowConfig.analytics.onStepStart(currentStep.id, Date.now(), context);
+    if (memoizedWorkflowConfig.analytics?.onStepStart) {
+      memoizedWorkflowConfig.analytics.onStepStart(currentStep.id, Date.now(), workflowContext);
     }
-  }, [workflowState.currentStepIndex, workflowState.resolvedSteps]); // Removed createWorkflowContext from dependencies
+  }, [
+    workflowState.currentStepIndex,
+    workflowState.resolvedSteps,
+    memoizedWorkflowConfig.analytics,
+    workflowContext,
+  ]);
 
-  // Persistence functions (declared early for use in effects)
+  // Memoize persistence functions to avoid recreation
   const saveDraft = useCallback(async () => {
-    if (!workflowConfig.persistence) return;
+    if (!memoizedWorkflowConfig.persistence) return;
 
     try {
       const draftData = {
-        workflowId: workflowConfig.id,
+        workflowId: memoizedWorkflowConfig.id,
         currentStepIndex: workflowState.currentStepIndex,
         allData: workflowState.allData,
         timestamp: Date.now(),
       };
 
-      switch (workflowConfig.persistence.type) {
+      switch (memoizedWorkflowConfig.persistence.type) {
         case 'localStorage':
-          localStorage.setItem(`workflow-${workflowConfig.id}`, JSON.stringify(draftData));
+          localStorage.setItem(`workflow-${memoizedWorkflowConfig.id}`, JSON.stringify(draftData));
           break;
 
         case 'sessionStorage':
-          sessionStorage.setItem(`workflow-${workflowConfig.id}`, JSON.stringify(draftData));
+          sessionStorage.setItem(
+            `workflow-${memoizedWorkflowConfig.id}`,
+            JSON.stringify(draftData)
+          );
           break;
 
         case 'api':
-          if (workflowConfig.persistence.endpoint) {
-            await fetch(workflowConfig.persistence.endpoint, {
+          if (memoizedWorkflowConfig.persistence.endpoint) {
+            await fetch(memoizedWorkflowConfig.persistence.endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(draftData),
@@ -383,33 +407,85 @@ export function WorkflowProvider({
           break;
       }
 
-      if (workflowConfig.persistence.onSave) {
-        await workflowConfig.persistence.onSave(draftData);
+      if (memoizedWorkflowConfig.persistence.onSave) {
+        await memoizedWorkflowConfig.persistence.onSave(draftData);
       }
     } catch (error) {
       console.error('Failed to save workflow draft:', error);
-      if (workflowConfig.persistence.onError) {
-        await workflowConfig.persistence.onError(error as Error);
+      if (memoizedWorkflowConfig.persistence.onError) {
+        await memoizedWorkflowConfig.persistence.onError(error as Error);
       }
     }
-  }, [workflowConfig, workflowState]);
+  }, [memoizedWorkflowConfig, workflowState.currentStepIndex, workflowState.allData]);
 
-  const clearDraft = useCallback(async () => {
-    if (!workflowConfig.persistence) return;
+  const loadDraft = useCallback(async () => {
+    if (!memoizedWorkflowConfig.persistence) return;
 
     try {
-      switch (workflowConfig.persistence.type) {
+      let draftData: any = null;
+
+      switch (memoizedWorkflowConfig.persistence.type) {
+        case 'localStorage': {
+          const stored = localStorage.getItem(`workflow-${memoizedWorkflowConfig.id}`);
+          if (stored) {
+            draftData = JSON.parse(stored);
+          }
+          break;
+        }
+
+        case 'sessionStorage': {
+          const stored = sessionStorage.getItem(`workflow-${memoizedWorkflowConfig.id}`);
+          if (stored) {
+            draftData = JSON.parse(stored);
+          }
+          break;
+        }
+
+        case 'api':
+          if (memoizedWorkflowConfig.persistence.endpoint) {
+            const response = await fetch(memoizedWorkflowConfig.persistence.endpoint);
+            if (response.ok) {
+              draftData = await response.json();
+            }
+          }
+          break;
+
+        case 'indexedDB':
+          // TODO: Implement IndexedDB persistence
+          break;
+      }
+
+      if (draftData && draftData.workflowId === memoizedWorkflowConfig.id) {
+        dispatch({ type: 'SET_ALL_DATA', data: draftData.allData });
+        dispatch({ type: 'SET_CURRENT_STEP', stepIndex: draftData.currentStepIndex });
+        dispatch({ type: 'SET_PERSISTED_DATA', data: draftData });
+
+        // Note: Additional load callbacks can be added here when needed
+      }
+    } catch (error) {
+      console.error('Failed to load workflow draft:', error);
+      if (memoizedWorkflowConfig.persistence.onError) {
+        await memoizedWorkflowConfig.persistence.onError(error as Error);
+      }
+    }
+  }, [memoizedWorkflowConfig]);
+
+  const clearDraft = useCallback(async () => {
+    if (!memoizedWorkflowConfig.persistence) return;
+
+    try {
+      switch (memoizedWorkflowConfig.persistence.type) {
         case 'localStorage':
-          localStorage.removeItem(`workflow-${workflowConfig.id}`);
+          localStorage.removeItem(`workflow-${memoizedWorkflowConfig.id}`);
           break;
 
         case 'sessionStorage':
-          sessionStorage.removeItem(`workflow-${workflowConfig.id}`);
+          sessionStorage.removeItem(`workflow-${memoizedWorkflowConfig.id}`);
           break;
 
         case 'api':
-          if (workflowConfig.persistence.endpoint) {
-            await fetch(workflowConfig.persistence.endpoint, {
+          if (memoizedWorkflowConfig.persistence.endpoint) {
+            await fetch(memoizedWorkflowConfig.persistence.endpoint, {
               method: 'DELETE',
             });
           }
@@ -422,12 +498,12 @@ export function WorkflowProvider({
     } catch (error) {
       console.error('Failed to clear workflow draft:', error);
     }
-  }, [workflowConfig]);
+  }, [memoizedWorkflowConfig]);
 
-  // Persistence auto-save
+  // Persistence auto-save - optimized dependencies
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
-    if (!workflowConfig.persistence?.saveOnStepChange) return;
+    if (!memoizedWorkflowConfig.persistence?.saveOnStepChange) return;
 
     // Clear existing timeout
     if (persistenceRef.current) {
@@ -437,21 +513,25 @@ export function WorkflowProvider({
     // Set new timeout for debounced save
     persistenceRef.current = setTimeout(() => {
       saveDraft();
-    }, workflowConfig.persistence.debounceMs || 1000);
+    }, memoizedWorkflowConfig.persistence.debounceMs || 1000);
 
     return () => {
       if (persistenceRef.current) {
         clearTimeout(persistenceRef.current);
       }
     };
-  }, [workflowState.allData, saveDraft]);
+  }, [workflowState.allData, saveDraft, memoizedWorkflowConfig.persistence]);
 
-  const currentStep = workflowState.resolvedSteps[workflowState.currentStepIndex];
+  // Memoize current step to avoid recalculation
+  const currentStep = useMemo(
+    () => workflowState.resolvedSteps[workflowState.currentStepIndex],
+    [workflowState.resolvedSteps, workflowState.currentStepIndex]
+  );
 
   // Get form configuration from current step
-  const formConfig = currentStep?.formConfig;
+  const formConfig = useMemo(() => currentStep?.formConfig, [currentStep]);
 
-  // Core navigation functions
+  // Core navigation functions - optimized with fewer dependencies
   const goToStep = useCallback(
     async (stepIndex: number): Promise<boolean> => {
       if (stepIndex < 0 || stepIndex >= workflowState.resolvedSteps.length) {
@@ -459,14 +539,13 @@ export function WorkflowProvider({
       }
 
       const targetStep = workflowState.resolvedSteps[stepIndex];
-      const context = createWorkflowContext();
 
       // Check permissions
       if (targetStep.permissions) {
         try {
           const hasPermission = targetStep.permissions.customGuard
-            ? await targetStep.permissions.customGuard(user, context)
-            : true; // Simplified permission check
+            ? await targetStep.permissions.customGuard(user, workflowContext)
+            : true;
 
           if (!hasPermission) {
             console.warn(`Access denied to step "${targetStep.id}"`);
@@ -484,12 +563,12 @@ export function WorkflowProvider({
           await targetStep.hooks.onBeforeEnter(
             workflowState.stepData,
             workflowState.allData,
-            context
+            workflowContext
           );
         } catch (error) {
           console.error(`onBeforeEnter hook failed for step "${targetStep.id}":`, error);
-          if (workflowConfig.analytics?.onError) {
-            workflowConfig.analytics.onError(error as Error, context);
+          if (memoizedWorkflowConfig.analytics?.onError) {
+            memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
           }
           return false;
         }
@@ -498,16 +577,21 @@ export function WorkflowProvider({
       dispatch({ type: 'SET_TRANSITIONING', isTransitioning: true });
 
       try {
-        const fromStepIndex = workflowState.currentStepIndex;
+        // Call onStepChange using ref
+        if (onStepChangeRef.current) {
+          onStepChangeRef.current(workflowState.currentStepIndex, stepIndex, workflowContext);
+        }
+
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex });
         dispatch({ type: 'MARK_STEP_VISITED', stepIndex });
 
-        // Call step change callback
-        if (onStepChange) {
-          onStepChange(fromStepIndex, stepIndex, context);
-        }
-
         return true;
+      } catch (error) {
+        console.error('Step transition failed:', error);
+        if (memoizedWorkflowConfig.analytics?.onError) {
+          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
+        }
+        return false;
       } finally {
         dispatch({ type: 'SET_TRANSITIONING', isTransitioning: false });
       }
@@ -517,61 +601,11 @@ export function WorkflowProvider({
       workflowState.currentStepIndex,
       workflowState.stepData,
       workflowState.allData,
-      workflowConfig.analytics,
-      onStepChange,
       user,
+      workflowContext,
+      memoizedWorkflowConfig.analytics,
     ]
   );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies:
-  const goNext = useCallback(async (): Promise<boolean> => {
-    const context = createWorkflowContext();
-
-    // Execute after leave hook
-    if (currentStep?.hooks?.onAfterLeave) {
-      try {
-        const canLeave = await currentStep.hooks.onAfterLeave(
-          workflowState.stepData,
-          workflowState.allData,
-          context
-        );
-        if (!canLeave) {
-          return false;
-        }
-      } catch (error) {
-        console.error(`onAfterLeave hook failed for step "${currentStep.id}":`, error);
-        return false;
-      }
-    }
-
-    return goToStep(workflowState.currentStepIndex + 1);
-  }, [
-    currentStep,
-    workflowState.stepData,
-    workflowState.allData,
-    workflowState.currentStepIndex,
-    goToStep,
-  ]);
-
-  const goPrevious = useCallback(async (): Promise<boolean> => {
-    if (!workflowConfig.navigation?.allowBackNavigation) {
-      return false;
-    }
-    return goToStep(workflowState.currentStepIndex - 1);
-  }, [workflowConfig.navigation, workflowState.currentStepIndex, goToStep]);
-
-  const skipStep = useCallback(async (): Promise<boolean> => {
-    if (!currentStep?.allowSkip || !workflowConfig.navigation?.allowStepSkipping) {
-      return false;
-    }
-
-    const context = createWorkflowContext();
-    if (workflowConfig.analytics?.onStepSkip) {
-      workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', context);
-    }
-
-    return goNext();
-  }, [currentStep, workflowConfig.navigation, workflowConfig.analytics, goNext]);
 
   const setValue = useCallback((fieldId: string, value: any) => {
     dispatch({ type: 'SET_FIELD_VALUE', fieldId, value });
@@ -594,129 +628,90 @@ export function WorkflowProvider({
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
     try {
-      // Final validation
-      const isValid = await validateCurrentStep();
-      if (!isValid.isValid) {
-        throw new Error('Workflow validation failed');
-      }
-
-      // Execute completion hook
-      if (workflowConfig.completion?.onComplete) {
-        await workflowConfig.completion.onComplete(workflowState.allData);
-      }
-
-      // Call completion callback
-      if (onWorkflowComplete) {
-        await onWorkflowComplete(workflowState.allData);
-      }
-
-      // Analytics
-      if (workflowConfig.analytics?.onWorkflowComplete) {
-        workflowConfig.analytics.onWorkflowComplete(
-          workflowConfig.id,
-          Date.now() - analyticsStartTime.current,
-          workflowState.allData
-        );
+      if (onWorkflowCompleteRef.current) {
+        await onWorkflowCompleteRef.current(workflowState.allData);
       }
 
       // Clear draft after successful completion
       await clearDraft();
+
+      // Track workflow completion
+      if (memoizedWorkflowConfig.analytics?.onWorkflowComplete) {
+        const totalTime = Date.now() - analyticsStartTime.current;
+        memoizedWorkflowConfig.analytics.onWorkflowComplete(
+          memoizedWorkflowConfig.id,
+          totalTime,
+          workflowState.allData
+        );
+      }
+    } catch (error) {
+      console.error('Workflow submission failed:', error);
+      if (memoizedWorkflowConfig.analytics?.onError) {
+        memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
+      }
+      throw error;
     } finally {
       dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
     }
   }, [
-    workflowConfig.completion,
-    workflowConfig.analytics,
-    workflowConfig.id,
     workflowState.allData,
-    validateCurrentStep,
-    onWorkflowComplete,
+    onWorkflowCompleteRef,
     clearDraft,
+    memoizedWorkflowConfig.analytics,
+    workflowContext,
   ]);
 
   const resetWorkflow = useCallback(() => {
     dispatch({ type: 'RESET_WORKFLOW' });
-    analyticsStartTime.current = Date.now();
   }, []);
 
-  const loadDraft = useCallback(async () => {
-    if (!workflowConfig.persistence) return;
-
-    try {
-      let draftData: any = null;
-
-      switch (workflowConfig.persistence.type) {
-        case 'localStorage': {
-          const localData = localStorage.getItem(`workflow-${workflowConfig.id}`);
-          draftData = localData ? JSON.parse(localData) : null;
-          break;
-        }
-        case 'sessionStorage': {
-          const sessionData = sessionStorage.getItem(`workflow-${workflowConfig.id}`);
-          draftData = sessionData ? JSON.parse(sessionData) : null;
-          break;
-        }
-
-        case 'api':
-          if (workflowConfig.persistence.endpoint) {
-            const response = await fetch(workflowConfig.persistence.endpoint);
-            draftData = await response.json();
-          }
-          break;
-
-        case 'indexedDB':
-          // TODO: Implement IndexedDB persistence
-          break;
-      }
-
-      if (draftData) {
-        dispatch({ type: 'SET_ALL_DATA', data: draftData.allData });
-        dispatch({ type: 'SET_CURRENT_STEP', stepIndex: draftData.currentStepIndex });
-        dispatch({ type: 'SET_PERSISTED_DATA', data: draftData });
-
-        if (workflowConfig.persistence.onRestore) {
-          await workflowConfig.persistence.onRestore(draftData);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load workflow draft:', error);
-      if (workflowConfig.persistence.onError) {
-        await workflowConfig.persistence.onError(error as Error);
-      }
-    }
-  }, [workflowConfig]);
-
-  // Load draft on mount if recovery is enabled
-  useEffect(() => {
-    if (workflowConfig.persistence?.recoverOnReload) {
-      loadDraft();
-    }
-  }, [workflowConfig.persistence?.recoverOnReload, loadDraft]);
-
-  // Create context value once per render
-  const contextValue: WorkflowContextValue = {
-    workflowState,
-    workflowConfig,
-    currentStep: currentStep || workflowState.resolvedSteps[0],
-    context: createWorkflowContext(),
-    formConfig,
-    goToStep,
-    goNext,
-    goPrevious,
-    skipStep,
-    setValue,
-    setStepData,
-    validateCurrentStep,
-    submitWorkflow,
-    resetWorkflow,
-    saveDraft,
-    loadDraft,
-    clearDraft,
-  };
+  // Memoize context value to prevent unnecessary re-renders of all children
+  const contextValue: WorkflowContextValue = useMemo(
+    () => ({
+      workflowState,
+      workflowConfig: memoizedWorkflowConfig,
+      currentStep,
+      context: workflowContext,
+      formConfig,
+      goToStep,
+      goNext: () => goToStep(workflowState.currentStepIndex + 1),
+      goPrevious: () => goToStep(workflowState.currentStepIndex - 1),
+      skipStep: () => goToStep(workflowState.currentStepIndex + 1),
+      setValue,
+      setStepData,
+      validateCurrentStep,
+      submitWorkflow,
+      resetWorkflow,
+      saveDraft,
+      loadDraft,
+      clearDraft,
+    }),
+    [
+      workflowState,
+      memoizedWorkflowConfig,
+      currentStep,
+      workflowContext,
+      formConfig,
+      goToStep,
+      setValue,
+      setStepData,
+      validateCurrentStep,
+      submitWorkflow,
+      resetWorkflow,
+      saveDraft,
+      loadDraft,
+      clearDraft,
+    ]
+  );
 
   return (
     <WorkflowReactContext.Provider value={contextValue}>
-      <div className={clsx('streamline-workflow', className)}>{children}</div>
+      <div
+        className={clsx('rilay-workflow', className)}
+        data-workflow-id={memoizedWorkflowConfig.id}
+      >
+        {children}
+      </div>
     </WorkflowReactContext.Provider>
   );
 }

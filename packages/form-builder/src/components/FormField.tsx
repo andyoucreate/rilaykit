@@ -1,6 +1,6 @@
 import type { ComponentRenderProps } from '@rilay/core';
 import clsx from 'clsx';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 
 export interface FormFieldProps {
@@ -18,30 +18,49 @@ export function FormField({
 }: FormFieldProps) {
   const { formState, formConfig, setValue, markFieldTouched, validateField } = useFormContext();
 
-  // Get field configuration from context
-  const fieldConfig = formConfig.allFields.find((field) => field.id === fieldId);
+  // Memoize field config lookup to avoid repeated searches
+  const fieldConfig = useMemo(
+    () => formConfig.allFields.find((field) => field.id === fieldId),
+    [formConfig.allFields, fieldId]
+  );
 
   if (!fieldConfig) {
     throw new Error(`Field with ID "${fieldId}" not found in form configuration`);
   }
 
-  // Get component configuration
-  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId);
+  // Memoize component config lookup
+  const componentConfig = useMemo(
+    () => formConfig.config.getComponent(fieldConfig.componentId),
+    [formConfig.config, fieldConfig.componentId]
+  );
 
   if (!componentConfig) {
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }
 
-  const fieldValue = formState.values[fieldConfig.id];
-  const fieldErrors = formState.errors[fieldConfig.id] || [];
-  const fieldWarnings = formState.warnings[fieldConfig.id] || [];
-  const isFieldTouched = formState.touched.has(fieldConfig.id);
-  const isFieldValidating = formState.isValidating.has(fieldConfig.id);
+  // Memoize field state values that are referenced multiple times
+  const fieldState = useMemo(
+    () => ({
+      value: formState.values[fieldConfig.id],
+      errors: formState.errors[fieldConfig.id] || [],
+      warnings: formState.warnings[fieldConfig.id] || [],
+      touched: formState.touched.has(fieldConfig.id),
+      validating: formState.isValidating.has(fieldConfig.id),
+    }),
+    [
+      formState.values,
+      formState.errors,
+      formState.warnings,
+      formState.touched,
+      formState.isValidating,
+      fieldConfig.id,
+    ]
+  );
 
-  // Handle field value change
+  // Handle field value change - optimized dependencies
   const handleChange = useCallback(
     (value: any) => {
-      const hadErrors = fieldErrors.length > 0;
+      const hadErrors = fieldState.errors.length > 0;
       setValue(fieldConfig.id, value);
 
       // Auto-validate on change if:
@@ -51,7 +70,7 @@ export function FormField({
       if (
         fieldConfig.validation?.validateOnChange ||
         (hadErrors && fieldConfig.validation?.validator) ||
-        (isFieldTouched && fieldConfig.validation?.validator)
+        (fieldState.touched && fieldConfig.validation?.validator)
       ) {
         validateField(fieldConfig.id, value);
       }
@@ -61,24 +80,23 @@ export function FormField({
       fieldConfig.validation,
       setValue,
       validateField,
-      fieldErrors.length,
-      isFieldTouched,
+      fieldState.errors.length,
+      fieldState.touched,
     ]
   );
 
-  // Handle field blur
+  // Handle field blur - stable callback
   const handleBlur = useCallback(() => {
     markFieldTouched(fieldConfig.id);
 
     // Auto-validate on blur if configured OR if field has validation
-    // This ensures validation is triggered when user leaves the field
     if (fieldConfig.validation?.validateOnBlur || fieldConfig.validation?.validator) {
       validateField(fieldConfig.id);
     }
   }, [fieldConfig.id, fieldConfig.validation, markFieldTouched, validateField]);
 
-  // Check conditional logic
-  const shouldShow = React.useMemo(() => {
+  // Check conditional logic - memoized expensive calculation
+  const shouldShow = useMemo(() => {
     if (!fieldConfig.conditional) return true;
 
     try {
@@ -89,8 +107,8 @@ export function FormField({
     }
   }, [fieldConfig.conditional, formState.values, fieldConfig.id]);
 
-  // Apply conditional actions
-  const conditionalProps = React.useMemo(() => {
+  // Apply conditional actions - memoized calculation
+  const conditionalProps = useMemo(() => {
     if (!fieldConfig.conditional || !shouldShow) return {};
 
     const action = fieldConfig.conditional.action;
@@ -110,26 +128,45 @@ export function FormField({
     return null;
   }
 
-  // Prepare props for the component renderer
-  const mergedProps = {
-    ...componentConfig.defaultProps,
-    ...fieldConfig.props,
-    ...customProps,
-    ...conditionalProps,
-  };
+  // Memoize merged props to avoid recreating on every render
+  const mergedProps = useMemo(
+    () => ({
+      ...componentConfig.defaultProps,
+      ...fieldConfig.props,
+      ...customProps,
+      ...conditionalProps,
+    }),
+    [componentConfig.defaultProps, fieldConfig.props, customProps, conditionalProps]
+  );
 
-  const renderProps: ComponentRenderProps = {
-    id: fieldConfig.id,
-    props: mergedProps,
-    value: fieldValue,
-    onChange: handleChange,
-    onBlur: handleBlur,
-    error: fieldErrors,
-    warnings: fieldWarnings,
-    touched: isFieldTouched,
-    disabled: disabled || conditionalProps.disabled,
-    isValidating: isFieldValidating,
-  };
+  // Memoize render props to avoid recreating complex object
+  const renderProps: ComponentRenderProps = useMemo(
+    () => ({
+      id: fieldConfig.id,
+      props: mergedProps,
+      value: fieldState.value,
+      onChange: handleChange,
+      onBlur: handleBlur,
+      error: fieldState.errors,
+      warnings: fieldState.warnings,
+      touched: fieldState.touched,
+      disabled: disabled || conditionalProps.disabled,
+      isValidating: fieldState.validating,
+    }),
+    [
+      fieldConfig.id,
+      mergedProps,
+      fieldState.value,
+      handleChange,
+      handleBlur,
+      fieldState.errors,
+      fieldState.warnings,
+      fieldState.touched,
+      disabled,
+      conditionalProps.disabled,
+      fieldState.validating,
+    ]
+  );
 
   return (
     <div
@@ -142,4 +179,4 @@ export function FormField({
   );
 }
 
-export default FormField;
+export default React.memo(FormField);

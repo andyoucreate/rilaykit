@@ -1,6 +1,6 @@
 import type { FormConfiguration, ValidationError, ValidationResult } from '@rilay/core';
 import type React from 'react';
-import { createContext, useCallback, useContext, useReducer, useRef } from 'react';
+import { createContext, useCallback, useContext, useMemo, useReducer, useRef } from 'react';
 
 export interface FormState {
   values: Record<string, any>;
@@ -167,6 +167,15 @@ export function FormProvider({
 
   const validationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
+  // Use refs to avoid recreating callbacks when these change
+  const onSubmitRef = useRef(onSubmit);
+  const onFieldChangeRef = useRef(onFieldChange);
+
+  // Update refs when props change
+  onSubmitRef.current = onSubmit;
+  onFieldChangeRef.current = onFieldChange;
+
+  // Memoize basic actions that don't need dependencies
   const setError = useCallback((fieldId: string, errors: ValidationError[]) => {
     dispatch({ type: 'SET_ERROR', fieldId, errors });
     dispatch({ type: 'UPDATE_VALIDATION_STATE' });
@@ -193,29 +202,33 @@ export function FormProvider({
     dispatch({ type: 'SET_VALIDATING', fieldId, isValidating });
   }, []);
 
+  // Optimize setValue with minimal dependencies
   const setValue = useCallback(
     (fieldId: string, value: any) => {
       dispatch({ type: 'SET_VALUE', fieldId, value });
 
-      // Clear existing errors when value changes
-      // This ensures errors are cleared when user corrects their input
+      // Clear existing errors when value changes - check current errors state
       if (formState.errors[fieldId] && formState.errors[fieldId].length > 0) {
         dispatch({ type: 'CLEAR_ERROR', fieldId });
         dispatch({ type: 'UPDATE_VALIDATION_STATE' });
       }
 
-      // Call field change callback
-      if (onFieldChange) {
+      // Call field change callback using ref
+      if (onFieldChangeRef.current) {
+        // Get current values from formState at time of call
         const newValues = { ...formState.values, [fieldId]: value };
-        onFieldChange(fieldId, value, newValues);
+        onFieldChangeRef.current(fieldId, value, newValues);
       }
     },
-    [formState.values, formState.errors, onFieldChange]
+    [formState.errors, formState.values] // Minimal dependencies needed
   );
+
+  // Memoize formConfig reference to avoid unnecessary recalculations
+  const memoizedFormConfig = useMemo(() => formConfig, [formConfig]);
 
   const validateField = useCallback(
     async (fieldId: string, value?: any): Promise<ValidationResult> => {
-      const fieldConfig = formConfig.allFields.find((f) => f.id === fieldId);
+      const fieldConfig = memoizedFormConfig.allFields.find((f) => f.id === fieldId);
       if (!fieldConfig?.validation?.validator) {
         return { isValid: true, errors: [] };
       }
@@ -291,7 +304,7 @@ export function FormProvider({
       });
     },
     [
-      formConfig,
+      memoizedFormConfig,
       formState.values,
       formState.touched,
       formState.isDirty,
@@ -304,12 +317,12 @@ export function FormProvider({
   );
 
   const validateAllFields = useCallback(async (): Promise<boolean> => {
-    const validationPromises = formConfig.allFields.map((field) => validateField(field.id));
+    const validationPromises = memoizedFormConfig.allFields.map((field) => validateField(field.id));
 
     const results = await Promise.all(validationPromises);
 
     return results.every((result) => result.isValid);
-  }, [formConfig, validateField]);
+  }, [memoizedFormConfig, validateField]);
 
   const reset = useCallback((values?: Record<string, any>) => {
     dispatch({ type: 'RESET', values });
@@ -318,7 +331,7 @@ export function FormProvider({
   const submit = useCallback(
     async (event?: React.FormEvent): Promise<boolean> => {
       event?.preventDefault();
-      if (!onSubmit) return true;
+      if (!onSubmitRef.current) return true;
 
       dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
@@ -330,7 +343,7 @@ export function FormProvider({
           return false;
         }
 
-        await onSubmit(formState.values);
+        await onSubmitRef.current(formState.values);
         return true;
       } catch (error) {
         // Log any unexpected errors from onSubmit
@@ -340,24 +353,42 @@ export function FormProvider({
         dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
       }
     },
-    [onSubmit, formState.values, validateAllFields]
+    [formState.values, validateAllFields]
   );
 
-  const contextValue: FormContextValue = {
-    formState,
-    formConfig,
-    setValue,
-    setError,
-    setWarning,
-    clearError,
-    clearWarning,
-    markFieldTouched,
-    setFieldValidating,
-    validateField,
-    validateAllFields,
-    reset,
-    submit,
-  };
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue: FormContextValue = useMemo(
+    () => ({
+      formState,
+      formConfig: memoizedFormConfig,
+      setValue,
+      setError,
+      setWarning,
+      clearError,
+      clearWarning,
+      markFieldTouched,
+      setFieldValidating,
+      validateField,
+      validateAllFields,
+      reset,
+      submit,
+    }),
+    [
+      formState,
+      memoizedFormConfig,
+      setValue,
+      setError,
+      setWarning,
+      clearError,
+      clearWarning,
+      markFieldTouched,
+      setFieldValidating,
+      validateField,
+      validateAllFields,
+      reset,
+      submit,
+    ]
+  );
 
   return (
     <FormContext.Provider value={contextValue}>
