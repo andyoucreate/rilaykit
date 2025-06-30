@@ -1,4 +1,5 @@
 import type { WorkflowNavigationRendererProps } from '@rilay/core';
+import { useFormContext } from '@rilay/form-builder';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowNavigationProps {
@@ -10,12 +11,13 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
     workflowConfig,
     currentStep,
     context,
-    goNext,
     goPrevious,
     skipStep,
     submitWorkflow,
     workflowState,
   } = useWorkflowContext();
+
+  const { submit } = useFormContext();
 
   const navigationRenderer = workflowConfig.renderConfig?.navigationRenderer;
 
@@ -37,24 +39,40 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
     !workflowState.isTransitioning &&
     !workflowState.isSubmitting;
 
-  const handleNext = async () => {
+  const handleNext = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
     if (!canGoNext) return;
-    await goNext();
+
+    // Validate form before going to next step
+    await submit(event);
   };
 
-  const handlePrevious = async () => {
+  const handlePrevious = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
     if (!canGoPrevious) return;
     await goPrevious();
   };
 
-  const handleSkip = async () => {
+  const handleSkip = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
     if (!canSkip) return;
     await skipStep();
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
     if (!canGoNext) return;
-    await submitWorkflow();
+
+    // Validate form before final submission
+    const isFormValid = await submit(event);
+
+    if (isFormValid) {
+      await submitWorkflow();
+    }
   };
 
   const navigationProps: WorkflowNavigationRendererProps = {

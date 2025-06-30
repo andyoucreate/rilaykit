@@ -19,6 +19,11 @@ export function WorkflowStep({ step }: WorkflowStepProps) {
     submitWorkflow,
   } = useWorkflowContext();
 
+  // Get only the data for current step
+  const stepData = React.useMemo(() => {
+    return context.allData[step.id] || {};
+  }, [context.allData, step.id]);
+
   // Check if step should be rendered based on conditional logic
   const shouldShow = React.useMemo(() => {
     if (!step.conditional) return true;
@@ -82,9 +87,10 @@ export function WorkflowStep({ step }: WorkflowStepProps) {
 
   return (
     <FormProvider
+      key={step.id}
       formConfig={step.formConfig}
       onSubmit={handleNext}
-      defaultValues={context.allData}
+      defaultValues={stepData}
       onFieldChange={handleFieldChange}
     >
       {stepRenderer(stepRenderProps)}

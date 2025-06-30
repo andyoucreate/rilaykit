@@ -26,7 +26,7 @@ export interface FormContextValue {
   validateField: (fieldId: string, value?: any) => Promise<ValidationResult>;
   validateAllFields: () => Promise<boolean>;
   reset: (values?: Record<string, any>) => void;
-  submit: () => Promise<void>;
+  submit: (event?: React.FormEvent) => Promise<boolean>;
 }
 
 type FormAction =
@@ -152,7 +152,6 @@ export function FormProvider({
   onFieldChange,
   className,
 }: FormProviderProps) {
-  console.log(formConfig.renderConfig);
   const initialState: FormState = {
     values: defaultValues,
     errors: {},
@@ -316,27 +315,33 @@ export function FormProvider({
     dispatch({ type: 'RESET', values });
   }, []);
 
-  const submit = useCallback(async () => {
-    if (!onSubmit) return;
+  const submit = useCallback(
+    async (event?: React.FormEvent): Promise<boolean> => {
+      event?.preventDefault();
+      if (!onSubmit) return true;
 
-    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
-    try {
-      // Validate all fields before submission
-      const isValid = await validateAllFields();
+      try {
+        // Validate all fields before submission
+        const isValid = await validateAllFields();
 
-      if (!isValid) {
-        return;
+        if (!isValid) {
+          return false;
+        }
+
+        await onSubmit(formState.values);
+        return true;
+      } catch (error) {
+        // Log any unexpected errors from onSubmit
+        console.error('Error during form submission:', error);
+        return false;
+      } finally {
+        dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
       }
-
-      await onSubmit(formState.values);
-    } catch (error) {
-      // Log any unexpected errors from onSubmit
-      console.error('Error during form submission:', error);
-    } finally {
-      dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
-    }
-  }, [onSubmit, formState.values, validateAllFields]);
+    },
+    [onSubmit, formState.values, validateAllFields]
+  );
 
   const contextValue: FormContextValue = {
     formState,
@@ -354,14 +359,9 @@ export function FormProvider({
     submit,
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submit();
-  };
-
   return (
     <FormContext.Provider value={contextValue}>
-      <form onSubmit={handleSubmit} className={className} noValidate>
+      <form onSubmit={submit} className={className} noValidate>
         {children}
       </form>
     </FormContext.Provider>

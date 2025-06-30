@@ -247,6 +247,8 @@ export function WorkflowProvider({
   const persistenceRef = useRef<NodeJS.Timeout | null>(null);
   const analyticsStartTime = useRef<number>(Date.now());
   const stepStartTimes = useRef<Map<string, number>>(new Map());
+  const workflowStartedRef = useRef<boolean>(false);
+  const currentStepRef = useRef<string | null>(null);
 
   // Create workflow context function
   const createWorkflowContext = useCallback((): WorkflowContext => {
@@ -261,7 +263,15 @@ export function WorkflowProvider({
       visitedSteps: workflowState.visitedSteps,
       user,
     };
-  }, [workflowConfig.id, workflowState, user]);
+  }, [
+    workflowConfig.id,
+    workflowState.currentStepIndex,
+    workflowState.resolvedSteps.length,
+    workflowState.allData,
+    workflowState.stepData,
+    workflowState.visitedSteps,
+    user,
+  ]);
 
   // Resolve dynamic steps
   useEffect(() => {
@@ -271,10 +281,8 @@ export function WorkflowProvider({
       for (const step of workflowConfig.steps) {
         if (step.isDynamic && step.dynamicConfig) {
           try {
-            const dynamicSteps = await step.dynamicConfig.resolver(
-              workflowState.allData,
-              createWorkflowContext()
-            );
+            const context = createWorkflowContext();
+            const dynamicSteps = await step.dynamicConfig.resolver(workflowState.allData, context);
             resolvedSteps.push(...dynamicSteps);
           } catch (error) {
             console.error(`Failed to resolve dynamic step "${step.id}":`, error);
@@ -293,45 +301,51 @@ export function WorkflowProvider({
     };
 
     resolveDynamicSteps();
-  }, [workflowConfig.steps, workflowState.allData, createWorkflowContext]);
+  }, [workflowConfig.steps, workflowState.allData]); // Removed createWorkflowContext from dependencies
 
-  // Analytics tracking
+  // Analytics tracking - only run once on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies:
   useEffect(() => {
-    if (workflowConfig.analytics?.onWorkflowStart) {
-      workflowConfig.analytics.onWorkflowStart(workflowConfig.id, createWorkflowContext());
+    if (workflowConfig.analytics?.onWorkflowStart && !workflowStartedRef.current) {
+      workflowStartedRef.current = true;
+      const context = createWorkflowContext();
+      workflowConfig.analytics.onWorkflowStart(workflowConfig.id, context);
     }
-  }, [workflowConfig, createWorkflowContext]);
+  }, [workflowConfig.id]); // Only depend on workflowConfig.id to run once
 
   // Step change analytics
+  // biome-ignore lint/correctness/useExhaustiveDependencies:
   useEffect(() => {
     const currentStep = workflowState.resolvedSteps[workflowState.currentStepIndex];
     if (!currentStep) return;
 
-    // Track step start
-    stepStartTimes.current.set(currentStep.id, Date.now());
-    if (workflowConfig.analytics?.onStepStart) {
-      workflowConfig.analytics.onStepStart(currentStep.id, Date.now(), createWorkflowContext());
-    }
+    // Only trigger if step actually changed
+    if (currentStepRef.current === currentStep.id) return;
 
-    return () => {
-      // Track step completion when leaving
-      const startTime = stepStartTimes.current.get(currentStep.id);
-      if (startTime && workflowConfig.analytics?.onStepComplete) {
+    // Track step completion for previous step
+    if (currentStepRef.current && workflowConfig.analytics?.onStepComplete) {
+      const startTime = stepStartTimes.current.get(currentStepRef.current);
+      if (startTime) {
+        const context = createWorkflowContext();
         workflowConfig.analytics.onStepComplete(
-          currentStep.id,
+          currentStepRef.current,
           Date.now() - startTime,
           workflowState.stepData,
-          createWorkflowContext()
+          context
         );
       }
-    };
-  }, [
-    workflowState.currentStepIndex,
-    workflowState.resolvedSteps,
-    workflowConfig,
-    workflowState.stepData,
-    createWorkflowContext,
-  ]);
+    }
+
+    // Update current step reference
+    currentStepRef.current = currentStep.id;
+
+    // Track step start for new step
+    stepStartTimes.current.set(currentStep.id, Date.now());
+    if (workflowConfig.analytics?.onStepStart) {
+      const context = createWorkflowContext();
+      workflowConfig.analytics.onStepStart(currentStep.id, Date.now(), context);
+    }
+  }, [workflowState.currentStepIndex, workflowState.resolvedSteps]); // Removed createWorkflowContext from dependencies
 
   // Persistence functions (declared early for use in effects)
   const saveDraft = useCallback(async () => {
@@ -438,7 +452,6 @@ export function WorkflowProvider({
   const formConfig = currentStep?.formConfig;
 
   // Core navigation functions
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const goToStep = useCallback(
     async (stepIndex: number): Promise<boolean> => {
       if (stepIndex < 0 || stepIndex >= workflowState.resolvedSteps.length) {
@@ -499,9 +512,18 @@ export function WorkflowProvider({
         dispatch({ type: 'SET_TRANSITIONING', isTransitioning: false });
       }
     },
-    [workflowState, createWorkflowContext, onStepChange, user]
+    [
+      workflowState.resolvedSteps,
+      workflowState.currentStepIndex,
+      workflowState.stepData,
+      workflowState.allData,
+      workflowConfig.analytics,
+      onStepChange,
+      user,
+    ]
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies:
   const goNext = useCallback(async (): Promise<boolean> => {
     const context = createWorkflowContext();
 
@@ -523,7 +545,13 @@ export function WorkflowProvider({
     }
 
     return goToStep(workflowState.currentStepIndex + 1);
-  }, [currentStep, workflowState, goToStep, createWorkflowContext]);
+  }, [
+    currentStep,
+    workflowState.stepData,
+    workflowState.allData,
+    workflowState.currentStepIndex,
+    goToStep,
+  ]);
 
   const goPrevious = useCallback(async (): Promise<boolean> => {
     if (!workflowConfig.navigation?.allowBackNavigation) {
@@ -543,7 +571,7 @@ export function WorkflowProvider({
     }
 
     return goNext();
-  }, [currentStep, workflowConfig, createWorkflowContext, goNext]);
+  }, [currentStep, workflowConfig.navigation, workflowConfig.analytics, goNext]);
 
   const setValue = useCallback((fieldId: string, value: any) => {
     dispatch({ type: 'SET_FIELD_VALUE', fieldId, value });
@@ -566,8 +594,6 @@ export function WorkflowProvider({
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
     try {
-      const _context = createWorkflowContext();
-
       // Final validation
       const isValid = await validateCurrentStep();
       if (!isValid.isValid) {
@@ -599,9 +625,10 @@ export function WorkflowProvider({
       dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
     }
   }, [
-    workflowConfig,
-    workflowState,
-    createWorkflowContext,
+    workflowConfig.completion,
+    workflowConfig.analytics,
+    workflowConfig.id,
+    workflowState.allData,
     validateCurrentStep,
     onWorkflowComplete,
     clearDraft,
@@ -666,6 +693,7 @@ export function WorkflowProvider({
     }
   }, [workflowConfig.persistence?.recoverOnReload, loadDraft]);
 
+  // Create context value once per render
   const contextValue: WorkflowContextValue = {
     workflowState,
     workflowConfig,

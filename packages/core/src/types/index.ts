@@ -353,10 +353,10 @@ export interface WorkflowNavigationRendererProps {
   readonly canGoPrevious: boolean;
   readonly canSkip: boolean;
   readonly isSubmitting: boolean;
-  readonly onNext: () => void;
-  readonly onPrevious: () => void;
-  readonly onSkip: () => void;
-  readonly onSubmit: () => void;
+  readonly onNext: (event?: React.FormEvent) => void;
+  readonly onPrevious: (event?: React.FormEvent) => void;
+  readonly onSkip: (event?: React.FormEvent) => void;
+  readonly onSubmit: (event?: React.FormEvent) => void;
   readonly className?: string;
 }
 
