@@ -8,21 +8,19 @@ import {
   type FormSubmitButtonRenderer,
   type FormSubmitButtonRendererProps,
   RilayConfig,
-  type StepRenderer,
   type WorkflowNavigationRenderer,
   type WorkflowNavigationRendererProps,
   type WorkflowStepperRenderer,
   type WorkflowStepperRendererProps,
   createZodValidator,
 } from '@rilay/core';
-import { FormBody, FormBuilder } from '@rilay/form-builder';
+import { FormBuilder } from '@rilay/form-builder';
 import {
+  Workflow,
+  WorkflowBody,
   WorkflowBuilder,
   WorkflowNavigation,
-  WorkflowProvider,
-  WorkflowStep,
   WorkflowStepper,
-  useWorkflowContext,
 } from '@rilay/workflow';
 import Link from 'next/link';
 import type React from 'react';
@@ -263,31 +261,6 @@ const workflowNavigationRenderer: WorkflowNavigationRenderer = (
   </div>
 );
 
-function WorkflowContent() {
-  const { currentStep, formConfig } = useWorkflowContext();
-
-  if (!formConfig) {
-    return <div>Loading step...</div>;
-  }
-
-  return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentStep.title}</h2>
-      {currentStep.description && <p className="text-gray-600 mb-6">{currentStep.description}</p>}
-
-      <WorkflowStep step={currentStep} />
-    </div>
-  );
-}
-
-const workflowStepRenderer: StepRenderer = (): React.ReactElement => (
-  <>
-    <WorkflowStepper />
-    <FormBody />
-    <WorkflowNavigation />
-  </>
-);
-
 export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
@@ -329,8 +302,7 @@ export default function WorkflowTestPage() {
     .setBodyRenderer(formBodyRenderer)
     .setSubmitButtonRenderer(formSubmitButtonRenderer)
     .setStepperRenderer(workflowStepperRenderer)
-    .setWorkflowNavigationRenderer(workflowNavigationRenderer)
-    .setStepRenderer(workflowStepRenderer);
+    .setWorkflowNavigationRenderer(workflowNavigationRenderer);
 
   // Define validation schemas
   const personalInfoSchema = z.object({
@@ -523,14 +495,17 @@ export default function WorkflowTestPage() {
       </p>
 
       <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-sm">
-        <WorkflowProvider
+        <Workflow
           workflowConfig={workflowConfig}
           onWorkflowComplete={handleWorkflowComplete}
           onStepChange={handleStepChange}
           defaultValues={{}}
+          user={{ name: 'Test User' }}
         >
-          <WorkflowContent />
-        </WorkflowProvider>
+          <WorkflowStepper />
+          <WorkflowBody />
+          <WorkflowNavigation />
+        </Workflow>
       </div>
 
       <div className="mt-8 p-6 bg-purple-50 border border-purple-200 rounded-lg">

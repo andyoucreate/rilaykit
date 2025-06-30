@@ -7,7 +7,6 @@ import type {
   FormSubmitButtonRenderer,
   InputType,
   LayoutType,
-  StepRenderer,
   WorkflowNavigationRenderer,
   WorkflowRenderConfig,
   WorkflowStepperRenderer,
@@ -103,19 +102,6 @@ export class RilayConfig {
    */
   getFormRenderConfig(): FormRenderConfig {
     return { ...this.formRenderConfig };
-  }
-
-  /**
-   * Set custom step renderer for workflows
-   * @param renderer - Custom step renderer function
-   * @returns The RilayConfig instance for chaining
-   */
-  setStepRenderer(renderer: StepRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      stepRenderer: renderer,
-    };
-    return this;
   }
 
   /**
@@ -273,7 +259,6 @@ export class RilayConfig {
       body: boolean;
       submitButton: boolean;
       // Workflow renderers
-      step: boolean;
       stepper: boolean;
       workflowNavigation: boolean;
     };
@@ -310,7 +295,6 @@ export class RilayConfig {
         body: Boolean(this.formRenderConfig.bodyRenderer),
         submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
         // Workflow renderers
-        step: Boolean(this.workflowRenderConfig.stepRenderer),
         stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
         workflowNavigation: Boolean(this.workflowRenderConfig.navigationRenderer),
       },

@@ -16,7 +16,6 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
     submitWorkflow,
     workflowState,
   } = useWorkflowContext();
-
   const { submit } = useFormContext();
 
   const navigationRenderer = workflowConfig.renderConfig?.navigationRenderer;
@@ -34,45 +33,35 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
     !workflowState.isTransitioning &&
     !workflowState.isSubmitting;
   const canSkip =
-    Boolean(currentStep.allowSkip) &&
+    Boolean(currentStep?.allowSkip) &&
     workflowConfig.navigation?.allowStepSkipping !== false &&
     !workflowState.isTransitioning &&
     !workflowState.isSubmitting;
 
   const handleNext = async (event?: React.FormEvent) => {
     event?.preventDefault();
-
     if (!canGoNext) return;
-
-    // Validate form before going to next step
     await submit(event);
   };
 
   const handlePrevious = async (event?: React.FormEvent) => {
     event?.preventDefault();
-
     if (!canGoPrevious) return;
+
     await goPrevious();
   };
 
   const handleSkip = async (event?: React.FormEvent) => {
     event?.preventDefault();
-
     if (!canSkip) return;
+
     await skipStep();
   };
 
   const handleSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
-
     if (!canGoNext) return;
-
-    // Validate form before final submission
-    const isFormValid = await submit(event);
-
-    if (isFormValid) {
-      await submitWorkflow();
-    }
+    await submitWorkflow();
   };
 
   const navigationProps: WorkflowNavigationRendererProps = {
@@ -84,7 +73,7 @@ export function WorkflowNavigation({ className }: WorkflowNavigationProps) {
     isSubmitting: workflowState.isSubmitting,
     onNext: handleNext,
     onPrevious: handlePrevious,
-    onSkip: handleSkip,
+    onSkip: canSkip ? handleSkip : (e) => e?.preventDefault(),
     onSubmit: handleSubmit,
     className,
   };

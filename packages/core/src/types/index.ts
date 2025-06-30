@@ -193,7 +193,6 @@ export interface StepConfig {
   readonly formConfig: FormConfiguration; // Complete form configuration for this step
   readonly validation?: StepValidationConfig;
   readonly conditional?: StepConditionalConfig;
-  readonly customRenderer?: StepRenderer;
   readonly allowSkip?: boolean;
   readonly requiredToComplete?: boolean;
   readonly hooks?: StepLifecycleHooks;
@@ -367,7 +366,6 @@ export type WorkflowNavigationRenderer = (
 
 // Workflow Render Configuration
 export interface WorkflowRenderConfig {
-  readonly stepRenderer?: StepRenderer;
   readonly stepperRenderer?: WorkflowStepperRenderer;
   readonly navigationRenderer?: WorkflowNavigationRenderer;
 }

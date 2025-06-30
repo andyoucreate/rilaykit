@@ -6,6 +6,7 @@ import type {
   WorkflowConfig,
   WorkflowContext,
 } from '@rilay/core';
+import { FormProvider } from '@rilay/form-builder';
 import clsx from 'clsx';
 import type React from 'react';
 import {
@@ -333,6 +334,7 @@ export function WorkflowProvider({
   }, [memoizedWorkflowConfig.id, memoizedWorkflowConfig.analytics, workflowContext]);
 
   // Step change analytics - optimized to avoid spam
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     const currentStep = workflowState.resolvedSteps[workflowState.currentStepIndex];
     if (!currentStep) return;
@@ -624,6 +626,38 @@ export function WorkflowProvider({
     return { isValid: true, errors: [] };
   }, [currentStep]);
 
+  const goNext = useCallback(async (): Promise<boolean> => {
+    return goToStep(workflowState.currentStepIndex + 1);
+  }, [goToStep, workflowState.currentStepIndex]);
+
+  const goPrevious = useCallback(async (): Promise<boolean> => {
+    if (!memoizedWorkflowConfig.navigation?.allowBackNavigation) {
+      return false;
+    }
+    return goToStep(workflowState.currentStepIndex - 1);
+  }, [memoizedWorkflowConfig.navigation, workflowState.currentStepIndex, goToStep]);
+
+  const skipStep = useCallback(async (): Promise<boolean> => {
+    if (!currentStep?.allowSkip || !memoizedWorkflowConfig.navigation?.allowStepSkipping) {
+      return false;
+    }
+
+    if (memoizedWorkflowConfig.analytics?.onStepSkip) {
+      memoizedWorkflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
+    }
+
+    // Skipping does not trigger validation, so we call goToStep directly
+    return goToStep(workflowState.currentStepIndex + 1);
+  }, [
+    currentStep,
+    memoizedWorkflowConfig.navigation,
+    memoizedWorkflowConfig.analytics,
+    workflowContext,
+    goToStep,
+    workflowState.currentStepIndex,
+  ]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const submitWorkflow = useCallback(async () => {
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
@@ -674,9 +708,9 @@ export function WorkflowProvider({
       context: workflowContext,
       formConfig,
       goToStep,
-      goNext: () => goToStep(workflowState.currentStepIndex + 1),
-      goPrevious: () => goToStep(workflowState.currentStepIndex - 1),
-      skipStep: () => goToStep(workflowState.currentStepIndex + 1),
+      goNext,
+      goPrevious,
+      skipStep,
       setValue,
       setStepData,
       validateCurrentStep,
@@ -693,6 +727,9 @@ export function WorkflowProvider({
       workflowContext,
       formConfig,
       goToStep,
+      goNext,
+      goPrevious,
+      skipStep,
       setValue,
       setStepData,
       validateCurrentStep,
@@ -704,14 +741,23 @@ export function WorkflowProvider({
     ]
   );
 
+  const handleSubmit = useCallback(async () => {
+    await goNext();
+  }, [goNext]);
+
   return (
     <WorkflowReactContext.Provider value={contextValue}>
-      <div
-        className={clsx('rilay-workflow', className)}
+      <FormProvider
+        key={currentStep?.id}
+        formConfig={currentStep?.formConfig}
+        defaultValues={workflowState?.allData[currentStep?.id] || {}}
+        onFieldChange={setValue}
         data-workflow-id={memoizedWorkflowConfig.id}
+        className={clsx('rilay-workflow', className)}
+        onSubmit={handleSubmit}
       >
         {children}
-      </div>
+      </FormProvider>
     </WorkflowReactContext.Provider>
   );
 }
