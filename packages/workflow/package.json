@@ -4,10 +4,12 @@
   "description": "Workflow and multi-step form utilities for Rilay",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
@@ -16,14 +18,19 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
+  "keywords": [
+    "react",
+    "workflow",
+    "multi-step",
+    "forms",
+    "typescript"
+  ],
   "author": "Rilay Team",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "dependencies": {
     "@rilay/core": "workspace:*",
-    "@rilay/form-builder": "workspace:*",
-    "clsx": "^2.1.1"
+    "@rilay/form-builder": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

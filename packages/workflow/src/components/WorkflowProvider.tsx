@@ -7,7 +7,6 @@ import type {
   WorkflowContext,
 } from '@rilay/core';
 import { FormProvider } from '@rilay/form-builder';
-import clsx from 'clsx';
 import type React from 'react';
 import {
   createContext,
@@ -753,7 +752,7 @@ export function WorkflowProvider({
         defaultValues={workflowState?.allData[currentStep?.id] || {}}
         onFieldChange={setValue}
         data-workflow-id={memoizedWorkflowConfig.id}
-        className={clsx('rilay-workflow', className)}
+        className={className}
         onSubmit={handleSubmit}
       >
         {children}

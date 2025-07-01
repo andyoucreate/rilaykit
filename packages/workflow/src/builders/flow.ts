@@ -15,6 +15,7 @@ import type {
   WorkflowVersion,
   ril,
 } from '@rilay/core';
+import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
 /**
  * Workflow builder class for creating complex multi-step workflows
@@ -40,6 +41,8 @@ export class flow {
     this.workflowId = workflowId;
     this.workflowName = workflowName;
     this.workflowDescription = description;
+
+    RilayLicenseManager.logLicenseStatus();
   }
 
   static create(config: ril, workflowId: string, workflowName: string, description?: string): flow {

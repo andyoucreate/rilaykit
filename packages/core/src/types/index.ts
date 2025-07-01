@@ -1,6 +1,13 @@
 import type React from 'react';
 import type { ril } from '../config/ril';
 
+// License types
+export interface RilayLicenseConfig {
+  readonly licenseKey?: string;
+  readonly environment?: 'development' | 'production';
+  readonly allowTrial?: boolean;
+}
+
 // Component types
 export type ComponentType = 'input' | 'layout';
 export type InputType =

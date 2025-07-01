@@ -5,17 +5,8 @@
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
+    "sourceMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.*", "**/*.spec.*"],
-  "references": [
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../form-builder"
-    }
-  ]
+  "exclude": ["node_modules", "dist", "**/*.test.*", "**/*.spec.*"]
 }
