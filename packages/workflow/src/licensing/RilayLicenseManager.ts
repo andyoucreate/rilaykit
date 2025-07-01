@@ -1,8 +1,14 @@
-import type { LicensePayload, LicenseResult } from './types';
+import * as ed25519 from '@noble/ed25519';
+import type { CompressedLicensePayload, LicensePayload, LicenseResult } from './types';
 
 // Current @rilay/workflow version release date - Update this with each release
 const RELEASE_DATE = 1751361139160;
+const ED25519_PUBLIC_KEY = 'your-ed25519-public-key-here';
 
+/**
+ * Enhanced Rilay License Manager with Ed25519 cryptographic validation
+ * Uses @noble/ed25519 for secure and fast signature verification
+ */
 // biome-ignore lint/complexity/noStaticOnlyClass: Singleton license manager
 export class RilayLicenseManager {
   private static licenseKey = '';
@@ -10,80 +16,167 @@ export class RilayLicenseManager {
   private static isInitialized = false;
 
   /**
-   * Initialize with a license key
+   * Initialize with a license key and Ed25519 public key
    */
-  static setLicenseKey(licenseKey?: string): void {
+  static async setLicenseKey(licenseKey?: string): Promise<void> {
     RilayLicenseManager.licenseKey = licenseKey || '';
-    RilayLicenseManager.licenseResult = RilayLicenseManager.validateLicense();
+
+    if (RilayLicenseManager.licenseKey) {
+      RilayLicenseManager.licenseResult = await RilayLicenseManager.validateLicense();
+    } else {
+      RilayLicenseManager.licenseResult = { valid: false, error: 'MISSING' };
+    }
+
     RilayLicenseManager.isInitialized = true;
   }
 
   /**
-   * Simple JWT validation
+   * Validate license using Ed25519 signature verification
    */
-  private static validateLicense(): LicenseResult {
+  private static async validateLicense(): Promise<LicenseResult> {
     if (!RilayLicenseManager.licenseKey) {
       return { valid: false, error: 'MISSING' };
     }
 
     try {
-      // Basic JWT format check
-      const parts = RilayLicenseManager.licenseKey.split('.');
+      // 1. Format validation
+      if (!RilayLicenseManager.validateFormat(RilayLicenseManager.licenseKey)) {
+        return { valid: false, error: 'FORMAT_INVALID' };
+      }
+
+      // 2. Extract components
+      const decoded = RilayLicenseManager.base64UrlDecode(RilayLicenseManager.licenseKey.slice(4));
+      const parts = decoded.split('.');
+
       if (parts.length !== 3) {
-        return { valid: false, error: 'INVALID' };
+        return { valid: false, error: 'FORMAT_INVALID' };
       }
 
-      // Decode payload
-      const payload = RilayLicenseManager.decodeJWTPart(parts[1]) as LicensePayload;
-      if (!payload) {
-        return { valid: false, error: 'INVALID' };
+      const [headerStr, payloadStr, signature] = parts;
+
+      // 3. Verify signature using @noble/ed25519
+      const message = `${headerStr}.${payloadStr}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signatureBytes = RilayLicenseManager.hexToBytes(signature);
+      const publicKeyBytes = RilayLicenseManager.hexToBytes(ED25519_PUBLIC_KEY);
+
+      const isValid = await ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
+
+      if (!isValid) {
+        return { valid: false, error: 'SIGNATURE_INVALID' };
       }
 
-      // Basic payload validation
-      if (!payload.plan || !payload.company || !payload.expiry || !payload.iat) {
-        return { valid: false, error: 'INVALID' };
+      // 4. Validate payload
+      const compressedPayload = JSON.parse(
+        RilayLicenseManager.base64UrlDecode(payloadStr)
+      ) as CompressedLicensePayload;
+      const validationResult = RilayLicenseManager.validatePayload(compressedPayload);
+
+      if (!validationResult.valid) {
+        return validationResult;
       }
 
-      // Basic signature validation (simplified for synchronous operation)
-      if (!RilayLicenseManager.validateSignatureFormat(parts[2])) {
-        return { valid: false, error: 'INVALID' };
-      }
-
-      // Check expiration
-      if (Date.now() > payload.expiry) {
-        return { valid: false, error: 'EXPIRED', data: payload };
-      }
-
-      // Check version compatibility
-      if (RELEASE_DATE > payload.expiry) {
-        return { valid: false, error: 'EXPIRED', data: payload };
-      }
-
-      return { valid: true, data: payload };
-    } catch {
+      const fullPayload = RilayLicenseManager.decompressPayload(compressedPayload);
+      return { valid: true, data: fullPayload };
+    } catch (_error) {
       return { valid: false, error: 'INVALID' };
     }
   }
 
   /**
-   * Decode JWT part (base64url)
+   * Validate license key format
    */
-  private static decodeJWTPart(part: string): any {
+  private static validateFormat(licenseKey: string): boolean {
+    return (
+      licenseKey.startsWith('ril_') &&
+      licenseKey.length > 20 &&
+      /^ril_[A-Za-z0-9_-]+$/.test(licenseKey)
+    );
+  }
+
+  /**
+   * Extract payload from license key
+   */
+  static extractPayload(licenseKey: string): CompressedLicensePayload | null {
     try {
-      const paddedPart = part + '='.repeat((4 - (part.length % 4)) % 4);
-      const decoded = atob(paddedPart.replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(decoded);
+      if (!RilayLicenseManager.validateFormat(licenseKey)) return null;
+
+      const decoded = RilayLicenseManager.base64UrlDecode(licenseKey.slice(4));
+      const parts = decoded.split('.');
+
+      if (parts.length !== 3) return null;
+
+      return JSON.parse(RilayLicenseManager.base64UrlDecode(parts[1])) as CompressedLicensePayload;
     } catch {
       return null;
     }
   }
 
   /**
-   * Simple signature format validation
+   * Validate payload content and expiration
    */
-  private static validateSignatureFormat(signature: string): boolean {
-    // Basic signature checks
-    return signature.length > 40 && /^[A-Za-z0-9_-]+$/.test(signature);
+  private static validatePayload(payload: CompressedLicensePayload): LicenseResult {
+    const now = Math.floor(Date.now() / 1000);
+
+    if (payload.e <= now) {
+      return {
+        valid: false,
+        error: 'EXPIRED',
+        data: RilayLicenseManager.decompressPayload(payload),
+      };
+    }
+
+    if (RELEASE_DATE > payload.e * 1000) {
+      return {
+        valid: false,
+        error: 'EXPIRED',
+        data: RilayLicenseManager.decompressPayload(payload),
+      };
+    }
+
+    if (!payload.p || !payload.c || !payload.i || !payload.e || !payload.t) {
+      return { valid: false, error: 'INVALID' };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Convert compressed payload to full payload
+   */
+  private static decompressPayload(compressed: CompressedLicensePayload): LicensePayload {
+    // Map all plan numbers to valid LicensePayload plan types
+    const planMap: Record<number, 'ARCHITECT' | 'FOUNDRY'> = {
+      0: 'ARCHITECT',
+      1: 'FOUNDRY',
+    };
+
+    return {
+      plan: planMap[compressed.p] || 'ARCHITECT',
+      company: compressed.c,
+      customerId: compressed.i.toString(),
+      expiry: compressed.e * 1000,
+      iat: compressed.t * 1000,
+    };
+  }
+
+  /**
+   * Convert hex string to Uint8Array
+   */
+  private static hexToBytes(hex: string): Uint8Array {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = Number.parseInt(hex.substring(i, i + 2), 16);
+    }
+    return bytes;
+  }
+
+  /**
+   * Decode base64url string
+   */
+  private static base64UrlDecode(str: string): string {
+    const padded = str + '='.repeat((4 - (str.length % 4)) % 4);
+    return atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
   }
 
   /**
@@ -93,7 +186,12 @@ export class RilayLicenseManager {
     if (!RilayLicenseManager.isInitialized) {
       return { valid: false, error: 'MISSING' };
     }
-    return RilayLicenseManager.licenseResult || { valid: false, error: 'MISSING' };
+
+    if (!RilayLicenseManager.licenseResult) {
+      return { valid: false, error: 'MISSING' };
+    }
+
+    return RilayLicenseManager.licenseResult;
   }
 
   /**
@@ -116,16 +214,15 @@ export class RilayLicenseManager {
   static getWatermarkMessage(): string {
     const result = RilayLicenseManager.getLicenseResult();
 
-    switch (result.error) {
-      case 'MISSING':
-        return 'Rilay Workflow - For Trial Use Only';
-      case 'EXPIRED':
-        return 'Rilay Workflow - License Expired';
-      case 'INVALID':
-        return 'Rilay Workflow - Invalid License';
-      default:
-        return '';
-    }
+    const messages = {
+      MISSING: 'Rilay Workflow - For Trial Use Only',
+      EXPIRED: 'Rilay Workflow - License Expired',
+      INVALID: 'Rilay Workflow - Invalid License',
+      FORMAT_INVALID: 'Rilay Workflow - Invalid License Format',
+      SIGNATURE_INVALID: 'Rilay Workflow - Invalid License Signature',
+    };
+
+    return messages[result.error || 'MISSING'] || '';
   }
 
   /**
@@ -142,6 +239,9 @@ export class RilayLicenseManager {
       MISSING: '🔧 Rilay Workflow - Trial Mode. Purchase a license at https://rilay.io/pricing',
       EXPIRED: '⚠️ Rilay Workflow - License Expired. Please renew your license.',
       INVALID: '❌ Rilay Workflow - Invalid License. Please check your license key.',
+      FORMAT_INVALID: '❌ Rilay Workflow - Invalid License Format. Please check your license key.',
+      SIGNATURE_INVALID:
+        '❌ Rilay Workflow - Invalid License Signature. Please check your license key.',
     };
 
     const message = messages[result.error || 'MISSING'];
@@ -151,7 +251,7 @@ export class RilayLicenseManager {
   /**
    * Get license info
    */
-  static getLicenseInfo(): { plan?: string; company?: string; expiryDate?: string } {
+  static async getLicenseInfo(): Promise<{ plan?: string; company?: string; expiryDate?: string }> {
     const result = RilayLicenseManager.getLicenseResult();
 
     if (!result.valid || !result.data) {
