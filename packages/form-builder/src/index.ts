@@ -8,7 +8,7 @@ export { FormRow } from './components/FormRow';
 export { FormSubmitButton } from './components/FormSubmitButton';
 
 // Export form builder
-export { FormBuilder } from './builders/FormBuilder';
+export { form, form as FormBuilder } from './builders/form';
 
 // Re-export types and utilities from core
 export type * from '@rilay/core';

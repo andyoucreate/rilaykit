@@ -14,14 +14,8 @@ import {
   createZodValidator,
   ril,
 } from '@rilay/core';
-import { FormBuilder } from '@rilay/form-builder';
-import {
-  Workflow,
-  WorkflowBody,
-  WorkflowBuilder,
-  WorkflowNavigation,
-  WorkflowStepper,
-} from '@rilay/workflow';
+import { form } from '@rilay/form-builder';
+import { Workflow, WorkflowBody, WorkflowNavigation, WorkflowStepper, flow } from '@rilay/workflow';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
@@ -322,7 +316,8 @@ export default function WorkflowTestPage() {
   });
 
   // Build form configurations for each step
-  const personalInfoForm = FormBuilder.create(config)
+  const personalInfoForm = form
+    .create(config)
     .addRowFields([
       {
         fieldId: 'firstName',
@@ -345,7 +340,8 @@ export default function WorkflowTestPage() {
     )
     .build();
 
-  const preferencesForm = FormBuilder.create(config)
+  const preferencesForm = form
+    .create(config)
     .addField(
       'role',
       'select',
@@ -377,7 +373,8 @@ export default function WorkflowTestPage() {
     )
     .build();
 
-  const reviewForm = FormBuilder.create(config)
+  const reviewForm = form
+    .create(config)
     .addField(
       'feedback',
       'textarea',
@@ -390,12 +387,13 @@ export default function WorkflowTestPage() {
     .build();
 
   // Build workflow configuration
-  const workflowConfig = WorkflowBuilder.create(
-    config,
-    'user-onboarding',
-    'User Onboarding Workflow',
-    'A multi-step workflow to onboard new users'
-  )
+  const workflowConfig = flow
+    .create(
+      config,
+      'user-onboarding',
+      'User Onboarding Workflow',
+      'A multi-step workflow to onboard new users'
+    )
     .addStep('personal-info', 'Personal Information', personalInfoForm, {
       description: 'Tell us about yourself',
       requiredToComplete: true,

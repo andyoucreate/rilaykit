@@ -8,11 +8,12 @@ import type {
   ValidationConfig,
   ril,
 } from '@rilay/core';
+
 /**
  * Form builder class for creating form configurations
  * Simplified API with matrix support
  */
-export class FormBuilder {
+export class form {
   private config: ril;
   private rows: FormFieldRow[] = [];
   private formId: string;
@@ -23,8 +24,8 @@ export class FormBuilder {
     this.formId = formId || `form-${Date.now()}`;
   }
 
-  static create(config: ril, formId?: string): FormBuilder {
-    return new FormBuilder(config, formId);
+  static create(config: ril, formId?: string): form {
+    return new form(config, formId);
   }
 
   /**
@@ -33,7 +34,7 @@ export class FormBuilder {
    * @param componentSubType - Component subtype (e.g., 'text', 'email')
    * @param props - Props to pass to the component
    * @param options - Additional options
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   addField(
     fieldId: string,
@@ -59,7 +60,7 @@ export class FormBuilder {
    * Add multiple fields on the same row (max 3 fields)
    * @param fieldConfigs - Array of field configurations for the row
    * @param rowOptions - Row configuration options
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   addRowFields(
     fieldConfigs: Array<{
@@ -123,7 +124,7 @@ export class FormBuilder {
   /**
    * Add multiple fields, each on its own row
    * @param fieldConfigs - Array of field configurations
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   addFields(
     fieldConfigs: Array<{
@@ -146,7 +147,7 @@ export class FormBuilder {
   /**
    * Set form ID
    * @param id - Form identifier
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   setId(id: string): this {
     this.formId = id;
@@ -157,7 +158,7 @@ export class FormBuilder {
    * Update field configuration
    * @param fieldId - Field identifier
    * @param updates - Updates to apply
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   updateField(fieldId: string, updates: Partial<Omit<FormFieldConfig, 'id'>>): this {
     let fieldFound = false;
@@ -187,7 +188,7 @@ export class FormBuilder {
   /**
    * Remove a field from the form
    * @param fieldId - Field identifier
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   removeField(fieldId: string): this {
     for (const row of this.rows) {
@@ -233,7 +234,7 @@ export class FormBuilder {
 
   /**
    * Clear all fields and rows
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   clear(): this {
     this.rows = [];
@@ -244,10 +245,10 @@ export class FormBuilder {
   /**
    * Clone the current form builder
    * @param newFormId - ID for the cloned form
-   * @returns New FormBuilder instance
+   * @returns New form instance
    */
-  clone(newFormId?: string): FormBuilder {
-    const cloned = new FormBuilder(this.config, newFormId);
+  clone(newFormId?: string): form {
+    const cloned = new form(this.config, newFormId);
     cloned.rows = this.rows.map((row) => ({
       ...row,
       fields: row.fields.map((field) => ({ ...field })),
@@ -325,7 +326,7 @@ export class FormBuilder {
   /**
    * Import form configuration from JSON
    * @param json - JSON representation of the form
-   * @returns FormBuilder instance for chaining
+   * @returns form instance for chaining
    */
   fromJSON(json: any): this {
     if (json.id) {

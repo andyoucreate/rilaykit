@@ -6,22 +6,21 @@ export { WorkflowProvider } from './components/WorkflowProvider';
 export { WorkflowStepper } from './components/WorkflowStepper';
 
 // Export workflow builder
-export { WorkflowBuilder } from './builders/WorkflowBuilder';
+export { flow, flow as WorkflowBuilder } from './builders/flow';
 
 // Export plugins
 export { AnalyticsPlugin } from './plugins/AnalyticsPlugin';
 export { ValidationPlugin } from './plugins/ValidationPlugin';
 
-// Re-export types and utilities from core and form-builder
+// Re-export types and utilities
 export type * from '@rilay/core';
 
 export {
   createZodValidator,
   ril,
-  ril as RilayConfig,
 } from '@rilay/core';
 
-export { FormBuilder } from '@rilay/form-builder';
+export { form } from '@rilay/form-builder';
 
 // Component types
 export type { WorkflowNavigationProps } from './components/WorkflowNavigation';

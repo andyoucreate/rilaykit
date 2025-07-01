@@ -20,7 +20,7 @@ import type {
  * Workflow builder class for creating complex multi-step workflows
  * Supports async hooks, dynamic steps, conditional branches, and much more
  */
-export class WorkflowBuilder {
+export class flow {
   private config: ril;
   private workflowId: string;
   private workflowName: string;
@@ -42,13 +42,8 @@ export class WorkflowBuilder {
     this.workflowDescription = description;
   }
 
-  static create(
-    config: ril,
-    workflowId: string,
-    workflowName: string,
-    description?: string
-  ): WorkflowBuilder {
-    return new WorkflowBuilder(config, workflowId, workflowName, description);
+  static create(config: ril, workflowId: string, workflowName: string, description?: string): flow {
+    return new flow(config, workflowId, workflowName, description);
   }
 
   /**
@@ -57,7 +52,7 @@ export class WorkflowBuilder {
    * @param title - Step title
    * @param formConfig - Complete form configuration for this step
    * @param options - Additional step options
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   addStep(
     stepId: string,
@@ -94,7 +89,7 @@ export class WorkflowBuilder {
    * @param dynamicConfig - Configuration for dynamic step resolution
    * @param fallbackFormConfig - Fallback form configuration if dynamic resolution fails
    * @param options - Additional step options
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   addDynamicStep(
     stepId: string,
@@ -129,7 +124,7 @@ export class WorkflowBuilder {
   /**
    * Add multiple steps at once
    * @param stepConfigs - Array of step configurations
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   addSteps(
     stepConfigs: Array<{
@@ -158,7 +153,7 @@ export class WorkflowBuilder {
   /**
    * Add a conditional branch to the workflow
    * @param branch - Conditional branch configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   addConditionalBranch(branch: ConditionalBranch): this {
     this.branches.push(branch);
@@ -168,7 +163,7 @@ export class WorkflowBuilder {
   /**
    * Add multiple conditional branches
    * @param branches - Array of conditional branches
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   addConditionalBranches(branches: ConditionalBranch[]): this {
     this.branches.push(...branches);
@@ -178,7 +173,7 @@ export class WorkflowBuilder {
   /**
    * Set navigation configuration
    * @param navigation - Navigation configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setNavigation(navigation: NavigationConfig): this {
     this.navigation = navigation;
@@ -188,7 +183,7 @@ export class WorkflowBuilder {
   /**
    * Set persistence strategy
    * @param persistence - Persistence configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setPersistence(persistence: PersistenceStrategy): this {
     this.persistence = persistence;
@@ -198,7 +193,7 @@ export class WorkflowBuilder {
   /**
    * Set analytics configuration
    * @param analytics - Analytics configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setAnalytics(analytics: WorkflowAnalytics): this {
     this.analytics = analytics;
@@ -208,7 +203,7 @@ export class WorkflowBuilder {
   /**
    * Set performance optimizations
    * @param optimizations - Optimization configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setOptimizations(optimizations: WorkflowOptimizations): this {
     this.optimizations = optimizations;
@@ -218,7 +213,7 @@ export class WorkflowBuilder {
   /**
    * Set workflow version
    * @param version - Version configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setVersion(version: WorkflowVersion): this {
     this.version = version;
@@ -228,7 +223,7 @@ export class WorkflowBuilder {
   /**
    * Set completion configuration
    * @param completion - Completion configuration
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   setCompletion(completion: CompletionConfig): this {
     this.completion = completion;
@@ -238,7 +233,7 @@ export class WorkflowBuilder {
   /**
    * Add a plugin to the workflow
    * @param plugin - Plugin to add
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   use(plugin: WorkflowPlugin): this {
     // Check dependencies
@@ -270,7 +265,7 @@ export class WorkflowBuilder {
   /**
    * Remove a plugin from the workflow
    * @param pluginName - Name of the plugin to remove
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   removePlugin(pluginName: string): this {
     this.plugins = this.plugins.filter((plugin) => plugin.name !== pluginName);
@@ -281,7 +276,7 @@ export class WorkflowBuilder {
    * Update step configuration
    * @param stepId - Step identifier
    * @param updates - Updates to apply
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
@@ -300,7 +295,7 @@ export class WorkflowBuilder {
   /**
    * Remove a step from the workflow
    * @param stepId - Step identifier
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   removeStep(stepId: string): this {
     this.steps = this.steps.filter((step) => step.id !== stepId);
@@ -326,7 +321,7 @@ export class WorkflowBuilder {
 
   /**
    * Clear all steps
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   clearSteps(): this {
     this.steps = [];
@@ -337,10 +332,10 @@ export class WorkflowBuilder {
    * Clone the workflow builder
    * @param newWorkflowId - ID for the cloned workflow
    * @param newWorkflowName - Name for the cloned workflow
-   * @returns New WorkflowBuilder instance
+   * @returns New flow instance
    */
-  clone(newWorkflowId?: string, newWorkflowName?: string): WorkflowBuilder {
-    const cloned = new WorkflowBuilder(
+  clone(newWorkflowId?: string, newWorkflowName?: string): flow {
+    const cloned = new flow(
       this.config,
       newWorkflowId || `${this.workflowId}-clone`,
       newWorkflowName || `${this.workflowName} (Copy)`,
@@ -482,7 +477,7 @@ export class WorkflowBuilder {
   /**
    * Import workflow configuration from JSON
    * @param json - JSON representation of the workflow
-   * @returns WorkflowBuilder instance for chaining
+   * @returns flow instance for chaining
    */
   fromJSON(json: any): this {
     if (json.id) this.workflowId = json.id;

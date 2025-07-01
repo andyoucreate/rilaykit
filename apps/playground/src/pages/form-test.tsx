@@ -10,7 +10,7 @@ import {
   createZodValidator,
   ril,
 } from '@rilay/core';
-import { Form, FormBody, FormBuilder, FormSubmitButton } from '@rilay/form-builder';
+import { Form, FormBody, FormSubmitButton, form } from '@rilay/form-builder';
 import Link from 'next/link';
 import type React from 'react';
 import { z } from 'zod';
@@ -250,8 +250,9 @@ export default function FormTestPage() {
     bio: z.string().max(500, 'Biography must be 500 characters or less').optional(),
   });
 
-  // Build form configuration using FormBuilder
-  const formConfig = FormBuilder.create(config)
+  // Build form configuration using form
+  const formConfig = form
+    .create(config)
     .addRowFields([
       {
         fieldId: 'firstName',
