@@ -226,17 +226,45 @@ export interface StepConditionalConfig {
 
 export type CustomStepRenderer = (props: StepConfig) => React.ReactElement;
 
-// Persistence System
-export interface PersistenceStrategy {
-  readonly type: 'localStorage' | 'sessionStorage' | 'api' | 'indexedDB';
-  readonly endpoint?: string;
+// Base persistence data structure
+export interface WorkflowPersistenceData {
+  readonly workflowId: string;
+  readonly currentStepIndex: number;
+  readonly allData: Record<string, any>;
+  readonly metadata: {
+    readonly timestamp: number;
+    readonly version?: string;
+    readonly userId?: string;
+    readonly sessionId?: string;
+  };
+}
+
+// Persistence adapter interface - implement this for any storage backend
+export interface PersistenceAdapter {
+  readonly name: string;
+  save(key: string, data: WorkflowPersistenceData): Promise<void>;
+  load(key: string): Promise<WorkflowPersistenceData | null>;
+  remove(key: string): Promise<void>;
+  exists(key: string): Promise<boolean>;
+  list?(pattern?: string): Promise<string[]>; // Optional: list all keys
+}
+
+// Persistence configuration
+export interface PersistenceConfig {
+  readonly adapter: PersistenceAdapter;
+  readonly key?: string; // Custom key, defaults to workflowId
   readonly debounceMs?: number;
-  readonly encryptionKey?: string;
+  readonly autoSave?: boolean;
   readonly saveOnStepChange?: boolean;
-  readonly recoverOnReload?: boolean;
-  readonly onSave?: (draftData: any) => Promise<void> | void;
-  readonly onRestore?: (draftData: any) => Promise<void> | void;
-  readonly onError?: (error: Error) => Promise<void> | void;
+  readonly encryptionKey?: string;
+  readonly maxRetries?: number;
+  readonly retryDelayMs?: number;
+
+  // Lifecycle hooks
+  readonly onSave?: (data: WorkflowPersistenceData) => Promise<void> | void;
+  readonly onLoad?: (data: WorkflowPersistenceData) => Promise<void> | void;
+  readonly onError?: (error: Error, operation: 'save' | 'load' | 'remove') => Promise<void> | void;
+  readonly onRetry?: (attempt: number, maxRetries: number, error: Error) => Promise<void> | void;
 }
 
 // Analytics System
@@ -299,7 +327,7 @@ export interface WorkflowConfig {
   readonly steps: StepConfig[];
   readonly branches?: ConditionalBranch[];
   readonly navigation?: NavigationConfig;
-  readonly persistence?: PersistenceStrategy;
+  readonly persistence?: PersistenceConfig;
   readonly completion?: CompletionConfig;
   readonly analytics?: WorkflowAnalytics;
   readonly optimizations?: WorkflowOptimizations;
@@ -313,13 +341,6 @@ export interface NavigationConfig {
   readonly allowStepSkipping?: boolean;
   readonly showProgress?: boolean;
   readonly customNavigation?: boolean;
-}
-
-export interface PersistenceConfig {
-  readonly enabled?: boolean;
-  readonly storageKey?: string;
-  readonly debounceMs?: number;
-  readonly excludeFields?: string[];
 }
 
 export interface CompletionConfig {

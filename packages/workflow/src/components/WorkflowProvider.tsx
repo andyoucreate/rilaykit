@@ -284,6 +284,7 @@ export function WorkflowProvider({
     };
   }, [
     memoizedWorkflowConfig.id,
+
     workflowState.currentStepIndex,
     workflowState.resolvedSteps.length,
     workflowState.allData,
@@ -378,35 +379,18 @@ export function WorkflowProvider({
         workflowId: memoizedWorkflowConfig.id,
         currentStepIndex: workflowState.currentStepIndex,
         allData: workflowState.allData,
-        timestamp: Date.now(),
+        metadata: {
+          timestamp: Date.now(),
+          version: '1.0.0',
+          userId: user?.id,
+          sessionId: crypto.randomUUID(),
+        },
       };
 
-      switch (memoizedWorkflowConfig.persistence.type) {
-        case 'localStorage':
-          localStorage.setItem(`workflow-${memoizedWorkflowConfig.id}`, JSON.stringify(draftData));
-          break;
+      const key = memoizedWorkflowConfig.persistence.key || `workflow-${memoizedWorkflowConfig.id}`;
 
-        case 'sessionStorage':
-          sessionStorage.setItem(
-            `workflow-${memoizedWorkflowConfig.id}`,
-            JSON.stringify(draftData)
-          );
-          break;
-
-        case 'api':
-          if (memoizedWorkflowConfig.persistence.endpoint) {
-            await fetch(memoizedWorkflowConfig.persistence.endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(draftData),
-            });
-          }
-          break;
-
-        case 'indexedDB':
-          // TODO: Implement IndexedDB persistence
-          break;
-      }
+      // Use the adapter to save data
+      await memoizedWorkflowConfig.persistence.adapter.save(key, draftData);
 
       if (memoizedWorkflowConfig.persistence.onSave) {
         await memoizedWorkflowConfig.persistence.onSave(draftData);
@@ -414,59 +398,33 @@ export function WorkflowProvider({
     } catch (error) {
       console.error('Failed to save workflow draft:', error);
       if (memoizedWorkflowConfig.persistence.onError) {
-        await memoizedWorkflowConfig.persistence.onError(error as Error);
+        await memoizedWorkflowConfig.persistence.onError(error as Error, 'save');
       }
     }
-  }, [memoizedWorkflowConfig, workflowState.currentStepIndex, workflowState.allData]);
+  }, [memoizedWorkflowConfig, workflowState.currentStepIndex, workflowState.allData, user]);
 
   const loadDraft = useCallback(async () => {
     if (!memoizedWorkflowConfig.persistence) return;
 
     try {
-      let draftData: any = null;
+      const key = memoizedWorkflowConfig.persistence.key || `workflow-${memoizedWorkflowConfig.id}`;
 
-      switch (memoizedWorkflowConfig.persistence.type) {
-        case 'localStorage': {
-          const stored = localStorage.getItem(`workflow-${memoizedWorkflowConfig.id}`);
-          if (stored) {
-            draftData = JSON.parse(stored);
-          }
-          break;
-        }
-
-        case 'sessionStorage': {
-          const stored = sessionStorage.getItem(`workflow-${memoizedWorkflowConfig.id}`);
-          if (stored) {
-            draftData = JSON.parse(stored);
-          }
-          break;
-        }
-
-        case 'api':
-          if (memoizedWorkflowConfig.persistence.endpoint) {
-            const response = await fetch(memoizedWorkflowConfig.persistence.endpoint);
-            if (response.ok) {
-              draftData = await response.json();
-            }
-          }
-          break;
-
-        case 'indexedDB':
-          // TODO: Implement IndexedDB persistence
-          break;
-      }
+      // Use the adapter to load data
+      const draftData = await memoizedWorkflowConfig.persistence.adapter.load(key);
 
       if (draftData && draftData.workflowId === memoizedWorkflowConfig.id) {
         dispatch({ type: 'SET_ALL_DATA', data: draftData.allData });
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex: draftData.currentStepIndex });
         dispatch({ type: 'SET_PERSISTED_DATA', data: draftData });
 
-        // Note: Additional load callbacks can be added here when needed
+        if (memoizedWorkflowConfig.persistence.onLoad) {
+          await memoizedWorkflowConfig.persistence.onLoad(draftData);
+        }
       }
     } catch (error) {
       console.error('Failed to load workflow draft:', error);
       if (memoizedWorkflowConfig.persistence.onError) {
-        await memoizedWorkflowConfig.persistence.onError(error as Error);
+        await memoizedWorkflowConfig.persistence.onError(error as Error, 'load');
       }
     }
   }, [memoizedWorkflowConfig]);
@@ -475,31 +433,53 @@ export function WorkflowProvider({
     if (!memoizedWorkflowConfig.persistence) return;
 
     try {
-      switch (memoizedWorkflowConfig.persistence.type) {
-        case 'localStorage':
-          localStorage.removeItem(`workflow-${memoizedWorkflowConfig.id}`);
-          break;
+      const key = memoizedWorkflowConfig.persistence.key || `workflow-${memoizedWorkflowConfig.id}`;
 
-        case 'sessionStorage':
-          sessionStorage.removeItem(`workflow-${memoizedWorkflowConfig.id}`);
-          break;
-
-        case 'api':
-          if (memoizedWorkflowConfig.persistence.endpoint) {
-            await fetch(memoizedWorkflowConfig.persistence.endpoint, {
-              method: 'DELETE',
-            });
-          }
-          break;
-
-        case 'indexedDB':
-          // TODO: Implement IndexedDB persistence
-          break;
-      }
+      // Use the adapter to remove data
+      await memoizedWorkflowConfig.persistence.adapter.remove(key);
     } catch (error) {
       console.error('Failed to clear workflow draft:', error);
+      if (memoizedWorkflowConfig.persistence.onError) {
+        await memoizedWorkflowConfig.persistence.onError(error as Error, 'remove');
+      }
     }
   }, [memoizedWorkflowConfig]);
+
+  // Load persisted data on mount - run only once
+  // biome-ignore lint/correctness/useExhaustiveDependencies: we only want to run this once
+  useEffect(() => {
+    if (memoizedWorkflowConfig.persistence) {
+      const loadInitialData = async () => {
+        try {
+          const key =
+            memoizedWorkflowConfig.persistence!.key || `workflow-${memoizedWorkflowConfig.id}`;
+
+          // Use the adapter to load data
+          const draftData = await memoizedWorkflowConfig.persistence!.adapter.load(key);
+
+          if (draftData && draftData.workflowId === memoizedWorkflowConfig.id) {
+            dispatch({ type: 'SET_ALL_DATA', data: draftData.allData });
+            dispatch({ type: 'SET_CURRENT_STEP', stepIndex: draftData.currentStepIndex });
+            dispatch({ type: 'SET_PERSISTED_DATA', data: draftData });
+
+            if (memoizedWorkflowConfig.persistence!.onLoad) {
+              await memoizedWorkflowConfig.persistence!.onLoad(draftData);
+            }
+
+            console.log('Workflow data loaded from persistence:', draftData);
+          }
+        } catch (error) {
+          console.error('Failed to load workflow draft on mount:', error);
+          if (memoizedWorkflowConfig.persistence!.onError) {
+            await memoizedWorkflowConfig.persistence!.onError(error as Error, 'load');
+          }
+        }
+      };
+
+      loadInitialData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memoizedWorkflowConfig.id]); // Only depend on workflow ID to run once per workflow
 
   // Persistence auto-save - optimized dependencies
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>

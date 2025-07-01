@@ -5,7 +5,7 @@ import type {
   DynamicStepConfig,
   FormConfiguration,
   NavigationConfig,
-  PersistenceStrategy,
+  PersistenceConfig,
   StepConfig,
   StepLifecycleHooks,
   StepPermissions,
@@ -30,7 +30,7 @@ export class flow {
   private steps: StepConfig[] = [];
   private branches: ConditionalBranch[] = [];
   private navigation: NavigationConfig = {};
-  private persistence?: PersistenceStrategy;
+  private persistence?: PersistenceConfig;
   private completion?: CompletionConfig;
   private analytics?: WorkflowAnalytics;
   private optimizations?: WorkflowOptimizations;
@@ -192,7 +192,7 @@ export class flow {
    * @param persistence - Persistence configuration
    * @returns flow instance for chaining
    */
-  setPersistence(persistence: PersistenceStrategy): this {
+  setPersistence(persistence: PersistenceConfig): this {
     this.persistence = persistence;
     return this;
   }

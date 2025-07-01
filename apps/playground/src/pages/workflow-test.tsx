@@ -428,11 +428,6 @@ export default function WorkflowTestPage() {
       allowBackNavigation: true,
       showProgress: true,
     })
-    .setPersistence({
-      type: 'localStorage',
-      saveOnStepChange: true,
-      debounceMs: 1000,
-    })
     .setAnalytics({
       onWorkflowStart: (workflowId, context) => {
         console.log('Workflow started:', workflowId, context);
