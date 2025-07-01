@@ -21,13 +21,14 @@ export const createZodValidator = <T>(schema: z.ZodSchema<T>): ValidatorFunction
         errors: [],
       };
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      // Check if it's a ZodError by looking for the errors property
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray(error.errors)) {
         return {
           isValid: false,
-          errors: error.errors.map((err) => ({
+          errors: error.errors.map((err: any) => ({
             code: err.code,
             message: err.message,
-            path: err.path.map(String),
+            path: err.path ? err.path.map(String) : [],
           })),
         };
       }
@@ -37,7 +38,7 @@ export const createZodValidator = <T>(schema: z.ZodSchema<T>): ValidatorFunction
         errors: [
           {
             code: 'unknown',
-            message: 'Unknown validation error',
+            message: error instanceof Error ? error.message : 'Unknown validation error',
           },
         ],
       };
