@@ -145,35 +145,6 @@ export class RilayLicenseManager {
   }
 
   /**
-   * Validate payload content and expiration
-   */
-  private static validatePayload(payload: CompressedLicensePayload): LicenseResult {
-    const now = Math.floor(Date.now() / 1000);
-
-    if (payload.e <= now) {
-      return {
-        valid: false,
-        error: 'EXPIRED',
-        data: RilayLicenseManager.decompressPayload(payload),
-      };
-    }
-
-    if (RELEASE_DATE > payload.e * 1000) {
-      return {
-        valid: false,
-        error: 'EXPIRED',
-        data: RilayLicenseManager.decompressPayload(payload),
-      };
-    }
-
-    if (!payload.p || !payload.c || !payload.i || !payload.e || !payload.t) {
-      return { valid: false, error: 'INVALID' };
-    }
-
-    return { valid: true };
-  }
-
-  /**
    * Convert compressed payload to full payload
    */
   private static decompressPayload(compressed: CompressedLicensePayload): LicensePayload {
