@@ -1,6 +1,7 @@
 import type {
   CompletionConfig,
   ConditionalBranch,
+  CustomStepRenderer,
   DynamicStepConfig,
   FormConfiguration,
   NavigationConfig,
@@ -67,6 +68,7 @@ export class flow {
       requiredToComplete?: boolean;
       hooks?: StepLifecycleHooks;
       permissions?: StepPermissions;
+      renderer?: CustomStepRenderer;
     }
   ): this {
     const step: StepConfig = {
@@ -79,9 +81,11 @@ export class flow {
       hooks: options?.hooks,
       permissions: options?.permissions,
       isDynamic: false,
+      renderer: options?.renderer,
     };
 
     this.steps.push(step);
+
     return this;
   }
 

@@ -206,6 +206,7 @@ export interface StepConfig {
   readonly permissions?: StepPermissions;
   readonly isDynamic?: boolean;
   readonly dynamicConfig?: DynamicStepConfig;
+  readonly renderer?: CustomStepRenderer;
 }
 
 export interface StepValidationConfig {
@@ -223,23 +224,7 @@ export interface StepConditionalConfig {
   readonly action: 'show' | 'hide' | 'skip';
 }
 
-export type StepRenderer = (props: StepRenderProps) => React.ReactElement;
-
-export interface StepRenderProps {
-  step: StepConfig;
-  formConfig: FormConfiguration;
-  formData: Record<string, any>;
-  errors: Record<string, ValidationError[]>;
-  onFieldChange: (fieldId: string, value: any) => void;
-  onNext: () => void;
-  onPrevious: () => void;
-  onSkip?: () => void;
-  isFirstStep: boolean;
-  isLastStep: boolean;
-  currentStepIndex: number;
-  totalSteps: number;
-  context: WorkflowContext;
-}
+export type CustomStepRenderer = (props: StepConfig) => React.ReactElement;
 
 // Persistence System
 export interface PersistenceStrategy {
@@ -340,7 +325,7 @@ export interface PersistenceConfig {
 export interface CompletionConfig {
   readonly onComplete?: (formData: Record<string, any>) => void | Promise<void>;
   readonly confirmBeforeSubmit?: boolean;
-  readonly customCompletionStep?: StepRenderer;
+  readonly customCompletionStep?: any;
 }
 
 // Workflow Renderers

@@ -25,7 +25,7 @@ export function FormField({
   );
 
   if (!fieldConfig) {
-    throw new Error(`Field with ID "${fieldId}" not found in form configuration`);
+    throw new Error(`Field with ID "${fieldId}" not found`);
   }
 
   // Memoize component config lookup

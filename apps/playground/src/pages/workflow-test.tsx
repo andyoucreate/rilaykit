@@ -14,7 +14,7 @@ import {
   createZodValidator,
   ril,
 } from '@rilay/core';
-import { form } from '@rilay/form-builder';
+import { FormField, form } from '@rilay/form-builder';
 import {
   RilayLicenseManager,
   Workflow,
@@ -406,6 +406,15 @@ export default function WorkflowTestPage() {
     .addStep('personal-info', 'Personal Information', personalInfoForm, {
       description: 'Tell us about yourself',
       requiredToComplete: true,
+      renderer: () => {
+        return (
+          <div className="flex-col gap-4 grid grid-cols-2">
+            <FormField fieldId="firstName" />
+            <FormField fieldId="lastName" />
+            <FormField fieldId="email" />
+          </div>
+        );
+      },
     })
     .addStep('preferences', 'Preferences', preferencesForm, {
       description: 'Set your preferences',
