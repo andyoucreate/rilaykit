@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { RilayConfig } from '../config/RilayConfig';
+import type { ril } from '../config/ril';
 
 // Component types
 export type ComponentType = 'input' | 'layout';
@@ -408,7 +408,7 @@ export interface FormRenderConfig {
 export interface FormConfiguration {
   readonly id: string;
   readonly schema?: any; // Can be Zod, Yup, or custom schema
-  readonly config: RilayConfig; // Reference to StreamlineConfig
+  readonly config: ril; // Reference to StreamlineConfig
   readonly rows: FormFieldRow[];
   readonly allFields: FormFieldConfig[]; // Liste plate pour compatibilité
   readonly renderConfig?: FormRenderConfig; // Configuration pour les renderers

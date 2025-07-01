@@ -16,20 +16,20 @@ import type {
  * Main configuration class for Rilay form components and workflows
  * Manages component registration, retrieval, and configuration
  */
-export class RilayConfig {
+export class ril {
   private components = new Map<string, ComponentConfig>();
   private formRenderConfig: FormRenderConfig = {};
   private workflowRenderConfig: WorkflowRenderConfig = {};
 
-  static create(): RilayConfig {
-    return new RilayConfig();
+  static create(): ril {
+    return new ril();
   }
 
   /**
    * Add a component to the configuration
    * @param subType - The component subtype (e.g., 'text', 'email', 'heading')
    * @param config - Component configuration without id and subType
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   addComponent<TProps = any>(
     subType: InputType | LayoutType,
@@ -50,7 +50,7 @@ export class RilayConfig {
   /**
    * Set custom row renderer
    * @param renderer - Custom row renderer function
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setRowRenderer(renderer: FormRowRenderer): this {
     this.formRenderConfig = {
@@ -63,7 +63,7 @@ export class RilayConfig {
   /**
    * Set custom body renderer
    * @param renderer - Custom body renderer function
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setBodyRenderer(renderer: FormBodyRenderer): this {
     this.formRenderConfig = {
@@ -76,7 +76,7 @@ export class RilayConfig {
   /**
    * Set custom submit button renderer
    * @param renderer - Custom submit button renderer function
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setSubmitButtonRenderer(renderer: FormSubmitButtonRenderer): this {
     this.formRenderConfig = {
@@ -89,7 +89,7 @@ export class RilayConfig {
   /**
    * Set complete form render configuration
    * @param config - Form render configuration
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setFormRenderConfig(config: FormRenderConfig): this {
     this.formRenderConfig = config;
@@ -107,7 +107,7 @@ export class RilayConfig {
   /**
    * Set custom stepper renderer for workflows
    * @param renderer - Custom stepper renderer function
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setStepperRenderer(renderer: WorkflowStepperRenderer): this {
     this.workflowRenderConfig = {
@@ -120,7 +120,7 @@ export class RilayConfig {
   /**
    * Set custom workflow navigation renderer
    * @param renderer - Custom workflow navigation renderer function
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setWorkflowNavigationRenderer(renderer: WorkflowNavigationRenderer): this {
     this.workflowRenderConfig = {
@@ -133,7 +133,7 @@ export class RilayConfig {
   /**
    * Set complete workflow render configuration
    * @param config - Workflow render configuration
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   setWorkflowRenderConfig(config: WorkflowRenderConfig): this {
     this.workflowRenderConfig = config;
@@ -235,7 +235,7 @@ export class RilayConfig {
   /**
    * Import configuration from a plain object
    * @param config - Object with component configurations
-   * @returns The RilayConfig instance for chaining
+   * @returns The ril instance for chaining
    */
   import(config: Record<string, ComponentConfig>): this {
     for (const [id, componentConfig] of Object.entries(config)) {

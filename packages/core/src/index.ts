@@ -2,7 +2,7 @@
 export * from './types';
 
 // Configuration
-export { RilayConfig } from './config/RilayConfig';
+export { ril } from './config/ril';
 
 // Validation utilities
 export * from './validation/validators';

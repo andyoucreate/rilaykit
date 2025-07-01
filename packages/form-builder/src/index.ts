@@ -1,26 +1,21 @@
-// Components
+// Export all form builder components
 export { Form } from './components/Form';
 export { FormBody } from './components/FormBody';
 export { FormField } from './components/FormField';
-export { FormProvider, useFormContext } from './components/FormProvider';
+export * from './components/FormProvider';
+export { FormProvider } from './components/FormProvider';
 export { FormRow } from './components/FormRow';
 export { FormSubmitButton } from './components/FormSubmitButton';
 
-// Builders
+// Export form builder
 export { FormBuilder } from './builders/FormBuilder';
 
-// Re-export core types for convenience
-export type {
-  FormBodyRenderer,
-  FormBodyRendererProps,
-  FormConfiguration,
-  FormFieldConfig,
-  FormRenderConfig,
-  FormRowRenderer,
-  FormRowRendererProps,
-  FormSubmitButtonRenderer,
-  FormSubmitButtonRendererProps,
-  RilayConfig,
+// Re-export types and utilities from core
+export type * from '@rilay/core';
+
+export {
+  createZodValidator,
+  ril,
 } from '@rilay/core';
 
 // Component types

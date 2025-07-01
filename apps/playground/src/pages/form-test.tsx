@@ -7,8 +7,8 @@ import {
   type FormRowRendererProps,
   type FormSubmitButtonRenderer,
   type FormSubmitButtonRendererProps,
-  RilayConfig,
   createZodValidator,
+  ril,
 } from '@rilay/core';
 import { Form, FormBody, FormBuilder, FormSubmitButton } from '@rilay/form-builder';
 import Link from 'next/link';
@@ -183,9 +183,10 @@ const formSubmitButtonRenderer: FormSubmitButtonRenderer = (
 );
 
 export default function FormTestPage() {
-  // Create and configure RilayConfig
+  // Create and configure ril
   // Register input components with proper types
-  const config = RilayConfig.create()
+  const config = ril
+    .create()
     .addComponent('text', {
       type: 'input',
       name: 'Text Input',

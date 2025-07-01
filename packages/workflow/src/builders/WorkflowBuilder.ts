@@ -5,7 +5,6 @@ import type {
   FormConfiguration,
   NavigationConfig,
   PersistenceStrategy,
-  RilayConfig,
   StepConfig,
   StepLifecycleHooks,
   StepPermissions,
@@ -14,6 +13,7 @@ import type {
   WorkflowOptimizations,
   WorkflowPlugin,
   WorkflowVersion,
+  ril,
 } from '@rilay/core';
 
 /**
@@ -21,7 +21,7 @@ import type {
  * Supports async hooks, dynamic steps, conditional branches, and much more
  */
 export class WorkflowBuilder {
-  private config: RilayConfig;
+  private config: ril;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -35,7 +35,7 @@ export class WorkflowBuilder {
   private version?: WorkflowVersion;
   private plugins: WorkflowPlugin[] = [];
 
-  constructor(config: RilayConfig, workflowId: string, workflowName: string, description?: string) {
+  constructor(config: ril, workflowId: string, workflowName: string, description?: string) {
     this.config = config;
     this.workflowId = workflowId;
     this.workflowName = workflowName;
@@ -43,7 +43,7 @@ export class WorkflowBuilder {
   }
 
   static create(
-    config: RilayConfig,
+    config: ril,
     workflowId: string,
     workflowName: string,
     description?: string

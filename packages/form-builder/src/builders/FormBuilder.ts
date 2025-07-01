@@ -5,25 +5,25 @@ import type {
   FormFieldRow,
   InputType,
   LayoutType,
-  RilayConfig,
   ValidationConfig,
+  ril,
 } from '@rilay/core';
 /**
  * Form builder class for creating form configurations
  * Simplified API with matrix support
  */
 export class FormBuilder {
-  private config: RilayConfig;
+  private config: ril;
   private rows: FormFieldRow[] = [];
   private formId: string;
   private rowCounter = 0;
 
-  constructor(config: RilayConfig, formId?: string) {
+  constructor(config: ril, formId?: string) {
     this.config = config;
     this.formId = formId || `form-${Date.now()}`;
   }
 
-  static create(config: RilayConfig, formId?: string): FormBuilder {
+  static create(config: ril, formId?: string): FormBuilder {
     return new FormBuilder(config, formId);
   }
 

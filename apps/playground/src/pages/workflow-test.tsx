@@ -7,12 +7,12 @@ import {
   type FormRowRendererProps,
   type FormSubmitButtonRenderer,
   type FormSubmitButtonRendererProps,
-  RilayConfig,
   type WorkflowNavigationRenderer,
   type WorkflowNavigationRendererProps,
   type WorkflowStepperRenderer,
   type WorkflowStepperRendererProps,
   createZodValidator,
+  ril,
 } from '@rilay/core';
 import { FormBuilder } from '@rilay/form-builder';
 import {
@@ -265,8 +265,9 @@ export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
 
-  // Create and configure RilayConfig
-  const config = RilayConfig.create()
+  // Create and configure ril
+  const config = ril
+    .create()
     .addComponent('text', {
       type: 'input',
       name: 'Text Input',
