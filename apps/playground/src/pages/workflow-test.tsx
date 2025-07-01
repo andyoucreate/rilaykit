@@ -15,7 +15,14 @@ import {
   ril,
 } from '@rilay/core';
 import { form } from '@rilay/form-builder';
-import { Workflow, WorkflowBody, WorkflowNavigation, WorkflowStepper, flow } from '@rilay/workflow';
+import {
+  RilayLicenseManager,
+  Workflow,
+  WorkflowBody,
+  WorkflowNavigation,
+  WorkflowStepper,
+  flow,
+} from '@rilay/workflow';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
@@ -254,6 +261,8 @@ const workflowNavigationRenderer: WorkflowNavigationRenderer = (
     </div>
   </div>
 );
+
+RilayLicenseManager.setLicenseKey(process.env.NEXT_PUBLIC_RILAY_LICENSE_KEY!);
 
 export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);

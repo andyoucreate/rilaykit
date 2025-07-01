@@ -3,7 +3,7 @@ import type { CompressedLicensePayload, LicensePayload, LicenseResult } from './
 
 // Current @rilay/workflow version release date - Update this with each release
 const RELEASE_DATE = 1751361139160;
-const ED25519_PUBLIC_KEY = 'your-ed25519-public-key-here';
+const ED25519_PUBLIC_KEY = '8fdb6a454550326d331c3b3d1d1f8c707a371bdb6c7ea72a0a1e4ea6f1822620';
 
 /**
  * Enhanced Rilay License Manager with Ed25519 cryptographic validation
@@ -40,45 +40,77 @@ export class RilayLicenseManager {
 
     try {
       // 1. Format validation
-      if (!RilayLicenseManager.validateFormat(RilayLicenseManager.licenseKey)) {
+      if (!RilayLicenseManager.licenseKey.startsWith('ril_')) {
         return { valid: false, error: 'FORMAT_INVALID' };
       }
 
-      // 2. Extract components
-      const decoded = RilayLicenseManager.base64UrlDecode(RilayLicenseManager.licenseKey.slice(4));
-      const parts = decoded.split('.');
+      // 2. Decode license
+      const encodedLicense = RilayLicenseManager.licenseKey.slice(4);
+      const combined = Buffer.from(encodedLicense, 'base64').toString();
 
+      const parts = combined.split('.');
       if (parts.length !== 3) {
         return { valid: false, error: 'FORMAT_INVALID' };
       }
 
-      const [headerStr, payloadStr, signature] = parts;
+      const [headerStr, payloadStr, signatureHex] = parts;
 
       // 3. Verify signature using @noble/ed25519
       const message = `${headerStr}.${payloadStr}`;
       const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = RilayLicenseManager.hexToBytes(signature);
+      const hexMatches = signatureHex.match(/.{2}/g);
+      if (!hexMatches) {
+        return { valid: false, error: 'INVALID' };
+      }
+      const signature = new Uint8Array(hexMatches.map((byte) => Number.parseInt(byte, 16)));
       const publicKeyBytes = RilayLicenseManager.hexToBytes(ED25519_PUBLIC_KEY);
 
-      const isValid = await ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
+      const isValid = await ed25519.verify(signature, messageBytes, publicKeyBytes);
 
       if (!isValid) {
         return { valid: false, error: 'SIGNATURE_INVALID' };
       }
 
-      // 4. Validate payload
-      const compressedPayload = JSON.parse(
-        RilayLicenseManager.base64UrlDecode(payloadStr)
-      ) as CompressedLicensePayload;
-      const validationResult = RilayLicenseManager.validatePayload(compressedPayload);
+      // 4. Parse and validate payload
+      const payloadJson = Buffer.from(
+        payloadStr.replace(/-/g, '+').replace(/_/g, '/'),
+        'base64'
+      ).toString();
+      const compressedPayload = JSON.parse(payloadJson) as CompressedLicensePayload;
 
-      if (!validationResult.valid) {
-        return validationResult;
+      // Check expiry
+      const now = Math.floor(Date.now() / 1000);
+      if (compressedPayload.e < now) {
+        return {
+          valid: false,
+          error: 'EXPIRED',
+          data: RilayLicenseManager.decompressPayload(compressedPayload),
+        };
+      }
+
+      // Check version compatibility
+      if (RELEASE_DATE > compressedPayload.e * 1000) {
+        return {
+          valid: false,
+          error: 'EXPIRED',
+          data: RilayLicenseManager.decompressPayload(compressedPayload),
+        };
+      }
+
+      // Validate payload structure
+      if (
+        compressedPayload.p === undefined ||
+        !compressedPayload.c ||
+        !compressedPayload.i ||
+        !compressedPayload.e ||
+        !compressedPayload.t
+      ) {
+        return { valid: false, error: 'INVALID' };
       }
 
       const fullPayload = RilayLicenseManager.decompressPayload(compressedPayload);
       return { valid: true, data: fullPayload };
-    } catch (_error) {
+    } catch {
       return { valid: false, error: 'INVALID' };
     }
   }
