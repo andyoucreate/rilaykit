@@ -272,28 +272,24 @@ export default function WorkflowTestPage() {
   const config = ril
     .create()
     .addComponent('text', {
-      type: 'input',
       name: 'Text Input',
       renderer: TextInput as ComponentRenderer<TextInputProps>,
       defaultProps: { placeholder: 'Enter text...' },
       category: 'inputs',
     })
     .addComponent('email', {
-      type: 'input',
       name: 'Email Input',
       renderer: EmailInput as ComponentRenderer<EmailInputProps>,
       defaultProps: { placeholder: 'Enter email...' },
       category: 'inputs',
     })
     .addComponent('select', {
-      type: 'input',
       name: 'Select Input',
       renderer: SelectInput as ComponentRenderer<SelectInputProps>,
       defaultProps: { options: [] },
       category: 'inputs',
     })
     .addComponent('textarea', {
-      type: 'input',
       name: 'Textarea Input',
       renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
       defaultProps: { placeholder: 'Enter text...', rows: 4 },
@@ -330,13 +326,13 @@ export default function WorkflowTestPage() {
     .addRowFields([
       {
         fieldId: 'firstName',
-        componentSubType: 'text',
+        componentType: 'text',
         props: { label: 'First Name', required: true },
         validation: { validator: createZodValidator(personalInfoSchema.shape.firstName) },
       },
       {
         fieldId: 'lastName',
-        componentSubType: 'text',
+        componentType: 'text',
         props: { label: 'Last Name', required: true },
         validation: { validator: createZodValidator(personalInfoSchema.shape.lastName) },
       },

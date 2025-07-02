@@ -14,19 +14,16 @@ describe('Form Builder', () => {
     config = ril
       .create()
       .addComponent('text', {
-        type: 'input',
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
       })
       .addComponent('email', {
-        type: 'input',
         name: 'Email Input',
         renderer: TestEmailComponent,
         defaultProps: { placeholder: 'Enter email...' },
       })
       .addComponent('number', {
-        type: 'input',
         name: 'Number Input',
         renderer: TestNumberComponent,
         defaultProps: { placeholder: 'Enter number...' },
@@ -57,6 +54,14 @@ describe('Form Builder', () => {
       const formConfig = formBuilder.build();
 
       expect(formConfig.id).toBe('updated-form-id');
+    });
+
+    it('should throw error for non-existent component type', () => {
+      const formBuilder = form.create(config);
+
+      expect(() => {
+        formBuilder.addField('test', 'non-existent' as any);
+      }).toThrow('No component found with type "non-existent"');
     });
   });
 
@@ -124,22 +129,14 @@ describe('Form Builder', () => {
       expect(field.props.placeholder).toBe('Custom placeholder'); // Custom overrides default
       expect(field.props.label).toBe('Username');
     });
-
-    it('should throw error for non-existent component subType', () => {
-      const formBuilder = form.create(config);
-
-      expect(() => {
-        formBuilder.addField('test', 'non-existent' as any);
-      }).toThrow('No component found with subType "non-existent"');
-    });
   });
 
   describe('Row Field Operations', () => {
     it('should add multiple fields on same row', () => {
       const formBuilder = form.create(config);
       formBuilder.addRowFields([
-        { fieldId: 'firstName', componentSubType: 'text', props: { label: 'First Name' } },
-        { fieldId: 'lastName', componentSubType: 'text', props: { label: 'Last Name' } },
+        { fieldId: 'firstName', componentType: 'text', props: { label: 'First Name' } },
+        { fieldId: 'lastName', componentType: 'text', props: { label: 'Last Name' } },
       ]);
 
       const formConfig = formBuilder.build();
@@ -154,8 +151,8 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
       formBuilder.addRowFields(
         [
-          { fieldId: 'field1', componentSubType: 'text' },
-          { fieldId: 'field2', componentSubType: 'text' },
+          { fieldId: 'field1', componentType: 'text' },
+          { fieldId: 'field2', componentType: 'text' },
         ],
         { spacing: 'loose', alignment: 'center' }
       );
@@ -169,7 +166,7 @@ describe('Form Builder', () => {
 
     it('should use default row options when not specified', () => {
       const formBuilder = form.create(config);
-      formBuilder.addRowFields([{ fieldId: 'field1', componentSubType: 'text' }]);
+      formBuilder.addRowFields([{ fieldId: 'field1', componentType: 'text' }]);
 
       const formConfig = formBuilder.build();
       const row = formConfig.rows[0];
@@ -191,10 +188,10 @@ describe('Form Builder', () => {
 
       expect(() => {
         formBuilder.addRowFields([
-          { fieldId: 'field1', componentSubType: 'text' },
-          { fieldId: 'field2', componentSubType: 'text' },
-          { fieldId: 'field3', componentSubType: 'text' },
-          { fieldId: 'field4', componentSubType: 'text' },
+          { fieldId: 'field1', componentType: 'text' },
+          { fieldId: 'field2', componentType: 'text' },
+          { fieldId: 'field3', componentType: 'text' },
+          { fieldId: 'field4', componentType: 'text' },
         ]);
       }).toThrow('Maximum 3 fields per row');
     });
@@ -204,9 +201,9 @@ describe('Form Builder', () => {
     it('should add multiple fields each on separate rows', () => {
       const formBuilder = form.create(config);
       formBuilder.addFields([
-        { fieldId: 'username', componentSubType: 'text', props: { label: 'Username' } },
-        { fieldId: 'email', componentSubType: 'email', props: { label: 'Email' } },
-        { fieldId: 'age', componentSubType: 'number', props: { label: 'Age' } },
+        { fieldId: 'username', componentType: 'text', props: { label: 'Username' } },
+        { fieldId: 'email', componentType: 'email', props: { label: 'Email' } },
+        { fieldId: 'age', componentType: 'number', props: { label: 'Age' } },
       ]);
 
       const formConfig = formBuilder.build();
@@ -304,8 +301,8 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
       formBuilder
         .addRowFields([
-          { fieldId: 'firstName', componentSubType: 'text' },
-          { fieldId: 'lastName', componentSubType: 'text' },
+          { fieldId: 'firstName', componentType: 'text' },
+          { fieldId: 'lastName', componentType: 'text' },
         ])
         .addField('email', 'email');
 
@@ -503,8 +500,8 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config, 'original-id');
 
       // Get a valid component ID from the config
-      const textComponents = config.getComponentsBySubType('text');
-      const validComponentId = textComponents[0].id;
+      const textComponent = config.getComponent('text');
+      const validComponentId = textComponent!.id;
 
       const json = {
         rows: [
@@ -538,9 +535,9 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
       formBuilder
         .addRowFields([
-          { fieldId: 'firstName', componentSubType: 'text' },
-          { fieldId: 'lastName', componentSubType: 'text' },
-          { fieldId: 'age', componentSubType: 'number' },
+          { fieldId: 'firstName', componentType: 'text' },
+          { fieldId: 'lastName', componentType: 'text' },
+          { fieldId: 'age', componentType: 'number' },
         ])
         .addField('email', 'email')
         .addField('bio', 'text');
@@ -575,8 +572,8 @@ describe('Form Builder', () => {
         .setId('chained-form')
         .addField('username', 'text', { label: 'Username' })
         .addRowFields([
-          { fieldId: 'firstName', componentSubType: 'text' },
-          { fieldId: 'lastName', componentSubType: 'text' },
+          { fieldId: 'firstName', componentType: 'text' },
+          { fieldId: 'lastName', componentType: 'text' },
         ])
         .updateField('username', { props: { required: true } })
         .addField('email', 'email', { label: 'Email' });

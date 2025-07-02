@@ -1,12 +1,9 @@
 import type {
   ComponentConfig,
-  ComponentType,
   FormBodyRenderer,
   FormRenderConfig,
   FormRowRenderer,
   FormSubmitButtonRenderer,
-  InputType,
-  LayoutType,
   WorkflowNavigationRenderer,
   WorkflowRenderConfig,
   WorkflowStepperRenderer,
@@ -27,23 +24,21 @@ export class ril {
 
   /**
    * Add a component to the configuration
-   * @param subType - The component subtype (e.g., 'text', 'email', 'heading')
-   * @param config - Component configuration without id and subType
+   * @param type - The component type (e.g., 'text', 'email', 'heading'), used as a unique identifier.
+   * @param config - Component configuration without id and type
    * @returns The ril instance for chaining
    */
   addComponent<TProps = any>(
-    subType: InputType | LayoutType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'subType'> & { id?: string }
+    type: string,
+    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
   ): this {
-    const componentId = config.id || `${config.type}-${subType}-${Date.now()}`;
-
     const fullConfig: ComponentConfig<TProps> = {
-      id: componentId,
-      subType,
+      id: type,
+      type,
       ...config,
     };
 
-    this.components.set(componentId, fullConfig as ComponentConfig);
+    this.components.set(type, fullConfig as ComponentConfig);
     return this;
   }
 
@@ -157,29 +152,11 @@ export class ril {
 
   /**
    * Get a component by its ID
-   * @param id - Component ID
+   * @param id - Component ID (which is its type)
    * @returns Component configuration or undefined
    */
   getComponent(id: string): ComponentConfig | undefined {
     return this.components.get(id);
-  }
-
-  /**
-   * List components by type (input or layout)
-   * @param type - Component type
-   * @returns Array of matching components
-   */
-  getComponentsByType(type: ComponentType): ComponentConfig[] {
-    return Array.from(this.components.values()).filter((comp) => comp.type === type);
-  }
-
-  /**
-   * List components by sub-type
-   * @param subType - Component sub-type
-   * @returns Array of matching components
-   */
-  getComponentsBySubType(subType: InputType | LayoutType): ComponentConfig[] {
-    return Array.from(this.components.values()).filter((comp) => comp.subType === subType);
   }
 
   /**
@@ -250,8 +227,7 @@ export class ril {
    */
   getStats(): {
     total: number;
-    byType: Record<ComponentType, number>;
-    bySubType: Record<string, number>;
+    byType: Record<string, number>;
     byCategory: Record<string, number>;
     hasCustomRenderers: {
       // Form renderers
@@ -270,13 +246,6 @@ export class ril {
       byType: components.reduce(
         (acc, comp) => {
           acc[comp.type] = (acc[comp.type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<ComponentType, number>
-      ),
-      bySubType: components.reduce(
-        (acc, comp) => {
-          acc[comp.subType] = (acc[comp.subType] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>

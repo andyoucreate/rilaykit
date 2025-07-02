@@ -8,20 +8,6 @@ export interface RilayLicenseConfig {
   readonly allowTrial?: boolean;
 }
 
-// Component types
-export type ComponentType = 'input' | 'layout';
-export type InputType =
-  | 'text'
-  | 'email'
-  | 'password'
-  | 'number'
-  | 'select'
-  | 'checkbox'
-  | 'textarea'
-  | 'file'
-  | 'date';
-export type LayoutType = 'heading' | 'paragraph' | 'container' | 'divider' | 'spacer' | 'alert';
-
 // Validation types
 export interface ValidationResult {
   readonly isValid: boolean;
@@ -103,8 +89,7 @@ export interface ComponentOptions<TProps = any> {
 // Base component configuration
 export interface ComponentConfig<TProps = any> {
   readonly id: string;
-  readonly type: ComponentType;
-  readonly subType: InputType | LayoutType;
+  readonly type: string;
   readonly name: string;
   readonly description?: string;
   readonly category?: string;

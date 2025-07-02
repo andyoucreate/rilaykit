@@ -4,7 +4,9 @@
   "description": "Form building utilities and components for RilayKit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -16,7 +18,12 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "forms", "form-builder", "typescript"],
+  "keywords": [
+    "react",
+    "forms",
+    "form-builder",
+    "typescript"
+  ],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.io",
@@ -28,8 +35,7 @@
     "url": "https://github.com/andyoucreate/rilay/issues"
   },
   "dependencies": {
-    "@rilaykit/core": "workspace:*",
-    "clsx": "^2.1.1"
+    "@rilaykit/core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

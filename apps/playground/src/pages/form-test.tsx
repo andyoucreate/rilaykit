@@ -188,7 +188,6 @@ export default function FormTestPage() {
   const config = ril
     .create()
     .addComponent('text', {
-      type: 'input',
       name: 'Text Input',
       description: 'Basic text input field',
       renderer: TextInput as ComponentRenderer<TextInputProps>,
@@ -198,7 +197,6 @@ export default function FormTestPage() {
       category: 'inputs',
     })
     .addComponent('email', {
-      type: 'input',
       name: 'Email Input',
       description: 'Email input field with validation',
       renderer: EmailInput as ComponentRenderer<EmailInputProps>,
@@ -208,7 +206,6 @@ export default function FormTestPage() {
       category: 'inputs',
     })
     .addComponent('number', {
-      type: 'input',
       name: 'Number Input',
       description: 'Numeric input field',
       renderer: NumberInput as ComponentRenderer<NumberInputProps>,
@@ -218,7 +215,6 @@ export default function FormTestPage() {
       category: 'inputs',
     })
     .addComponent('textarea', {
-      type: 'input',
       name: 'Textarea Input',
       description: 'Multi-line text input field',
       renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
@@ -256,7 +252,7 @@ export default function FormTestPage() {
     .addRowFields([
       {
         fieldId: 'firstName',
-        componentSubType: 'text',
+        componentType: 'text',
         props: {
           label: 'First Name',
           placeholder: 'Enter your first name',
@@ -266,7 +262,7 @@ export default function FormTestPage() {
       },
       {
         fieldId: 'lastName',
-        componentSubType: 'text',
+        componentType: 'text',
         props: {
           label: 'Last Name',
           placeholder: 'Enter your last name',

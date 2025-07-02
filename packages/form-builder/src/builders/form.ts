@@ -3,8 +3,6 @@ import type {
   FormConfiguration,
   FormFieldConfig,
   FormFieldRow,
-  InputType,
-  LayoutType,
   ValidationConfig,
   ril,
 } from '@rilaykit/core';
@@ -31,14 +29,14 @@ export class form {
   /**
    * Add a single field (takes full width)
    * @param fieldId - Unique field identifier
-   * @param componentSubType - Component subtype (e.g., 'text', 'email')
+   * @param componentType - Component type (e.g., 'text', 'email')
    * @param props - Props to pass to the component
    * @param options - Additional options
    * @returns form instance for chaining
    */
   addField(
     fieldId: string,
-    componentSubType: InputType | LayoutType,
+    componentType: string,
     props: Record<string, any> = {},
     options?: {
       validation?: ValidationConfig;
@@ -48,7 +46,7 @@ export class form {
     return this.addRowFields([
       {
         fieldId,
-        componentSubType,
+        componentType,
         props,
         validation: options?.validation,
         conditional: options?.conditional,
@@ -65,7 +63,7 @@ export class form {
   addRowFields(
     fieldConfigs: Array<{
       fieldId: string;
-      componentSubType: InputType | LayoutType;
+      componentType: string;
       props?: Record<string, any>;
       validation?: ValidationConfig;
       conditional?: ConditionalConfig;
@@ -89,13 +87,11 @@ export class form {
 
     // Process each field
     for (const fieldConfig of fieldConfigs) {
-      const components = this.config.getComponentsBySubType(fieldConfig.componentSubType);
+      const component = this.config.getComponent(fieldConfig.componentType);
 
-      if (components.length === 0) {
-        throw new Error(`No component found with subType "${fieldConfig.componentSubType}"`);
+      if (!component) {
+        throw new Error(`No component found with type "${fieldConfig.componentType}"`);
       }
-
-      const component = components[0];
 
       const formFieldConfig: FormFieldConfig = {
         id: fieldConfig.fieldId,
@@ -129,14 +125,14 @@ export class form {
   addFields(
     fieldConfigs: Array<{
       fieldId: string;
-      componentSubType: InputType | LayoutType;
+      componentType: string;
       props?: Record<string, any>;
       validation?: ValidationConfig;
       conditional?: ConditionalConfig;
     }>
   ): this {
     for (const fieldConfig of fieldConfigs) {
-      this.addField(fieldConfig.fieldId, fieldConfig.componentSubType, fieldConfig.props, {
+      this.addField(fieldConfig.fieldId, fieldConfig.componentType, fieldConfig.props, {
         validation: fieldConfig.validation,
         conditional: fieldConfig.conditional,
       });

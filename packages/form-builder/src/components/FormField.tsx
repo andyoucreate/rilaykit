@@ -1,5 +1,4 @@
 import type { ComponentRenderProps } from '@rilaykit/core';
-import clsx from 'clsx';
 import React, { useCallback, useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 
@@ -170,9 +169,9 @@ export function FormField({
 
   return (
     <div
-      className={clsx('streamline-form-field', className)}
+      className={className}
       data-field-id={fieldConfig.id}
-      data-field-type={componentConfig.subType}
+      data-field-type={componentConfig.type}
     >
       {componentConfig.renderer(renderProps)}
     </div>
