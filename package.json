@@ -22,6 +22,7 @@
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "test": "vitest run",
+    "test:ci": "pnpm build && vitest run",
     "test:ui": "vitest --ui",
     "type-check": "turbo run type-check",
     "clean": "turbo clean",
