@@ -1,5 +1,6 @@
 import type {
   ComponentConfig,
+  FieldRenderer,
   FormBodyRenderer,
   FormRenderConfig,
   FormRowRenderer,
@@ -77,6 +78,19 @@ export class ril {
     this.formRenderConfig = {
       ...this.formRenderConfig,
       submitButtonRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom field renderer
+   * @param renderer - Custom field renderer function
+   * @returns The ril instance for chaining
+   */
+  setFieldRenderer(renderer: FieldRenderer): this {
+    this.formRenderConfig = {
+      ...this.formRenderConfig,
+      fieldRenderer: renderer,
     };
     return this;
   }
@@ -234,6 +248,7 @@ export class ril {
       row: boolean;
       body: boolean;
       submitButton: boolean;
+      field: boolean;
       // Workflow renderers
       stepper: boolean;
       workflowNavigation: boolean;
@@ -263,6 +278,7 @@ export class ril {
         row: Boolean(this.formRenderConfig.rowRenderer),
         body: Boolean(this.formRenderConfig.bodyRenderer),
         submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
+        field: Boolean(this.formRenderConfig.fieldRenderer),
         // Workflow renderers
         stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
         workflowNavigation: Boolean(this.workflowRenderConfig.navigationRenderer),

@@ -97,6 +97,7 @@ export interface ComponentConfig<TProps = any> {
   readonly options?: ComponentOptions<TProps>;
   readonly validation?: ValidationConfig<TProps>;
   readonly defaultProps?: Partial<TProps>;
+  readonly useFieldRenderer?: boolean;
 }
 
 // Form field configuration
@@ -396,11 +397,25 @@ export type FormRowRenderer = (props: FormRowRendererProps) => React.ReactElemen
 export type FormBodyRenderer = (props: FormBodyRendererProps) => React.ReactElement;
 export type FormSubmitButtonRenderer = (props: FormSubmitButtonRendererProps) => React.ReactElement;
 
+export interface FieldRendererProps {
+  children: React.ReactNode;
+  id: string;
+  error?: ValidationError[];
+  warnings?: ValidationWarning[];
+  touched?: boolean;
+  disabled?: boolean;
+  isValidating?: boolean;
+  [key: string]: any;
+}
+
+export type FieldRenderer = (props: FieldRendererProps) => React.ReactElement;
+
 // Form renderer configuration
 export interface FormRenderConfig {
   readonly rowRenderer?: FormRowRenderer;
   readonly bodyRenderer?: FormBodyRenderer;
   readonly submitButtonRenderer?: FormSubmitButtonRenderer;
+  readonly fieldRenderer?: FieldRenderer;
 }
 
 export interface FormConfiguration {

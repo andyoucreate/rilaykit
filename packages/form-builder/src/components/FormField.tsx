@@ -167,13 +167,33 @@ export function FormField({
     ]
   );
 
+  const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
+  const renderedComponent = componentConfig.renderer(renderProps);
+
+  // Default to true if useFieldRenderer is not defined
+  const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
+
+  const content =
+    fieldRenderer && shouldUseFieldRenderer
+      ? fieldRenderer({
+          children: renderedComponent,
+          id: fieldConfig.id,
+          error: fieldState.errors,
+          warnings: fieldState.warnings,
+          touched: fieldState.touched,
+          disabled: disabled || conditionalProps.disabled,
+          isValidating: fieldState.validating,
+          ...mergedProps,
+        })
+      : renderedComponent;
+
   return (
     <div
       className={className}
       data-field-id={fieldConfig.id}
       data-field-type={componentConfig.type}
     >
-      {componentConfig.renderer(renderProps)}
+      {content}
     </div>
   );
 }

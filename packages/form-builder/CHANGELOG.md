@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 1.1.0
+
+### Minor Changes
+
+- Add field renderer
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@1.1.0
+
 ## 1.0.0
 
 ### Major Changes
