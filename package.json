@@ -1,8 +1,17 @@
 {
-  "name": "@rilay/monorepo",
+  "name": "@rilaykit/monorepo",
   "version": "1.0.0",
   "description": "A next-generation React form library with modularity, type safety, and extensibility at its core",
   "private": true,
+  "author": "AND YOU CREATE <contact@andyoucreate.com>",
+  "homepage": "https://rilay.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilay/issues"
+  },
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",

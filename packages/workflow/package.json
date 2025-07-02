@@ -1,7 +1,7 @@
 {
   "name": "@rilaykit/workflow",
   "version": "0.1.1-alpha.1",
-  "description": "Workflow and multi-step form utilities for RilayKit",
+  "description": "Commercial workflow and multi-step form utilities for RilayKit - License required for all use",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -17,8 +17,16 @@
     "clean": "rm -rf dist"
   },
   "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
-  "author": "RilayKit Team",
+  "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://rilay.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilay/issues"
+  },
   "dependencies": {
     "@noble/ed25519": "^1.7.1",
     "@rilaykit/core": "workspace:*",
