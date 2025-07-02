@@ -1,4 +1,4 @@
-import type { FormBodyRendererProps } from '@rilay/core';
+import type { FormBodyRendererProps } from '@rilaykit/core';
 import { useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 import FormRow from './FormRow';

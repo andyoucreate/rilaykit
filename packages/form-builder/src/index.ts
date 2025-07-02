@@ -8,15 +8,15 @@ export { FormRow } from './components/FormRow';
 export { FormSubmitButton } from './components/FormSubmitButton';
 
 // Export form builder
-export { form, form as FormBuilder } from './builders/form';
+export { form as FormBuilder, form } from './builders/form';
 
 // Re-export types and utilities from core
-export type * from '@rilay/core';
+export type * from '@rilaykit/core';
 
 export {
   createZodValidator,
   ril,
-} from '@rilay/core';
+} from '@rilaykit/core';
 
 // Component types
 export type { FormProps } from './components/Form';

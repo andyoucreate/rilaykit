@@ -1,4 +1,4 @@
-import type { FormFieldRow, FormRowRendererProps } from '@rilay/core';
+import type { FormFieldRow, FormRowRendererProps } from '@rilaykit/core';
 import FormField from './FormField';
 import { useFormContext } from './FormProvider';
 

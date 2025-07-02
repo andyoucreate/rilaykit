@@ -3,7 +3,7 @@ import type {
   ValidationResult,
   WorkflowContext,
   WorkflowPlugin,
-} from '@rilay/core';
+} from '@rilaykit/core';
 
 export interface ValidationPluginConfig {
   schema?: {

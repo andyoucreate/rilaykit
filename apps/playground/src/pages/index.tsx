@@ -24,15 +24,15 @@ export default function Home() {
         <ul className="space-y-2">
           <li className="flex items-center">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-3" />
-            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilay/core</code>
+            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/core</code>
           </li>
           <li className="flex items-center">
             <span className="w-2 h-2 bg-green-500 rounded-full mr-3" />
-            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilay/form-builder</code>
+            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/forms</code>
           </li>
           <li className="flex items-center">
             <span className="w-2 h-2 bg-purple-500 rounded-full mr-3" />
-            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilay/workflow</code>
+            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/workflow</code>
           </li>
         </ul>
       </div>

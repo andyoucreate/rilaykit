@@ -9,8 +9,8 @@ import {
   type FormSubmitButtonRendererProps,
   createZodValidator,
   ril,
-} from '@rilay/core';
-import { Form, FormBody, FormSubmitButton, form } from '@rilay/form-builder';
+} from '@rilaykit/core';
+import { Form, FormBody, FormSubmitButton, form } from '@rilaykit/forms';
 import Link from 'next/link';
 import type React from 'react';
 import { z } from 'zod';
@@ -328,7 +328,8 @@ export default function FormTestPage() {
 
       <p className="text-gray-600 mb-8">
         This form tests the features of the{' '}
-        <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilay/form-builder</code> package.
+        <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/form-builder</code>{' '}
+        package.
       </p>
 
       <div className="form-container">

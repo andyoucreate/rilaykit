@@ -13,8 +13,8 @@ import {
   type WorkflowStepperRendererProps,
   createZodValidator,
   ril,
-} from '@rilay/core';
-import { FormField, form } from '@rilay/form-builder';
+} from '@rilaykit/core';
+import { FormField, form } from '@rilaykit/forms';
 import {
   RilayLicenseManager,
   Workflow,
@@ -22,7 +22,7 @@ import {
   WorkflowNavigation,
   WorkflowStepper,
   flow,
-} from '@rilay/workflow';
+} from '@rilaykit/workflow';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
@@ -503,7 +503,7 @@ export default function WorkflowTestPage() {
       <h1 className="text-3xl font-bold text-gray-800 mb-4">🔀 Workflow Test</h1>
       <p className="text-gray-600 mb-8">
         This page demonstrates the features of the{' '}
-        <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilay/workflow</code> package.
+        <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/workflow</code> package.
       </p>
 
       <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-sm">

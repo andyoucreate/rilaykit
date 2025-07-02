@@ -25,7 +25,7 @@ export default defineConfig({
   target: 'es2020',
   
   // External dependencies
-  external: ['react', 'react-dom', '@rilay/core', '@rilay/form-builder'],
+  external: ['react', 'react-dom', '@rilaykit/core', '@rilaykit/forms'],
   
   // Bundle internal dependencies
   bundle: true,

@@ -58,13 +58,13 @@ importers:
 
   apps/playground:
     dependencies:
-      '@rilay/core':
+      '@rilaykit/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@rilay/form-builder':
+      '@rilaykit/forms':
         specifier: workspace:*
         version: link:../../packages/form-builder
-      '@rilay/workflow':
+      '@rilaykit/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
       clsx:
@@ -129,7 +129,7 @@ importers:
 
   packages/form-builder:
     dependencies:
-      '@rilay/core':
+      '@rilaykit/core':
         specifier: workspace:*
         version: link:../core
       clsx:
@@ -169,10 +169,10 @@ importers:
       '@noble/ed25519':
         specifier: ^1.7.1
         version: 1.7.5
-      '@rilay/core':
+      '@rilaykit/core':
         specifier: workspace:*
         version: link:../core
-      '@rilay/form-builder':
+      '@rilaykit/forms':
         specifier: workspace:*
         version: link:../form-builder
     devDependencies:

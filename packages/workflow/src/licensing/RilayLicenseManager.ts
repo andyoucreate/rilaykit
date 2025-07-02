@@ -1,7 +1,7 @@
 import * as ed25519 from '@noble/ed25519';
 import type { CompressedLicensePayload, LicensePayload, LicenseResult } from './types';
 
-// Current @rilay/workflow version release date - Update this with each release
+// Current @rilaykit/workflow version release date - Update this with each release
 const RELEASE_DATE = 1751361139160;
 const ED25519_PUBLIC_KEY = '8fdb6a454550326d331c3b3d1d1f8c707a371bdb6c7ea72a0a1e4ea6f1822620';
 

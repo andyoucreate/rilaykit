@@ -81,9 +81,9 @@ jobs:
         run: |
           cat > .changeset/prerelease-${{ github.event.inputs.prerelease_type }}.md << EOF
           ---
-          "@rilay/core": prerelease
-          "@rilay/form-builder": prerelease
-          "@rilay/workflow": prerelease
+          "@rilaykit/core": prerelease
+          "@rilaykit/forms": prerelease
+          "@rilaykit/workflow": prerelease
           ---
 
           Prerelease ${{ github.event.inputs.prerelease_type }}: Test version

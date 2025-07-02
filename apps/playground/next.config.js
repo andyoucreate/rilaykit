@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@rilay/core', '@rilay/form-builder', '@rilay/workflow'],
+  transpilePackages: ['@rilaykit/core', '@rilaykit/forms', '@rilaykit/workflow'],
 };
 
 module.exports = nextConfig;

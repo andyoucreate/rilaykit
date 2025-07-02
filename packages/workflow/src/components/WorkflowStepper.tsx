@@ -1,4 +1,4 @@
-import type { WorkflowStepperRendererProps } from '@rilay/core';
+import type { WorkflowStepperRendererProps } from '@rilaykit/core';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowStepperProps {

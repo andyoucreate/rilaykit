@@ -1,4 +1,4 @@
-import { FormBody } from '@rilay/form-builder';
+import { FormBody } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
 /**

@@ -25,7 +25,7 @@ export default defineConfig({
   target: 'es2020',
   
   // External dependencies
-  external: ['react', 'react-dom', '@rilay/core', 'clsx'],
+  external: ['react', 'react-dom', '@rilaykit/core', 'clsx'],
   
   // Bundle internal dependencies
   bundle: true,

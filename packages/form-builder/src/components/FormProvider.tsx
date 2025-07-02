@@ -1,4 +1,4 @@
-import type { FormConfiguration, ValidationError, ValidationResult } from '@rilay/core';
+import type { FormConfiguration, ValidationError, ValidationResult } from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef } from 'react';
 

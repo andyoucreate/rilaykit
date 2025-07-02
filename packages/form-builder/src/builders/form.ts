@@ -7,7 +7,7 @@ import type {
   LayoutType,
   ValidationConfig,
   ril,
-} from '@rilay/core';
+} from '@rilaykit/core';
 
 /**
  * Form builder class for creating form configurations

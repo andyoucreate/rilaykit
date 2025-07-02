@@ -1,5 +1,5 @@
-import type { WorkflowNavigationRendererProps } from '@rilay/core';
-import { useFormContext } from '@rilay/form-builder';
+import type { WorkflowNavigationRendererProps } from '@rilaykit/core';
+import { useFormContext } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowNavigationProps {

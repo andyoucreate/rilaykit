@@ -1,4 +1,4 @@
-import type { WorkflowAnalytics, WorkflowContext, WorkflowPlugin } from '@rilay/core';
+import type { WorkflowAnalytics, WorkflowContext, WorkflowPlugin } from '@rilaykit/core';
 
 export interface AnalyticsPluginConfig {
   providers: {

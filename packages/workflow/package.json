@@ -1,7 +1,7 @@
 {
-  "name": "@rilay/workflow",
-  "version": "0.1.0",
-  "description": "Workflow and multi-step form utilities for Rilay",
+  "name": "@rilaykit/workflow",
+  "version": "0.1.1-alpha.0",
+  "description": "Workflow and multi-step form utilities for RilayKit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -22,8 +22,8 @@
   "private": true,
   "dependencies": {
     "@noble/ed25519": "^1.7.1",
-    "@rilay/core": "workspace:*",
-    "@rilay/form-builder": "workspace:*"
+    "@rilaykit/core": "workspace:*",
+    "@rilaykit/forms": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

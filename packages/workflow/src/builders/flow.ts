@@ -15,7 +15,7 @@ import type {
   WorkflowPlugin,
   WorkflowVersion,
   ril,
-} from '@rilay/core';
+} from '@rilaykit/core';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
 /**

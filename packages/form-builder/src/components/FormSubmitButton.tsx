@@ -1,4 +1,4 @@
-import type { FormSubmitButtonRendererProps } from '@rilay/core';
+import type { FormSubmitButtonRendererProps } from '@rilaykit/core';
 import type React from 'react';
 import { useFormContext } from './FormProvider';
 

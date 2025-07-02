@@ -15,14 +15,14 @@ export { ValidationPlugin } from './plugins/ValidationPlugin';
 export { RilayLicenseManager } from './licensing/RilayLicenseManager';
 
 // Re-export types and utilities
-export type * from '@rilay/core';
+export type * from '@rilaykit/core';
 
 export {
   createZodValidator,
   ril,
-} from '@rilay/core';
+} from '@rilaykit/core';
 
-export { form } from '@rilay/form-builder';
+export { form } from '@rilaykit/forms';
 
 // Component types
 export type { WorkflowNavigationProps } from './components/WorkflowNavigation';

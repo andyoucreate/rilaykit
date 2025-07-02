@@ -5,8 +5,8 @@ import type {
   ValidationResult,
   WorkflowConfig,
   WorkflowContext,
-} from '@rilay/core';
-import { FormProvider } from '@rilay/form-builder';
+} from '@rilaykit/core';
+import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
 import {
   createContext,

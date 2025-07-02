@@ -10,9 +10,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@rilay/core": "workspace:*",
-    "@rilay/form-builder": "workspace:*",
-    "@rilay/workflow": "workspace:*",
+    "@rilaykit/core": "workspace:*",
+    "@rilaykit/forms": "workspace:*",
+    "@rilaykit/workflow": "workspace:*",
     "clsx": "^2.1.1",
     "next": "15.3.4",
     "react": "^18.2.0",

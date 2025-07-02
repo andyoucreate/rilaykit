@@ -22,9 +22,9 @@ rilay/
 ```
 
 ### Package Dependencies
-- **@rilay/core**: Foundation layer with types and [RilayConfig.ts](mdc:packages/core/src/config/RilayConfig.ts)
-- **@rilay/form-builder**: Uses core, provides [FormBuilder.ts](mdc:packages/form-builder/src/builders/FormBuilder.ts) and components
-- **@rilay/workflow**: Uses core, provides workflow orchestration
+- **@rilaykit/core**: Foundation layer with types and [RilayConfig.ts](mdc:packages/core/src/config/RilayConfig.ts)
+- **@rilaykit/forms**: Uses core, provides [FormBuilder.ts](mdc:packages/form-builder/src/builders/FormBuilder.ts) and components
+- **@rilaykit/workflow**: Uses core, provides workflow orchestration
 - **playground**: Demo app using all packages
 
 ## 🔧 Core Concepts
@@ -141,7 +141,7 @@ const form = FormBuilder.create(config)
 3. Configure debouncing, timing options
 
 ### Workflow Integration
-1. Use `@rilay/workflow` package
+1. Use `@rilaykit/workflow` package
 2. Define steps with form configurations
 3. Handle step transitions and persistence
 

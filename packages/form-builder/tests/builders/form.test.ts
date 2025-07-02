@@ -1,4 +1,4 @@
-import { ril } from '@rilay/core';
+import { ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { form } from '../../src/builders/form';
