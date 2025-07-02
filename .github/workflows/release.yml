@@ -99,7 +99,7 @@ jobs:
         run: pnpm build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
@@ -161,7 +161,7 @@ jobs:
             echo "✅ Changeset found"
           fi
 
-  # 🚀 Release (seulement sur main)
+  # 🚀 Release
   release:
     name: Release
     runs-on: ubuntu-latest
