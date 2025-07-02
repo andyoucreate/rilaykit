@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_tag:
+        description: 'Prerelease tag (alpha, beta, rc)'
+        required: false
+        default: 'alpha'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  test:
+    name: Test & Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Run tests
+        run: pnpm test:ci
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # 🏗️ Build
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            packages/*/dist
+            packages/*/build
+          retention-days: 1
+
+  # 🔍 Security Audit
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level moderate
+
+  # 📋 Changeset Check
+  changeset-check:
+    name: Changeset Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for changeset
+        run: |
+          if [ "$(pnpm changeset status --output=json | jq '.changesets | length')" -eq 0 ]; then
+            echo "❌ No changeset found. Please add a changeset with 'pnpm changeset'"
+            exit 1
+          else
+            echo "✅ Changeset found"
+          fi
+
+  # 🚀 Release (seulement sur main)
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [test, build, security]
+    outputs:
+      published: ${{ steps.changeset.outputs.published }}
+      publishedPackages: ${{ steps.changeset.outputs.publishedPackages }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Create Release Pull Request or Publish
+        id: changeset
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          title: 'Release: New version'
+          commit: 'release: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # 🎉 Post-Release
+  post-release:
+    name: Post Release
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }}
+          release_name: Release v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }}
+          body: |
+            ## New Rilay Release
+
+            ### Published packages:
+            ${{ needs.release.outputs.publishedPackages }}
+
+            ### Useful links:
+            - 📚 [Documentation](https://rilay.io)
+            - 🐛 [Report a bug](https://github.com/andyoucreate/rilay/issues)
+            - 💬 [Discussions](https://github.com/andyoucreate/rilay/discussions)
+
+            ### Thank you to all contributors!
+          draft: false
+          prerelease: false
+
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🚀 New Rilay release v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }} published!
+            📦 Packages: ${{ needs.release.outputs.publishedPackages }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

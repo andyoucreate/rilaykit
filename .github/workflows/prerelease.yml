@@ -1,0 +1,109 @@
+name: Prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease_type:
+        description: 'Prerelease type'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  test:
+    name: Test & Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Run tests
+        run: pnpm test:ci
+
+  prerelease:
+    name: Prerelease
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Enter prerelease mode
+        run: pnpm changeset pre enter ${{ github.event.inputs.prerelease_type }}
+
+      - name: Create prerelease changeset
+        run: |
+          cat > .changeset/prerelease-${{ github.event.inputs.prerelease_type }}.md << EOF
+          ---
+          "@rilay/core": prerelease
+          "@rilay/form-builder": prerelease
+          "@rilay/workflow": prerelease
+          ---
+
+          Prerelease ${{ github.event.inputs.prerelease_type }}: Test version
+          EOF
+
+      - name: Version packages
+        run: pnpm changeset:version
+
+      - name: Publish prerelease
+        run: pnpm changeset:publish --tag ${{ github.event.inputs.prerelease_type }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Exit prerelease mode
+        run: pnpm changeset pre exit
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "prerelease: ${{ github.event.inputs.prerelease_type }} version" || exit 0
+          git push 

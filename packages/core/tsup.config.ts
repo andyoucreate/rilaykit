@@ -20,7 +20,7 @@ export default defineConfig({
   
   // Minify for smaller bundle size
   minify: true,
-  
+
   // Target ES2020 for good compatibility and smaller output
   target: 'es2020',
   
