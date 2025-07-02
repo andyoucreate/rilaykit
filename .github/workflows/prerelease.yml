@@ -44,7 +44,7 @@ jobs:
         run: pnpm lint
 
       - name: Run tests
-        run: pnpm test:ci
+        run: pnpm test
 
   prerelease:
     name: Prerelease
