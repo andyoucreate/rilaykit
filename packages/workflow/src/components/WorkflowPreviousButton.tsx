@@ -1,3 +1,4 @@
+import type { WorkflowPreviousButtonRendererProps } from '@rilaykit/core';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowPreviousButtonProps {
@@ -7,6 +8,14 @@ export interface WorkflowPreviousButtonProps {
 
 export function WorkflowPreviousButton({ className, children }: WorkflowPreviousButtonProps) {
   const { workflowConfig, context, goPrevious, workflowState } = useWorkflowContext();
+
+  const renderer = workflowConfig.renderConfig?.previousButtonRenderer;
+
+  if (!renderer) {
+    throw new Error(
+      `No previousButtonRenderer configured for workflow "${workflowConfig.id}". Please configure a previousButtonRenderer using config.setWorkflowPreviousButtonRenderer() or config.setWorkflowRenderConfig().`
+    );
+  }
 
   const canGoPrevious =
     context.currentStepIndex > 0 &&
@@ -20,15 +29,14 @@ export function WorkflowPreviousButton({ className, children }: WorkflowPrevious
     await goPrevious();
   };
 
-  if (!canGoPrevious) {
-    return null;
-  }
+  const props: WorkflowPreviousButtonRendererProps = {
+    canGoPrevious,
+    onPrevious: handlePrevious,
+    className,
+    children,
+  };
 
-  return (
-    <button type="button" onClick={handlePrevious} disabled={!canGoPrevious} className={className}>
-      {children || 'Previous'}
-    </button>
-  );
+  return renderer(props);
 }
 
 export default WorkflowPreviousButton;

@@ -1,3 +1,4 @@
+import type { WorkflowNextButtonRendererProps } from '@rilaykit/core';
 import { useFormContext } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
@@ -7,8 +8,16 @@ export interface WorkflowNextButtonProps {
 }
 
 export function WorkflowNextButton({ className, children }: WorkflowNextButtonProps) {
-  const { context, submitWorkflow, workflowState } = useWorkflowContext();
+  const { context, submitWorkflow, workflowState, workflowConfig } = useWorkflowContext();
   const { submit } = useFormContext();
+
+  const renderer = workflowConfig.renderConfig?.nextButtonRenderer;
+
+  if (!renderer) {
+    throw new Error(
+      `No nextButtonRenderer configured for workflow "${workflowConfig.id}". Please configure a nextButtonRenderer using config.setWorkflowNextButtonRenderer() or config.setWorkflowRenderConfig().`
+    );
+  }
 
   const canGoNext = !workflowState.isTransitioning && !workflowState.isSubmitting;
 
@@ -24,13 +33,17 @@ export function WorkflowNextButton({ className, children }: WorkflowNextButtonPr
     await submitWorkflow();
   };
 
-  const handleClick = context.isLastStep ? handleSubmit : handleNext;
+  const props: WorkflowNextButtonRendererProps = {
+    isLastStep: context.isLastStep,
+    canGoNext,
+    isSubmitting: workflowState.isSubmitting,
+    onNext: handleNext,
+    onSubmit: handleSubmit,
+    className,
+    children,
+  };
 
-  return (
-    <button type="submit" onClick={handleClick} disabled={!canGoNext} className={className}>
-      {children || (context.isLastStep ? 'Complete Workflow' : 'Next')}
-    </button>
-  );
+  return renderer(props);
 }
 
 export default WorkflowNextButton;

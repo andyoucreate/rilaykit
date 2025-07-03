@@ -6,7 +6,10 @@ import type {
   FormRowRenderer,
   FormSubmitButtonRenderer,
   WorkflowNavigationRenderer,
+  WorkflowNextButtonRenderer,
+  WorkflowPreviousButtonRenderer,
   WorkflowRenderConfig,
+  WorkflowSkipButtonRenderer,
   WorkflowStepperRenderer,
 } from '../types';
 
@@ -140,6 +143,45 @@ export class ril {
   }
 
   /**
+   * Set custom workflow next button renderer
+   * @param renderer - Custom workflow next button renderer function
+   * @returns The ril instance for chaining
+   */
+  setWorkflowNextButtonRenderer(renderer: WorkflowNextButtonRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      nextButtonRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom workflow previous button renderer
+   * @param renderer - Custom workflow previous button renderer function
+   * @returns The ril instance for chaining
+   */
+  setWorkflowPreviousButtonRenderer(renderer: WorkflowPreviousButtonRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      previousButtonRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
+   * Set custom workflow skip button renderer
+   * @param renderer - Custom workflow skip button renderer function
+   * @returns The ril instance for chaining
+   */
+  setWorkflowSkipButtonRenderer(renderer: WorkflowSkipButtonRenderer): this {
+    this.workflowRenderConfig = {
+      ...this.workflowRenderConfig,
+      skipButtonRenderer: renderer,
+    };
+    return this;
+  }
+
+  /**
    * Set complete workflow render configuration
    * @param config - Workflow render configuration
    * @returns The ril instance for chaining
@@ -252,6 +294,9 @@ export class ril {
       // Workflow renderers
       stepper: boolean;
       workflowNavigation: boolean;
+      workflowNextButton: boolean;
+      workflowPreviousButton: boolean;
+      workflowSkipButton: boolean;
     };
   } {
     const components = Array.from(this.components.values());
@@ -282,6 +327,9 @@ export class ril {
         // Workflow renderers
         stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
         workflowNavigation: Boolean(this.workflowRenderConfig.navigationRenderer),
+        workflowNextButton: Boolean(this.workflowRenderConfig.nextButtonRenderer),
+        workflowPreviousButton: Boolean(this.workflowRenderConfig.previousButtonRenderer),
+        workflowSkipButton: Boolean(this.workflowRenderConfig.skipButtonRenderer),
       },
     };
   }

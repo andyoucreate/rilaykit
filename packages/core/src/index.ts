@@ -1,5 +1,13 @@
 // Export all types
 export * from './types';
+export type {
+  WorkflowNextButtonRenderer,
+  WorkflowNextButtonRendererProps,
+  WorkflowPreviousButtonRenderer,
+  WorkflowPreviousButtonRendererProps,
+  WorkflowSkipButtonRenderer,
+  WorkflowSkipButtonRendererProps,
+} from './types';
 
 // Export configuration
 export { ril } from './config/ril';

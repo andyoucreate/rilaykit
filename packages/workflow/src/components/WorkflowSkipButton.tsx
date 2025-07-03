@@ -1,3 +1,4 @@
+import type { WorkflowSkipButtonRendererProps } from '@rilaykit/core';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowSkipButtonProps {
@@ -7,6 +8,14 @@ export interface WorkflowSkipButtonProps {
 
 export function WorkflowSkipButton({ className, children }: WorkflowSkipButtonProps) {
   const { workflowConfig, currentStep, skipStep, workflowState } = useWorkflowContext();
+
+  const renderer = workflowConfig.renderConfig?.skipButtonRenderer;
+
+  if (!renderer) {
+    throw new Error(
+      `No skipButtonRenderer configured for workflow "${workflowConfig.id}". Please configure a skipButtonRenderer using config.setWorkflowSkipButtonRenderer() or config.setWorkflowRenderConfig().`
+    );
+  }
 
   const canSkip =
     Boolean(currentStep?.allowSkip) &&
@@ -20,15 +29,14 @@ export function WorkflowSkipButton({ className, children }: WorkflowSkipButtonPr
     await skipStep();
   };
 
-  if (!canSkip) {
-    return null;
-  }
+  const props: WorkflowSkipButtonRendererProps = {
+    canSkip,
+    onSkip: handleSkip,
+    className,
+    children,
+  };
 
-  return (
-    <button type="button" onClick={handleSkip} disabled={!canSkip} className={className}>
-      {children || 'Skip Step'}
-    </button>
-  );
+  return renderer(props);
 }
 
 export default WorkflowSkipButton;

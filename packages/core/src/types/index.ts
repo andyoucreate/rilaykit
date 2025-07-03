@@ -367,6 +367,9 @@ export type WorkflowNavigationRenderer = (
 export interface WorkflowRenderConfig {
   readonly stepperRenderer?: WorkflowStepperRenderer;
   readonly navigationRenderer?: WorkflowNavigationRenderer;
+  readonly nextButtonRenderer?: WorkflowNextButtonRenderer;
+  readonly previousButtonRenderer?: WorkflowPreviousButtonRenderer;
+  readonly skipButtonRenderer?: WorkflowSkipButtonRenderer;
 }
 
 // Form structural renderers
@@ -426,3 +429,37 @@ export interface FormConfiguration {
   readonly allFields: FormFieldConfig[]; // Liste plate pour compatibilité
   readonly renderConfig?: FormRenderConfig; // Configuration pour les renderers
 }
+
+export interface WorkflowNextButtonRendererProps {
+  isLastStep: boolean;
+  canGoNext: boolean;
+  isSubmitting: boolean;
+  onNext: (event?: React.FormEvent) => void;
+  onSubmit: (event?: React.FormEvent) => void;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export interface WorkflowPreviousButtonRendererProps {
+  canGoPrevious: boolean;
+  onPrevious: (event?: React.FormEvent) => void;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export interface WorkflowSkipButtonRendererProps {
+  canSkip: boolean;
+  onSkip: (event?: React.FormEvent) => void;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export type WorkflowNextButtonRenderer = (
+  props: WorkflowNextButtonRendererProps
+) => React.ReactElement;
+export type WorkflowPreviousButtonRenderer = (
+  props: WorkflowPreviousButtonRendererProps
+) => React.ReactElement;
+export type WorkflowSkipButtonRenderer = (
+  props: WorkflowSkipButtonRendererProps
+) => React.ReactElement;

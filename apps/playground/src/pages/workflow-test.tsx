@@ -9,6 +9,12 @@ import {
   type FormSubmitButtonRendererProps,
   type WorkflowNavigationRenderer,
   type WorkflowNavigationRendererProps,
+  type WorkflowNextButtonRenderer,
+  type WorkflowNextButtonRendererProps,
+  type WorkflowPreviousButtonRenderer,
+  type WorkflowPreviousButtonRendererProps,
+  type WorkflowSkipButtonRenderer,
+  type WorkflowSkipButtonRendererProps,
   type WorkflowStepperRenderer,
   type WorkflowStepperRendererProps,
   createZodValidator,
@@ -262,6 +268,48 @@ const workflowNavigationRenderer: WorkflowNavigationRenderer = (
   </div>
 );
 
+// New individual button renderers
+const workflowNextButtonRenderer: WorkflowNextButtonRenderer = (
+  props: WorkflowNextButtonRendererProps
+): React.ReactElement => (
+  <button
+    type="submit"
+    onClick={props.isLastStep ? props.onSubmit : props.onNext}
+    disabled={!props.canGoNext}
+    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {props.children || (props.isLastStep ? 'Complete Workflow' : 'Next →')}
+  </button>
+);
+
+const workflowPreviousButtonRenderer: WorkflowPreviousButtonRenderer = (
+  props: WorkflowPreviousButtonRendererProps
+): React.ReactElement => (
+  <button
+    type="button"
+    onClick={props.onPrevious}
+    disabled={!props.canGoPrevious}
+    className={`btn-secondary disabled:opacity-50 disabled:cursor-not-allowed ${
+      !props.canGoPrevious ? 'hidden' : ''
+    }`}
+  >
+    {props.children || '← Previous'}
+  </button>
+);
+
+const workflowSkipButtonRenderer: WorkflowSkipButtonRenderer = (
+  props: WorkflowSkipButtonRendererProps
+): React.ReactElement => (
+  <button
+    type="button"
+    onClick={props.onSkip}
+    disabled={!props.canSkip}
+    className={`btn-outline ${!props.canSkip ? 'hidden' : ''}`}
+  >
+    {props.children || 'Skip Step'}
+  </button>
+);
+
 RilayLicenseManager.setLicenseKey(
   'ril_ZXlKaGJHY2lPaUpGWkRJMU5URTVJaXdpZEhsd0lqb2ljbWxzWVhrdGJHbGpaVzV6WlNJc0luWmxjaUk2SWpFdU1DSjkuZXlKd0lqb3dMQ0pqSWpvaVFXTnRaU0JEYjNJaUxDSnBJam9pUTFWVFZDMHhNak0wTlNJc0ltVWlPakUzT0RJNU9UWXlORFFzSW5RaU9qRTNOVEUwTmpBeU5EUjkuMTVlNzJiNTZkYTU1MTg0MDk5Yzk2MWFjNmZlMzZkYWM3NzU0OGY1OWY2Y2FmOTI3ZjJhMDgwMTIzMzU5MmM4NzdiYTIxMjVlOGQwOWFlYmI1ODU4ODI2NzhjNmI2ZGJkYjVmMGUwNTdiMWI1YTUzMWQ1N2E2YjkwN2MzMzkxMGI'
 );
@@ -304,7 +352,10 @@ export default function WorkflowTestPage() {
     .setBodyRenderer(formBodyRenderer)
     .setSubmitButtonRenderer(formSubmitButtonRenderer)
     .setStepperRenderer(workflowStepperRenderer)
-    .setWorkflowNavigationRenderer(workflowNavigationRenderer);
+    .setWorkflowNavigationRenderer(workflowNavigationRenderer)
+    .setWorkflowNextButtonRenderer(workflowNextButtonRenderer)
+    .setWorkflowPreviousButtonRenderer(workflowPreviousButtonRenderer)
+    .setWorkflowSkipButtonRenderer(workflowSkipButtonRenderer);
 
   // Define validation schemas
   const personalInfoSchema = z.object({
@@ -514,8 +565,45 @@ export default function WorkflowTestPage() {
         >
           <WorkflowStepper />
           <WorkflowBody />
+
+          {/* Traditional approach with WorkflowNavigation */}
           <WorkflowNavigation />
+
+          {/* New decomposed approach - uncomment to test */}
+          {/* 
+          <div className="flex justify-between mt-8 pt-6 border-t">
+            <WorkflowPreviousButton />
+            <div className="flex space-x-3">
+              <WorkflowSkipButton />
+              <WorkflowNextButton />
+            </div>
+          </div>
+          */}
         </Workflow>
+      </div>
+
+      <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">
+          🆕 New Decomposed Button Components:
+        </h3>
+        <p className="text-gray-700 mb-4">
+          The workflow navigation can now be composed using individual button components for maximum
+          flexibility:
+        </p>
+        <div className="bg-gray-100 p-4 rounded-lg text-sm">
+          <code>{`// Replace <WorkflowNavigation /> with:
+<div className="flex justify-between mt-8 pt-6 border-t">
+  <WorkflowPreviousButton />
+  <div className="flex space-x-3">
+    <WorkflowSkipButton />
+    <WorkflowNextButton />
+  </div>
+</div>`}</code>
+        </div>
+        <p className="text-gray-600 text-sm mt-3">
+          Each button component automatically handles its own visibility and state based on the
+          workflow configuration.
+        </p>
       </div>
 
       <div className="mt-8 p-6 bg-purple-50 border border-purple-200 rounded-lg">
