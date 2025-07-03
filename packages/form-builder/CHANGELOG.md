@@ -1,5 +1,18 @@
 # @rilaykit/forms
 
+## 1.2.0
+
+### Minor Changes
+
+- Add field renderer
+
+- Add new workflow components buttons renderers & fix license bug
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@1.2.0
+
 ## 1.1.0
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 1.1.0
+
+### Minor Changes
+
+- Add new workflow components buttons renderers & fix license bug
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/forms@1.2.0
+  - @rilaykit/core@1.2.0
+
 ## 1.0.1
 
 ### Patch Changes

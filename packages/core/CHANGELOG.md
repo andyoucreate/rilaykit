@@ -1,5 +1,13 @@
 # @rilaykit/core
 
+## 1.2.0
+
+### Minor Changes
+
+- Add field renderer
+
+- Add new workflow components buttons renderers & fix license bug
+
 ## 1.1.0
 
 ### Minor Changes
