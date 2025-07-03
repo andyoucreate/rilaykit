@@ -46,7 +46,7 @@ export class RilayLicenseManager {
 
       // 2. Decode license
       const encodedLicense = RilayLicenseManager.licenseKey.slice(4);
-      const combined = Buffer.from(encodedLicense, 'base64').toString();
+      const combined = RilayLicenseManager.base64ToString(encodedLicense);
 
       const parts = combined.split('.');
       if (parts.length !== 3) {
@@ -72,10 +72,9 @@ export class RilayLicenseManager {
       }
 
       // 4. Parse and validate payload
-      const payloadJson = Buffer.from(
-        payloadStr.replace(/-/g, '+').replace(/_/g, '/'),
-        'base64'
-      ).toString();
+      const payloadJson = RilayLicenseManager.base64ToString(
+        payloadStr.replace(/-/g, '+').replace(/_/g, '/')
+      );
       const compressedPayload = JSON.parse(payloadJson) as CompressedLicensePayload;
 
       // Check expiry
@@ -143,6 +142,43 @@ export class RilayLicenseManager {
       bytes[i / 2] = Number.parseInt(hex.substring(i, i + 2), 16);
     }
     return bytes;
+  }
+
+  /**
+   * Convert base64 string to text (browser-compatible)
+   */
+  private static base64ToString(base64: string): string {
+    // Use browser's native atob if available, otherwise polyfill
+    if (typeof atob !== 'undefined') {
+      return atob(base64);
+    }
+
+    // Node.js fallback
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(base64, 'base64').toString();
+    }
+
+    // Manual base64 decode as last resort
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    let i = 0;
+
+    const cleanBase64 = base64.replace(/[^A-Za-z0-9+/]/g, '');
+
+    while (i < cleanBase64.length) {
+      const encoded1 = chars.indexOf(cleanBase64.charAt(i++));
+      const encoded2 = chars.indexOf(cleanBase64.charAt(i++));
+      const encoded3 = chars.indexOf(cleanBase64.charAt(i++));
+      const encoded4 = chars.indexOf(cleanBase64.charAt(i++));
+
+      const bitmap = (encoded1 << 18) | (encoded2 << 12) | (encoded3 << 6) | encoded4;
+
+      result += String.fromCharCode((bitmap >> 16) & 255);
+      if (encoded3 !== 64) result += String.fromCharCode((bitmap >> 8) & 255);
+      if (encoded4 !== 64) result += String.fromCharCode(bitmap & 255);
+    }
+
+    return result;
   }
 
   /**
