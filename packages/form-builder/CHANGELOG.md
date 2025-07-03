@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 1.3.0
+
+### Minor Changes
+
+- Fix license key verifier
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@1.3.0
+
 ## 1.2.0
 
 ### Minor Changes
