@@ -116,35 +116,6 @@ export class RilayLicenseManager {
   }
 
   /**
-   * Validate license key format
-   */
-  private static validateFormat(licenseKey: string): boolean {
-    return (
-      licenseKey.startsWith('ril_') &&
-      licenseKey.length > 20 &&
-      /^ril_[A-Za-z0-9_-]+$/.test(licenseKey)
-    );
-  }
-
-  /**
-   * Extract payload from license key
-   */
-  static extractPayload(licenseKey: string): CompressedLicensePayload | null {
-    try {
-      if (!RilayLicenseManager.validateFormat(licenseKey)) return null;
-
-      const decoded = RilayLicenseManager.base64UrlDecode(licenseKey.slice(4));
-      const parts = decoded.split('.');
-
-      if (parts.length !== 3) return null;
-
-      return JSON.parse(RilayLicenseManager.base64UrlDecode(parts[1])) as CompressedLicensePayload;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
    * Convert compressed payload to full payload
    */
   private static decompressPayload(compressed: CompressedLicensePayload): LicensePayload {
@@ -172,14 +143,6 @@ export class RilayLicenseManager {
       bytes[i / 2] = Number.parseInt(hex.substring(i, i + 2), 16);
     }
     return bytes;
-  }
-
-  /**
-   * Decode base64url string
-   */
-  private static base64UrlDecode(str: string): string {
-    const padded = str + '='.repeat((4 - (str.length % 4)) % 4);
-    return atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
   }
 
   /**

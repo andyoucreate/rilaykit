@@ -262,7 +262,9 @@ const workflowNavigationRenderer: WorkflowNavigationRenderer = (
   </div>
 );
 
-RilayLicenseManager.setLicenseKey(process.env.NEXT_PUBLIC_RILAY_LICENSE_KEY!);
+RilayLicenseManager.setLicenseKey(
+  'ril_ZXlKaGJHY2lPaUpGWkRJMU5URTVJaXdpZEhsd0lqb2ljbWxzWVhrdGJHbGpaVzV6WlNJc0luWmxjaUk2SWpFdU1DSjkuZXlKd0lqb3dMQ0pqSWpvaVFXTnRaU0JEYjNJaUxDSnBJam9pUTFWVFZDMHhNak0wTlNJc0ltVWlPakUzT0RJNU9UWXlORFFzSW5RaU9qRTNOVEUwTmpBeU5EUjkuMTVlNzJiNTZkYTU1MTg0MDk5Yzk2MWFjNmZlMzZkYWM3NzU0OGY1OWY2Y2FmOTI3ZjJhMDgwMTIzMzU5MmM4NzdiYTIxMjVlOGQwOWFlYmI1ODU4ODI2NzhjNmI2ZGJkYjVmMGUwNTdiMWI1YTUzMWQ1N2E2YjkwN2MzMzkxMGI'
+);
 
 export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);

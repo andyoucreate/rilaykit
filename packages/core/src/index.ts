@@ -10,7 +10,3 @@ export * from './validation/validators';
 // Export persistence system
 export * from './persistence/adapters';
 export * from './persistence/utils';
-
-// Export persistence system
-export * from './persistence/adapters';
-export * from './persistence/utils';
