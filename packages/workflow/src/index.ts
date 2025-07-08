@@ -1,5 +1,6 @@
 // Core workflow builder
-export { flow } from './builders/flow';
+export { createFlow, flow } from './builders/flow';
+export type { StepDefinition } from './builders/flow';
 
 // Components
 export { Workflow } from './components/Workflow';

@@ -332,32 +332,30 @@ export default function WorkflowTestPage() {
     .create(config)
     .addRowFields([
       {
-        fieldId: 'firstName',
-        componentType: 'text',
+        id: 'firstName',
+        type: 'text',
         props: { label: 'First Name', required: true },
         validation: { validator: createZodValidator(personalInfoSchema.shape.firstName) },
       },
       {
-        fieldId: 'lastName',
-        componentType: 'text',
+        id: 'lastName',
+        type: 'text',
         props: { label: 'Last Name', required: true },
         validation: { validator: createZodValidator(personalInfoSchema.shape.lastName) },
       },
     ])
-    .addField(
-      'email',
-      'email',
-      { label: 'Email Address', required: true },
-      { validation: { validator: createZodValidator(personalInfoSchema.shape.email) } }
-    )
-    .build();
+    .addField({
+      id: 'email',
+      type: 'email',
+      props: { label: 'Email Address', required: true },
+      validation: { validator: createZodValidator(personalInfoSchema.shape.email) },
+    });
 
-  const preferencesForm = form
-    .create(config)
-    .addField(
-      'role',
-      'select',
-      {
+  const preferencesForm = new form(config)
+    .addField({
+      id: 'role',
+      type: 'select',
+      props: {
         label: 'Your Role',
         required: true,
         options: [
@@ -367,12 +365,12 @@ export default function WorkflowTestPage() {
           { value: 'other', label: 'Other' },
         ],
       },
-      { validation: { validator: createZodValidator(preferencesSchema.shape.role) } }
-    )
-    .addField(
-      'experience',
-      'select',
-      {
+      validation: { validator: createZodValidator(preferencesSchema.shape.role) },
+    })
+    .addField({
+      id: 'experience',
+      type: 'select',
+      props: {
         label: 'Experience Level',
         required: true,
         options: [
@@ -381,22 +379,18 @@ export default function WorkflowTestPage() {
           { value: 'senior', label: 'Senior (5+ years)' },
         ],
       },
-      { validation: { validator: createZodValidator(preferencesSchema.shape.experience) } }
-    )
-    .build();
+      validation: { validator: createZodValidator(preferencesSchema.shape.experience) },
+    });
 
-  const reviewForm = form
-    .create(config)
-    .addField(
-      'feedback',
-      'textarea',
-      {
-        label: 'Your Feedback',
-        placeholder: 'Tell us about your experience with this workflow...',
-      },
-      { validation: { validator: createZodValidator(reviewSchema.shape.feedback) } }
-    )
-    .build();
+  const reviewForm = form.create(config).addField({
+    id: 'feedback',
+    type: 'textarea',
+    props: {
+      label: 'Your Feedback',
+      placeholder: 'Tell us about your experience with this workflow...',
+    },
+    validation: { validator: createZodValidator(reviewSchema.shape.feedback) },
+  });
 
   // Build workflow configuration
   const workflowConfig = flow
@@ -406,46 +400,54 @@ export default function WorkflowTestPage() {
       'User Onboarding Workflow',
       'A multi-step workflow to onboard new users'
     )
-    .addStep('personal-info', 'Personal Information', personalInfoForm, {
+    .addStep({
+      id: 'personal-info',
+      title: 'Personal Information',
       description: 'Tell us about yourself',
       requiredToComplete: true,
+      formConfig: personalInfoForm,
       renderer: () => {
         return (
           <div className="flex-col gap-4 grid grid-cols-2">
-            <FormField fieldId="firstName" />
-            <FormField fieldId="lastName" />
-            <FormField fieldId="email" />
+            <FormField fieldId="firstName" className="" />
+            <FormField fieldId="lastName" className="" />
+            <FormField fieldId="email" className="" />
           </div>
         );
       },
     })
-    .addStep('preferences', 'Preferences', preferencesForm, {
+    .addStep({
+      id: 'preferences',
+      title: 'Preferences',
       description: 'Set your preferences',
       requiredToComplete: true,
+      formConfig: preferencesForm,
     })
-    .addStep('review', 'Review & Feedback', reviewForm, {
+    .addStep({
+      id: 'review',
+      title: 'Review & Feedback',
       description: 'Review your information and provide feedback',
       allowSkip: true,
+      formConfig: reviewForm,
     })
     .setNavigation({
       allowBackNavigation: true,
       showProgress: true,
     })
     .setAnalytics({
-      onWorkflowStart: (workflowId, context) => {
+      onWorkflowStart: (workflowId: string, context: any) => {
         console.log('Workflow started:', workflowId, context);
       },
-      onStepStart: (stepId, timestamp, context) => {
+      onStepStart: (stepId: string, timestamp: number, context: any) => {
         console.log('Step started:', stepId, timestamp, context);
       },
-      onStepComplete: (stepId, duration, data, context) => {
+      onStepComplete: (stepId: string, duration: number, data: any, context: any) => {
         console.log('Step completed:', stepId, duration, data, context);
       },
-      onWorkflowComplete: (workflowId, duration, data) => {
+      onWorkflowComplete: (workflowId: string, duration: number, data: any) => {
         console.log('Workflow completed:', workflowId, duration, data);
       },
-    })
-    .build();
+    });
 
   const handleWorkflowComplete = (data: Record<string, any>) => {
     console.log('Workflow completed with data:', data);

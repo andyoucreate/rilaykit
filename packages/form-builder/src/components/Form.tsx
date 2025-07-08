@@ -10,16 +10,17 @@ export interface FormProps {
   className?: string;
   children: React.ReactNode;
 }
+
 export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, children }: FormProps) {
-  const config = formConfig instanceof form ? formConfig.build() : formConfig;
+  // Auto-build if it's a form builder
+  const resolvedFormConfig = formConfig instanceof form ? formConfig.build() : formConfig;
 
   return (
     <FormProvider
-      formConfig={config}
+      formConfig={resolvedFormConfig}
       defaultValues={defaultValues}
       onSubmit={onSubmit}
       onFieldChange={onFieldChange}
-      className="streamline-form"
     >
       {children}
     </FormProvider>

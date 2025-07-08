@@ -19,19 +19,23 @@ import type {
 import { form } from '@rilaykit/forms';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
-// Step options interface for better type safety
-interface StepOptions {
+// Enhanced step configuration interface for better type safety and simplicity
+export interface StepDefinition {
+  id: string;
+  title: string;
   description?: string;
+  formConfig: FormConfiguration | form;
   allowSkip?: boolean;
   requiredToComplete?: boolean;
   hooks?: StepLifecycleHooks;
   permissions?: StepPermissions;
   renderer?: CustomStepRenderer;
+  dynamicConfig?: DynamicStepConfig;
 }
 
 /**
  * Workflow builder class for creating complex multi-step workflows
- * Supports async hooks, dynamic steps, conditional branches, and much more
+ * Simplified API with auto-build capability
  */
 export class flow {
   private config: ril;
@@ -62,79 +66,53 @@ export class flow {
   }
 
   /**
-   * Helper method to create a step configuration
+   * Helper method to create a step configuration from StepDefinition
    */
-  private createStep(
-    stepId: string,
-    title: string,
-    formConfig: FormConfiguration | form,
-    options?: StepOptions,
-    dynamicConfig?: DynamicStepConfig
-  ): StepConfig {
+  private createStepFromDefinition(stepDef: StepDefinition): StepConfig {
     return {
-      id: stepId,
-      title,
-      description: options?.description,
-      formConfig: formConfig instanceof form ? formConfig.build() : formConfig,
-      allowSkip: options?.allowSkip || false,
-      requiredToComplete: options?.requiredToComplete !== false,
-      hooks: options?.hooks,
-      permissions: options?.permissions,
-      isDynamic: Boolean(dynamicConfig),
-      dynamicConfig,
-      renderer: options?.renderer,
+      id: stepDef.id,
+      title: stepDef.title,
+      description: stepDef.description,
+      formConfig:
+        stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
+      allowSkip: stepDef.allowSkip || false,
+      requiredToComplete: stepDef.requiredToComplete !== false,
+      hooks: stepDef.hooks,
+      permissions: stepDef.permissions,
+      isDynamic: Boolean(stepDef.dynamicConfig),
+      dynamicConfig: stepDef.dynamicConfig,
+      renderer: stepDef.renderer,
     };
   }
 
   /**
-   * Add a standard step to the workflow
+   * Add a step using simplified StepDefinition object
    */
-  addStep(
-    stepId: string,
-    title: string,
-    formConfig: FormConfiguration | form,
-    options?: StepOptions
-  ): this {
-    const step = this.createStep(stepId, title, formConfig, options);
+  addStep(stepDefinition: StepDefinition): this {
+    const step = this.createStepFromDefinition(stepDefinition);
     this.steps.push(step);
     return this;
   }
 
   /**
-   * Add a dynamic step that resolves form config based on previous data
+   * Add a dynamic step using StepDefinition with dynamicConfig
    */
-  addDynamicStep(
-    stepId: string,
-    title: string,
-    dynamicConfig: DynamicStepConfig,
-    fallbackFormConfig: FormConfiguration | form,
-    options?: StepOptions
-  ): this {
-    const step = this.createStep(stepId, title, fallbackFormConfig, options, dynamicConfig);
-    this.steps.push(step);
-    return this;
+  addDynamicStep(stepDefinition: StepDefinition & { dynamicConfig: DynamicStepConfig }): this {
+    return this.addStep(stepDefinition);
   }
 
   /**
    * Add multiple steps at once
    */
-  addSteps(
-    stepConfigs: Array<
-      {
-        stepId: string;
-        title: string;
-        formConfig: FormConfiguration | form;
-      } & StepOptions
-    >
-  ): this {
-    for (const config of stepConfigs) {
-      this.addStep(config.stepId, config.title, config.formConfig, config);
+  addSteps(stepDefinitions: StepDefinition[]): this {
+    for (const stepDef of stepDefinitions) {
+      this.addStep(stepDef);
     }
     return this;
   }
 
   /**
-   * Add conditional branches
+   * Conditional branches management
    */
   addConditionalBranch(branch: ConditionalBranch): this {
     this.branches.push(branch);
@@ -150,7 +128,17 @@ export class flow {
    * Configuration setters with fluent interface
    */
   setNavigation(navigation: NavigationConfig): this {
-    this.navigation = navigation;
+    this.navigation = { ...this.navigation, ...navigation };
+    return this;
+  }
+
+  enableBackNavigation(enabled = true): this {
+    this.navigation = { ...this.navigation, allowBackNavigation: enabled };
+    return this;
+  }
+
+  enableStepSkipping(enabled = true): this {
+    this.navigation = { ...this.navigation, allowStepSkipping: enabled };
     return this;
   }
 
@@ -320,6 +308,7 @@ export class flow {
       ),
       hasPersistence: Boolean(this.persistence),
       hasAnalytics: Boolean(this.analytics),
+      allowBackNavigation: this.navigation.allowBackNavigation !== false,
     };
   }
 
@@ -389,4 +378,16 @@ export class flow {
 
     return this;
   }
+}
+
+/**
+ * Factory function to create a workflow builder directly
+ */
+export function createFlow(
+  config: ril,
+  workflowId: string,
+  workflowName: string,
+  description?: string
+): flow {
+  return flow.create(config, workflowId, workflowName, description);
 }

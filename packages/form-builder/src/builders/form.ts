@@ -7,10 +7,10 @@ import type {
   ril,
 } from '@rilaykit/core';
 
-// Field configuration interface for better type safety
-interface FieldConfig {
-  fieldId: string;
-  componentType: string;
+// Enhanced field configuration interface for better type safety and simplicity
+export interface FieldConfig {
+  id: string;
+  type: string;
   props?: Record<string, any>;
   validation?: ValidationConfig;
   conditional?: ConditionalConfig;
@@ -24,7 +24,7 @@ interface RowOptions {
 
 /**
  * Form builder class for creating form configurations
- * Simplified API with matrix support
+ * Simplified API with matrix support and auto-build capability
  */
 export class form {
   private config: ril;
@@ -45,14 +45,14 @@ export class form {
    * Helper method to create a FormFieldConfig from a FieldConfig
    */
   private createFormField(fieldConfig: FieldConfig): FormFieldConfig {
-    const component = this.config.getComponent(fieldConfig.componentType);
+    const component = this.config.getComponent(fieldConfig.type);
 
     if (!component) {
-      throw new Error(`No component found with type "${fieldConfig.componentType}"`);
+      throw new Error(`No component found with type "${fieldConfig.type}"`);
     }
 
     return {
-      id: fieldConfig.fieldId,
+      id: fieldConfig.id,
       componentId: component.id,
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: fieldConfig.validation,
@@ -84,26 +84,10 @@ export class form {
   }
 
   /**
-   * Add a single field (takes full width)
+   * Add a single field using simplified FieldConfig object
    */
-  addField(
-    fieldId: string,
-    componentType: string,
-    props: Record<string, any> = {},
-    options?: {
-      validation?: ValidationConfig;
-      conditional?: ConditionalConfig;
-    }
-  ): this {
-    return this.addRowFields([
-      {
-        fieldId,
-        componentType,
-        props,
-        validation: options?.validation,
-        conditional: options?.conditional,
-      },
-    ]);
+  addField(fieldConfig: FieldConfig): this {
+    return this.addRowFields([fieldConfig]);
   }
 
   /**
@@ -120,10 +104,7 @@ export class form {
    */
   addFields(fieldConfigs: FieldConfig[]): this {
     for (const config of fieldConfigs) {
-      this.addField(config.fieldId, config.componentType, config.props, {
-        validation: config.validation,
-        conditional: config.conditional,
-      });
+      this.addField(config);
     }
     return this;
   }
@@ -311,4 +292,11 @@ export class form {
       minFieldsInRow: fieldCounts.length > 0 ? Math.min(...fieldCounts) : 0,
     };
   }
+}
+
+/**
+ * Factory function to create a form builder directly
+ */
+export function createForm(config: ril, formId?: string): form {
+  return form.create(config, formId);
 }

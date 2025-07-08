@@ -15,13 +15,16 @@ export type WorkflowProps = Omit<WorkflowProviderProps, 'children' | 'workflowCo
  * A wrapper component for the Rilay workflow system.
  * It simplifies the API by wrapping the WorkflowProvider and providing a clean,
  * component-based interface for building workflows.
+ * Accepts both WorkflowConfig and flow builder instances.
  */
 export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) {
   const [isClient, setIsClient] = useState(false);
   const shouldDisplayWatermark = RilayLicenseManager.shouldDisplayWatermark();
   const watermarkMessage = RilayLicenseManager.getWatermarkMessage();
 
-  const config = workflowConfig instanceof flow ? workflowConfig.build() : workflowConfig;
+  // Auto-build if it's a flow builder
+  const resolvedWorkflowConfig =
+    workflowConfig instanceof flow ? workflowConfig.build() : workflowConfig;
 
   // Initialize license manager and check watermark only on client side
   useEffect(() => {
@@ -30,7 +33,7 @@ export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) 
 
   return (
     <div style={{ position: 'relative' }}>
-      <WorkflowProvider {...props} workflowConfig={config}>
+      <WorkflowProvider {...props} workflowConfig={resolvedWorkflowConfig}>
         {children}
       </WorkflowProvider>
 
