@@ -76,45 +76,20 @@ describe('ril', () => {
       const component = config.getComponent('text');
       expect(component?.defaultProps).toEqual(defaultProps);
     });
-
-    it('should support categories', () => {
-      const config = ril
-        .create()
-        .addComponent('text', {
-          name: 'Text Input',
-          renderer: TestComponent,
-          category: 'basic-inputs',
-        })
-        .addComponent('email', {
-          name: 'Email Input',
-          renderer: TestRenderer,
-          category: 'advanced-inputs',
-        });
-
-      const basicInputs = config.getComponentsByCategory('basic-inputs');
-      const advancedInputs = config.getComponentsByCategory('advanced-inputs');
-
-      expect(basicInputs).toHaveLength(1);
-      expect(advancedInputs).toHaveLength(1);
-      expect(basicInputs[0].type).toBe('text');
-      expect(advancedInputs[0].type).toBe('email');
-    });
   });
 
   describe('Component Management', () => {
-    it('should get components by category', () => {
+    it('should get all components', () => {
       const config = ril
         .create()
-        .addComponent('text', { name: 'Text Input', renderer: TestComponent, category: 'input' })
-        .addComponent('heading', { name: 'Heading', renderer: TestRenderer, category: 'layout' });
+        .addComponent('text', { name: 'Text Input', renderer: TestComponent })
+        .addComponent('heading', { name: 'Heading', renderer: TestRenderer });
 
-      const inputComponents = config.getComponentsByCategory('input');
-      const layoutComponents = config.getComponentsByCategory('layout');
+      const allComponents = config.getAllComponents();
 
-      expect(inputComponents).toHaveLength(1);
-      expect(layoutComponents).toHaveLength(1);
-      expect(inputComponents[0].type).toBe('text');
-      expect(layoutComponents[0].type).toBe('heading');
+      expect(allComponents).toHaveLength(2);
+      expect(allComponents.find((c) => c.type === 'text')).toBeDefined();
+      expect(allComponents.find((c) => c.type === 'heading')).toBeDefined();
     });
 
     it('should check if component exists', () => {
@@ -231,17 +206,14 @@ describe('ril', () => {
         .addComponent('text', {
           name: 'Text Input',
           renderer: TestComponent,
-          category: 'basic',
         })
         .addComponent('email', {
           name: 'Email Input',
           renderer: TestRenderer,
-          category: 'basic',
         })
         .addComponent('heading', {
           name: 'Heading',
           renderer: TestComponent,
-          category: 'layout',
         })
         .setRowRenderer(TestFormRowRenderer)
         .setStepperRenderer(TestWorkflowStepperRenderer);
@@ -252,23 +224,10 @@ describe('ril', () => {
       expect(stats.byType.text).toBe(1);
       expect(stats.byType.email).toBe(1);
       expect(stats.byType.heading).toBe(1);
-      expect(stats.byCategory.basic).toBe(2);
-      expect(stats.byCategory.layout).toBe(1);
       expect(stats.hasCustomRenderers.row).toBe(true);
       expect(stats.hasCustomRenderers.body).toBe(false);
       expect(stats.hasCustomRenderers.stepper).toBe(true);
       expect(stats.hasCustomRenderers.workflowNavigation).toBe(false);
-    });
-
-    it('should handle uncategorized components in stats', () => {
-      const config = ril.create().addComponent('text', {
-        name: 'Text Input',
-        renderer: TestComponent,
-        // No category provided
-      });
-
-      const stats = config.getStats();
-      expect(stats.byCategory.uncategorized).toBe(1);
     });
   });
 

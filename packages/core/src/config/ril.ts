@@ -264,15 +264,6 @@ export class ril {
   }
 
   /**
-   * Get components by category
-   * @param category - Component category
-   * @returns Array of matching components
-   */
-  getComponentsByCategory(category: string): ComponentConfig[] {
-    return Array.from(this.components.values()).filter((comp) => comp.category === category);
-  }
-
-  /**
    * List all registered components
    * @returns Array of all components
    */
@@ -332,7 +323,6 @@ export class ril {
   getStats(): {
     total: number;
     byType: Record<string, number>;
-    byCategory: Record<string, number>;
     hasCustomRenderers: {
       // Form renderers
       row: boolean;
@@ -354,14 +344,6 @@ export class ril {
       byType: components.reduce(
         (acc, comp) => {
           acc[comp.type] = (acc[comp.type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
-      byCategory: components.reduce(
-        (acc, comp) => {
-          const category = comp.category || 'uncategorized';
-          acc[category] = (acc[category] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
