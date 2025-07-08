@@ -106,7 +106,6 @@ export interface ComponentConfig<TProps = any> {
   readonly type: string;
   readonly name: string;
   readonly description?: string;
-  readonly category?: string;
   readonly renderer: ComponentRenderer<TProps>;
   readonly options?: ComponentOptions<TProps>;
   readonly validation?: ValidationConfig<TProps>;

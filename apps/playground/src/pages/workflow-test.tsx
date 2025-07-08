@@ -279,25 +279,21 @@ export default function WorkflowTestPage() {
       name: 'Text Input',
       renderer: TextInput as ComponentRenderer<TextInputProps>,
       defaultProps: { placeholder: 'Enter text...' },
-      category: 'inputs',
     })
     .addComponent('email', {
       name: 'Email Input',
       renderer: EmailInput as ComponentRenderer<EmailInputProps>,
       defaultProps: { placeholder: 'Enter email...' },
-      category: 'inputs',
     })
     .addComponent('select', {
       name: 'Select Input',
       renderer: SelectInput as ComponentRenderer<SelectInputProps>,
       defaultProps: { options: [] },
-      category: 'inputs',
     })
     .addComponent('textarea', {
       name: 'Textarea Input',
       renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
       defaultProps: { placeholder: 'Enter text...', rows: 4 },
-      category: 'inputs',
     });
 
   // Set custom renderers

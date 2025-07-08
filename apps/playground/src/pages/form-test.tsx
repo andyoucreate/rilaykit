@@ -194,7 +194,6 @@ export default function FormTestPage() {
       defaultProps: {
         placeholder: 'Enter text...',
       },
-      category: 'inputs',
     })
     .addComponent('email', {
       name: 'Email Input',
@@ -203,7 +202,6 @@ export default function FormTestPage() {
       defaultProps: {
         placeholder: 'Enter email...',
       },
-      category: 'inputs',
     })
     .addComponent('number', {
       name: 'Number Input',
@@ -212,7 +210,6 @@ export default function FormTestPage() {
       defaultProps: {
         placeholder: 'Enter number...',
       },
-      category: 'inputs',
     })
     .addComponent('textarea', {
       name: 'Textarea Input',
@@ -222,7 +219,6 @@ export default function FormTestPage() {
         placeholder: 'Enter text...',
         rows: 4,
       },
-      category: 'inputs',
     });
 
   // Set custom renderers

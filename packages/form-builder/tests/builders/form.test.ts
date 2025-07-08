@@ -17,19 +17,16 @@ describe('Form Builder', () => {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
-        category: 'inputs',
       })
       .addComponent('email', {
         name: 'Email Input',
         renderer: TestEmailComponent,
         defaultProps: { placeholder: 'Enter email...' },
-        category: 'inputs',
       })
       .addComponent('number', {
         name: 'Number Input',
         renderer: TestNumberComponent,
         defaultProps: { placeholder: 'Enter number...' },
-        category: 'inputs',
       });
   });
 
