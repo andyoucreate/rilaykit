@@ -707,7 +707,6 @@ export function WorkflowProvider({
   return (
     <WorkflowReactContext.Provider value={contextValue}>
       <FormProvider
-        key={currentStep?.id}
         formConfig={currentStep?.formConfig}
         defaultValues={workflowState?.allData[currentStep?.id] || {}}
         onFieldChange={setValue}
