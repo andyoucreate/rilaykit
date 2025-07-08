@@ -1,6 +1,6 @@
 import { ril } from '@rilaykit/core';
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 
 const TestComponent = () => React.createElement('div', null, 'test');
@@ -603,5 +603,29 @@ describe('Form Builder', () => {
       expect(result.allFields).toHaveLength(2);
       expect(result.allFields[0].props.required).toBe(true);
     });
+  });
+});
+
+describe('Module Augmentation API', () => {
+  it('should create form using config.createForm()', () => {
+    const config = ril.create().addComponent('text', {
+      name: 'Text Input',
+      renderer: vi.fn(),
+    });
+
+    const formInstance = config.createForm('test-form');
+    expect(formInstance).toBeInstanceOf(form);
+    expect(formInstance.build().id).toBe('test-form');
+  });
+
+  it('should create form with default ID using config.createForm()', () => {
+    const config = ril.create().addComponent('text', {
+      name: 'Text Input',
+      renderer: vi.fn(),
+    });
+
+    const formInstance = config.createForm();
+    expect(formInstance).toBeInstanceOf(form);
+    expect(formInstance.build().id).toMatch(/^form-\d+$/);
   });
 });

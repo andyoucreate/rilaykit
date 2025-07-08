@@ -4,8 +4,8 @@ import type {
   FormFieldConfig,
   FormFieldRow,
   ValidationConfig,
-  ril,
 } from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
 
 // Enhanced field configuration interface for better type safety and simplicity
 export interface FieldConfig {
@@ -300,3 +300,15 @@ export class form {
 export function createForm(config: ril, formId?: string): form {
   return form.create(config, formId);
 }
+
+// Module augmentation pour ajouter createForm à ril
+declare module '@rilaykit/core' {
+  interface ril {
+    createForm(formId?: string): form;
+  }
+}
+
+// Étendre le prototype de ril
+(ril as any).prototype.createForm = function (formId?: string) {
+  return form.create(this, formId);
+};

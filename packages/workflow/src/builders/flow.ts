@@ -14,8 +14,8 @@ import type {
   WorkflowOptimizations,
   WorkflowPlugin,
   WorkflowVersion,
-  ril,
 } from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
@@ -391,3 +391,19 @@ export function createFlow(
 ): flow {
   return flow.create(config, workflowId, workflowName, description);
 }
+
+// Module augmentation pour ajouter createFlow à ril
+declare module '@rilaykit/core' {
+  interface ril {
+    createFlow(workflowId: string, workflowName: string, description?: string): flow;
+  }
+}
+
+// Étendre le prototype de ril
+(ril as any).prototype.createFlow = function (
+  workflowId: string,
+  workflowName: string,
+  description?: string
+) {
+  return flow.create(this, workflowId, workflowName, description);
+};

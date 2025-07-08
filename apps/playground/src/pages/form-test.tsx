@@ -251,8 +251,8 @@ export default function FormTestPage() {
     .create(config)
     .addRowFields([
       {
-        fieldId: 'firstName',
-        componentType: 'text',
+        id: 'firstName',
+        type: 'text',
         props: {
           label: 'First Name',
           placeholder: 'Enter your first name',
@@ -261,8 +261,8 @@ export default function FormTestPage() {
         validation: { validator: createZodValidator(formSchema.shape.firstName) },
       },
       {
-        fieldId: 'lastName',
-        componentType: 'text',
+        id: 'lastName',
+        type: 'text',
         props: {
           label: 'Last Name',
           placeholder: 'Enter your last name',
@@ -271,36 +271,92 @@ export default function FormTestPage() {
         validation: { validator: createZodValidator(formSchema.shape.lastName) },
       },
     ])
-    .addField(
-      'email',
-      'email',
-      {
+    .addField({
+      id: 'email',
+      type: 'email',
+      props: {
         label: 'Email',
         placeholder: 'your@email.com',
         required: true,
       },
-      { validation: { validator: createZodValidator(formSchema.shape.email) } }
-    )
-    .addField(
-      'age',
-      'number',
-      {
+      validation: { validator: createZodValidator(formSchema.shape.email) },
+    })
+    .addField({
+      id: 'age',
+      type: 'number',
+      props: {
         label: 'Age',
         required: true,
       },
-      { validation: { validator: createZodValidator(formSchema.shape.age) } }
-    )
-    .addField(
-      'bio',
-      'textarea',
-      {
+      validation: { validator: createZodValidator(formSchema.shape.age) },
+    })
+    .addField({
+      id: 'bio',
+      type: 'textarea',
+      props: {
         label: 'Biography',
         placeholder: 'Tell us about yourself...',
         rows: 4,
       },
-      { validation: { validator: createZodValidator(formSchema.shape.bio) } }
-    )
+      validation: { validator: createZodValidator(formSchema.shape.bio) },
+    })
     .build();
+
+  // Alternative: Using the new module augmentation API (same result)
+  // const formConfig = config
+  //   .createForm()
+  //   .addRowFields([
+  //     {
+  //       id: 'firstName',
+  //       type: 'text',
+  //       props: {
+  //         label: 'First Name',
+  //         placeholder: 'Enter your first name',
+  //         required: true,
+  //       },
+  //       validation: { validator: createZodValidator(formSchema.shape.firstName) },
+  //     },
+  //     {
+  //       id: 'lastName',
+  //       type: 'text',
+  //       props: {
+  //         label: 'Last Name',
+  //         placeholder: 'Enter your last name',
+  //         required: true,
+  //       },
+  //       validation: { validator: createZodValidator(formSchema.shape.lastName) },
+  //     },
+  //   ])
+  //   .addField({
+  //     id: 'email',
+  //     type: 'email',
+  //     props: {
+  //       label: 'Email',
+  //       placeholder: 'your@email.com',
+  //       required: true,
+  //     },
+  //     validation: { validator: createZodValidator(formSchema.shape.email) },
+  //   })
+  //   .addField({
+  //     id: 'age',
+  //     type: 'number',
+  //     props: {
+  //       label: 'Age',
+  //       required: true,
+  //     },
+  //     validation: { validator: createZodValidator(formSchema.shape.age) },
+  //   })
+  //   .addField({
+  //     id: 'bio',
+  //     type: 'textarea',
+  //     props: {
+  //       label: 'Biography',
+  //       placeholder: 'Tell us about yourself...',
+  //       rows: 4,
+  //     },
+  //     validation: { validator: createZodValidator(formSchema.shape.bio) },
+  //   })
+  //   .build();
 
   const handleSubmit = (data: Record<string, any>) => {
     console.log('Form data:', data);

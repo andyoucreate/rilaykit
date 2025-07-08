@@ -18,7 +18,7 @@ import {
   createZodValidator,
   ril,
 } from '@rilaykit/core';
-import { FormField, form } from '@rilaykit/forms';
+import { FormField } from '@rilaykit/forms';
 import {
   RilayLicenseManager,
   Workflow,
@@ -27,7 +27,6 @@ import {
   WorkflowPreviousButton,
   WorkflowSkipButton,
   WorkflowStepper,
-  flow,
 } from '@rilaykit/workflow';
 import Link from 'next/link';
 import type React from 'react';
@@ -274,7 +273,7 @@ export default function WorkflowTestPage() {
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
 
   // Create and configure ril
-  const config = ril
+  const factory = ril
     .create()
     .addComponent('text', {
       name: 'Text Input',
@@ -302,7 +301,7 @@ export default function WorkflowTestPage() {
     });
 
   // Set custom renderers
-  config
+  factory
     .setRowRenderer(formRowRenderer)
     .setBodyRenderer(formBodyRenderer)
     .setSubmitButtonRenderer(formSubmitButtonRenderer)
@@ -328,8 +327,8 @@ export default function WorkflowTestPage() {
   });
 
   // Build form configurations for each step
-  const personalInfoForm = form
-    .create(config)
+  const personalInfoForm = factory
+    .createForm()
     .addRowFields([
       {
         id: 'firstName',
@@ -351,7 +350,8 @@ export default function WorkflowTestPage() {
       validation: { validator: createZodValidator(personalInfoSchema.shape.email) },
     });
 
-  const preferencesForm = new form(config)
+  const preferencesForm = factory
+    .createForm()
     .addField({
       id: 'role',
       type: 'select',
@@ -382,7 +382,7 @@ export default function WorkflowTestPage() {
       validation: { validator: createZodValidator(preferencesSchema.shape.experience) },
     });
 
-  const reviewForm = form.create(config).addField({
+  const reviewForm = factory.createForm().addField({
     id: 'feedback',
     type: 'textarea',
     props: {
@@ -393,9 +393,8 @@ export default function WorkflowTestPage() {
   });
 
   // Build workflow configuration
-  const workflowConfig = flow
-    .create(
-      config,
+  const workflowConfig = factory
+    .createFlow(
       'user-onboarding',
       'User Onboarding Workflow',
       'A multi-step workflow to onboard new users'
