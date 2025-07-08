@@ -7,8 +7,6 @@ import {
   type FormRowRendererProps,
   type FormSubmitButtonRenderer,
   type FormSubmitButtonRendererProps,
-  type WorkflowNavigationRenderer,
-  type WorkflowNavigationRendererProps,
   type WorkflowNextButtonRenderer,
   type WorkflowNextButtonRendererProps,
   type WorkflowPreviousButtonRenderer,
@@ -25,7 +23,9 @@ import {
   RilayLicenseManager,
   Workflow,
   WorkflowBody,
-  WorkflowNavigation,
+  WorkflowNextButton,
+  WorkflowPreviousButton,
+  WorkflowSkipButton,
   WorkflowStepper,
   flow,
 } from '@rilaykit/workflow';
@@ -225,50 +225,7 @@ const workflowStepperRenderer: WorkflowStepperRenderer = (
   </div>
 );
 
-const workflowNavigationRenderer: WorkflowNavigationRenderer = (
-  props: WorkflowNavigationRendererProps
-): React.ReactElement => (
-  <div className="flex justify-between mt-8 pt-6 border-t">
-    <button
-      type="button"
-      onClick={props.onPrevious}
-      disabled={!props.canGoPrevious}
-      className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      ← Previous
-    </button>
-
-    <div className="flex space-x-3">
-      {props.canSkip && (
-        <button type="button" onClick={props.onSkip} className="btn-outline">
-          Skip Step
-        </button>
-      )}
-
-      {props.context.isLastStep ? (
-        <button
-          type="submit"
-          onClick={props.onSubmit}
-          disabled={!props.canGoNext || props.isSubmitting}
-          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {props.isSubmitting ? 'Submitting...' : 'Complete Workflow'}
-        </button>
-      ) : (
-        <button
-          type="submit"
-          onClick={props.onNext}
-          disabled={!props.canGoNext}
-          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Next →
-        </button>
-      )}
-    </div>
-  </div>
-);
-
-// New individual button renderers
+// New individual button renderers - children is always React.ReactNode
 const workflowNextButtonRenderer: WorkflowNextButtonRenderer = (
   props: WorkflowNextButtonRendererProps
 ): React.ReactElement => (
@@ -350,7 +307,6 @@ export default function WorkflowTestPage() {
     .setBodyRenderer(formBodyRenderer)
     .setSubmitButtonRenderer(formSubmitButtonRenderer)
     .setStepperRenderer(workflowStepperRenderer)
-    .setWorkflowNavigationRenderer(workflowNavigationRenderer)
     .setWorkflowNextButtonRenderer(workflowNextButtonRenderer)
     .setWorkflowPreviousButtonRenderer(workflowPreviousButtonRenderer)
     .setWorkflowSkipButtonRenderer(workflowSkipButtonRenderer);
@@ -565,19 +521,129 @@ export default function WorkflowTestPage() {
           <WorkflowBody />
 
           {/* Traditional approach with WorkflowNavigation */}
-          <WorkflowNavigation />
+          {/* <WorkflowNavigation /> */}
 
-          {/* New decomposed approach - uncomment to test */}
-          {/* 
+          {/* New decomposed approach with renderAs examples */}
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <WorkflowPreviousButton />
+            <WorkflowPreviousButton>
+              {(props) => <span>⬅️ {props.canGoPrevious ? 'Retour' : 'Pas de retour'}</span>}
+            </WorkflowPreviousButton>
             <div className="flex space-x-3">
-              <WorkflowSkipButton />
-              <WorkflowNextButton />
+              <WorkflowSkipButton>
+                {(props) => <span>{props.canSkip ? '⏭️ Passer' : '🚫 Obligatoire'}</span>}
+              </WorkflowSkipButton>
+              <WorkflowNextButton>
+                {(props) => (
+                  <span>
+                    {props.isLastStep ? '🎉 Terminer' : '➡️ Continuer'}
+                    {props.isSubmitting && ' ⏳'}
+                  </span>
+                )}
+              </WorkflowNextButton>
             </div>
           </div>
-          */}
+
+          {/* Alternative with renderAs="children" for completely custom rendering */}
+          <div className="flex justify-between mt-4 pt-4 border-t border-dashed">
+            <WorkflowPreviousButton renderAs="children">
+              {(props) => (
+                <button
+                  type="button"
+                  onClick={props.onPrevious}
+                  disabled={!props.canGoPrevious}
+                  className="px-4 py-2 bg-purple-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🔙 Custom Previous ({props.context.currentStepIndex + 1}/
+                  {props.context.totalSteps})
+                </button>
+              )}
+            </WorkflowPreviousButton>
+            <div className="flex space-x-3">
+              <WorkflowSkipButton renderAs="children">
+                {(props) =>
+                  props.canSkip ? (
+                    <button
+                      type="button"
+                      onClick={props.onSkip}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg"
+                    >
+                      ⚡ Skip This Step
+                    </button>
+                  ) : null
+                }
+              </WorkflowSkipButton>
+              <WorkflowNextButton renderAs="children">
+                {(props) => (
+                  <button
+                    type="submit"
+                    onClick={props.isLastStep ? props.onSubmit : props.onNext}
+                    disabled={!props.canGoNext}
+                    className={`px-6 py-2 rounded-lg text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                      props.isLastStep ? 'bg-green-600' : 'bg-blue-600'
+                    }`}
+                  >
+                    {props.isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </span>
+                    ) : (
+                      <span>
+                        {props.isLastStep
+                          ? '✅ Complete Workflow'
+                          : `➡️ Next Step (${props.context.currentStepIndex + 2}/${props.context.totalSteps})`}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </WorkflowNextButton>
+            </div>
+          </div>
         </Workflow>
+      </div>
+
+      <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">
+          🎨 Nouvelle fonctionnalité: renderAs
+        </h3>
+        <p className="text-gray-700 mb-4">
+          Deux approches pour personnaliser le rendu des boutons :
+        </p>
+
+        <div className="mb-6">
+          <h4 className="text-lg font-medium text-gray-800 mb-2">1. Function Children (défaut)</h4>
+          <div className="bg-gray-100 p-4 rounded-lg text-sm mb-2">
+            <code>{`<WorkflowNextButton>
+  {(props) => (
+    <span>
+      {props.isLastStep ? '🎉 Terminer' : '➡️ Continuer'} 
+      {props.isSubmitting && ' ⏳'}
+    </span>
+  )}
+</WorkflowNextButton>`}</code>
+          </div>
+          <p className="text-gray-600 text-sm">
+            Utilise le renderer configuré + children personnalisés.
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <h4 className="text-lg font-medium text-gray-800 mb-2">
+            2. Custom Renderer (renderAs="children")
+          </h4>
+          <div className="bg-gray-100 p-4 rounded-lg text-sm mb-2">
+            <code>{`<WorkflowNextButton renderAs="children">
+  {(props) => (
+    <button onClick={props.onNext} className="custom-btn">
+      Custom Button with full control
+    </button>
+  )}
+</WorkflowNextButton>`}</code>
+          </div>
+          <p className="text-gray-600 text-sm">
+            Remplace complètement le renderer par défaut. Contrôle total du rendu.
+          </p>
+        </div>
       </div>
 
       <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">

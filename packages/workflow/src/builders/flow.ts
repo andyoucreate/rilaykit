@@ -16,7 +16,18 @@ import type {
   WorkflowVersion,
   ril,
 } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
+
+// Step options interface for better type safety
+interface StepOptions {
+  description?: string;
+  allowSkip?: boolean;
+  requiredToComplete?: boolean;
+  hooks?: StepLifecycleHooks;
+  permissions?: StepPermissions;
+  renderer?: CustomStepRenderer;
+}
 
 /**
  * Workflow builder class for creating complex multi-step workflows
@@ -29,7 +40,7 @@ export class flow {
   private workflowDescription?: string;
   private steps: StepConfig[] = [];
   private branches: ConditionalBranch[] = [];
-  private navigation: NavigationConfig = {};
+  private navigation: NavigationConfig = { allowBackNavigation: true }; // Default to true
   private persistence?: PersistenceConfig;
   private completion?: CompletionConfig;
   private analytics?: WorkflowAnalytics;
@@ -51,213 +62,130 @@ export class flow {
   }
 
   /**
-   * Add a standard step to the workflow
-   * @param stepId - Unique step identifier
-   * @param title - Step title
-   * @param formConfig - Complete form configuration for this step
-   * @param options - Additional step options
-   * @returns flow instance for chaining
+   * Helper method to create a step configuration
    */
-  addStep(
+  private createStep(
     stepId: string,
     title: string,
-    formConfig: FormConfiguration,
-    options?: {
-      description?: string;
-      allowSkip?: boolean;
-      requiredToComplete?: boolean;
-      hooks?: StepLifecycleHooks;
-      permissions?: StepPermissions;
-      renderer?: CustomStepRenderer;
-    }
-  ): this {
-    const step: StepConfig = {
+    formConfig: FormConfiguration | form,
+    options?: StepOptions,
+    dynamicConfig?: DynamicStepConfig
+  ): StepConfig {
+    return {
       id: stepId,
       title,
       description: options?.description,
-      formConfig,
+      formConfig: formConfig instanceof form ? formConfig.build() : formConfig,
       allowSkip: options?.allowSkip || false,
       requiredToComplete: options?.requiredToComplete !== false,
       hooks: options?.hooks,
       permissions: options?.permissions,
-      isDynamic: false,
+      isDynamic: Boolean(dynamicConfig),
+      dynamicConfig,
       renderer: options?.renderer,
     };
+  }
 
+  /**
+   * Add a standard step to the workflow
+   */
+  addStep(
+    stepId: string,
+    title: string,
+    formConfig: FormConfiguration | form,
+    options?: StepOptions
+  ): this {
+    const step = this.createStep(stepId, title, formConfig, options);
     this.steps.push(step);
-
     return this;
   }
 
   /**
    * Add a dynamic step that resolves form config based on previous data
-   * @param stepId - Unique step identifier
-   * @param title - Step title
-   * @param dynamicConfig - Configuration for dynamic step resolution
-   * @param fallbackFormConfig - Fallback form configuration if dynamic resolution fails
-   * @param options - Additional step options
-   * @returns flow instance for chaining
    */
   addDynamicStep(
     stepId: string,
     title: string,
     dynamicConfig: DynamicStepConfig,
-    fallbackFormConfig: FormConfiguration,
-    options?: {
-      description?: string;
-      allowSkip?: boolean;
-      requiredToComplete?: boolean;
-      hooks?: StepLifecycleHooks;
-      permissions?: StepPermissions;
-    }
+    fallbackFormConfig: FormConfiguration | form,
+    options?: StepOptions
   ): this {
-    const step: StepConfig = {
-      id: stepId,
-      title,
-      description: options?.description,
-      formConfig: fallbackFormConfig, // Will be replaced by dynamic resolution
-      allowSkip: options?.allowSkip || false,
-      requiredToComplete: options?.requiredToComplete !== false,
-      hooks: options?.hooks,
-      permissions: options?.permissions,
-      isDynamic: true,
-      dynamicConfig,
-    };
-
+    const step = this.createStep(stepId, title, fallbackFormConfig, options, dynamicConfig);
     this.steps.push(step);
     return this;
   }
 
   /**
    * Add multiple steps at once
-   * @param stepConfigs - Array of step configurations
-   * @returns flow instance for chaining
    */
   addSteps(
-    stepConfigs: Array<{
-      stepId: string;
-      title: string;
-      formConfig: FormConfiguration;
-      description?: string;
-      allowSkip?: boolean;
-      requiredToComplete?: boolean;
-      hooks?: StepLifecycleHooks;
-      permissions?: StepPermissions;
-    }>
+    stepConfigs: Array<
+      {
+        stepId: string;
+        title: string;
+        formConfig: FormConfiguration | form;
+      } & StepOptions
+    >
   ): this {
     for (const config of stepConfigs) {
-      this.addStep(config.stepId, config.title, config.formConfig, {
-        description: config.description,
-        allowSkip: config.allowSkip,
-        requiredToComplete: config.requiredToComplete,
-        hooks: config.hooks,
-        permissions: config.permissions,
-      });
+      this.addStep(config.stepId, config.title, config.formConfig, config);
     }
     return this;
   }
 
   /**
-   * Add a conditional branch to the workflow
-   * @param branch - Conditional branch configuration
-   * @returns flow instance for chaining
+   * Add conditional branches
    */
   addConditionalBranch(branch: ConditionalBranch): this {
     this.branches.push(branch);
     return this;
   }
 
-  /**
-   * Add multiple conditional branches
-   * @param branches - Array of conditional branches
-   * @returns flow instance for chaining
-   */
   addConditionalBranches(branches: ConditionalBranch[]): this {
     this.branches.push(...branches);
     return this;
   }
 
   /**
-   * Set navigation configuration
-   * @param navigation - Navigation configuration
-   * @returns flow instance for chaining
+   * Configuration setters with fluent interface
    */
   setNavigation(navigation: NavigationConfig): this {
     this.navigation = navigation;
     return this;
   }
 
-  /**
-   * Set persistence strategy
-   * @param persistence - Persistence configuration
-   * @returns flow instance for chaining
-   */
   setPersistence(persistence: PersistenceConfig): this {
     this.persistence = persistence;
     return this;
   }
 
-  /**
-   * Set analytics configuration
-   * @param analytics - Analytics configuration
-   * @returns flow instance for chaining
-   */
   setAnalytics(analytics: WorkflowAnalytics): this {
     this.analytics = analytics;
     return this;
   }
 
-  /**
-   * Set performance optimizations
-   * @param optimizations - Optimization configuration
-   * @returns flow instance for chaining
-   */
   setOptimizations(optimizations: WorkflowOptimizations): this {
     this.optimizations = optimizations;
     return this;
   }
 
-  /**
-   * Set workflow version
-   * @param version - Version configuration
-   * @returns flow instance for chaining
-   */
   setVersion(version: WorkflowVersion): this {
     this.version = version;
     return this;
   }
 
-  /**
-   * Set completion configuration
-   * @param completion - Completion configuration
-   * @returns flow instance for chaining
-   */
   setCompletion(completion: CompletionConfig): this {
     this.completion = completion;
     return this;
   }
 
   /**
-   * Add a plugin to the workflow
-   * @param plugin - Plugin to add
-   * @returns flow instance for chaining
+   * Plugin management
    */
   use(plugin: WorkflowPlugin): this {
-    // Check dependencies
-    if (plugin.dependencies) {
-      const missingDeps = plugin.dependencies.filter(
-        (dep) => !this.plugins.some((p) => p.name === dep)
-      );
-      if (missingDeps.length > 0) {
-        throw new Error(
-          `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
-        );
-      }
-    }
-
+    this.validatePluginDependencies(plugin);
     this.plugins.push(plugin);
 
-    // Install the plugin
     try {
       plugin.install(this);
     } catch (error) {
@@ -269,21 +197,27 @@ export class flow {
     return this;
   }
 
-  /**
-   * Remove a plugin from the workflow
-   * @param pluginName - Name of the plugin to remove
-   * @returns flow instance for chaining
-   */
+  private validatePluginDependencies(plugin: WorkflowPlugin): void {
+    if (!plugin.dependencies) return;
+
+    const missingDeps = plugin.dependencies.filter(
+      (dep) => !this.plugins.some((p) => p.name === dep)
+    );
+
+    if (missingDeps.length > 0) {
+      throw new Error(
+        `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
+      );
+    }
+  }
+
   removePlugin(pluginName: string): this {
     this.plugins = this.plugins.filter((plugin) => plugin.name !== pluginName);
     return this;
   }
 
   /**
-   * Update step configuration
-   * @param stepId - Step identifier
-   * @param updates - Updates to apply
-   * @returns flow instance for chaining
+   * Step management
    */
   updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
@@ -291,45 +225,23 @@ export class flow {
       throw new Error(`Step with ID "${stepId}" not found`);
     }
 
-    this.steps[stepIndex] = {
-      ...this.steps[stepIndex],
-      ...updates,
-    };
-
+    this.steps[stepIndex] = { ...this.steps[stepIndex], ...updates };
     return this;
   }
 
-  /**
-   * Remove a step from the workflow
-   * @param stepId - Step identifier
-   * @returns flow instance for chaining
-   */
   removeStep(stepId: string): this {
     this.steps = this.steps.filter((step) => step.id !== stepId);
     return this;
   }
 
-  /**
-   * Get step configuration by ID
-   * @param stepId - Step identifier
-   * @returns Step configuration or undefined
-   */
   getStep(stepId: string): StepConfig | undefined {
     return this.steps.find((step) => step.id === stepId);
   }
 
-  /**
-   * Get all steps
-   * @returns Array of step configurations
-   */
   getSteps(): StepConfig[] {
     return [...this.steps];
   }
 
-  /**
-   * Clear all steps
-   * @returns flow instance for chaining
-   */
   clearSteps(): this {
     this.steps = [];
     return this;
@@ -337,9 +249,6 @@ export class flow {
 
   /**
    * Clone the workflow builder
-   * @param newWorkflowId - ID for the cloned workflow
-   * @param newWorkflowName - Name for the cloned workflow
-   * @returns New flow instance
    */
   clone(newWorkflowId?: string, newWorkflowName?: string): flow {
     const cloned = new flow(
@@ -364,12 +273,10 @@ export class flow {
 
   /**
    * Validate the workflow configuration
-   * @returns Array of validation errors
    */
   validate(): string[] {
     const errors: string[] = [];
 
-    // Check for empty workflow
     if (this.steps.length === 0) {
       errors.push('Workflow must have at least one step');
     }
@@ -380,9 +287,6 @@ export class flow {
     if (duplicateStepIds.length > 0) {
       errors.push(`Duplicate step IDs: ${duplicateStepIds.join(', ')}`);
     }
-
-    // Check for circular dependencies in conditional branches
-    // TODO: Implement cycle detection
 
     // Check plugin dependencies
     for (const plugin of this.plugins) {
@@ -403,17 +307,8 @@ export class flow {
 
   /**
    * Get workflow statistics
-   * @returns Object with workflow statistics
    */
-  getStats(): {
-    totalSteps: number;
-    dynamicSteps: number;
-    conditionalBranches: number;
-    pluginsInstalled: number;
-    estimatedFields: number;
-    hasPersistence: boolean;
-    hasAnalytics: boolean;
-  } {
+  getStats() {
     return {
       totalSteps: this.steps.length,
       dynamicSteps: this.steps.filter((step) => step.isDynamic).length,
@@ -430,7 +325,6 @@ export class flow {
 
   /**
    * Build the final workflow configuration
-   * @returns Complete workflow configuration
    */
   build(): WorkflowConfig {
     const errors = this.validate();
@@ -457,8 +351,7 @@ export class flow {
   }
 
   /**
-   * Export workflow configuration as JSON
-   * @returns JSON representation of the workflow
+   * Export/Import functionality
    */
   toJSON(): any {
     return {
@@ -481,11 +374,6 @@ export class flow {
     };
   }
 
-  /**
-   * Import workflow configuration from JSON
-   * @param json - JSON representation of the workflow
-   * @returns flow instance for chaining
-   */
   fromJSON(json: any): this {
     if (json.id) this.workflowId = json.id;
     if (json.name) this.workflowName = json.name;

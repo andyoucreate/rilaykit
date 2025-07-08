@@ -1,8 +1,9 @@
 import type { FormConfiguration } from '@rilaykit/core';
+import { form } from '../builders/form';
 import { FormProvider } from './FormProvider';
 
 export interface FormProps {
-  formConfig: FormConfiguration;
+  formConfig: FormConfiguration | form;
   defaultValues?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
   onFieldChange?: (fieldId: string, value: any, formData: Record<string, any>) => void;
@@ -10,9 +11,11 @@ export interface FormProps {
   children: React.ReactNode;
 }
 export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, children }: FormProps) {
+  const config = formConfig instanceof form ? formConfig.build() : formConfig;
+
   return (
     <FormProvider
-      formConfig={formConfig}
+      formConfig={config}
       defaultValues={defaultValues}
       onSubmit={onSubmit}
       onFieldChange={onFieldChange}

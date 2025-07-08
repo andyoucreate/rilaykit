@@ -47,6 +47,54 @@ export class ril {
   }
 
   /**
+   * Generic method to set any renderer type easily
+   * @param rendererType - The type of renderer to set
+   * @param renderer - The renderer function
+   * @returns The ril instance for chaining
+   */
+  setRenderer<T extends keyof (FormRenderConfig & WorkflowRenderConfig)>(
+    rendererType: T,
+    renderer: (FormRenderConfig & WorkflowRenderConfig)[T]
+  ): this {
+    if (rendererType in this.formRenderConfig) {
+      this.formRenderConfig = {
+        ...this.formRenderConfig,
+        [rendererType]: renderer,
+      };
+    } else if (rendererType in this.workflowRenderConfig) {
+      this.workflowRenderConfig = {
+        ...this.workflowRenderConfig,
+        [rendererType]: renderer,
+      };
+    }
+    return this;
+  }
+
+  /**
+   * Set multiple renderers at once
+   * @param renderers - Object with renderer configurations
+   * @returns The ril instance for chaining
+   */
+  setRenderers(renderers: Partial<FormRenderConfig & WorkflowRenderConfig>): this {
+    // Separate form and workflow renderers
+    const formRenderers: Partial<FormRenderConfig> = {};
+    const workflowRenderers: Partial<WorkflowRenderConfig> = {};
+
+    for (const [key, value] of Object.entries(renderers)) {
+      if (['rowRenderer', 'bodyRenderer', 'submitButtonRenderer', 'fieldRenderer'].includes(key)) {
+        (formRenderers as any)[key] = value;
+      } else {
+        (workflowRenderers as any)[key] = value;
+      }
+    }
+
+    this.formRenderConfig = { ...this.formRenderConfig, ...formRenderers };
+    this.workflowRenderConfig = { ...this.workflowRenderConfig, ...workflowRenderers };
+
+    return this;
+  }
+
+  /**
    * Set custom row renderer
    * @param renderer - Custom row renderer function
    * @returns The ril instance for chaining

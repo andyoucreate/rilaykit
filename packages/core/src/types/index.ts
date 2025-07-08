@@ -72,6 +72,20 @@ export interface ComponentRenderProps<TProps = any> {
   [key: string]: any;
 }
 
+// Renderer children function type
+export type RendererChildrenFunction<TProps = any> = (props: TProps) => React.ReactNode;
+
+// Helper function to resolve children (either React.ReactNode or function)
+export function resolveRendererChildren<TProps>(
+  children: React.ReactNode | RendererChildrenFunction<TProps> | undefined,
+  props: TProps
+): React.ReactNode {
+  if (typeof children === 'function') {
+    return children(props);
+  }
+  return children;
+}
+
 // Configuration options
 export interface ComponentOptions<TProps = any> {
   readonly configurable?: Array<{
@@ -323,7 +337,7 @@ export interface WorkflowConfig {
 }
 
 export interface NavigationConfig {
-  readonly allowBackNavigation?: boolean;
+  readonly allowBackNavigation?: boolean; // Default to true
   readonly allowStepSkipping?: boolean;
   readonly showProgress?: boolean;
   readonly customNavigation?: boolean;
@@ -375,7 +389,7 @@ export interface WorkflowRenderConfig {
 // Form structural renderers
 export interface FormRowRendererProps {
   row: FormFieldRow;
-  children: React.ReactNode;
+  children: React.ReactNode; // Always React.ReactNode, never function
   className?: string;
   spacing?: 'tight' | 'normal' | 'loose';
   alignment?: 'start' | 'center' | 'end' | 'stretch';
@@ -383,7 +397,7 @@ export interface FormRowRendererProps {
 
 export interface FormBodyRendererProps {
   formConfig: FormConfiguration;
-  children: React.ReactNode;
+  children: React.ReactNode; // Always React.ReactNode, never function
   className?: string;
 }
 
@@ -393,7 +407,7 @@ export interface FormSubmitButtonRendererProps {
   isDirty: boolean;
   onSubmit: () => void;
   className?: string;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // Always React.ReactNode, never function
 }
 
 export type FormRowRenderer = (props: FormRowRendererProps) => React.ReactElement;
@@ -401,7 +415,7 @@ export type FormBodyRenderer = (props: FormBodyRendererProps) => React.ReactElem
 export type FormSubmitButtonRenderer = (props: FormSubmitButtonRendererProps) => React.ReactElement;
 
 export interface FieldRendererProps {
-  children: React.ReactNode;
+  children: React.ReactNode; // Always React.ReactNode, never function
   id: string;
   error?: ValidationError[];
   warnings?: ValidationWarning[];
@@ -437,21 +451,36 @@ export interface WorkflowNextButtonRendererProps {
   onNext: (event?: React.FormEvent) => void;
   onSubmit: (event?: React.FormEvent) => void;
   className?: string;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // Always React.ReactNode, never function
+  // Step data
+  currentStep: StepConfig;
+  stepData: Record<string, any>;
+  allData: Record<string, any>;
+  context: WorkflowContext;
 }
 
 export interface WorkflowPreviousButtonRendererProps {
   canGoPrevious: boolean;
   onPrevious: (event?: React.FormEvent) => void;
   className?: string;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // Always React.ReactNode, never function
+  // Step data
+  currentStep: StepConfig;
+  stepData: Record<string, any>;
+  allData: Record<string, any>;
+  context: WorkflowContext;
 }
 
 export interface WorkflowSkipButtonRendererProps {
   canSkip: boolean;
   onSkip: (event?: React.FormEvent) => void;
   className?: string;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // Always React.ReactNode, never function
+  // Step data
+  currentStep: StepConfig;
+  stepData: Record<string, any>;
+  allData: Record<string, any>;
+  context: WorkflowContext;
 }
 
 export type WorkflowNextButtonRenderer = (

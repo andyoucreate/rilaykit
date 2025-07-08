@@ -1,11 +1,14 @@
+import type { WorkflowConfig } from '@rilaykit/core';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { flow } from '../builders/flow';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 import type { WorkflowProviderProps } from './WorkflowProvider';
 import { WorkflowProvider } from './WorkflowProvider';
 
-export type WorkflowProps = Omit<WorkflowProviderProps, 'children'> & {
+export type WorkflowProps = Omit<WorkflowProviderProps, 'children' | 'workflowConfig'> & {
   children: React.ReactNode;
+  workflowConfig: WorkflowConfig | flow;
 };
 
 /**
@@ -13,10 +16,12 @@ export type WorkflowProps = Omit<WorkflowProviderProps, 'children'> & {
  * It simplifies the API by wrapping the WorkflowProvider and providing a clean,
  * component-based interface for building workflows.
  */
-export function Workflow({ children, ...props }: WorkflowProps) {
+export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) {
   const [isClient, setIsClient] = useState(false);
   const shouldDisplayWatermark = RilayLicenseManager.shouldDisplayWatermark();
   const watermarkMessage = RilayLicenseManager.getWatermarkMessage();
+
+  const config = workflowConfig instanceof flow ? workflowConfig.build() : workflowConfig;
 
   // Initialize license manager and check watermark only on client side
   useEffect(() => {
@@ -25,7 +30,9 @@ export function Workflow({ children, ...props }: WorkflowProps) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <WorkflowProvider {...props}>{children}</WorkflowProvider>
+      <WorkflowProvider {...props} workflowConfig={config}>
+        {children}
+      </WorkflowProvider>
 
       {isClient && shouldDisplayWatermark && (
         <div

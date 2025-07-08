@@ -368,7 +368,7 @@ describe('Form Builder', () => {
       const clonedConfig = clonedBuilder.build();
 
       expect(clonedConfig.id).not.toBe('original-form');
-      expect(clonedConfig.id).toMatch(/^form-\d+$/);
+      expect(clonedConfig.id).toBe('original-form-clone');
     });
 
     it('should create independent clone', () => {

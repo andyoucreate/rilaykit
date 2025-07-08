@@ -7,6 +7,21 @@ import type {
   ril,
 } from '@rilaykit/core';
 
+// Field configuration interface for better type safety
+interface FieldConfig {
+  fieldId: string;
+  componentType: string;
+  props?: Record<string, any>;
+  validation?: ValidationConfig;
+  conditional?: ConditionalConfig;
+}
+
+// Row options interface
+interface RowOptions {
+  spacing?: 'tight' | 'normal' | 'loose';
+  alignment?: 'start' | 'center' | 'end' | 'stretch';
+}
+
 /**
  * Form builder class for creating form configurations
  * Simplified API with matrix support
@@ -27,12 +42,49 @@ export class form {
   }
 
   /**
+   * Helper method to create a FormFieldConfig from a FieldConfig
+   */
+  private createFormField(fieldConfig: FieldConfig): FormFieldConfig {
+    const component = this.config.getComponent(fieldConfig.componentType);
+
+    if (!component) {
+      throw new Error(`No component found with type "${fieldConfig.componentType}"`);
+    }
+
+    return {
+      id: fieldConfig.fieldId,
+      componentId: component.id,
+      props: { ...component.defaultProps, ...fieldConfig.props },
+      validation: fieldConfig.validation,
+      conditional: fieldConfig.conditional,
+    };
+  }
+
+  /**
+   * Helper method to create a row with validation
+   */
+  private createRow(fieldConfigs: FieldConfig[], rowOptions?: RowOptions): FormFieldRow {
+    if (fieldConfigs.length === 0) {
+      throw new Error('At least one field is required');
+    }
+
+    if (fieldConfigs.length > 3) {
+      throw new Error('Maximum 3 fields per row');
+    }
+
+    const fields = fieldConfigs.map((config) => this.createFormField(config));
+
+    return {
+      id: `row-${++this.rowCounter}`,
+      fields,
+      maxColumns: fieldConfigs.length,
+      spacing: rowOptions?.spacing || 'normal',
+      alignment: rowOptions?.alignment || 'stretch',
+    };
+  }
+
+  /**
    * Add a single field (takes full width)
-   * @param fieldId - Unique field identifier
-   * @param componentType - Component type (e.g., 'text', 'email')
-   * @param props - Props to pass to the component
-   * @param options - Additional options
-   * @returns form instance for chaining
    */
   addField(
     fieldId: string,
@@ -56,85 +108,21 @@ export class form {
 
   /**
    * Add multiple fields on the same row (max 3 fields)
-   * @param fieldConfigs - Array of field configurations for the row
-   * @param rowOptions - Row configuration options
-   * @returns form instance for chaining
    */
-  addRowFields(
-    fieldConfigs: Array<{
-      fieldId: string;
-      componentType: string;
-      props?: Record<string, any>;
-      validation?: ValidationConfig;
-      conditional?: ConditionalConfig;
-    }>,
-    rowOptions?: {
-      spacing?: 'tight' | 'normal' | 'loose';
-      alignment?: 'start' | 'center' | 'end' | 'stretch';
-    }
-  ): this {
-    if (fieldConfigs.length === 0) {
-      throw new Error('At least one field is required');
-    }
-
-    if (fieldConfigs.length > 3) {
-      throw new Error('Maximum 3 fields per row');
-    }
-
-    // Create row
-    const rowId = `row-${++this.rowCounter}`;
-    const fields: FormFieldConfig[] = [];
-
-    // Process each field
-    for (const fieldConfig of fieldConfigs) {
-      const component = this.config.getComponent(fieldConfig.componentType);
-
-      if (!component) {
-        throw new Error(`No component found with type "${fieldConfig.componentType}"`);
-      }
-
-      const formFieldConfig: FormFieldConfig = {
-        id: fieldConfig.fieldId,
-        componentId: component.id,
-        props: { ...component.defaultProps, ...fieldConfig.props },
-        validation: fieldConfig.validation,
-        conditional: fieldConfig.conditional,
-      };
-
-      fields.push(formFieldConfig);
-    }
-
-    // Create row
-    const row: FormFieldRow = {
-      id: rowId,
-      fields,
-      maxColumns: fieldConfigs.length,
-      spacing: rowOptions?.spacing || 'normal',
-      alignment: rowOptions?.alignment || 'stretch',
-    };
-
+  addRowFields(fieldConfigs: FieldConfig[], rowOptions?: RowOptions): this {
+    const row = this.createRow(fieldConfigs, rowOptions);
     this.rows.push(row);
     return this;
   }
 
   /**
    * Add multiple fields, each on its own row
-   * @param fieldConfigs - Array of field configurations
-   * @returns form instance for chaining
    */
-  addFields(
-    fieldConfigs: Array<{
-      fieldId: string;
-      componentType: string;
-      props?: Record<string, any>;
-      validation?: ValidationConfig;
-      conditional?: ConditionalConfig;
-    }>
-  ): this {
-    for (const fieldConfig of fieldConfigs) {
-      this.addField(fieldConfig.fieldId, fieldConfig.componentType, fieldConfig.props, {
-        validation: fieldConfig.validation,
-        conditional: fieldConfig.conditional,
+  addFields(fieldConfigs: FieldConfig[]): this {
+    for (const config of fieldConfigs) {
+      this.addField(config.fieldId, config.componentType, config.props, {
+        validation: config.validation,
+        conditional: config.conditional,
       });
     }
     return this;
@@ -142,8 +130,6 @@ export class form {
 
   /**
    * Set form ID
-   * @param id - Form identifier
-   * @returns form instance for chaining
    */
   setId(id: string): this {
     this.formId = id;
@@ -152,69 +138,55 @@ export class form {
 
   /**
    * Update field configuration
-   * @param fieldId - Field identifier
-   * @param updates - Updates to apply
-   * @returns form instance for chaining
    */
   updateField(fieldId: string, updates: Partial<Omit<FormFieldConfig, 'id'>>): this {
-    let fieldFound = false;
-
-    for (const row of this.rows) {
-      const fieldIndex = row.fields.findIndex((field) => field.id === fieldId);
-      if (fieldIndex !== -1) {
-        row.fields[fieldIndex] = {
-          ...row.fields[fieldIndex],
-          ...updates,
-          props: {
-            ...row.fields[fieldIndex].props,
-            ...updates.props,
-          },
-        };
-        fieldFound = true;
-      }
-    }
-
-    if (!fieldFound) {
+    const field = this.findField(fieldId);
+    if (!field) {
       throw new Error(`Field with ID "${fieldId}" not found`);
     }
+
+    Object.assign(field, {
+      ...updates,
+      props: { ...field.props, ...updates.props },
+    });
 
     return this;
   }
 
   /**
+   * Helper method to find a field by ID
+   */
+  private findField(fieldId: string): FormFieldConfig | null {
+    for (const row of this.rows) {
+      const field = row.fields.find((f) => f.id === fieldId);
+      if (field) return field;
+    }
+    return null;
+  }
+
+  /**
    * Remove a field from the form
-   * @param fieldId - Field identifier
-   * @returns form instance for chaining
    */
   removeField(fieldId: string): this {
-    for (const row of this.rows) {
-      const filteredFields = row.fields.filter((field) => field.id !== fieldId);
-      // Create new row object with filtered fields since fields is readonly
-      Object.assign(row, { fields: filteredFields });
-    }
-
-    // Supprimer les lignes vides
-    this.rows = this.rows.filter((row) => row.fields.length > 0);
+    this.rows = this.rows
+      .map((row) => ({
+        ...row,
+        fields: row.fields.filter((field) => field.id !== fieldId),
+      }))
+      .filter((row) => row.fields.length > 0);
 
     return this;
   }
 
   /**
    * Get field configuration by ID
-   * @param fieldId - Field identifier
-   * @returns Field configuration or undefined
    */
   getField(fieldId: string): FormFieldConfig | undefined {
-    for (const row of this.rows) {
-      const field = row.fields.find((field) => field.id === fieldId);
-      if (field) return field;
-    }
-    return undefined;
+    return this.findField(fieldId) || undefined;
   }
 
   /**
    * Get all fields as a flat array
-   * @returns Array of field configurations
    */
   getFields(): FormFieldConfig[] {
     return this.rows.flatMap((row) => row.fields);
@@ -222,7 +194,6 @@ export class form {
 
   /**
    * Get all rows
-   * @returns Array of row configurations
    */
   getRows(): FormFieldRow[] {
     return [...this.rows];
@@ -230,7 +201,6 @@ export class form {
 
   /**
    * Clear all fields and rows
-   * @returns form instance for chaining
    */
   clear(): this {
     this.rows = [];
@@ -240,11 +210,9 @@ export class form {
 
   /**
    * Clone the current form builder
-   * @param newFormId - ID for the cloned form
-   * @returns New form instance
    */
   clone(newFormId?: string): form {
-    const cloned = new form(this.config, newFormId);
+    const cloned = new form(this.config, newFormId || `${this.formId}-clone`);
     cloned.rows = this.rows.map((row) => ({
       ...row,
       fields: row.fields.map((field) => ({ ...field })),
@@ -255,7 +223,6 @@ export class form {
 
   /**
    * Validate the form configuration
-   * @returns Array of validation errors
    */
   validate(): string[] {
     const errors: string[] = [];
@@ -290,7 +257,6 @@ export class form {
 
   /**
    * Build the final form configuration with matrix support
-   * @returns Complete form configuration with matrix structure
    */
   build(): FormConfiguration {
     const errors = this.validate();
@@ -302,15 +268,14 @@ export class form {
     return {
       id: this.formId,
       rows: [...this.rows],
-      allFields: this.getFields(), // Liste plate pour compatibilité
+      allFields: this.getFields(),
       config: this.config,
-      renderConfig: this.config.getFormRenderConfig(), // Inclure la configuration de rendu
+      renderConfig: this.config.getFormRenderConfig(),
     };
   }
 
   /**
    * Export form configuration as JSON
-   * @returns JSON representation of the form
    */
   toJSON(): any {
     return {
@@ -321,34 +286,20 @@ export class form {
 
   /**
    * Import form configuration from JSON
-   * @param json - JSON representation of the form
-   * @returns form instance for chaining
    */
   fromJSON(json: any): this {
-    if (json.id) {
-      this.formId = json.id;
-    }
-
+    if (json.id) this.formId = json.id;
     if (json.rows) {
       this.rows = json.rows;
-      // Update row counter
       this.rowCounter = this.rows.length;
     }
-
     return this;
   }
 
   /**
    * Get form statistics
-   * @returns Object with form statistics
    */
-  getStats(): {
-    totalFields: number;
-    totalRows: number;
-    averageFieldsPerRow: number;
-    maxFieldsInRow: number;
-    minFieldsInRow: number;
-  } {
+  getStats() {
     const allFields = this.getFields();
     const fieldCounts = this.rows.map((row) => row.fields.length);
 
