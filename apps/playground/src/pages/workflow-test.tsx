@@ -599,50 +599,96 @@ export default function WorkflowTestPage() {
               </WorkflowNextButton>
             </div>
           </div>
+
+          {/* Example of custom stepper with renderAs */}
+          <div className="mt-4 pt-4 border-t border-dashed">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Custom Stepper Example:</h4>
+            <WorkflowStepper renderAs="children">
+              {(props) => (
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  {props.steps.map((step, index) => (
+                    <div key={step.id} className="flex items-center">
+                      <button
+                        type="button"
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer transition-colors border-0 ${
+                          index === props.currentStepIndex
+                            ? 'bg-blue-600 text-white'
+                            : props.visitedSteps.has(step.id)
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-200 text-gray-600'
+                        }`}
+                        onClick={() => props.onStepClick?.(index)}
+                      >
+                        {index + 1}
+                      </button>
+                      {index < props.steps.length - 1 && (
+                        <div className="w-8 h-0.5 bg-gray-200 mx-1" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </WorkflowStepper>
+          </div>
         </Workflow>
       </div>
 
       <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
-          🎨 Nouvelle fonctionnalité: renderAs
+          🎨 Nouvelle fonctionnalité: renderAs pour tous les composants
         </h3>
         <p className="text-gray-700 mb-4">
-          Deux approches pour personnaliser le rendu des boutons :
+          Tous les composants supportent maintenant deux approches pour personnaliser le rendu :
         </p>
 
-        <div className="mb-6">
-          <h4 className="text-lg font-medium text-gray-800 mb-2">1. Function Children (défaut)</h4>
-          <div className="bg-gray-100 p-4 rounded-lg text-sm mb-2">
-            <code>{`<WorkflowNextButton>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">
+              1. Function Children (défaut)
+            </h4>
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-2">
+              <code>{`<WorkflowNextButton>
   {(props) => (
     <span>
       {props.isLastStep ? '🎉 Terminer' : '➡️ Continuer'} 
-      {props.isSubmitting && ' ⏳'}
     </span>
   )}
 </WorkflowNextButton>`}</code>
+            </div>
+            <p className="text-gray-600 text-sm">
+              Utilise le renderer configuré + children personnalisés.
+            </p>
           </div>
-          <p className="text-gray-600 text-sm">
-            Utilise le renderer configuré + children personnalisés.
-          </p>
-        </div>
 
-        <div className="mb-4">
-          <h4 className="text-lg font-medium text-gray-800 mb-2">
-            2. Custom Renderer (renderAs="children")
-          </h4>
-          <div className="bg-gray-100 p-4 rounded-lg text-sm mb-2">
-            <code>{`<WorkflowNextButton renderAs="children">
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">
+              2. Custom Renderer (renderAs="children")
+            </h4>
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-2">
+              <code>{`<WorkflowNextButton renderAs="children">
   {(props) => (
-    <button onClick={props.onNext} className="custom-btn">
-      Custom Button with full control
+    <button onClick={props.onNext}>
+      Custom Button
     </button>
   )}
 </WorkflowNextButton>`}</code>
+            </div>
+            <p className="text-gray-600 text-sm">Remplace complètement le renderer par défaut.</p>
           </div>
-          <p className="text-gray-600 text-sm">
-            Remplace complètement le renderer par défaut. Contrôle total du rendu.
-          </p>
+        </div>
+
+        <div className="mt-6">
+          <h4 className="text-lg font-medium text-gray-800 mb-2">Composants supportés :</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <div className="bg-white p-2 rounded border">✅ WorkflowNextButton</div>
+            <div className="bg-white p-2 rounded border">✅ WorkflowPreviousButton</div>
+            <div className="bg-white p-2 rounded border">✅ WorkflowSkipButton</div>
+            <div className="bg-white p-2 rounded border">✅ WorkflowStepper</div>
+            <div className="bg-white p-2 rounded border">✅ FormSubmitButton</div>
+            <div className="bg-white p-2 rounded border">✅ FormBody</div>
+            <div className="bg-white p-2 rounded border">✅ FormRow</div>
+            <div className="bg-white p-2 rounded border">🔄 Plus à venir...</div>
+          </div>
         </div>
       </div>
 
