@@ -5,7 +5,6 @@ import { createContext, useCallback, useContext, useMemo, useReducer, useRef } f
 export interface FormState {
   values: Record<string, any>;
   errors: Record<string, ValidationError[]>;
-  warnings: Record<string, ValidationError[]>;
   touched: Set<string>;
   isValidating: Set<string>;
   isDirty: boolean;
@@ -18,9 +17,7 @@ export interface FormContextValue {
   formConfig: FormConfiguration;
   setValue: (fieldId: string, value: any) => void;
   setError: (fieldId: string, errors: ValidationError[]) => void;
-  setWarning: (fieldId: string, warnings: ValidationError[]) => void;
   clearError: (fieldId: string) => void;
-  clearWarning: (fieldId: string) => void;
   markFieldTouched: (fieldId: string) => void;
   setFieldValidating: (fieldId: string, isValidating: boolean) => void;
   validateField: (fieldId: string, value?: any) => Promise<ValidationResult>;
@@ -32,9 +29,7 @@ export interface FormContextValue {
 type FormAction =
   | { type: 'SET_VALUE'; fieldId: string; value: any }
   | { type: 'SET_ERROR'; fieldId: string; errors: ValidationError[] }
-  | { type: 'SET_WARNING'; fieldId: string; warnings: ValidationError[] }
   | { type: 'CLEAR_ERROR'; fieldId: string }
-  | { type: 'CLEAR_WARNING'; fieldId: string }
   | { type: 'MARK_TOUCHED'; fieldId: string }
   | { type: 'SET_VALIDATING'; fieldId: string; isValidating: boolean }
   | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
@@ -59,27 +54,12 @@ function formReducer(state: FormState, action: FormAction): FormState {
         isValid: false,
       };
 
-    case 'SET_WARNING':
-      return {
-        ...state,
-        warnings: { ...state.warnings, [action.fieldId]: action.warnings },
-      };
-
     case 'CLEAR_ERROR': {
       const newErrors = { ...state.errors };
       delete newErrors[action.fieldId];
       return {
         ...state,
         errors: newErrors,
-      };
-    }
-
-    case 'CLEAR_WARNING': {
-      const newWarnings = { ...state.warnings };
-      delete newWarnings[action.fieldId];
-      return {
-        ...state,
-        warnings: newWarnings,
       };
     }
 
@@ -112,7 +92,6 @@ function formReducer(state: FormState, action: FormAction): FormState {
       return {
         values: action.values || {},
         errors: {},
-        warnings: {},
         touched: new Set(),
         isValidating: new Set(),
         isDirty: false,
@@ -155,7 +134,6 @@ export function FormProvider({
   const initialState: FormState = {
     values: defaultValues,
     errors: {},
-    warnings: {},
     touched: new Set(),
     isValidating: new Set(),
     isDirty: false,
@@ -181,17 +159,9 @@ export function FormProvider({
     dispatch({ type: 'UPDATE_VALIDATION_STATE' });
   }, []);
 
-  const setWarning = useCallback((fieldId: string, warnings: ValidationError[]) => {
-    dispatch({ type: 'SET_WARNING', fieldId, warnings });
-  }, []);
-
   const clearError = useCallback((fieldId: string) => {
     dispatch({ type: 'CLEAR_ERROR', fieldId });
     dispatch({ type: 'UPDATE_VALIDATION_STATE' });
-  }, []);
-
-  const clearWarning = useCallback((fieldId: string) => {
-    dispatch({ type: 'CLEAR_WARNING', fieldId });
   }, []);
 
   const markFieldTouched = useCallback((fieldId: string) => {
@@ -270,11 +240,7 @@ export function FormProvider({
               clearError(fieldId);
             }
 
-            if (result.warnings && result.warnings.length > 0) {
-              setWarning(fieldId, result.warnings);
-            } else {
-              clearWarning(fieldId);
-            }
+            // Warnings removed from ValidationResult
 
             resolve(result);
           } catch (error) {
@@ -309,9 +275,7 @@ export function FormProvider({
       formState.touched,
       formState.isDirty,
       setError,
-      setWarning,
       clearError,
-      clearWarning,
       setFieldValidating,
     ]
   );
@@ -363,9 +327,7 @@ export function FormProvider({
       formConfig: memoizedFormConfig,
       setValue,
       setError,
-      setWarning,
       clearError,
-      clearWarning,
       markFieldTouched,
       setFieldValidating,
       validateField,
@@ -378,9 +340,7 @@ export function FormProvider({
       memoizedFormConfig,
       setValue,
       setError,
-      setWarning,
       clearError,
-      clearWarning,
       markFieldTouched,
       setFieldValidating,
       validateField,

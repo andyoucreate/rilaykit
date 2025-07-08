@@ -118,23 +118,19 @@ export const combineValidators = (
 
     if (mode === 'all') {
       const allErrors = results.flatMap((result) => result.errors);
-      const allWarnings = results.flatMap((result) => result.warnings || []);
 
       return {
         isValid: results.every((result) => result.isValid),
         errors: allErrors,
-        warnings: allWarnings.length > 0 ? allWarnings : undefined,
       };
     }
     // mode === 'any'
     const hasValidResult = results.some((result) => result.isValid);
 
     if (hasValidResult) {
-      const warnings = results.flatMap((result) => result.warnings || []);
       return {
         isValid: true,
         errors: [],
-        warnings: warnings.length > 0 ? warnings : undefined,
       };
     }
     const allErrors = results.flatMap((result) => result.errors);
@@ -293,17 +289,14 @@ export const commonValidators = {
  * Utility to create validation result
  * @param isValid - Whether validation passed
  * @param errors - Array of errors (optional)
- * @param warnings - Array of warnings (optional)
  * @returns ValidationResult object
  */
 export const createValidationResult = (
   isValid: boolean,
-  errors: ValidationError[] = [],
-  warnings?: ValidationError[]
+  errors: ValidationError[] = []
 ): ValidationResult => ({
   isValid,
   errors,
-  warnings,
 });
 
 /**

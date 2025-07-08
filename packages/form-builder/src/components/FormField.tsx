@@ -42,18 +42,10 @@ export function FormField({
     () => ({
       value: formState.values[fieldConfig.id],
       errors: formState.errors[fieldConfig.id] || [],
-      warnings: formState.warnings[fieldConfig.id] || [],
       touched: formState.touched.has(fieldConfig.id),
       validating: formState.isValidating.has(fieldConfig.id),
     }),
-    [
-      formState.values,
-      formState.errors,
-      formState.warnings,
-      formState.touched,
-      formState.isValidating,
-      fieldConfig.id,
-    ]
+    [formState.values, formState.errors, formState.touched, formState.isValidating, fieldConfig.id]
   );
 
   // Handle field value change - optimized dependencies
@@ -147,7 +139,6 @@ export function FormField({
       onChange: handleChange,
       onBlur: handleBlur,
       error: fieldState.errors,
-      warnings: fieldState.warnings,
       touched: fieldState.touched,
       disabled: disabled || conditionalProps.disabled,
       isValidating: fieldState.validating,
@@ -159,7 +150,6 @@ export function FormField({
       handleChange,
       handleBlur,
       fieldState.errors,
-      fieldState.warnings,
       fieldState.touched,
       disabled,
       conditionalProps.disabled,
@@ -179,7 +169,6 @@ export function FormField({
           children: renderedComponent,
           id: fieldConfig.id,
           error: fieldState.errors,
-          warnings: fieldState.warnings,
           touched: fieldState.touched,
           disabled: disabled || conditionalProps.disabled,
           isValidating: fieldState.validating,

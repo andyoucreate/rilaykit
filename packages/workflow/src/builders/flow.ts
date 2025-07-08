@@ -1,6 +1,5 @@
 import type {
   CompletionConfig,
-  ConditionalBranch,
   CustomStepRenderer,
   DynamicStepConfig,
   FormConfiguration,
@@ -11,9 +10,7 @@ import type {
   StepPermissions,
   WorkflowAnalytics,
   WorkflowConfig,
-  WorkflowOptimizations,
   WorkflowPlugin,
-  WorkflowVersion,
 } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
@@ -43,13 +40,10 @@ export class flow {
   private workflowName: string;
   private workflowDescription?: string;
   private steps: StepConfig[] = [];
-  private branches: ConditionalBranch[] = [];
   private navigation: NavigationConfig = { allowBackNavigation: true }; // Default to true
   private persistence?: PersistenceConfig;
   private completion?: CompletionConfig;
   private analytics?: WorkflowAnalytics;
-  private optimizations?: WorkflowOptimizations;
-  private version?: WorkflowVersion;
   private plugins: WorkflowPlugin[] = [];
 
   constructor(config: ril, workflowId: string, workflowName: string, description?: string) {
@@ -112,19 +106,6 @@ export class flow {
   }
 
   /**
-   * Conditional branches management
-   */
-  addConditionalBranch(branch: ConditionalBranch): this {
-    this.branches.push(branch);
-    return this;
-  }
-
-  addConditionalBranches(branches: ConditionalBranch[]): this {
-    this.branches.push(...branches);
-    return this;
-  }
-
-  /**
    * Configuration setters with fluent interface
    */
   setNavigation(navigation: NavigationConfig): this {
@@ -149,16 +130,6 @@ export class flow {
 
   setAnalytics(analytics: WorkflowAnalytics): this {
     this.analytics = analytics;
-    return this;
-  }
-
-  setOptimizations(optimizations: WorkflowOptimizations): this {
-    this.optimizations = optimizations;
-    return this;
-  }
-
-  setVersion(version: WorkflowVersion): this {
-    this.version = version;
     return this;
   }
 
@@ -247,13 +218,10 @@ export class flow {
     );
 
     cloned.steps = this.steps.map((step) => ({ ...step }));
-    cloned.branches = this.branches.map((branch) => ({ ...branch }));
     cloned.navigation = { ...this.navigation };
     cloned.persistence = this.persistence ? { ...this.persistence } : undefined;
     cloned.completion = this.completion ? { ...this.completion } : undefined;
     cloned.analytics = this.analytics ? { ...this.analytics } : undefined;
-    cloned.optimizations = this.optimizations ? { ...this.optimizations } : undefined;
-    cloned.version = this.version ? { ...this.version } : undefined;
     cloned.plugins = [...this.plugins];
 
     return cloned;
@@ -300,7 +268,6 @@ export class flow {
     return {
       totalSteps: this.steps.length,
       dynamicSteps: this.steps.filter((step) => step.isDynamic).length,
-      conditionalBranches: this.branches.length,
       pluginsInstalled: this.plugins.length,
       estimatedFields: this.steps.reduce(
         (total, step) => total + step.formConfig.allFields.length,
@@ -327,13 +294,10 @@ export class flow {
       name: this.workflowName,
       description: this.workflowDescription,
       steps: [...this.steps],
-      branches: [...this.branches],
       navigation: this.navigation,
       persistence: this.persistence,
       completion: this.completion,
       analytics: this.analytics,
-      optimizations: this.optimizations,
-      version: this.version,
       plugins: [...this.plugins],
       renderConfig: this.config.getWorkflowRenderConfig(),
     };
@@ -348,13 +312,10 @@ export class flow {
       name: this.workflowName,
       description: this.workflowDescription,
       steps: this.steps,
-      branches: this.branches,
       navigation: this.navigation,
       persistence: this.persistence,
       completion: this.completion,
       analytics: this.analytics,
-      optimizations: this.optimizations,
-      version: this.version,
       plugins: this.plugins.map((plugin) => ({
         name: plugin.name,
         version: plugin.version,
@@ -368,13 +329,10 @@ export class flow {
     if (json.name) this.workflowName = json.name;
     if (json.description) this.workflowDescription = json.description;
     if (json.steps) this.steps = json.steps;
-    if (json.branches) this.branches = json.branches;
     if (json.navigation) this.navigation = json.navigation;
     if (json.persistence) this.persistence = json.persistence;
     if (json.completion) this.completion = json.completion;
     if (json.analytics) this.analytics = json.analytics;
-    if (json.optimizations) this.optimizations = json.optimizations;
-    if (json.version) this.version = json.version;
 
     return this;
   }

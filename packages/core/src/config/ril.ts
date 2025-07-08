@@ -5,7 +5,6 @@ import type {
   FormRenderConfig,
   FormRowRenderer,
   FormSubmitButtonRenderer,
-  WorkflowNavigationRenderer,
   WorkflowNextButtonRenderer,
   WorkflowPreviousButtonRenderer,
   WorkflowRenderConfig,
@@ -178,19 +177,6 @@ export class ril {
   }
 
   /**
-   * Set custom workflow navigation renderer
-   * @param renderer - Custom workflow navigation renderer function
-   * @returns The ril instance for chaining
-   */
-  setWorkflowNavigationRenderer(renderer: WorkflowNavigationRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      navigationRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
    * Set custom workflow next button renderer
    * @param renderer - Custom workflow next button renderer function
    * @returns The ril instance for chaining
@@ -297,26 +283,6 @@ export class ril {
   }
 
   /**
-   * Export configuration as a plain object
-   * @returns Object with component configurations
-   */
-  export(): Record<string, ComponentConfig> {
-    return Object.fromEntries(this.components);
-  }
-
-  /**
-   * Import configuration from a plain object
-   * @param config - Object with component configurations
-   * @returns The ril instance for chaining
-   */
-  import(config: Record<string, ComponentConfig>): this {
-    for (const [id, componentConfig] of Object.entries(config)) {
-      this.components.set(id, componentConfig);
-    }
-    return this;
-  }
-
-  /**
    * Get statistics about registered components and renderers
    * @returns Object with comprehensive statistics
    */
@@ -331,7 +297,6 @@ export class ril {
       field: boolean;
       // Workflow renderers
       stepper: boolean;
-      workflowNavigation: boolean;
       workflowNextButton: boolean;
       workflowPreviousButton: boolean;
       workflowSkipButton: boolean;
@@ -356,7 +321,6 @@ export class ril {
         field: Boolean(this.formRenderConfig.fieldRenderer),
         // Workflow renderers
         stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
-        workflowNavigation: Boolean(this.workflowRenderConfig.navigationRenderer),
         workflowNextButton: Boolean(this.workflowRenderConfig.nextButtonRenderer),
         workflowPreviousButton: Boolean(this.workflowRenderConfig.previousButtonRenderer),
         workflowSkipButton: Boolean(this.workflowRenderConfig.skipButtonRenderer),

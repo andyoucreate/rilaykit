@@ -12,16 +12,9 @@ export interface RilayLicenseConfig {
 export interface ValidationResult {
   readonly isValid: boolean;
   readonly errors: ValidationError[];
-  readonly warnings?: ValidationWarning[];
 }
 
 export interface ValidationError {
-  readonly code: string;
-  readonly message: string;
-  readonly path?: string[];
-}
-
-export interface ValidationWarning {
   readonly code: string;
   readonly message: string;
   readonly path?: string[];
@@ -65,7 +58,6 @@ export interface ComponentRenderProps<TProps = any> {
   onChange?: (value: any) => void;
   onBlur?: () => void;
   error?: ValidationError[];
-  warnings?: ValidationWarning[];
   touched?: boolean;
   disabled?: boolean;
   isValidating?: boolean;
@@ -86,20 +78,6 @@ export function resolveRendererChildren<TProps>(
   return children;
 }
 
-// Configuration options
-export interface ComponentOptions<TProps = any> {
-  readonly configurable?: Array<{
-    key: keyof TProps;
-    type: 'string' | 'number' | 'boolean' | 'select' | 'array';
-    label: string;
-    options?: any[];
-    default?: any;
-  }>;
-  readonly previewProps?: Partial<TProps>;
-  readonly icon?: string;
-  readonly tags?: string[];
-}
-
 // Base component configuration
 export interface ComponentConfig<TProps = any> {
   readonly id: string;
@@ -107,7 +85,6 @@ export interface ComponentConfig<TProps = any> {
   readonly name: string;
   readonly description?: string;
   readonly renderer: ComponentRenderer<TProps>;
-  readonly options?: ComponentOptions<TProps>;
   readonly validation?: ValidationConfig<TProps>;
   readonly defaultProps?: Partial<TProps>;
   readonly useFieldRenderer?: boolean;
@@ -182,13 +159,6 @@ export interface RetryPolicy {
   readonly maxRetries: number;
   readonly delayMs: number;
   readonly backoffMultiplier?: number;
-}
-
-// Conditional Branch
-export interface ConditionalBranch {
-  readonly condition: (data: any, context: WorkflowContext) => boolean | Promise<boolean>;
-  readonly steps: StepConfig[];
-  readonly fallback?: StepConfig[];
 }
 
 // Enhanced Step Configuration
@@ -287,22 +257,6 @@ export interface WorkflowAnalytics {
   readonly onError?: (error: Error, context: WorkflowContext) => void;
 }
 
-// Performance Optimizations
-export interface WorkflowOptimizations {
-  readonly preloadNextStep?: boolean;
-  readonly cacheValidation?: boolean;
-  readonly virtualizeSteps?: boolean;
-  readonly lazyLoadComponents?: boolean;
-  readonly maxConcurrentRequests?: number;
-}
-
-// Workflow Versioning
-export interface WorkflowVersion {
-  readonly version: string;
-  readonly migrationStrategy?: (oldData: any, newConfig: any) => any;
-  readonly compatibilityMode?: boolean;
-}
-
 // Plugin System
 export interface WorkflowHooks {
   readonly onStepChange?: (from: string, to: string, context: WorkflowContext) => void;
@@ -324,13 +278,10 @@ export interface WorkflowConfig {
   readonly name: string;
   readonly description?: string;
   readonly steps: StepConfig[];
-  readonly branches?: ConditionalBranch[];
   readonly navigation?: NavigationConfig;
   readonly persistence?: PersistenceConfig;
   readonly completion?: CompletionConfig;
   readonly analytics?: WorkflowAnalytics;
-  readonly optimizations?: WorkflowOptimizations;
-  readonly version?: WorkflowVersion;
   readonly plugins?: WorkflowPlugin[];
   readonly renderConfig?: WorkflowRenderConfig;
 }
@@ -357,29 +308,11 @@ export interface WorkflowStepperRendererProps {
   readonly className?: string;
 }
 
-export interface WorkflowNavigationRendererProps {
-  readonly currentStep: StepConfig;
-  readonly context: WorkflowContext;
-  readonly canGoNext: boolean;
-  readonly canGoPrevious: boolean;
-  readonly canSkip: boolean;
-  readonly isSubmitting: boolean;
-  readonly onNext: (event?: React.FormEvent) => void;
-  readonly onPrevious: (event?: React.FormEvent) => void;
-  readonly onSkip: (event?: React.FormEvent) => void;
-  readonly onSubmit: (event?: React.FormEvent) => void;
-  readonly className?: string;
-}
-
 export type WorkflowStepperRenderer = (props: WorkflowStepperRendererProps) => React.ReactElement;
-export type WorkflowNavigationRenderer = (
-  props: WorkflowNavigationRendererProps
-) => React.ReactElement;
 
 // Workflow Render Configuration
 export interface WorkflowRenderConfig {
   readonly stepperRenderer?: WorkflowStepperRenderer;
-  readonly navigationRenderer?: WorkflowNavigationRenderer;
   readonly nextButtonRenderer?: WorkflowNextButtonRenderer;
   readonly previousButtonRenderer?: WorkflowPreviousButtonRenderer;
   readonly skipButtonRenderer?: WorkflowSkipButtonRenderer;
@@ -417,7 +350,6 @@ export interface FieldRendererProps {
   children: React.ReactNode; // Always React.ReactNode, never function
   id: string;
   error?: ValidationError[];
-  warnings?: ValidationWarning[];
   touched?: boolean;
   disabled?: boolean;
   isValidating?: boolean;

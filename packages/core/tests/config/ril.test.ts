@@ -180,13 +180,6 @@ describe('ril', () => {
       expect(renderConfig.stepperRenderer).toBe(TestWorkflowStepperRenderer);
     });
 
-    it('should set custom workflow navigation renderer', () => {
-      const config = ril.create().setWorkflowNavigationRenderer(TestWorkflowNavRenderer);
-
-      const renderConfig = config.getWorkflowRenderConfig();
-      expect(renderConfig.navigationRenderer).toBe(TestWorkflowNavRenderer);
-    });
-
     it('should set complete workflow render configuration', () => {
       const workflowRenderConfig = {
         stepperRenderer: TestWorkflowStepperRenderer,
@@ -227,40 +220,6 @@ describe('ril', () => {
       expect(stats.hasCustomRenderers.row).toBe(true);
       expect(stats.hasCustomRenderers.body).toBe(false);
       expect(stats.hasCustomRenderers.stepper).toBe(true);
-      expect(stats.hasCustomRenderers.workflowNavigation).toBe(false);
-    });
-  });
-
-  describe('Import/Export', () => {
-    it('should export configuration', () => {
-      const config = ril
-        .create()
-        .addComponent('text', {
-          name: 'Text Input',
-          renderer: TestComponent,
-        })
-        .addComponent('email', {
-          name: 'Email Input',
-          renderer: TestRenderer,
-        });
-
-      const exported = config.export();
-      expect(Object.keys(exported)).toHaveLength(2);
-      expect(exported.text).toBeDefined();
-      expect(exported.email).toBeDefined();
-    });
-
-    it('should import configuration', () => {
-      const config1 = ril.create().addComponent('text', {
-        name: 'Text Input',
-        renderer: TestComponent,
-      });
-
-      const exported = config1.export();
-
-      const config2 = ril.create().import(exported);
-      expect(config2.hasComponent('text')).toBe(true);
-      expect(config2.getAllComponents()).toHaveLength(1);
     });
   });
 
@@ -278,13 +237,11 @@ describe('ril', () => {
     it('should detect components without renderer', () => {
       const config = ril.create();
       // Manually add a component without renderer (this shouldn't happen in normal usage)
-      config.import({
-        'invalid-component': {
-          id: 'invalid-component',
-          type: 'invalid-component',
-          name: 'Invalid Component',
-          renderer: undefined as any,
-        },
+      (config as any).components.set('invalid-component', {
+        id: 'invalid-component',
+        type: 'invalid-component',
+        name: 'Invalid Component',
+        renderer: undefined as any,
       });
 
       const errors = config.validate();

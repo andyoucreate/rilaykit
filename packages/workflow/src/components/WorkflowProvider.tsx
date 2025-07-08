@@ -23,7 +23,6 @@ export interface WorkflowState {
   allData: Record<string, any>;
   stepData: Record<string, any>;
   errors: Record<string, ValidationError[]>;
-  warnings: Record<string, ValidationError[]>;
   touched: Set<string>;
   isValidating: Set<string>;
   visitedSteps: Set<string>;
@@ -63,9 +62,7 @@ type WorkflowAction =
   | { type: 'SET_ALL_DATA'; data: Record<string, any> }
   | { type: 'SET_FIELD_VALUE'; fieldId: string; value: any }
   | { type: 'SET_ERROR'; fieldId: string; errors: ValidationError[] }
-  | { type: 'SET_WARNING'; fieldId: string; warnings: ValidationError[] }
   | { type: 'CLEAR_ERROR'; fieldId: string }
-  | { type: 'CLEAR_WARNING'; fieldId: string }
   | { type: 'MARK_TOUCHED'; fieldId: string }
   | { type: 'SET_VALIDATING'; fieldId: string; isValidating: boolean }
   | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
@@ -121,27 +118,12 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
         errors: { ...state.errors, [action.fieldId]: action.errors },
       };
 
-    case 'SET_WARNING':
-      return {
-        ...state,
-        warnings: { ...state.warnings, [action.fieldId]: action.warnings },
-      };
-
     case 'CLEAR_ERROR': {
       const newErrors = { ...state.errors };
       delete newErrors[action.fieldId];
       return {
         ...state,
         errors: newErrors,
-      };
-    }
-
-    case 'CLEAR_WARNING': {
-      const newWarnings = { ...state.warnings };
-      delete newWarnings[action.fieldId];
-      return {
-        ...state,
-        warnings: newWarnings,
       };
     }
 
@@ -200,7 +182,6 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
         allData: {},
         stepData: {},
         errors: {},
-        warnings: {},
         touched: new Set(),
         isValidating: new Set(),
         visitedSteps: new Set(),
@@ -242,7 +223,6 @@ export function WorkflowProvider({
       allData: defaultValues,
       stepData: {},
       errors: {},
-      warnings: {},
       touched: new Set(),
       isValidating: new Set(),
       visitedSteps: new Set(),
