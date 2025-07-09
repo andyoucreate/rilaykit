@@ -1,0 +1,41 @@
+---
+title: Introduction
+description: Welcome to Rilaykit, a powerful framework for building dynamic forms and workflows in React.
+---
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { FileCode, BotMessageSquare, Settings2 } from 'lucide-react';
+
+# Welcome to Rilaykit
+
+**Rilaykit** is a powerful and flexible framework for building dynamic, component-based forms and multi-step workflows in React applications. It's designed to be intuitive, extensible, and easy to integrate into any project, giving you full control over your UI while handling the complex state management for you.
+
+At its core, Rilaykit is built on a "bring your own components" philosophy. It doesn't ship with any UI elements. Instead, it provides a robust engine that you connect to your existing React components, whether they're from a library like Material UI, an internal design system, or styled from scratch.
+
+## Key Packages
+
+The Rilaykit ecosystem is split into several packages, allowing you to adopt only the parts you need.
+
+<Cards>
+  <Card
+    icon={<Settings2/>}
+    title="@rilaykit/core"
+    description="The core engine. Manages component registration, rendering logic, and validation."
+  />
+  <Card
+    icon={<FileCode/>}
+    title="@rilaykit/forms"
+    description="A fluent builder for creating powerful single-step forms."
+  />
+  <Card
+    icon={<BotMessageSquare/>}
+    title="@rilaykit/workflow"
+    description="An engine for building complex multi-step workflows, wizards, and onboarding flows."
+  />
+</Cards>
+
+## Philosophy
+
+- **Component-Driven:** Your components are the building blocks. Rilaykit provides the logic, you provide the looks.
+- **Developer Experience:** A fully type-safe API with TypeScript ensures you catch errors early and build with confidence.
+- **Extensible:** Every piece of the UI rendering is customizable through a system of renderers, giving you granular control.
+- **Decoupled:** The core logic is completely separate from the UI, making it easy to integrate with any design system or styling solution. 

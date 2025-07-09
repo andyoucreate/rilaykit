@@ -1,0 +1,49 @@
+---
+title: Installation
+description: How to install Rilaykit packages in your project.
+---
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Rilaykit is modular. You can install only the packages you need. `@rilaykit/core` is always required.
+
+<Tabs items={['pnpm', 'npm', 'yarn']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install @rilaykit/core @rilaykit/forms @rilaykit/workflow
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @rilaykit/core @rilaykit/forms @rilaykit/workflow
+    ```
+  </Tab>
+</Tabs>
+
+- **`@rilaykit/core`**: The core engine. Contains all the fundamental logic.
+- **`@rilaykit/forms`**: The Form Builder for single-step forms. Depends on `@rilaykit/core`.
+- **`@rilaykit/workflow`**: The Workflow Engine for multi-step flows. Depends on `@rilaykit/core` and `@rilaykit/forms`.
+
+You will also likely need a validation library. We recommend **Zod**.
+
+<Tabs items={['pnpm', 'npm', 'yarn']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add zod
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install zod
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add zod
+    ```
+  </Tab>
+</Tabs> 

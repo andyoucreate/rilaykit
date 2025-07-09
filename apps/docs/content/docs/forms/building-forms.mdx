@@ -1,0 +1,86 @@
+---
+title: Building Forms
+description: How to use the fluent API to build form configurations.
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `@rilaykit/forms` package provides a `form` factory to create a `formBuilder`. This builder uses a fluent API to define the structure and content of your forms. The end goal is to produce a `formConfig` object that can be passed to the `<Form>` component.
+
+<Callout>
+Before proceeding, make sure you have created and configured a shared `formBuilder` instance as shown in the "Your First Form" guide.
+</Callout>
+
+## Building a `formConfig`
+
+<Steps>
+<Step>
+### Start with the builder
+
+Call your `formBuilder` instance to begin a new form definition.
+
+```tsx
+import { formBuilder } from '@/lib/rilay';
+
+const formConfig = formBuilder
+  // ... chain methods here
+```
+</Step>
+<Step>
+### Add fields and rows
+
+You can add fields one by one or group them into rows.
+
+- **`.addField(fieldConfig)`**: Adds a single field that will be rendered in its own row.
+- **`.addRowFields([fieldConfig, ...], rowOptions)`**: Adds a row containing one or more fields. The `FormRowRenderer` will be used to lay them out (e.g., in a grid).
+
+The optional `rowOptions` argument allows you to specify `spacing` and `alignment` for that specific row.
+
+```tsx
+const formConfig = formBuilder
+  .addRowFields([
+    {
+      id: 'firstName',
+      type: 'text', // Must match a type in your component registry
+      props: { label: 'First Name' },
+    },
+    {
+      id: 'lastName',
+      type: 'text',
+      props: { label: 'Last Name' },
+    },
+  ])
+  .addField({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+  })
+  .build();
+```
+</Step>
+
+<Step>
+### Build the configuration
+
+Finally, call `.build()` to finalize the configuration object. This returns a serializable JSON object that contains the complete definition of your form.
+
+```tsx
+const formConfig = formBuilder.addField({...}).build();
+```
+</Step>
+</Steps>
+
+## Field Configuration
+
+The `fieldConfig` object has the following shape:
+
+```ts
+interface FieldConfig {
+  id: string; // A unique identifier for the field within the form.
+  type: string; // The component type to render from your registry.
+  props?: Record<string, any>; // Props passed to your component renderer.
+  validation?: ValidationConfig; // Validation rules for the field.
+  conditional?: ConditionalConfig; // Logic to show/hide the field.
+}
+```
+For more details on `validation`, see the [Validation](/core-concepts/validation) page. `conditional` logic is covered in the Advanced Forms guide. 

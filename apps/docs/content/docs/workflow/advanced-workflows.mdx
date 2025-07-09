@@ -1,0 +1,114 @@
+---
+title: Advanced Workflows
+description: Explore advanced features of the Workflow Builder like dynamic steps, plugins, and serialization.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `flow` builder, like the `formBuilder`, is more than a simple configuration tool. It offers advanced features for creating highly dynamic and powerful user flows.
+
+## Dynamic Step Management
+
+You can modify a workflow's steps after the builder has been initialized.
+
+- **`.updateStep(stepId, updates)`**: Modifies an existing step's configuration.
+- **`.removeStep(stepId)`**: Removes a step from the workflow.
+- **`.getStep(stepId)`**: Retrieves the configuration for a specific step.
+- **`.getSteps()`**: Returns an array of all step configurations.
+- **`.clearSteps()`**: Removes all steps.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+
+const myFlow = rilay.createFlow('my-flow', 'My Dynamic Flow')
+  .addStep({ id: 'step1', ... });
+
+// Later, based on some condition...
+if (user.isAdmin) {
+  myFlow.addStep({ id: 'admin-step', ... });
+}
+
+// Or update a step
+myFlow.updateStep('step1', {
+  title: 'Step 1 (Updated)'
+});
+
+const workflowConfig = myFlow.build();
+```
+
+## Cloning
+
+The `.clone(newWorkflowId?, newWorkflowName?)` method creates a deep copy of the builder instance, allowing you to create variations of a workflow.
+
+```tsx
+const baseFlow = rilay.createFlow('base', 'Base Flow').addStep({ id: 'a', ... });
+const variantFlow = baseFlow.clone('variant', 'Variant Flow').addStep({ id: 'b', ... });
+```
+
+## Serialization (JSON Import/Export)
+
+Workflow configurations can be serialized to and from JSON. This is useful for storing flow definitions in a database or building visual workflow editors.
+
+- **`.toJSON()`**: Exports the current workflow structure as a JSON-serializable object.
+- **`.fromJSON(json)`**: Populates a builder instance from a JSON object.
+
+```tsx
+// 1. Define and serialize
+const originalFlow = rilay.createFlow('flow1', 'Flow 1').addStep(...);
+const jsonDefinition = originalFlow.toJSON();
+
+// 2. Later, rehydrate from the definition
+const newFlow = rilay.createFlow('flow2', 'Flow 2').fromJSON(jsonDefinition);
+const workflowConfig = newFlow.build();
+```
+
+## Plugins
+
+Rilaykit's workflow builder supports a plugin architecture to extend its functionality. A plugin is an object with a name, version, and an `install` method that gets called with the builder instance.
+
+This is an advanced feature for creating reusable pieces of workflow logic.
+
+```tsx
+// Example of a simple logging plugin
+const loggingPlugin = {
+  name: 'simple-logger',
+  version: '1.0.0',
+  install(builder) {
+    const existingAnalytics = builder.build().analytics || {};
+    builder.setAnalytics({
+      ...existingAnalytics,
+      onStepStart: (stepId) => {
+        console.log(`PLUGIN: Step started: ${stepId}`);
+        existingAnalytics.onStepStart?.(stepId);
+      }
+    });
+  }
+};
+
+// Use it
+const myFlow = rilay.createFlow('my-flow', 'My Flow')
+  .use(loggingPlugin)
+  .addStep(...)
+  .build();
+```
+The builder also supports `.removePlugin(pluginName)` and validates plugin dependencies.
+
+## Introspection
+
+The `.getStats()` method provides a quick overview of the workflow's structure.
+
+```ts
+const stats = myFlowBuilder.getStats();
+console.log(stats);
+/*
+{
+  totalSteps: 3,
+  dynamicSteps: 0,
+  pluginsInstalled: 1,
+  estimatedFields: 10,
+  hasPersistence: false,
+  hasAnalytics: true,
+  allowBackNavigation: true
+}
+*/
+```
+This is useful for debugging or analyzing the complexity of your workflows. 

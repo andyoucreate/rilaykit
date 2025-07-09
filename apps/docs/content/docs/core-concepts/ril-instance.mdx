@@ -1,0 +1,106 @@
+---
+title: The `ril` Instance
+description: Understanding the central factory and registry of Rilaykit.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `ril` instance is the heart of every Rilaykit application. It serves as a central hub for all your form and workflow configurations. You should create a single, shared `ril` instance for your application and export it from a central file (e.g., `lib/rilay.ts`).
+
+Its primary responsibilities are:
+1.  **To be a Registry:** It holds the central configuration for your components (`addComponent`) and custom renderers (`setRowRenderer`, etc.).
+2.  **To be a Factory:** It is used to create `form` and `flow` builders that inherit its configuration.
+
+## Creating and Configuring
+
+You create an instance by calling `ril.create()` and then chain configuration methods to it.
+
+```tsx title="lib/rilay.ts"
+import { ril } from '@rilaykit/core';
+import { MyTextInput } from '@/components/MyTextInput';
+import { myRowRenderer, mySubmitButtonRenderer, myBodyRenderer } from '@/renderers';
+
+export const rilay = ril
+  .create()
+  // Register a component type named 'text'
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: MyTextInput,
+  })
+  // Set all mandatory renderers for a basic form
+  .setBodyRenderer(myBodyRenderer)
+  .setRowRenderer(myRowRenderer)
+  .setSubmitButtonRenderer(mySubmitButtonRenderer);
+```
+
+This configured `rilay` instance is now ready to be used to create builders.
+
+## Management API
+
+The `ril` instance is not just a write-only configuration object. It also provides a rich API for managing and inspecting its state, which can be useful for debugging, testing, or building developer tools.
+
+### Component Management
+
+You can dynamically manage the component registry.
+
+- **`getComponent(id: string)`**: Retrieves a component's configuration.
+- **`getAllComponents()`**: Returns an array of all registered components.
+- **`hasComponent(id: string)`**: Checks for the existence of a component type.
+- **`removeComponent(id: string)`**: Removes a component from the registry.
+- **`clear()`**: Removes all registered components.
+
+```tsx
+// Check if a 'text' component is registered
+if (rilay.hasComponent('text')) {
+  console.log('Text component is ready.');
+}
+
+// Get all component names
+const componentNames = rilay.getAllComponents().map(c => c.name);
+// -> ['Text Input']
+```
+
+## Introspection & Debugging
+
+Two methods are particularly useful for understanding the state of your configuration.
+
+### `getStats()`
+
+The `.getStats()` method returns a snapshot of the current configuration, including the number of components and which custom renderers have been set.
+
+```ts
+const stats = rilay.getStats();
+console.log(stats);
+
+/* Output:
+{
+  total: 1,
+  byType: { text: 1 },
+  hasCustomRenderers: {
+    row: true,
+    body: false,
+    submitButton: false,
+    field: false,
+    stepper: false,
+    workflowNextButton: false,
+    workflowPreviousButton: false,
+    workflowSkipButton: false
+  }
+}
+*/
+```
+
+### `validate()`
+
+The `.validate()` method performs an internal check of your configuration to find common errors, like duplicate component IDs or components without a renderer.
+
+```ts
+const errors = rilay.validate();
+
+if (errors.length > 0) {
+  console.error('Rilay configuration errors:', errors);
+}
+```
+
+<Callout>
+These management and introspection APIs make the `ril` instance a powerful and transparent tool, not just a black box.
+</Callout> 

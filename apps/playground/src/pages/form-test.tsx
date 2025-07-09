@@ -11,7 +11,6 @@ import {
   ril,
 } from '@rilaykit/core';
 import { Form, FormBody, FormSubmitButton, form } from '@rilaykit/forms';
-import Link from 'next/link';
 import type React from 'react';
 import { z } from 'zod';
 
@@ -366,12 +365,6 @@ export default function FormTestPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <Link href="/" className="text-primary hover:text-blue-600 text-sm font-medium">
-          ← Back to Home
-        </Link>
-      </div>
-
       <h1 className="text-3xl font-bold text-gray-800 mb-4">📝 Form Builder Test</h1>
 
       <p className="text-gray-600 mb-8">

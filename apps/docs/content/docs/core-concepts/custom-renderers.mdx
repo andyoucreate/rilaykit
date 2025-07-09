@@ -1,0 +1,97 @@
+---
+title: Custom Renderers
+description: How to take full control over the HTML and layout of your forms.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+While the Component Registry defines *what* is rendered for each field, **Renderers** control *how* structural elements are laid out. They give you complete control over the HTML wrappers around your fields, rows, and buttons.
+
+<Callout type="error" title="Renderers are Mandatory">
+Rilaykit does **not** provide default renderers for structural elements like rows or submit buttons. You **must** define your own renderers for these components. If a renderer is not configured for an element that needs to be rendered, Rilaykit will throw an error.
+</Callout>
+
+This approach ensures that Rilaykit integrates seamlessly and predictably into your existing design system or CSS framework without injecting any unwanted markup or styles.
+
+## Available Renderers
+
+You provide custom renderers by setting them on the `ril` instance.
+
+Here are the most common renderers you **must** configure for `@rilaykit/forms`:
+- `setBodyRenderer`: Wraps the entire body of the form.
+- `setRowRenderer`: Wraps a row of one or more fields.
+- `setSubmitButtonRenderer`: Renders the main submission button.
+
+The `@rilaykit/workflow` package adds more mandatory renderers:
+- `setStepperRenderer`: Renders the progress stepper.
+- `setWorkflowNextButtonRenderer`: Renders the "Next" button.
+- `setWorkflowPreviousButtonRenderer`: Renders the "Previous" button.
+- `setWorkflowSkipButtonRenderer` (if used): Renders the "Skip" button.
+
+## Example: Configuring Mandatory Renderers
+
+Here’s how you would set up the basic renderers required for a form.
+
+### 1. Define Your Renderer Components
+
+A renderer is just a React component that receives specific props and must render `{props.children}`.
+
+```tsx title="components/renderers.tsx"
+import type { FormRowRendererProps, FormSubmitButtonRendererProps } from '@rilaykit/core';
+
+export const MyRowRenderer: React.FC<FormRowRendererProps> = ({ children, row }) => {
+  // Simple grid layout based on number of fields
+  const gridCols = `grid-cols-${row.fields.length}`;
+  return <div className={`grid ${gridCols} gap-4`}>{children}</div>;
+};
+
+export const MySubmitButtonRenderer: React.FC<FormSubmitButtonRendererProps> = (props) => {
+  return (
+    <button type="submit" disabled={!props.isValid || props.isSubmitting}>
+      {props.isSubmitting ? 'Submitting...' : props.children || 'Submit'}
+    </button>
+  );
+};
+```
+
+### 2. Set the Renderers on the `ril` Instance
+
+Now, register these components with your shared `ril` instance.
+
+```tsx title="lib/rilay.ts"
+import { rilay } from './rilay'; // Your existing instance
+import { MyRowRenderer, MySubmitButtonRenderer } from '@/components/renderers';
+
+// Let's assume you have a BodyRenderer as well
+// import { MyBodyRenderer } from '@/components/renderers';
+
+rilay
+  // .setBodyRenderer(MyBodyRenderer)
+  .setRowRenderer(MyRowRenderer)
+  .setSubmitButtonRenderer(MySubmitButtonRenderer);
+```
+
+Now, any form or workflow component built with this `rilay` instance knows exactly how to render its structural parts.
+
+## Overriding Renderers with `renderAs`
+
+Even with global renderers configured, you can always override the rendering for a specific component instance by using the `renderAs="children"` prop. This is perfect for one-off customizations.
+
+```tsx
+import { FormSubmitButton } from '@rilaykit/forms';
+
+<Form ...>
+  <FormBody />
+  <FormSubmitButton renderAs="children">
+    {(props) => (
+      <button
+        className="my-special-submit-button"
+        onClick={props.onSubmit}
+        disabled={!props.isValid}
+      >
+        Send Application
+      </button>
+    )}
+  </FormSubmitButton>
+</Form>
+```
+This powerful pattern allows for both global consistency and local flexibility. 

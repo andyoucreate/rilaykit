@@ -1,0 +1,109 @@
+---
+title: Component Registry
+description: How to register your React components with Rilaykit.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Rilaykit is headless and component-agnostic. It doesn't know how to render a text input or a select dropdown. You provide the components, and Rilaykit provides the logic. The **Component Registry** is the bridge between your UI components and the Rilaykit engine.
+
+## Registering a Component
+
+You register components using the `.addComponent()` method on your `ril` instance. This method takes two arguments:
+1.  A unique `type` string (e.g., `'text'`, `'email'`, `'custom-select'`).
+2.  A configuration object for the component.
+
+```tsx title="lib/rilay.ts"
+import { ril } from '@rilaykit/core';
+import { TextInput } from '@/components/TextInput';
+import { Select } from '@/components/Select';
+
+export const rilay = ril
+  .create()
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput,
+    defaultProps: {
+      placeholder: 'Enter your name...',
+    },
+  })
+  .addComponent('select', {
+    name: 'Select Input',
+    description: 'A dropdown for selecting options.',
+    renderer: Select,
+    defaultProps: {
+      options: [],
+    },
+  });
+```
+
+### Component Configuration
+
+-   `name`: A human-readable name for the component type.
+-   `renderer`: The actual React component function or class. This is the most important part.
+-   `defaultProps` (optional): An object containing default props that will be passed to every instance of this component type. This is useful for setting sensible defaults like an empty `options` array for a select input.
+-   `description` (optional): A string to describe the component's purpose.
+
+## The `ComponentRenderProps`
+
+When Rilaykit renders your component, it injects a standardized set of props. Your component needs to be able to handle these props to integrate with the engine.
+
+```ts title="types.ts"
+export interface ComponentRenderProps<TProps = any, TValue = any> {
+  id: string; // Unique ID for the field
+  value: TValue | undefined; // The current value of the field
+  onChange: (value: TValue) => void; // Function to update the value
+  onBlur: () => void; // Function to trigger validation
+  props: TProps; // Your custom props defined in the form/workflow config
+  error?: FieldError[]; // An array of validation errors
+  disabled?: boolean; // Whether the field is disabled
+  context: FormContext; // The full form context
+}
+```
+
+### Example: A `TextInput` Component
+
+Here is an example of a simple `TextInput` component compatible with Rilaykit.
+
+```tsx title="components/TextInput.tsx"
+import type { ComponentRenderProps } from '@rilaykit/core';
+
+interface TextInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+export const TextInput: React.FC<ComponentRenderProps<TextInputProps>> = ({
+  id,
+  value,
+  onChange,
+  onBlur,
+  props,
+  error,
+  disabled,
+}) => {
+  return (
+    <div className="form-control">
+      <label htmlFor={id}>
+        {props.label}
+        {props.required && <span>*</span>}
+      </label>
+      <input
+        id={id}
+        type="text"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={props.placeholder}
+        disabled={disabled}
+        aria-invalid={!!error}
+      />
+      {error && <p className="error-message">{error[0].message}</p>}
+    </div>
+  );
+};
+```
+
+<Callout type="info">
+By adhering to the `ComponentRenderProps` interface, you can make any of your existing components compatible with the Rilaykit engine.
+</Callout> 

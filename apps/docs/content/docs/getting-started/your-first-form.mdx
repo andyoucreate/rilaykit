@@ -1,0 +1,145 @@
+---
+title: Your First Form
+description: A step-by-step guide to creating a complete, working form.
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This guide will walk you through creating a simple contact form from start to finish.
+
+<Steps>
+
+<Step>
+### 1. Project Setup: Components & Renderers
+
+First, create a central file to configure Rilaykit. This involves two parts: telling Rilaykit which **components** to use for fields, and which **renderers** to use for layout.
+
+<Callout type="warning" title="Renderers are Mandatory">
+Rilaykit requires you to provide your own layout components (renderers) for elements like rows, form bodies, and buttons. This gives you full control but means you **must** configure them.
+</Callout>
+
+```tsx title="lib/rilay.ts"
+import { ril, type ComponentRenderProps, type FormRowRendererProps, type FormSubmitButtonRendererProps } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import type React from 'react';
+
+// PART 1: Define your field components
+const TextInput: React.FC<ComponentRenderProps<{ label: string }>> = ({
+  id, value, onChange, onBlur, props, error,
+}) => (
+  <div>
+    <label htmlFor={id}>{props.label}</label>
+    <input
+      id={id}
+      type="text"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+    />
+    {error && <p style={{ color: 'red' }}>{error[0].message}</p>}
+  </div>
+);
+
+// PART 2: Define your layout renderers
+const AppRowRenderer: React.FC<FormRowRendererProps> = ({ children }) => (
+  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>{children}</div>
+);
+
+const AppSubmitButtonRenderer: React.FC<FormSubmitButtonRendererProps> = (props) => (
+  <button type="submit" disabled={!props.isValid || props.isSubmitting}>
+    {props.isSubmitting ? 'Submitting...' : props.children || 'Submit'}
+  </button>
+);
+
+// PART 3: Configure the `ril` instance
+export const rilay = ril
+  .create()
+  // Register components
+  .addComponent('text', { name: 'Text Input', renderer: TextInput })
+  .addComponent('textarea', { name: 'Text Area', renderer: TextInput })
+  // Set mandatory renderers
+  .setRowRenderer(AppRowRenderer)
+  .setSubmitButtonRenderer(AppSubmitButtonRenderer)
+  // A simple body renderer that does nothing but render children
+  .setBodyRenderer(({ children }) => <>{children}</>);
+
+// PART 4: Create the formBuilder
+export const formBuilder = form.create(rilay);
+```
+</Step>
+
+<Step>
+### 2. Define the Form Configuration
+
+Now, use the `formBuilder` to define the form's structure and validation rules. It will automatically use the components and renderers you just configured.
+
+```tsx title="components/ContactForm.tsx"
+import { z } from 'zod';
+import { createZodValidator } from '@rilaykit/core';
+import { formBuilder } from '@/lib/rilay';
+
+// Define a Zod schema for validation
+const contactSchema = z.object({
+  name: z.string().min(1, 'Name is required.'),
+  email: z.string().email('Please enter a valid email.'),
+  message: z.string().min(10, 'Message must be at least 10 characters.'),
+});
+
+// Build the form configuration
+export const contactFormConfig = formBuilder
+  .addField({
+    id: 'name',
+    type: 'text',
+    props: { label: 'Full Name' },
+    validation: { validator: createZodValidator(contactSchema.shape.name) },
+  })
+  .addField({
+    id: 'email',
+    type: 'text',
+    props: { label: 'Email Address' },
+    validation: {
+      validator: createZodValidator(contactSchema.shape.email),
+      mode: 'onBlur',
+    },
+  })
+  .addField({
+    id: 'message',
+    type: 'textarea',
+    props: { label: 'Your Message' },
+    validation: { validator: createZodValidator(contactSchema.shape.message) },
+  })
+  .build();
+```
+</Step>
+
+<Step>
+### 3. Render the Form
+
+Finally, use the `<Form>` component to render your form. It will use the renderers you defined (`AppRowRenderer`, etc.) to construct the HTML.
+
+```tsx title="components/ContactForm.tsx"
+import { Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
+import { contactFormConfig } from './ContactForm'; // Assuming it's in the same file
+
+export function ContactForm() {
+  const handleSubmit = (data: { name: string; email: string; message: string }) => {
+    alert(`Thank you, ${data.name}! Your message has been sent.`);
+  };
+
+  return (
+    <Form
+      formConfig={contactFormConfig}
+      onSubmit={handleSubmit}
+      defaultValues={{ name: '', email: '', message: '' }}
+    >
+      <FormBody />
+      <FormSubmitButton>Send Message</FormSubmitButton>
+    </Form>
+  );
+}
+```
+</Step>
+
+</Steps>
+
+You now have a fully working, validated form! You can display the `<ContactForm />` component anywhere in your application. 

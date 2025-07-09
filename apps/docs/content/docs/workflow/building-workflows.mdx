@@ -1,0 +1,126 @@
+---
+title: Building Workflows
+description: How to define multi-step workflows with the flow builder.
+---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+A workflow is a sequence of steps, where each step is usually a Rilaykit form. The workflow builder allows you to chain these steps together and configure the navigation logic between them.
+
+## The `createFlow` Builder
+
+When you import from `@rilaykit/workflow`, the `createFlow` method is added to your `ril` instance's prototype via module augmentation. This allows you to create a flow builder directly from your configured `ril` instance.
+
+<Steps>
+<Step>
+### 1. Create your Form Configurations
+
+First, you need a `formConfig` for each step of your workflow. You'll create these using the standard `formBuilder`.
+
+```tsx
+import { formBuilder } from '@/lib/rilay';
+
+const personalInfoForm = formBuilder.addRowFields([...]).build();
+const preferencesForm = formBuilder.addField(...).build();
+const reviewForm = formBuilder.addField(...).build();
+```
+<Callout>
+You can also pass a `form` builder instance directly to a step. It will be built automatically.
+</Callout>
+</Step>
+<Step>
+### 2. Start the Flow Builder
+
+Call `.createFlow()` on your `ril` instance to begin. You must provide a unique ID and a title for the workflow.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+
+const workflowBuilder = rilay
+  .createFlow(
+    'user-onboarding',
+    'User Onboarding Workflow',
+    'A multi-step workflow to onboard new users' // Optional description
+  )
+```
+</Step>
+<Step>
+### 3. Add Steps
+
+Use the `.addStep()` method for each step in your sequence. You must provide at least a `formConfig` (or a `form` instance).
+
+```tsx
+//...
+.addStep({
+  id: 'personal-info',
+  title: 'Personal Information',
+  description: 'Tell us about yourself',
+  formConfig: personalInfoForm,
+})
+.addStep({
+  id: 'preferences',
+  title: 'Preferences',
+  description: 'Set your preferences',
+  formConfig: preferencesForm,
+  allowSkip: true, // This step is optional
+  requiredToComplete: false,
+})
+.addStep({
+  id: 'review',
+  title: 'Review & Feedback',
+  description: 'Review your information',
+  formConfig: reviewForm,
+})
+// ...
+```
+</Step>
+<Step>
+### 4. Configure Navigation and Hooks
+
+You can configure the overall workflow behavior with methods like `.setNavigation()` and `.setAnalytics()`.
+
+```tsx
+// ...
+.setNavigation({
+  allowBackNavigation: true, // Can users go back to previous steps?
+  showProgress: true, // Should the stepper be shown?
+})
+.setAnalytics({
+  onWorkflowStart: (workflowId) => console.log(`Workflow ${workflowId} started.`),
+  onStepComplete: (stepId, duration) => console.log(`Step ${stepId} took ${duration}ms.`),
+  // ... other analytics hooks
+})
+// ...
+```
+</Step>
+<Step>
+### 5. Build the Configuration
+
+Finally, call `.build()` to get the final `workflowConfig` object.
+
+```tsx
+const workflowConfig = rilay
+  .createFlow(...)
+  .addStep(...)
+  .addStep(...)
+  .setNavigation(...)
+  .build();
+```
+This configuration can now be passed to the `<Workflow>` component.
+</Step>
+</Steps>
+
+## Step Configuration
+
+The object passed to `.addStep()` has several options:
+
+- `id`: A unique identifier for the step.
+- `title`: A human-readable title for the step, often shown in the stepper.
+- `description` (optional): A short description of the step.
+- `formConfig`: The `formConfig` object for this step's form.
+- `renderer` (optional): A custom renderer for the body of this specific step, allowing you to override the default `<FormBody>` behavior.
+- `allowSkip` (optional, default: `false`): If `true`, the user can skip this step. The `<WorkflowSkipButton>` will appear.
+- `requiredToComplete` (optional, default: `true`): If `false`, the user can complete the workflow without having visited this step.
+- `hooks` (optional): Lifecycle hooks for the step (`onEnter`, `onExit`).
+- `permissions` (optional): Logic to determine if a user can access the step.
+- `dynamicConfig` (optional): Configuration for dynamically generating steps. 

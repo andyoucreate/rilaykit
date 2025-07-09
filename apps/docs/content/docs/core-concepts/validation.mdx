@@ -1,0 +1,108 @@
+---
+title: Validation
+description: How to validate form fields and workflows in Rilaykit.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Rilaykit has a flexible and powerful validation system that allows you to define validation rules for each field. It comes with a built-in adapter for Zod, one of the most popular schema validation libraries.
+
+## The `validation` Property
+
+When defining a field in a form or workflow builder, you can provide a `validation` object.
+
+```tsx
+const formConfig = formBuilder
+  .addField({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validator: /* ...validator function... */,
+      mode: 'onBlur', // 'onBlur', 'onChange', or 'onSubmit'
+    },
+  })
+  .build();
+```
+
+- `validator`: A function that takes the field's value and returns validation errors.
+- `mode`: (Optional) Specifies when validation should run. Defaults to `'onBlur'`.
+
+## Using the Zod Validator
+
+While you can write your own validator functions, the easiest way to handle validation is by using the official Zod adapter.
+
+### 1. Define your Zod Schema
+
+First, create a Zod schema that defines the shape and rules of your form data.
+
+```ts
+import { z } from 'zod';
+
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address'),
+  age: z.coerce.number().min(18, 'You must be at least 18'),
+});
+```
+
+### 2. Create Validators for each field
+
+Use the `createZodValidator` function from `@rilaykit/core` to create a validator for each field from your schema.
+
+```tsx
+import { createZodValidator } from '@rilaykit/core';
+
+const formConfig = formBuilder
+  .addRowFields([
+    {
+      id: 'firstName',
+      type: 'text',
+      props: { label: 'First Name' },
+      validation: { validator: createZodValidator(formSchema.shape.firstName) },
+    },
+    {
+      id: 'lastName',
+      type: 'text',
+      props: { label: 'Last Name' },
+      validation: { validator: createZodValidator(formSchema.shape.lastName) },
+    },
+  ])
+  .addField({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email' },
+    validation: {
+      validator: createZodValidator(formSchema.shape.email),
+      mode: 'onChange', // Validate email as the user types
+    },
+  })
+  .addField({
+    id: 'age',
+    type: 'number',
+    props: { label: 'Age' },
+    validation: { validator: createZodValidator(formSchema.shape.age) },
+  })
+  .build();
+```
+
+<Callout>
+`createZodValidator` takes a Zod type (like `formSchema.shape.email`) and returns a validator function compatible with Rilaykit. It automatically handles parsing and returning errors in the format Rilaykit expects.
+</Callout>
+
+## Validation Modes
+
+You can control when validation triggers for each field using the `mode` property:
+- `'onBlur'` (default): Validates when the user clicks away from the field. This is a good balance between responsiveness and performance.
+- `'onChange'`: Validates on every keystroke. This provides immediate feedback but can be performance-intensive for complex validation.
+- `'onSubmit'`: Validates only when the user attempts to submit the form or proceed to the next step in a workflow.
+
+## Displaying Errors
+
+The validation result is passed down to your registered component via the `error` prop in `ComponentRenderProps`. It's an array of `FieldError` objects, but you typically only need to display the first message.
+
+```tsx
+// Inside your component renderer
+{error && <p className="error-message">{error[0].message}</p>}
+```
+This gives you full control over how and where validation errors are displayed. 

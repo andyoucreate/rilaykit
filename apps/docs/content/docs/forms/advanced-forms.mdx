@@ -1,0 +1,114 @@
+---
+title: Advanced Forms
+description: Explore advanced features of the Form Builder like dynamic updates and serialization.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The `formBuilder` is more than just a one-time configuration tool. It provides a powerful API to dynamically manage, inspect, and even serialize your form definitions.
+
+## Dynamic Form Management
+
+You can modify a form configuration *after* it has been created. This is useful for building dynamic UIs where the form structure changes based on user interaction.
+
+The builder instance provides several methods for this:
+
+- **`.updateField(fieldId, updates)`**: Modifies an existing field's configuration.
+- **`.removeField(fieldId)`**: Removes a field from the form entirely.
+- **`.getField(fieldId)`**: Retrieves the configuration for a specific field.
+- **`.getFields()`**: Returns a flat array of all field configurations.
+- **`.getRows()`**: Returns the array of all row configurations.
+- **`.clear()`**: Removes all fields and rows from the configuration.
+
+```tsx
+import { formBuilder } from '@/lib/rilay';
+
+// Start with a base configuration
+const myDynamicForm = formBuilder
+  .addField({ id: 'username', type: 'text', props: { label: 'Username' } });
+
+// Later, based on some condition...
+if (shouldAddEmail) {
+  myDynamicForm.addField({ id: 'email', type: 'email', props: { label: 'Email' } });
+}
+
+// Or update a field
+myDynamicForm.updateField('username', {
+  props: { label: 'Please enter your desired username' }
+});
+
+// Finally, build the config to pass to the <Form> component
+const formConfig = myDynamicForm.build();
+```
+
+<Callout>
+Remember that the builder methods mutate the builder instance itself. If you need to create multiple variations, use the `.clone()` method first.
+</Callout>
+
+## Cloning
+
+The `.clone(newFormId?)` method creates a deep copy of the builder instance, allowing you to create variations of a form without affecting the original.
+
+```tsx
+const baseForm = formBuilder
+  .addField({ id: 'name', type: 'text', props: { label: 'Name' } });
+
+// Create a version for admins
+const adminForm = baseForm.clone('admin-form')
+  .addField({ id: 'adminNotes', type: 'textarea', props: { label: 'Admin Notes' } });
+
+// The original `baseForm` is unaffected
+const baseFormConfig = baseForm.build();
+const adminFormConfig = adminForm.build();
+```
+
+## Serialization (JSON Import/Export)
+
+Form configurations can be serialized to and from JSON. This is an incredibly powerful feature for:
+- Storing form definitions in a database.
+- Building visual form builders where the UI generates a JSON definition.
+- Transmitting form structures over the network.
+
+- **`.toJSON()`**: Exports the current form structure as a JSON-serializable object.
+- **`.fromJSON(json)`**: Populates a builder instance from a JSON object.
+
+```tsx
+import { formBuilder } from '@/lib/rilay';
+
+// 1. Define a form
+const originalForm = formBuilder
+  .addField({ id: 'question', type: 'text', props: { label: 'Your Question' } });
+
+// 2. Serialize it to JSON
+const jsonDefinition = originalForm.toJSON();
+// -> { id: '...', rows: [...] }
+const jsonString = JSON.stringify(jsonDefinition);
+
+// 3. Later, or in another environment, rehydrate it
+const newJson = JSON.parse(jsonString);
+const rehydratedForm = formBuilder.clone().fromJSON(newJson);
+
+const formConfig = rehydratedForm.build();
+```
+<Callout>
+Note: The `fromJSON` method populates an *existing* builder. It's best practice to use `.clone()` before calling `.fromJSON()` to avoid mutating a shared builder instance.
+</Callout>
+
+
+## Introspection
+
+The `.getStats()` method provides a quick overview of the form's structure.
+
+```ts
+const stats = myFormBuilder.getStats();
+console.log(stats);
+/*
+{
+  totalFields: 5,
+  totalRows: 4,
+  averageFieldsPerRow: 1.25,
+  maxFieldsInRow: 2,
+  minFieldsInRow: 1
+}
+*/
+```
+This is useful for debugging or analyzing the complexity of your forms. 
