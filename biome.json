@@ -12,6 +12,7 @@
       "dist/**",
       "build/**",
       "coverage/**",
+      ".source/**",
       ".turbo/**",
       "*.config.js",
       "*.config.ts"
