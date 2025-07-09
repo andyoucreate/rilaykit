@@ -106,9 +106,15 @@ const workflowConfig = rilay
   .setNavigation(...)
   .build();
 ```
-This configuration can now be passed to the `<Workflow>` component.
+This configuration can now be passed to the `<Workflow>` component, which will build it automatically if you pass the builder instance.
 </Step>
 </Steps>
+
+## When to use `.build()`
+
+Just like with forms, you often don't need to call `.build()` on a workflow builder. The `<Workflow />` component handles it for you.
+
+You should call `.build()` manually when you need the final, serializable `WorkflowConfig` object, for example, to save it as JSON or for debugging.
 
 ## Step Configuration
 
@@ -123,4 +129,69 @@ The object passed to `.addStep()` has several options:
 - `requiredToComplete` (optional, default: `true`): If `false`, the user can complete the workflow without having visited this step.
 - `hooks` (optional): Lifecycle hooks for the step (`onEnter`, `onExit`).
 - `permissions` (optional): Logic to determine if a user can access the step.
-- `dynamicConfig` (optional): Configuration for dynamically generating steps. 
+- `dynamicConfig` (optional): Configuration for dynamically generating steps.
+
+---
+
+## Complete Example: User Onboarding Workflow
+
+Let's put it all together. Here is a full example of a 3-step user onboarding workflow.
+
+First, we define the forms for each step:
+
+```tsx
+// 1. Define the forms for each step
+const accountForm = formBuilder
+  .addFields([
+    { id: 'email', type: 'email', props: { label: 'Email' }, validation: (v) => v.string().email() },
+    { id: 'password', type: 'password', props: { label: 'Password' }, validation: (v) => v.string().min(8) },
+  ]);
+
+const profileForm = formBuilder
+  .addRowFields([
+    { id: 'firstName', type: 'text', props: { label: 'First Name' } },
+    { id: 'lastName', type: 'text', props: { label: 'Last Name' } },
+  ]);
+
+const confirmationForm = formBuilder
+  .addField({
+    id: 'terms',
+    type: 'checkbox', // Assumes a 'checkbox' component is registered
+    props: {
+      label: 'I agree to the terms and conditions',
+    },
+    validation: (v) => v.boolean().refine(val => val === true, { message: 'You must accept the terms' }),
+  });
+```
+
+Now, we use the `createFlow` builder to chain them together into a workflow:
+
+```tsx
+// 2. Build the workflow
+export const onboardingWorkflow = rilay
+  .createFlow(
+    'onboarding',
+    'New User Onboarding'
+  )
+  .addStep({
+    id: 'account-creation',
+    title: 'Create Account',
+    formConfig: accountForm, // Notice we pass the builder directly
+  })
+  .addStep({
+    id: 'personal-info',
+    title: 'Your Profile',
+    formConfig: profileForm, // Rilay builds it for you
+  })
+  .addStep({
+    id: 'confirmation',
+    title: 'Confirmation',
+    formConfig: confirmationForm,
+  })
+  .setNavigation({
+    allowBackNavigation: true,
+    showProgress: true,
+  });
+```
+
+This `onboardingWorkflow` builder instance is ready to be passed to the `<Workflow />` component, providing a complete multi-step form experience out of the box. 

@@ -10,20 +10,21 @@ This guide will walk you through creating a simple contact form from start to fi
 <Steps>
 
 <Step>
-### 1. Project Setup: Components & Renderers
+### 1. Create and Configure a `ril` Instance
 
-First, create a central file to configure Rilaykit. This involves two parts: telling Rilaykit which **components** to use for fields, and which **renderers** to use for layout.
+The first step is to create a central instance of `ril`. This instance will hold your entire form configuration, including all your custom components and renderers.
 
 <Callout type="warning" title="Renderers are Mandatory">
-Rilaykit requires you to provide your own layout components (renderers) for elements like rows, form bodies, and buttons. This gives you full control but means you **must** configure them.
+Rilaykit is headless, which means you must provide your own layout components (renderers) for elements like rows, form bodies, and buttons.
 </Callout>
+
+Let's define the components and renderers, then create and configure the `ril` instance.
 
 ```tsx title="lib/rilay.ts"
 import { ril, type ComponentRenderProps, type FormRowRendererProps, type FormSubmitButtonRendererProps } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
 import type React from 'react';
 
-// PART 1: Define your field components
+// Define a simple field component
 const TextInput: React.FC<ComponentRenderProps<{ label: string }>> = ({
   id, value, onChange, onBlur, props, error,
 }) => (
@@ -40,7 +41,7 @@ const TextInput: React.FC<ComponentRenderProps<{ label: string }>> = ({
   </div>
 );
 
-// PART 2: Define your layout renderers
+// Define layout renderers
 const AppRowRenderer: React.FC<FormRowRendererProps> = ({ children }) => (
   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>{children}</div>
 );
@@ -51,32 +52,26 @@ const AppSubmitButtonRenderer: React.FC<FormSubmitButtonRendererProps> = (props)
   </button>
 );
 
-// PART 3: Configure the `ril` instance
+// Create and export the configured ril instance
 export const rilay = ril
   .create()
-  // Register components
   .addComponent('text', { name: 'Text Input', renderer: TextInput })
   .addComponent('textarea', { name: 'Text Area', renderer: TextInput })
-  // Set mandatory renderers
   .setRowRenderer(AppRowRenderer)
   .setSubmitButtonRenderer(AppSubmitButtonRenderer)
-  // A simple body renderer that does nothing but render children
   .setBodyRenderer(({ children }) => <>{children}</>);
-
-// PART 4: Create the formBuilder
-export const formBuilder = form.create(rilay);
 ```
 </Step>
 
 <Step>
-### 2. Define the Form Configuration
+### 2. Build the Form Configuration
 
-Now, use the `formBuilder` to define the form's structure and validation rules. It will automatically use the components and renderers you just configured.
+Now, use the `rilay` instance you created to build a form. You call `.createForm()` on your instance, which gives you a form builder that is aware of all your registered components and renderers.
 
-```tsx title="components/ContactForm.tsx"
+```tsx title="components/ContactForm.ts"
 import { z } from 'zod';
 import { createZodValidator } from '@rilaykit/core';
-import { formBuilder } from '@/lib/rilay';
+import { rilay } from '@/lib/rilay'; // Import your configured instance
 
 // Define a Zod schema for validation
 const contactSchema = z.object({
@@ -85,8 +80,9 @@ const contactSchema = z.object({
   message: z.string().min(10, 'Message must be at least 10 characters.'),
 });
 
-// Build the form configuration
-export const contactFormConfig = formBuilder
+// Build the form configuration from the rilay instance
+export const contactForm = rilay
+  .createForm('contact-us') // Pass a unique ID for the form
   .addField({
     id: 'name',
     type: 'text',
@@ -107,28 +103,28 @@ export const contactFormConfig = formBuilder
     type: 'textarea',
     props: { label: 'Your Message' },
     validation: { validator: createZodValidator(contactSchema.shape.message) },
-  })
-  .build();
+  });
 ```
 </Step>
 
 <Step>
 ### 3. Render the Form
 
-Finally, use the `<Form>` component to render your form. It will use the renderers you defined (`AppRowRenderer`, etc.) to construct the HTML.
+Finally, use the `<Form>` component from `@rilaykit/forms` to render your form. You can pass the form builder instance directly to it—it will be built automatically.
 
 ```tsx title="components/ContactForm.tsx"
 import { Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
-import { contactFormConfig } from './ContactForm'; // Assuming it's in the same file
+import { contactForm } from './ContactForm';
 
 export function ContactForm() {
   const handleSubmit = (data: { name: string; email: string; message: string }) => {
     alert(`Thank you, ${data.name}! Your message has been sent.`);
+    console.log(data);
   };
 
   return (
     <Form
-      formConfig={contactFormConfig}
+      formConfig={contactForm}
       onSubmit={handleSubmit}
       defaultValues={{ name: '', email: '', message: '' }}
     >

@@ -5,43 +5,41 @@ description: How to use the fluent API to build form configurations.
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-The `@rilaykit/forms` package provides a `form` factory to create a `formBuilder`. This builder uses a fluent API to define the structure and content of your forms. The end goal is to produce a `formConfig` object that can be passed to the `<Form>` component.
+Building a form configuration starts from your central `rilay` instance. By calling `rilay.createForm()`, you get a form builder that has access to all your pre-configured components and renderers.
 
 <Callout>
-Before proceeding, make sure you have created and configured a shared `formBuilder` instance as shown in the "Your First Form" guide.
+Before proceeding, make sure you have created and configured a shared `rilay` instance as shown in the [Your First Form](/docs/getting-started/your-first-form) guide.
 </Callout>
 
-## Building a `formConfig`
+## The Form Building Process
 
 <Steps>
 <Step>
-### Start with the builder
+### 1. Start with `createForm()`
 
-Call your `formBuilder` instance to begin a new form definition.
+Call `.createForm()` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
 
 ```tsx
-import { formBuilder } from '@/lib/rilay';
+import { rilay } from '@/lib/rilay';
 
-const formConfig = formBuilder
-  // ... chain methods here
+const loginForm = rilay.createForm('login');
 ```
 </Step>
 <Step>
-### Add fields and rows
+### 2. Add Fields and Rows
 
-You can add fields one by one or group them into rows.
+The builder provides a fluent API to add fields and structure them in rows.
 
 - **`.addField(fieldConfig)`**: Adds a single field that will be rendered in its own row.
-- **`.addRowFields([fieldConfig, ...], rowOptions)`**: Adds a row containing one or more fields. The `FormRowRenderer` will be used to lay them out (e.g., in a grid).
-
-The optional `rowOptions` argument allows you to specify `spacing` and `alignment` for that specific row.
+- **`.addRowFields([fieldConfig, ...])`**: Adds a row containing one or more fields.
 
 ```tsx
-const formConfig = formBuilder
+const registrationForm = rilay
+  .createForm('registration')
   .addRowFields([
     {
       id: 'firstName',
-      type: 'text', // Must match a type in your component registry
+      type: 'text', // This type must exist in your component registry
       props: { label: 'First Name' },
     },
     {
@@ -52,27 +50,36 @@ const formConfig = formBuilder
   ])
   .addField({
     id: 'email',
-    type: 'email',
+    type: 'email', // Assumes an 'email' type is registered
     props: { label: 'Email Address' },
-  })
-  .build();
+  });
 ```
 </Step>
 
-<Step>
-### Build the configuration
+</Steps>
 
-Finally, call `.build()` to finalize the configuration object. This returns a serializable JSON object that contains the complete definition of your form.
+## When to use `.build()`
+
+You may have noticed we don't always call `.build()` in our examples. This is because components like `<Form>` and workflow steps are smart enough to build the configuration for you.
+
+However, you should call `.build()` manually when you need the final, serializable `FormConfiguration` object. For instance:
+
+- To serialize the form and save it as JSON.
+- To pass the configuration to a custom function or a third-party tool.
+- For debugging purposes, to inspect the generated configuration.
 
 ```tsx
-const formConfig = formBuilder.addField({...}).build();
+const formConfig = rilay
+  .createForm('my-form')
+  .addField({ id: 'field1', type: 'text' })
+  .build(); // Manually build the config
+
+console.log(formConfig.allFields);
 ```
-</Step>
-</Steps>
 
 ## Field Configuration
 
-The `fieldConfig` object has the following shape:
+The `fieldConfig` object you pass to `.addField()` or `.addRowFields()` has the following shape:
 
 ```ts
 interface FieldConfig {
@@ -83,4 +90,43 @@ interface FieldConfig {
   conditional?: ConditionalConfig; // Logic to show/hide the field.
 }
 ```
-For more details on `validation`, see the [Validation](/core-concepts/validation) page. `conditional` logic is covered in the Advanced Forms guide. 
+For more details on `validation`, see the [Validation](/core-concepts/validation) page. `conditional` logic is covered in the Advanced Forms guide.
+
+---
+
+## Complete Example: Login Form
+
+Let's tie everything together. Here is how you would build a complete login form configuration, assuming you have a configured `rilay` instance. This definition can be passed directly to the `<Form>` component.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+import { z } from 'zod';
+
+export const loginForm = rilay
+  .createForm('login-form')
+  .addFields([
+    {
+      id: 'email',
+      type: 'email',
+      props: {
+        label: 'Email Address',
+        placeholder: 'Enter your email',
+      },
+      validation: (v) =>
+        v.string({ required_error: 'Email is required' })
+         .email('Please enter a valid email address'),
+    },
+    {
+      id: 'password',
+      type: 'password',
+      props: {
+        label: 'Password',
+        placeholder: 'Enter your password',
+      },
+      validation: (v) =>
+        v.string().min(8, 'Password must be at least 8 characters long'),
+    },
+  ]);
+```
+
+This `loginForm` builder instance is now ready to be passed to your `<Form>` component. 

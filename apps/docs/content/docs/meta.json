@@ -1,17 +1,11 @@
 {
   "pages": [
     "index",
-    "---Getting Started---",
-    "getting-started/installation",
-    "getting-started/your-first-form",
-    "---Core Concepts---",
-    "core-concepts/ril-instance",
-    "core-concepts/component-registry",
-    "core-concepts/custom-renderers",
-    "core-concepts/validation",
+    "getting-started",
+    "core-concepts",
     "---@rilaykit/forms---",
     "forms",
-    "---@rilaykit/workflow---",
+    "---@rilaykit/workflow (Premium)---",
     "workflow"
   ]
 }
