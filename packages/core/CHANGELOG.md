@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 3.0.0
+
+### Major Changes
+
+- Enhance TypeScript support
+
 ## 2.0.1
 
 ### Patch Changes
