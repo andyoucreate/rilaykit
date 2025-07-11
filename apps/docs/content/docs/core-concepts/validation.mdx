@@ -90,6 +90,108 @@ const formConfig = formBuilder
 `createZodValidator` takes a Zod type (like `formSchema.shape.email`) and returns a validator function compatible with Rilaykit. It automatically handles parsing and returning errors in the format Rilaykit expects.
 </Callout>
 
+## Commonly Used Validators
+
+Rilaykit provides a set of pre-built validators for common use cases through the `commonValidators` object. This helps you avoid writing boilerplate validation logic.
+
+```tsx
+import { commonValidators } from '@rilaykit/core';
+
+const formConfig = formBuilder
+  .addField({
+    id: 'name',
+    type: 'text',
+    props: { label: 'Name' },
+    validation: { validator: commonValidators.required('Name is required') },
+  })
+  .addField({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email' },
+    validation: { 
+      validator: commonValidators.email('Please enter a valid email'),
+      mode: 'onChange' 
+    },
+  })
+  .build();
+```
+
+Here is a list of available common validators:
+- `required(message?: string)`: Checks if a field is not empty.
+- `email(message?: string)`: Validates email format.
+- `minLength(min: number, message?: string)`: Checks for a minimum string length.
+- `maxLength(max: number, message?: string)`: Checks for a maximum string length.
+- `pattern(regex: RegExp, message?: string)`: Validates against a regular expression.
+- `numberRange(min?: number, max?: number, message?: string)`: Checks if a number is within a range.
+- `url(message?: string)`: Validates URL format.
+- `phoneNumber(message?: string)`: Basic phone number validation.
+- `asyncValidation(asyncFn, debounceMs = 300)`: For asynchronous validation (e.g., checking if a username is unique) with debouncing.
+
+## Creating Custom Validators
+
+For more complex scenarios, you can create your own validator function using `createCustomValidator`. It accepts a function that can return a boolean or a string for the error message.
+
+```tsx
+import { createCustomValidator } from '@rilaykit/core';
+
+const mustBeRilay = createCustomValidator((value) => {
+  if (typeof value === 'string' && value.toLowerCase() === 'rilay') {
+    return true; // Valid
+  }
+  return 'The value must be "rilay"'; // Invalid with an error message
+});
+
+// Usage in a field:
+// validation: { validator: mustBeRilay }
+```
+
+Your custom validation function can also be asynchronous by returning a `Promise`.
+
+## Advanced Validation
+
+### Combining Validators
+
+You can combine multiple validators into a single one using `combineValidators`. By default, all validators must pass (`mode: 'all'`).
+
+```tsx
+import { combineValidators, commonValidators } from '@rilaykit/core';
+
+const nameValidator = combineValidators([
+  commonValidators.required(),
+  commonValidators.minLength(3),
+  commonValidators.maxLength(50),
+]);
+
+// Usage in a field:
+// validation: { validator: nameValidator }
+```
+You can also use `mode: 'any'` to require at least one validator to pass.
+
+### Conditional Validation
+
+Sometimes, a field's validation depends on the value of another field. `createConditionalValidator` is perfect for this. It takes a condition function and a validator. The validator only runs if the condition function returns `true`.
+
+```tsx
+import { createConditionalValidator, commonValidators } from '@rilaykit/core';
+import type { ValidationContext } from '@rilaykit/core';
+
+const conditionalRequiredValidator = createConditionalValidator(
+  (value: any, context: ValidationContext) => {
+    // `context.getFieldValue` allows you to get the value of any other field
+    return context.getFieldValue('subscribeToNewsletter') === true;
+  },
+  commonValidators.required('This field is required when subscribing')
+);
+
+// In another field definition:
+// {
+//   id: 'reasonForSubscribing',
+//   type: 'text',
+//   props: { label: 'Why are you subscribing?' },
+//   validation: { validator: conditionalRequiredValidator },
+// }
+```
+
 ## Validation Modes
 
 You can control when validation triggers for each field using the `mode` property:

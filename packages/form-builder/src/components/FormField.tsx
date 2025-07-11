@@ -29,7 +29,7 @@ export function FormField({
 
   // Memoize component config lookup
   const componentConfig = useMemo(
-    () => formConfig.config.getComponent(fieldConfig.componentId),
+    () => formConfig.config.getComponent(fieldConfig.componentId as never),
     [formConfig.config, fieldConfig.componentId]
   );
 
@@ -122,7 +122,7 @@ export function FormField({
   // Memoize merged props to avoid recreating on every render
   const mergedProps = useMemo(
     () => ({
-      ...componentConfig.defaultProps,
+      ...(componentConfig.defaultProps ?? {}),
       ...fieldConfig.props,
       ...customProps,
       ...conditionalProps,
@@ -158,7 +158,7 @@ export function FormField({
   );
 
   const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
-  const renderedComponent = componentConfig.renderer(renderProps);
+  const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
 
   // Default to true if useFieldRenderer is not defined
   const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;

@@ -12,7 +12,7 @@ const TestWorkflowNavRenderer = () => React.createElement('div', null, 'workflow
 describe('ril', () => {
   describe('Basic Configuration', () => {
     it('should create an empty config', () => {
-      const config = ril.create();
+      const config = ril.create<Record<string, any>>();
 
       expect(config).toBeInstanceOf(ril);
       expect(config.getComponent('text')).toBeUndefined();
@@ -158,17 +158,6 @@ describe('ril', () => {
       const config = ril.create().setFormRenderConfig(formRenderConfig);
 
       expect(config.getFormRenderConfig()).toEqual(formRenderConfig);
-    });
-
-    it('should support deprecated setRenderConfig method', () => {
-      const renderConfig = {
-        rowRenderer: TestFormRowRenderer,
-        bodyRenderer: TestFormBodyRenderer,
-      };
-
-      const config = ril.create().setRenderConfig(renderConfig);
-
-      expect(config.getFormRenderConfig()).toEqual(renderConfig);
     });
   });
 

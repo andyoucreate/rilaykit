@@ -1,20 +1,7 @@
-import {
-  type ComponentRenderProps,
-  type ComponentRenderer,
-  type FormBodyRenderer,
-  type FormBodyRendererProps,
-  type FormRowRenderer,
-  type FormRowRendererProps,
-  type FormSubmitButtonRenderer,
-  type FormSubmitButtonRendererProps,
-  createZodValidator,
-  ril,
-} from '@rilaykit/core';
-import { Form, FormBody, FormSubmitButton, form } from '@rilaykit/forms';
-import type React from 'react';
-import { z } from 'zod';
+import type { ComponentRenderProps, ComponentRenderer } from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
 
-// Define props interfaces for our input components
+// Define component prop interfaces
 interface TextInputProps {
   label: string;
   placeholder?: string;
@@ -27,402 +14,77 @@ interface EmailInputProps {
   required?: boolean;
 }
 
-interface NumberInputProps {
-  label: string;
-  placeholder?: string;
-  required?: boolean;
-  min?: number;
-  max?: number;
-}
-
-interface TextareaInputProps {
-  label: string;
-  placeholder?: string;
-  rows?: number;
-}
-
-// Create basic input components with proper types
-const TextInput: React.FC<ComponentRenderProps<TextInputProps>> = (renderProps) => (
-  <div className="mb-4">
-    <label htmlFor={renderProps.id} className="block text-sm font-medium text-gray-700 mb-2">
-      {renderProps.props.label}
-      {renderProps.props.required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    <input
-      id={renderProps.id}
-      type="text"
-      value={renderProps.value || ''}
-      onChange={(e) => renderProps.onChange?.(e.target.value)}
-      onBlur={renderProps.onBlur}
-      placeholder={renderProps.props.placeholder}
-      required={renderProps.props.required}
-      disabled={renderProps.disabled}
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        renderProps.error && renderProps.error.length > 0 ? 'border-red-500' : 'border-gray-300'
-      }`}
-    />
-    {renderProps.error && renderProps.error.length > 0 && (
-      <p className="mt-1 text-sm text-red-600">{renderProps.error[0].message}</p>
-    )}
+// Simple components for testing
+const TextInput: ComponentRenderer<TextInputProps> = (
+  props: ComponentRenderProps<TextInputProps>
+) => (
+  <div>
+    <label htmlFor={props.id}>{props.props.label}</label>
+    <input id={props.id} type="text" placeholder={props.props.placeholder} />
   </div>
 );
 
-const EmailInput: React.FC<ComponentRenderProps<EmailInputProps>> = (renderProps) => (
-  <div className="mb-4">
-    <label htmlFor={renderProps.id} className="block text-sm font-medium text-gray-700 mb-2">
-      {renderProps.props.label}
-      {renderProps.props.required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    <input
-      id={renderProps.id}
-      type="email"
-      value={renderProps.value || ''}
-      onChange={(e) => renderProps.onChange?.(e.target.value)}
-      onBlur={renderProps.onBlur}
-      placeholder={renderProps.props.placeholder}
-      required={renderProps.props.required}
-      disabled={renderProps.disabled}
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        renderProps.error && renderProps.error.length > 0 ? 'border-red-500' : 'border-gray-300'
-      }`}
-    />
-    {renderProps.error && renderProps.error.length > 0 && (
-      <p className="mt-1 text-sm text-red-600">{renderProps.error[0].message}</p>
-    )}
+const EmailInput: ComponentRenderer<EmailInputProps> = (
+  props: ComponentRenderProps<EmailInputProps>
+) => (
+  <div>
+    <label htmlFor={props.id}>{props.props.label}</label>
+    <input id={props.id} type="email" placeholder={props.props.placeholder} />
   </div>
-);
-
-const NumberInput: React.FC<ComponentRenderProps<NumberInputProps>> = (renderProps) => (
-  <div className="mb-4">
-    <label htmlFor={renderProps.id} className="block text-sm font-medium text-gray-700 mb-2">
-      {renderProps.props.label}
-      {renderProps.props.required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    <input
-      id={renderProps.id}
-      type="number"
-      value={renderProps.value || ''}
-      onChange={(e) => renderProps.onChange?.(e.target.value)}
-      onBlur={renderProps.onBlur}
-      placeholder={renderProps.props.placeholder}
-      required={renderProps.props.required}
-      min={renderProps.props.min}
-      max={renderProps.props.max}
-      disabled={renderProps.disabled}
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        renderProps.error && renderProps.error.length > 0 ? 'border-red-500' : 'border-gray-300'
-      }`}
-    />
-    {renderProps.error && renderProps.error.length > 0 && (
-      <p className="mt-1 text-sm text-red-600">{renderProps.error[0].message}</p>
-    )}
-  </div>
-);
-
-const TextareaInput: React.FC<ComponentRenderProps<TextareaInputProps>> = (renderProps) => (
-  <div className="mb-4">
-    <label htmlFor={renderProps.id} className="block text-sm font-medium text-gray-700 mb-2">
-      {renderProps.props.label}
-    </label>
-    <textarea
-      id={renderProps.id}
-      value={renderProps.value || ''}
-      onChange={(e) => renderProps.onChange?.(e.target.value)}
-      onBlur={renderProps.onBlur}
-      placeholder={renderProps.props.placeholder}
-      rows={renderProps.props.rows || 4}
-      disabled={renderProps.disabled}
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        renderProps.error && renderProps.error.length > 0 ? 'border-red-500' : 'border-gray-300'
-      }`}
-    />
-    {renderProps.error && renderProps.error.length > 0 && (
-      <p className="mt-1 text-sm text-red-600">{renderProps.error[0].message}</p>
-    )}
-  </div>
-);
-
-// Custom renderers with proper types
-const formRowRenderer: FormRowRenderer = (props: FormRowRendererProps): React.ReactElement => (
-  <div
-    className={`grid gap-4 mb-4 ${
-      props.row.fields.length === 1
-        ? 'grid-cols-1'
-        : props.row.fields.length === 2
-          ? 'grid-cols-2'
-          : 'grid-cols-3'
-    }`}
-  >
-    {props.children}
-  </div>
-);
-
-const formBodyRenderer: FormBodyRenderer = (props: FormBodyRendererProps): React.ReactElement => (
-  <div className="space-y-4">
-    <div className="mb-6">
-      <h2 className="text-2xl font-bold text-gray-800">Test Form</h2>
-      <p className="text-gray-600 mt-2">Test the FormBuilder features</p>
-    </div>
-    {props.children}
-  </div>
-);
-
-// Submit button renderer with proper types
-const formSubmitButtonRenderer: FormSubmitButtonRenderer = (
-  props: FormSubmitButtonRendererProps
-): React.ReactElement => (
-  <button
-    type="submit"
-    onClick={props.onSubmit}
-    disabled={props.isSubmitting || !props.isValid}
-    className={`btn-primary w-full ${props.className || ''}`}
-  >
-    {props.isSubmitting ? 'Submitting...' : props.children || 'Submit'}
-  </button>
 );
 
 export default function FormTestPage() {
-  // Create and configure ril
-  // Register input components with proper types
-  const config = ril
+  // Test the typing system
+  const factory = ril
     .create()
     .addComponent('text', {
       name: 'Text Input',
-      description: 'Basic text input field',
-      renderer: TextInput as ComponentRenderer<TextInputProps>,
-      defaultProps: {
-        placeholder: 'Enter text...',
-      },
+      renderer: TextInput,
+      defaultProps: { label: 'Default Text', placeholder: 'Enter text...' },
     })
     .addComponent('email', {
       name: 'Email Input',
-      description: 'Email input field with validation',
-      renderer: EmailInput as ComponentRenderer<EmailInputProps>,
-      defaultProps: {
-        placeholder: 'Enter email...',
-      },
-    })
-    .addComponent('number', {
-      name: 'Number Input',
-      description: 'Numeric input field',
-      renderer: NumberInput as ComponentRenderer<NumberInputProps>,
-      defaultProps: {
-        placeholder: 'Enter number...',
-      },
-    })
-    .addComponent('textarea', {
-      name: 'Textarea Input',
-      description: 'Multi-line text input field',
-      renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
-      defaultProps: {
-        placeholder: 'Enter text...',
-        rows: 4,
-      },
+      renderer: EmailInput,
+      defaultProps: { label: 'Default Email', placeholder: 'Enter email...' },
     });
 
-  // Set custom renderers
-  config
-    .setRowRenderer(formRowRenderer)
-    .setBodyRenderer(formBodyRenderer)
-    .setSubmitButtonRenderer(formSubmitButtonRenderer);
-
-  // Define Zod schema for validation
-  const formSchema = z.object({
-    firstName: z.string().min(1, 'First name is required'),
-    lastName: z.string().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
-    age: z.coerce
-      .number({
-        invalid_type_error: 'Age must be a number',
-        required_error: 'Age is required',
-      })
-      .min(18, 'Must be at least 18 years old')
-      .max(100, 'Must be 100 or younger'),
-    bio: z.string().max(500, 'Biography must be 500 characters or less').optional(),
+  // This should have autocompletion
+  const testForm = factory.createForm('test-form').addField({
+    id: 'userEmail',
+    type: 'text',
+    props: {
+      label: 'Email Address',
+      placeholder: 'Enter your email',
+      required: true,
+    },
   });
 
-  // Build form configuration using form
-  const formConfig = form
-    .create(config)
-    .addRowFields([
-      {
-        id: 'firstName',
-        type: 'text',
-        props: {
-          label: 'First Name',
-          placeholder: 'Enter your first name',
-          required: true,
-        },
-        validation: { validator: createZodValidator(formSchema.shape.firstName) },
-      },
-      {
-        id: 'lastName',
-        type: 'text',
-        props: {
-          label: 'Last Name',
-          placeholder: 'Enter your last name',
-          required: true,
-        },
-        validation: { validator: createZodValidator(formSchema.shape.lastName) },
-      },
-    ])
-    .addField({
-      id: 'email',
-      type: 'email',
-      props: {
-        label: 'Email',
-        placeholder: 'your@email.com',
-        required: true,
-      },
-      validation: { validator: createZodValidator(formSchema.shape.email) },
-    })
-    .addField({
-      id: 'age',
-      type: 'number',
-      props: {
-        label: 'Age',
-        required: true,
-      },
-      validation: { validator: createZodValidator(formSchema.shape.age) },
-    })
-    .addField({
-      id: 'bio',
-      type: 'textarea',
-      props: {
-        label: 'Biography',
-        placeholder: 'Tell us about yourself...',
-        rows: 4,
-      },
-      validation: { validator: createZodValidator(formSchema.shape.bio) },
-    })
-    .build();
-
-  // Alternative: Using the new module augmentation API (same result)
-  // const formConfig = config
-  //   .createForm()
-  //   .addRowFields([
-  //     {
-  //       id: 'firstName',
-  //       type: 'text',
-  //       props: {
-  //         label: 'First Name',
-  //         placeholder: 'Enter your first name',
-  //         required: true,
-  //       },
-  //       validation: { validator: createZodValidator(formSchema.shape.firstName) },
-  //     },
-  //     {
-  //       id: 'lastName',
-  //       type: 'text',
-  //       props: {
-  //         label: 'Last Name',
-  //         placeholder: 'Enter your last name',
-  //         required: true,
-  //       },
-  //       validation: { validator: createZodValidator(formSchema.shape.lastName) },
-  //     },
-  //   ])
-  //   .addField({
-  //     id: 'email',
-  //     type: 'email',
-  //     props: {
-  //       label: 'Email',
-  //       placeholder: 'your@email.com',
-  //       required: true,
-  //     },
-  //     validation: { validator: createZodValidator(formSchema.shape.email) },
-  //   })
-  //   .addField({
-  //     id: 'age',
-  //     type: 'number',
-  //     props: {
-  //       label: 'Age',
-  //       required: true,
-  //     },
-  //     validation: { validator: createZodValidator(formSchema.shape.age) },
-  //   })
-  //   .addField({
-  //     id: 'bio',
-  //     type: 'textarea',
-  //     props: {
-  //       label: 'Biography',
-  //       placeholder: 'Tell us about yourself...',
-  //       rows: 4,
-  //     },
-  //     validation: { validator: createZodValidator(formSchema.shape.bio) },
-  //   })
-  //   .build();
-
-  const handleSubmit = (data: Record<string, any>) => {
-    console.log('Form data:', data);
-    alert(`Form submitted successfully!\n\nData:\n${JSON.stringify(data, null, 2)}`);
-  };
-
-  const handleFieldChange = (fieldId: string, value: any, formData: Record<string, any>) => {
-    console.log(`Field ${fieldId} changed:`, value);
-    console.log('Complete data:', formData);
-  };
-
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-4">📝 Form Builder Test</h1>
+    <div className="max-w-2xl mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">🧪 Typing Test</h1>
 
-      <p className="text-gray-600 mb-8">
-        This form tests the features of the{' '}
-        <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/form-builder</code>{' '}
-        package.
-      </p>
-
-      <div className="form-container">
-        <Form
-          formConfig={formConfig}
-          onSubmit={handleSubmit}
-          onFieldChange={handleFieldChange}
-          defaultValues={{
-            firstName: '',
-            lastName: '',
-            email: '',
-            age: '',
-            bio: '',
-          }}
-        >
-          <FormBody />
-          <FormSubmitButton className="btn-primary w-full mt-6">Submit Form</FormSubmitButton>
-        </Form>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <h2 className="text-lg font-semibold text-green-800 mb-2">✅ Test du système de typage</h2>
+        <p className="text-green-700">
+          Dans VS Code, testez l'autocomplétion en éditant le code ci-dessus :
+        </p>
+        <ul className="list-disc list-inside mt-2 text-green-700">
+          <li>
+            Le champ <code>type</code> devrait proposer 'text' | 'email'
+          </li>
+          <li>
+            Le champ <code>props</code> devrait proposer les bonnes propriétés selon le type
+          </li>
+          <li>Pour 'text': label, placeholder?, required?</li>
+          <li>Pour 'email': label, placeholder?, required?</li>
+        </ul>
       </div>
 
-      <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">🔧 Features being tested:</h3>
-        <ul className="space-y-2 text-gray-700">
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Text fields with validation
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Email field with format validation
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Number field with min/max constraints
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Textarea for long text
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Real-time validation
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Submit callback
-          </li>
-          <li className="flex items-start">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Field change callback
-          </li>
-        </ul>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h2 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Info</h2>
+        <pre className="text-sm text-yellow-700">
+          {`Form stats: ${JSON.stringify(testForm.getStats(), null, 2)}`}
+        </pre>
       </div>
     </div>
   );

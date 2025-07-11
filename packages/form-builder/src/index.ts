@@ -3,7 +3,7 @@ export { Form } from './components/Form';
 export { FormBody } from './components/FormBody';
 export { FormField } from './components/FormField';
 export * from './components/FormProvider';
-export { FormProvider } from './components/FormProvider';
+export { FormProvider, useFormContext } from './components/FormProvider';
 export { FormRow } from './components/FormRow';
 export { FormSubmitButton } from './components/FormSubmitButton';
 

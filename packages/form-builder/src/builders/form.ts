@@ -7,14 +7,14 @@ import type {
 } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 
-// Enhanced field configuration interface for better type safety and simplicity
-export interface FieldConfig {
+// Typed version for specific component types
+export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
   id: string;
-  type: string;
-  props?: Record<string, any>;
+  type: T;
+  props?: Partial<C[T]>;
   validation?: ValidationConfig;
   conditional?: ConditionalConfig;
-}
+};
 
 // Row options interface
 interface RowOptions {
@@ -26,25 +26,30 @@ interface RowOptions {
  * Form builder class for creating form configurations
  * Simplified API with matrix support and auto-build capability
  */
-export class form {
-  private config: ril;
+export class form<C extends Record<string, any> = Record<string, never>> {
+  private config: ril<C>;
   private rows: FormFieldRow[] = [];
   private formId: string;
   private rowCounter = 0;
 
-  constructor(config: ril, formId?: string) {
+  constructor(config: ril<C>, formId?: string) {
     this.config = config;
     this.formId = formId || `form-${Date.now()}`;
   }
 
-  static create(config: ril, formId?: string): form {
-    return new form(config, formId);
+  static create<Cm extends Record<string, any> = Record<string, never>>(
+    config: ril<Cm>,
+    formId?: string
+  ): form<Cm> {
+    return new form<Cm>(config, formId);
   }
 
   /**
    * Helper method to create a FormFieldConfig from a FieldConfig
    */
-  private createFormField(fieldConfig: FieldConfig): FormFieldConfig {
+  private createFormField<T extends keyof C & string>(
+    fieldConfig: FieldConfig<C, T>
+  ): FormFieldConfig {
     const component = this.config.getComponent(fieldConfig.type);
 
     if (!component) {
@@ -63,7 +68,10 @@ export class form {
   /**
    * Helper method to create a row with validation
    */
-  private createRow(fieldConfigs: FieldConfig[], rowOptions?: RowOptions): FormFieldRow {
+  private createRow<T extends keyof C & string>(
+    fieldConfigs: FieldConfig<C, T>[],
+    rowOptions?: RowOptions
+  ): FormFieldRow {
     if (fieldConfigs.length === 0) {
       throw new Error('At least one field is required');
     }
@@ -86,14 +94,17 @@ export class form {
   /**
    * Add a single field using simplified FieldConfig object
    */
-  addField(fieldConfig: FieldConfig): this {
+  addField<T extends keyof C & string>(fieldConfig: FieldConfig<C, T> & { type: keyof C }): this {
     return this.addRowFields([fieldConfig]);
   }
 
   /**
    * Add multiple fields on the same row (max 3 fields)
    */
-  addRowFields(fieldConfigs: FieldConfig[], rowOptions?: RowOptions): this {
+  addRowFields<T extends keyof C & string>(
+    fieldConfigs: FieldConfig<C, T>[],
+    rowOptions?: RowOptions
+  ): this {
     const row = this.createRow(fieldConfigs, rowOptions);
     this.rows.push(row);
     return this;
@@ -102,7 +113,7 @@ export class form {
   /**
    * Add multiple fields, each on its own row
    */
-  addFields(fieldConfigs: FieldConfig[]): this {
+  addFields<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): this {
     for (const config of fieldConfigs) {
       this.addField(config);
     }
@@ -192,8 +203,8 @@ export class form {
   /**
    * Clone the current form builder
    */
-  clone(newFormId?: string): form {
-    const cloned = new form(this.config, newFormId || `${this.formId}-clone`);
+  clone(newFormId?: string): form<C> {
+    const cloned = new form<C>(this.config, newFormId || `${this.formId}-clone`);
     cloned.rows = this.rows.map((row) => ({
       ...row,
       fields: row.fields.map((field) => ({ ...field })),
@@ -250,7 +261,7 @@ export class form {
       id: this.formId,
       rows: [...this.rows],
       allFields: this.getFields(),
-      config: this.config,
+      config: this.config as ril,
       renderConfig: this.config.getFormRenderConfig(),
     };
   }
@@ -297,18 +308,22 @@ export class form {
 /**
  * Factory function to create a form builder directly
  */
-export function createForm(config: ril, formId?: string): form {
-  return form.create(config, formId);
+export function createForm<C extends Record<string, any>>(
+  config: ril<C>,
+  formId?: string
+): form<C> {
+  return form.create<C>(config, formId);
 }
 
 // Module augmentation pour ajouter createForm à ril
 declare module '@rilaykit/core' {
-  interface ril {
-    createForm(formId?: string): form;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+  interface ril<C extends Record<string, any> = Record<string, never>> {
+    createForm(formId?: string): form<C>;
   }
 }
 
-// Étendre le prototype de ril
+// Étendre le prototype de ril avec préservation des types runtime (TS ignore)
 (ril as any).prototype.createForm = function (formId?: string) {
   return form.create(this, formId);
 };

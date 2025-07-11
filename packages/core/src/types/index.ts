@@ -366,10 +366,10 @@ export interface FormRenderConfig {
   readonly fieldRenderer?: FieldRenderer;
 }
 
-export interface FormConfiguration {
+export interface FormConfiguration<C extends Record<string, any> = Record<string, never>> {
   readonly id: string;
   readonly schema?: any; // Can be Zod, Yup, or custom schema
-  readonly config: ril; // Reference to StreamlineConfig
+  readonly config: ril<C>; // Reference to StreamlineConfig
   readonly rows: FormFieldRow[];
   readonly allFields: FormFieldConfig[]; // Liste plate pour compatibilité
   readonly renderConfig?: FormRenderConfig; // Configuration pour les renderers

@@ -16,13 +16,13 @@ import type {
  * Main configuration class for Rilay form components and workflows
  * Manages component registration, retrieval, and configuration
  */
-export class ril {
+export class ril<C> {
   private components = new Map<string, ComponentConfig>();
   private formRenderConfig: FormRenderConfig = {};
   private workflowRenderConfig: WorkflowRenderConfig = {};
 
-  static create(): ril {
-    return new ril();
+  static create<CT>(): ril<CT> {
+    return new ril<CT>();
   }
 
   /**
@@ -31,10 +31,10 @@ export class ril {
    * @param config - Component configuration without id and type
    * @returns The ril instance for chaining
    */
-  addComponent<TProps = any>(
-    type: string,
+  addComponent<NewType extends string, TProps = any>(
+    type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
-  ): this {
+  ): ril<C & { [K in NewType]: TProps }> {
     const fullConfig: ComponentConfig<TProps> = {
       id: type,
       type,
@@ -42,7 +42,8 @@ export class ril {
     };
 
     this.components.set(type, fullConfig as ComponentConfig);
-    return this;
+    // Type cast to return new mapped ril with extended component map
+    return this as unknown as ril<C & { [K in NewType]: TProps }>;
   }
 
   /**
@@ -234,17 +235,11 @@ export class ril {
   }
 
   /**
-   * @deprecated Use setFormRenderConfig() instead
-   */
-  setRenderConfig(config: FormRenderConfig): this {
-    return this.setFormRenderConfig(config);
-  }
-
-  /**
    * Get a component by its ID
    * @param id - Component ID (which is its type)
    * @returns Component configuration or undefined
    */
+  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
   getComponent(id: string): ComponentConfig | undefined {
     return this.components.get(id);
   }

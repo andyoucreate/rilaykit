@@ -1,12 +1,57 @@
 ---
-description: 
+description: Core description of Rilay project
 globs: 
 alwaysApply: true
 ---
-# Core Coding Principles
+- # Core Coding Principles
 
 ## 🎯 Philosophy
 These are the fundamental coding principles that guide all development in this project. Every code change should align with these core values.
+
+## 🔄 Feature Development Process
+
+### Mandatory Three-Step Process
+For every major modification or new feature addition, follow this strict process:
+
+1. **Code the Feature** 
+   - Implement the core functionality
+   - Follow DRY, YAGNI, and aesthetic principles
+   - Ensure type safety and proper error handling
+
+2. **Write Tests**
+   - Create comprehensive unit tests
+   - Add integration tests for complex features
+   - Test edge cases and error scenarios
+   - Ensure all tests pass before proceeding
+
+3. **Document the Feature**
+   - Update relevant documentation files
+   - Add usage examples and code snippets
+   - Include any breaking changes or migration notes
+   - Update API documentation if applicable
+
+### Quality Gates
+- **No feature is complete without all three steps**
+- **Documentation must be written from the user's perspective**
+- **Tests must cover both happy path and error cases**
+- **Code review should verify all three aspects**
+
+```typescript
+// ✅ GOOD - Complete feature implementation
+// 1. Code: New validation function
+export const validateEmail = (email: string): ValidationResult => {
+  // Implementation here
+};
+
+// 2. Test: Comprehensive test coverage
+describe('validateEmail', () => {
+  it('should validate correct email formats', () => { /* ... */ });
+  it('should reject invalid email formats', () => { /* ... */ });
+  it('should handle edge cases', () => { /* ... */ });
+});
+
+// 3. Documentation: Clear usage examples in docs
+```
 
 ## 1. 🔄 DRY - Don't Repeat Yourself
 
@@ -148,12 +193,20 @@ const processFormData = (data: FormData, config: FormConfig, options: SubmitOpti
 - [ ] **Types**: Proper TypeScript usage
 - [ ] **Tests**: Critical functionality tested
 - [ ] **Performance**: No obvious performance issues
+- [ ] **Documentation**: Feature is properly documented
 
 ### Quality Indicators
 - **Functions < 20 lines**: Keep functions small and focused
 - **Files < 300 lines**: Split large files into modules
 - **Clear imports**: Easy to understand dependencies
 - **Consistent patterns**: Similar problems solved similarly
+
+### Feature Completion Checklist
+- [ ] **Code**: Feature implemented and working
+- [ ] **Tests**: Comprehensive test coverage added
+- [ ] **Documentation**: User-facing documentation updated
+- [ ] **Examples**: Usage examples provided
+- [ ] **Migration**: Breaking changes documented
 
 ## 🚨 Red Flags to Avoid
 
@@ -197,4 +250,4 @@ if (isEligibleUser) {
 - **Clarity**: Obvious intent and flow
 - **Simplicity**: Elegant solutions over complex ones
 
-Remember: **Code is read far more often than it's written**. Prioritize clarity and maintainability over cleverness.
+Remember: **Code is read far more often than it's written**. Prioritize clarity and maintainability over cleverness. 

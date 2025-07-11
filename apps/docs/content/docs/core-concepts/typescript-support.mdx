@@ -1,0 +1,334 @@
+---
+title: TypeScript Support
+description: Discover how Rilay provides exceptional TypeScript support with full type safety and intelligent autocompletion.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Rilay is built with TypeScript-first principles, providing an exceptional developer experience with full type safety, intelligent autocompletion, and compile-time error detection. This page demonstrates how Rilay's type system works and why it's so powerful.
+
+## Why TypeScript Matters in Form Libraries
+
+Form libraries often struggle with type safety because they need to handle dynamic component types and props. Rilay solves this by:
+
+- **Compile-time validation**: Catch errors before runtime
+- **Intelligent autocompletion**: IDE suggests only valid component types and props
+- **Type inference**: Automatically infer types from your component registrations
+- **Refactoring safety**: Rename components and props with confidence
+
+## Component Type Registration
+
+When you register components with Rilay, the type system automatically tracks available component types and their props:
+
+```tsx title="lib/rilay.ts"
+import { ril } from '@rilaykit/core';
+import { TextInput, EmailInput, SelectInput } from '@/components';
+
+// Define your component prop interfaces
+interface TextInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+interface EmailInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  validateDomain?: boolean;
+}
+
+interface SelectInputProps {
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  multiple?: boolean;
+}
+
+// Register components with full type information
+export const rilay = ril
+  .create()
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput,
+    defaultProps: { label: 'Text Field', placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input', 
+    renderer: EmailInput,
+    defaultProps: { label: 'Email Field', placeholder: 'Enter email...' },
+  })
+  .addComponent('select', {
+    name: 'Select Input',
+    renderer: SelectInput,
+    defaultProps: { label: 'Select Field', options: [] },
+  });
+```
+
+<Callout type="info">
+Once components are registered, Rilay automatically infers the available types: `'text' | 'email' | 'select'`
+</Callout>
+
+## Intelligent Autocompletion
+
+The real magic happens when you build forms. Rilay provides intelligent autocompletion at every step:
+
+### 1. Component Type Autocompletion
+
+```tsx title="Building a form with type safety"
+const form = rilay
+  .createForm('user-form')
+  .addField({
+    id: 'username',
+    type: 'text', // ✅ Autocompletes to: 'text' | 'email' | 'select'
+    props: {
+      // Props are automatically typed based on the selected type
+      label: 'Username',
+      placeholder: 'Enter your username',
+      required: true,
+    },
+  })
+  .addField({
+    id: 'email',
+    type: 'email', // ✅ Autocompletes to: 'text' | 'email' | 'select'
+    props: {
+      // Props are automatically typed as EmailInputProps
+      label: 'Email Address',
+      placeholder: 'Enter your email',
+      validateDomain: true, // ✅ Only available for email type
+    },
+  });
+```
+
+### 2. Props Autocompletion Based on Type
+
+Once you select a component type, the `props` object is automatically typed:
+
+```tsx
+.addField({
+  id: 'country',
+  type: 'select', // Selected 'select' type
+  props: {
+    // ✅ Props are now typed as SelectInputProps
+    label: 'Country',
+    options: [
+      { value: 'us', label: 'United States' },
+      { value: 'ca', label: 'Canada' },
+    ],
+    multiple: false, // ✅ Only available for select type
+  },
+})
+```
+
+### 3. Compile-time Error Detection
+
+Rilay catches errors at compile time:
+
+```tsx
+.addField({
+  id: 'invalid-field',
+  type: 'email',
+  props: {
+    label: 'Email',
+    options: [], // ❌ Error: 'options' doesn't exist on EmailInputProps
+    validateDomain: 'true', // ❌ Error: Expected boolean, got string
+  },
+})
+```
+
+## Advanced Type Features
+
+### Discriminated Union Types
+
+Rilay uses discriminated unions to provide precise type information:
+
+```tsx
+// The type system knows exactly which props are available
+// based on the component type selected
+type FieldConfig = 
+  | { type: 'text'; props?: Partial<TextInputProps> }
+  | { type: 'email'; props?: Partial<EmailInputProps> }
+  | { type: 'select'; props?: Partial<SelectInputProps> };
+```
+
+### Generic Type Inference
+
+The form builder automatically infers types from your ril configuration:
+
+```tsx
+// TypeScript automatically infers the component map
+const rilay = ril.create()
+  .addComponent('text', { /* ... */ })
+  .addComponent('email', { /* ... */ });
+
+// Form builder inherits the same type information
+const form = rilay.createForm(); // Fully typed with 'text' | 'email'
+```
+
+### Row-based Type Safety
+
+Even when adding multiple fields to a row, type safety is maintained:
+
+```tsx
+.addRowFields([
+  {
+    id: 'firstName',
+    type: 'text', // ✅ Fully typed
+    props: { label: 'First Name' },
+  },
+  {
+    id: 'lastName', 
+    type: 'text', // ✅ Fully typed
+    props: { label: 'Last Name' },
+  },
+])
+```
+
+## Real-world Example
+
+Here's a complete example showing Rilay's TypeScript support in action:
+
+```tsx title="Complete TypeScript example"
+import { ril } from '@rilaykit/core';
+import { TextInput, EmailInput, SelectInput, CheckboxInput } from '@/components';
+
+// 1. Define component prop interfaces
+interface TextInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  maxLength?: number;
+}
+
+interface EmailInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  validateDomain?: boolean;
+}
+
+interface SelectInputProps {
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  multiple?: boolean;
+  searchable?: boolean;
+}
+
+interface CheckboxInputProps {
+  label: string;
+  checked?: boolean;
+  disabled?: boolean;
+}
+
+// 2. Create typed configuration
+const rilay = ril
+  .create()
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput,
+    defaultProps: { placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input',
+    renderer: EmailInput,
+    defaultProps: { placeholder: 'Enter email...' },
+  })
+  .addComponent('select', {
+    name: 'Select Input',
+    renderer: SelectInput,
+    defaultProps: { options: [] },
+  })
+  .addComponent('checkbox', {
+    name: 'Checkbox Input',
+    renderer: CheckboxInput,
+    defaultProps: { checked: false },
+  });
+
+// 3. Build form with full type safety
+const registrationForm = rilay
+  .createForm('registration')
+  .addField({
+    id: 'username',
+    type: 'text', // ✅ Autocompletes: 'text' | 'email' | 'select' | 'checkbox'
+    props: {
+      label: 'Username',
+      placeholder: 'Choose a username',
+      required: true,
+      maxLength: 20, // ✅ Only available for text type
+    },
+  })
+  .addField({
+    id: 'email',
+    type: 'email', // ✅ Autocompletes: 'text' | 'email' | 'select' | 'checkbox'
+    props: {
+      label: 'Email Address',
+      placeholder: 'Enter your email',
+      required: true,
+      validateDomain: true, // ✅ Only available for email type
+    },
+  })
+  .addRowFields([
+    {
+      id: 'country',
+      type: 'select', // ✅ Autocompletes: 'text' | 'email' | 'select' | 'checkbox'
+      props: {
+        label: 'Country',
+        options: [
+          { value: 'us', label: 'United States' },
+          { value: 'ca', label: 'Canada' },
+          { value: 'uk', label: 'United Kingdom' },
+        ],
+        searchable: true, // ✅ Only available for select type
+      },
+    },
+    {
+      id: 'newsletter',
+      type: 'checkbox', // ✅ Autocompletes: 'text' | 'email' | 'select' | 'checkbox'
+      props: {
+        label: 'Subscribe to newsletter',
+        checked: false, // ✅ Only available for checkbox type
+      },
+    },
+  ])
+  .build();
+```
+
+## IDE Experience
+
+With Rilay's TypeScript support, your IDE becomes incredibly powerful:
+
+### IntelliSense Features
+- **Autocompletion**: See all available component types as you type
+- **Parameter hints**: Get hints for required and optional props
+- **Error highlighting**: See errors immediately as you type
+- **Go to definition**: Navigate to component definitions instantly
+
+### Refactoring Support
+- **Rename components**: Safely rename component types across your entire codebase
+- **Update props**: Change prop interfaces and see all usage sites immediately
+- **Dead code elimination**: Remove unused components with confidence
+
+## Benefits Over JavaScript
+
+Compared to JavaScript-based form libraries, Rilay's TypeScript support provides:
+
+| Feature | JavaScript | Rilay TypeScript |
+|---------|------------|------------------|
+| Component type validation | ❌ Runtime errors | ✅ Compile-time errors |
+| Props autocompletion | ❌ No hints | ✅ Full autocompletion |
+| Refactoring safety | ❌ Manual search/replace | ✅ Automated refactoring |
+| Documentation | ❌ External docs only | ✅ Built-in type hints |
+| Error detection | ❌ Runtime only | ✅ Compile-time + runtime |
+
+<Callout type="tip">
+The TypeScript support in Rilay is so comprehensive that you'll catch most configuration errors before you even run your code!
+</Callout>
+
+## Migration from JavaScript
+
+If you're coming from a JavaScript form library, migrating to Rilay's TypeScript support is straightforward:
+
+1. **Define your prop interfaces** for each component type
+2. **Register components** with the typed configuration
+3. **Build forms** and enjoy immediate autocompletion
+4. **Gradually add validation** and conditional logic with full type safety
+
+The investment in TypeScript pays off immediately with better developer experience and fewer runtime errors. 
