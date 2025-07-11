@@ -7,22 +7,22 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 A workflow is a sequence of steps, where each step is usually a Rilaykit form. The workflow builder allows you to chain these steps together and configure the navigation logic between them.
 
-## The `createFlow` Builder
+## The `flow` Builder
 
-When you import from `@rilaykit/workflow`, the `createFlow` method is added to your `ril` instance's prototype via module augmentation. This allows you to create a flow builder directly from your configured `ril` instance.
+When you import from `@rilaykit/workflow`, the `flow` method is added to your `ril` instance's prototype via module augmentation. This allows you to create a flow builder directly from your configured `ril` instance.
 
 <Steps>
 <Step>
 ### 1. Create your Form Configurations
 
-First, you need a `formConfig` for each step of your workflow. You'll create these using the standard `formBuilder`.
+First, you need a `formConfig` for each step of your workflow. You'll create these using the standard form builder.
 
 ```tsx
-import { formBuilder } from '@/lib/rilay';
+import { rilay } from '@/lib/rilay';
 
-const personalInfoForm = formBuilder.addRowFields([...]).build();
-const preferencesForm = formBuilder.addField(...).build();
-const reviewForm = formBuilder.addField(...).build();
+const personalInfoForm = rilay.form('personal-info').add(...).build();
+const preferencesForm = rilay.form('preferences').add(...).build();
+const reviewForm = rilay.form('review').add(...).build();
 ```
 <Callout>
 You can also pass a `form` builder instance directly to a step. It will be built automatically.
@@ -31,13 +31,13 @@ You can also pass a `form` builder instance directly to a step. It will be built
 <Step>
 ### 2. Start the Flow Builder
 
-Call `.createFlow()` on your `ril` instance to begin. You must provide a unique ID and a title for the workflow.
+Call `.flow()` on your `ril` instance to begin. You must provide a unique ID and a title for the workflow.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
 const workflowBuilder = rilay
-  .createFlow(
+  .flow(
     'user-onboarding',
     'User Onboarding Workflow',
     'A multi-step workflow to onboard new users' // Optional description
@@ -77,18 +77,20 @@ Use the `.addStep()` method for each step in your sequence. You must provide at 
 <Step>
 ### 4. Configure Navigation and Hooks
 
-You can configure the overall workflow behavior with methods like `.setNavigation()` and `.setAnalytics()`.
+You can configure the overall workflow behavior with the unified `.configure()` method.
 
 ```tsx
 // ...
-.setNavigation({
-  allowBackNavigation: true, // Can users go back to previous steps?
-  showProgress: true, // Should the stepper be shown?
-})
-.setAnalytics({
-  onWorkflowStart: (workflowId) => console.log(`Workflow ${workflowId} started.`),
-  onStepComplete: (stepId, duration) => console.log(`Step ${stepId} took ${duration}ms.`),
-  // ... other analytics hooks
+.configure({
+  navigation: {
+    allowBackNavigation: true, // Can users go back to previous steps?
+    showProgress: true, // Should the stepper be shown?
+  },
+  analytics: {
+    onWorkflowStart: (workflowId) => console.log(`Workflow ${workflowId} started.`),
+    onStepComplete: (stepId, duration) => console.log(`Step ${stepId} took ${duration}ms.`),
+    // ... other analytics hooks
+  }
 })
 // ...
 ```
@@ -100,10 +102,10 @@ Finally, call `.build()` to get the final `workflowConfig` object.
 
 ```tsx
 const workflowConfig = rilay
-  .createFlow(...)
+  .flow(...)
   .addStep(...)
   .addStep(...)
-  .setNavigation(...)
+  .configure(...)
   .build();
 ```
 This configuration can now be passed to the `<Workflow>` component, which will build it automatically if you pass the builder instance.
@@ -141,20 +143,23 @@ First, we define the forms for each step:
 
 ```tsx
 // 1. Define the forms for each step
-const accountForm = formBuilder
-  .addFields([
+const accountForm = rilay
+  .form('account-form')
+  .add(
     { id: 'email', type: 'email', props: { label: 'Email' }, validation: (v) => v.string().email() },
-    { id: 'password', type: 'password', props: { label: 'Password' }, validation: (v) => v.string().min(8) },
-  ]);
+    { id: 'password', type: 'password', props: { label: 'Password' }, validation: (v) => v.string().min(8) }
+  );
 
-const profileForm = formBuilder
-  .addRowFields([
+const profileForm = rilay
+  .form('profile-form')
+  .add(
     { id: 'firstName', type: 'text', props: { label: 'First Name' } },
-    { id: 'lastName', type: 'text', props: { label: 'Last Name' } },
-  ]);
+    { id: 'lastName', type: 'text', props: { label: 'Last Name' } }
+  );
 
-const confirmationForm = formBuilder
-  .addField({
+const confirmationForm = rilay
+  .form('confirmation-form')
+  .add({
     id: 'terms',
     type: 'checkbox', // Assumes a 'checkbox' component is registered
     props: {
@@ -164,12 +169,12 @@ const confirmationForm = formBuilder
   });
 ```
 
-Now, we use the `createFlow` builder to chain them together into a workflow:
+Now, we use the `flow` builder to chain them together into a workflow:
 
 ```tsx
 // 2. Build the workflow
 export const onboardingWorkflow = rilay
-  .createFlow(
+  .flow(
     'onboarding',
     'New User Onboarding'
   )
@@ -188,9 +193,11 @@ export const onboardingWorkflow = rilay
     title: 'Confirmation',
     formConfig: confirmationForm,
   })
-  .setNavigation({
-    allowBackNavigation: true,
-    showProgress: true,
+  .configure({
+    navigation: {
+      allowBackNavigation: true,
+      showProgress: true,
+    }
   });
 ```
 

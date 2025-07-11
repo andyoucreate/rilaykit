@@ -5,7 +5,7 @@ description: How to use the fluent API to build form configurations.
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-Building a form configuration starts from your central `rilay` instance. By calling `rilay.createForm()`, you get a form builder that has access to all your pre-configured components and renderers.
+Building a form configuration starts from your central `rilay` instance. By calling `rilay.form()`, you get a form builder that has access to all your pre-configured components and renderers.
 
 <Callout>
 Before proceeding, make sure you have created and configured a shared `rilay` instance as shown in the [Your First Form](/docs/getting-started/your-first-form) guide.
@@ -15,28 +15,30 @@ Before proceeding, make sure you have created and configured a shared `rilay` in
 
 <Steps>
 <Step>
-### 1. Start with `createForm()`
+### 1. Start with `form()`
 
-Call `.createForm()` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
+Call `.form()` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const loginForm = rilay.createForm('login');
+const loginForm = rilay.form('login');
 ```
 </Step>
 <Step>
 ### 2. Add Fields and Rows
 
-The builder provides a fluent API to add fields and structure them in rows.
+The builder provides a powerful polymorphic `.add()` method that handles multiple use cases:
 
-- **`.addField(fieldConfig)`**: Adds a single field that will be rendered in its own row.
-- **`.addRowFields([fieldConfig, ...])`**: Adds a row containing one or more fields.
+- **Single field**: `.add(fieldConfig)` - Adds a field on its own row
+- **Multiple fields**: `.add(field1, field2, field3)` - Adds multiple fields on the same row (max 3)
+- **Array syntax**: `.add([field1, field2], options)` - Explicit row control with options
 
 ```tsx
 const registrationForm = rilay
-  .createForm('registration')
-  .addRowFields([
+  .form('registration')
+  // Add multiple fields on the same row
+  .add(
     {
       id: 'firstName',
       type: 'text', // This type must exist in your component registry
@@ -46,17 +48,46 @@ const registrationForm = rilay
       id: 'lastName',
       type: 'text',
       props: { label: 'Last Name' },
-    },
-  ])
-  .addField({
+    }
+  )
+  // Add a single field on its own row
+  .add({
     id: 'email',
     type: 'email', // Assumes an 'email' type is registered
     props: { label: 'Email Address' },
   });
 ```
+
+You can also use the array syntax for explicit control over row options:
+
+```tsx
+const formWithOptions = rilay
+  .form('styled-form')
+  .add([
+    { id: 'field1', type: 'text', props: { label: 'Field 1' } },
+    { id: 'field2', type: 'text', props: { label: 'Field 2' } },
+  ], { 
+    spacing: 'loose', 
+    alignment: 'center' 
+  });
+```
 </Step>
 
 </Steps>
+
+## Auto-Generated IDs
+
+One of the key improvements in the new API is automatic ID generation. If you don't provide an `id` field, one will be generated for you:
+
+```tsx
+const quickForm = rilay
+  .form('quick-form')
+  .add(
+    { type: 'text', props: { label: 'Name' } }, // Will get id: 'field-1'
+    { type: 'email', props: { label: 'Email' } }, // Will get id: 'field-2'
+    { type: 'text', props: { label: 'Phone' } } // Will get id: 'field-3'
+  );
+```
 
 ## When to use `.build()`
 
@@ -70,8 +101,8 @@ However, you should call `.build()` manually when you need the final, serializab
 
 ```tsx
 const formConfig = rilay
-  .createForm('my-form')
-  .addField({ id: 'field1', type: 'text' })
+  .form('my-form')
+  .add({ id: 'field1', type: 'text' })
   .build(); // Manually build the config
 
 console.log(formConfig.allFields);
@@ -79,15 +110,15 @@ console.log(formConfig.allFields);
 
 ## Field Configuration
 
-The `fieldConfig` object you pass to `.addField()` or `.addRowFields()` has the following shape:
+The `fieldConfig` object you pass to `.add()` has the following shape:
 
 ```ts
 interface FieldConfig {
-  id: string; // A unique identifier for the field within the form.
-  type: string; // The component type to render from your registry.
-  props?: Record<string, any>; // Props passed to your component renderer.
-  validation?: ValidationConfig; // Validation rules for the field.
-  conditional?: ConditionalConfig; // Logic to show/hide the field.
+  id?: string; // Optional - auto-generated if not provided
+  type: string; // The component type to render from your registry
+  props?: Record<string, any>; // Props passed to your component renderer
+  validation?: ValidationConfig; // Validation rules for the field
+  conditional?: ConditionalConfig; // Logic to show/hide the field
 }
 ```
 For more details on `validation`, see the [Validation](/core-concepts/validation) page. `conditional` logic is covered in the Advanced Forms guide.
@@ -103,8 +134,8 @@ import { rilay } from '@/lib/rilay';
 import { z } from 'zod';
 
 export const loginForm = rilay
-  .createForm('login-form')
-  .addFields([
+  .form('login-form')
+  .add(
     {
       id: 'email',
       type: 'email',
@@ -125,8 +156,8 @@ export const loginForm = rilay
       },
       validation: (v) =>
         v.string().min(8, 'Password must be at least 8 characters long'),
-    },
-  ]);
+    }
+  );
 ```
 
 This `loginForm` builder instance is now ready to be passed to your `<Form>` component. 

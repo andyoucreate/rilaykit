@@ -12,6 +12,9 @@ export type {
 // Export configuration
 export { ril } from './config/ril';
 
+// Export shared utilities
+export * from './utils/builderHelpers';
+
 // Export validation utilities
 export * from './validation/validators';
 

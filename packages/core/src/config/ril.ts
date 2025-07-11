@@ -1,16 +1,5 @@
-import type {
-  ComponentConfig,
-  FieldRenderer,
-  FormBodyRenderer,
-  FormRenderConfig,
-  FormRowRenderer,
-  FormSubmitButtonRenderer,
-  WorkflowNextButtonRenderer,
-  WorkflowPreviousButtonRenderer,
-  WorkflowRenderConfig,
-  WorkflowSkipButtonRenderer,
-  WorkflowStepperRenderer,
-} from '../types';
+import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
+import { ValidationErrorBuilder, configureObject, ensureUnique } from '../utils/builderHelpers';
 
 /**
  * Main configuration class for Rilay form components and workflows
@@ -47,239 +36,129 @@ export class ril<C> {
   }
 
   /**
-   * Generic method to set any renderer type easily
-   * @param rendererType - The type of renderer to set
-   * @param renderer - The renderer function
-   * @returns The ril instance for chaining
+   * Universal configuration method for all renderer types
+   *
+   * This method provides a unified API to configure both form and workflow renderers
+   * in a single call, automatically categorizing and applying the appropriate configurations.
+   *
+   * @param config - Configuration object containing renderer settings
+   * @param config.rowRenderer - Custom renderer for form rows (form-specific)
+   * @param config.bodyRenderer - Custom renderer for form body container (form-specific)
+   * @param config.submitButtonRenderer - Custom renderer for form submit buttons (form-specific)
+   * @param config.fieldRenderer - Custom renderer for individual form fields (form-specific)
+   * @param config.stepperRenderer - Custom renderer for workflow step navigation (workflow-specific)
+   * @param config.nextButtonRenderer - Custom renderer for workflow next buttons (workflow-specific)
+   * @param config.previousButtonRenderer - Custom renderer for workflow previous buttons (workflow-specific)
+   * @param config.skipButtonRenderer - Custom renderer for workflow skip buttons (workflow-specific)
+   *
+   * @returns The ril instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Configure form renderers only
+   * const config = ril.create()
+   *   .configure({
+   *     rowRenderer: CustomRowRenderer,
+   *     submitButtonRenderer: CustomSubmitButton
+   *   });
+   *
+   * // Configure workflow renderers only
+   * const config = ril.create()
+   *   .configure({
+   *     stepperRenderer: CustomStepper,
+   *     nextButtonRenderer: CustomNextButton
+   *   });
+   *
+   * // Configure both form and workflow renderers
+   * const config = ril.create()
+   *   .configure({
+   *     // Form renderers
+   *     rowRenderer: CustomRowRenderer,
+   *     fieldRenderer: CustomFieldRenderer,
+   *     // Workflow renderers
+   *     stepperRenderer: CustomStepper,
+   *     nextButtonRenderer: CustomNextButton
+   *   });
+   * ```
+   *
+   * @remarks
+   * - Renderers are automatically categorized into form or workflow configurations
+   * - Existing configurations are merged, not replaced entirely
+   * - Invalid renderer keys are silently ignored
+   * - This method replaces individual setter methods for better DX
    */
-  setRenderer<T extends keyof (FormRenderConfig & WorkflowRenderConfig)>(
-    rendererType: T,
-    renderer: (FormRenderConfig & WorkflowRenderConfig)[T]
-  ): this {
-    if (rendererType in this.formRenderConfig) {
-      this.formRenderConfig = {
-        ...this.formRenderConfig,
-        [rendererType]: renderer,
-      };
-    } else if (rendererType in this.workflowRenderConfig) {
-      this.workflowRenderConfig = {
-        ...this.workflowRenderConfig,
-        [rendererType]: renderer,
-      };
-    }
-    return this;
-  }
+  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): this {
+    // Define renderer categories for automatic classification
+    const formKeys: (keyof FormRenderConfig)[] = [
+      'rowRenderer',
+      'bodyRenderer',
+      'submitButtonRenderer',
+      'fieldRenderer',
+    ];
+    const workflowKeys: (keyof WorkflowRenderConfig)[] = [
+      'stepperRenderer',
+      'nextButtonRenderer',
+      'previousButtonRenderer',
+      'skipButtonRenderer',
+    ];
 
-  /**
-   * Set multiple renderers at once
-   * @param renderers - Object with renderer configurations
-   * @returns The ril instance for chaining
-   */
-  setRenderers(renderers: Partial<FormRenderConfig & WorkflowRenderConfig>): this {
-    // Separate form and workflow renderers
+    // Initialize configuration containers
     const formRenderers: Partial<FormRenderConfig> = {};
     const workflowRenderers: Partial<WorkflowRenderConfig> = {};
 
-    for (const [key, value] of Object.entries(renderers)) {
-      if (['rowRenderer', 'bodyRenderer', 'submitButtonRenderer', 'fieldRenderer'].includes(key)) {
+    // Categorize and extract renderers by type
+    for (const [key, value] of Object.entries(config)) {
+      if (formKeys.includes(key as keyof FormRenderConfig)) {
         (formRenderers as any)[key] = value;
-      } else {
+      } else if (workflowKeys.includes(key as keyof WorkflowRenderConfig)) {
         (workflowRenderers as any)[key] = value;
       }
     }
 
-    this.formRenderConfig = { ...this.formRenderConfig, ...formRenderers };
-    this.workflowRenderConfig = { ...this.workflowRenderConfig, ...workflowRenderers };
+    // Apply configurations using merge strategy (preserves existing settings)
+    this.formRenderConfig = configureObject(this.formRenderConfig, formRenderers);
+    this.workflowRenderConfig = configureObject(this.workflowRenderConfig, workflowRenderers);
 
     return this;
   }
 
   /**
-   * Set custom row renderer
-   * @param renderer - Custom row renderer function
-   * @returns The ril instance for chaining
-   */
-  setRowRenderer(renderer: FormRowRenderer): this {
-    this.formRenderConfig = {
-      ...this.formRenderConfig,
-      rowRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom body renderer
-   * @param renderer - Custom body renderer function
-   * @returns The ril instance for chaining
-   */
-  setBodyRenderer(renderer: FormBodyRenderer): this {
-    this.formRenderConfig = {
-      ...this.formRenderConfig,
-      bodyRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom submit button renderer
-   * @param renderer - Custom submit button renderer function
-   * @returns The ril instance for chaining
-   */
-  setSubmitButtonRenderer(renderer: FormSubmitButtonRenderer): this {
-    this.formRenderConfig = {
-      ...this.formRenderConfig,
-      submitButtonRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom field renderer
-   * @param renderer - Custom field renderer function
-   * @returns The ril instance for chaining
-   */
-  setFieldRenderer(renderer: FieldRenderer): this {
-    this.formRenderConfig = {
-      ...this.formRenderConfig,
-      fieldRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set complete form render configuration
-   * @param config - Form render configuration
-   * @returns The ril instance for chaining
-   */
-  setFormRenderConfig(config: FormRenderConfig): this {
-    this.formRenderConfig = config;
-    return this;
-  }
-
-  /**
-   * Get current form render configuration
-   * @returns Current form render configuration
+   * Configuration getters
    */
   getFormRenderConfig(): FormRenderConfig {
     return { ...this.formRenderConfig };
   }
 
-  /**
-   * Set custom stepper renderer for workflows
-   * @param renderer - Custom stepper renderer function
-   * @returns The ril instance for chaining
-   */
-  setStepperRenderer(renderer: WorkflowStepperRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      stepperRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom workflow next button renderer
-   * @param renderer - Custom workflow next button renderer function
-   * @returns The ril instance for chaining
-   */
-  setWorkflowNextButtonRenderer(renderer: WorkflowNextButtonRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      nextButtonRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom workflow previous button renderer
-   * @param renderer - Custom workflow previous button renderer function
-   * @returns The ril instance for chaining
-   */
-  setWorkflowPreviousButtonRenderer(renderer: WorkflowPreviousButtonRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      previousButtonRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set custom workflow skip button renderer
-   * @param renderer - Custom workflow skip button renderer function
-   * @returns The ril instance for chaining
-   */
-  setWorkflowSkipButtonRenderer(renderer: WorkflowSkipButtonRenderer): this {
-    this.workflowRenderConfig = {
-      ...this.workflowRenderConfig,
-      skipButtonRenderer: renderer,
-    };
-    return this;
-  }
-
-  /**
-   * Set complete workflow render configuration
-   * @param config - Workflow render configuration
-   * @returns The ril instance for chaining
-   */
-  setWorkflowRenderConfig(config: WorkflowRenderConfig): this {
-    this.workflowRenderConfig = config;
-    return this;
-  }
-
-  /**
-   * Get current workflow render configuration
-   * @returns Current workflow render configuration
-   */
   getWorkflowRenderConfig(): WorkflowRenderConfig {
     return { ...this.workflowRenderConfig };
   }
 
   /**
-   * Get a component by its ID
-   * @param id - Component ID (which is its type)
-   * @returns Component configuration or undefined
+   * Component management methods
    */
   getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
   getComponent(id: string): ComponentConfig | undefined {
     return this.components.get(id);
   }
 
-  /**
-   * List all registered components
-   * @returns Array of all components
-   */
   getAllComponents(): ComponentConfig[] {
     return Array.from(this.components.values());
   }
 
-  /**
-   * Check if a component exists
-   * @param id - Component ID
-   * @returns True if component exists
-   */
   hasComponent(id: string): boolean {
     return this.components.has(id);
   }
 
-  /**
-   * Remove a component from the configuration
-   * @param id - Component ID
-   * @returns True if component was removed
-   */
   removeComponent(id: string): boolean {
     return this.components.delete(id);
   }
 
-  /**
-   * Clear all components
-   */
   clear(): void {
     this.components.clear();
   }
 
   /**
-   * Get statistics about registered components and renderers
-   * @returns Object with comprehensive statistics
+   * Enhanced statistics with more detailed information
    */
   getStats(): {
     total: number;
@@ -324,30 +203,28 @@ export class ril<C> {
   }
 
   /**
-   * Validate the configuration
-   * @returns Array of validation errors
+   * Enhanced validation using shared utilities
    */
   validate(): string[] {
-    const errors: string[] = [];
+    const errorBuilder = new ValidationErrorBuilder();
     const components = Array.from(this.components.values());
 
-    // Check for duplicate IDs (should not happen with Map, but good to check)
+    // Check for duplicate IDs using shared utility
     const ids = components.map((comp) => comp.id);
-    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
-    if (duplicateIds.length > 0) {
-      errors.push(`Duplicate component IDs found: ${duplicateIds.join(', ')}`);
+    try {
+      ensureUnique(ids, 'component');
+    } catch (error) {
+      errorBuilder.add('DUPLICATE_IDS', error instanceof Error ? error.message : String(error));
     }
 
     // Check for components without renderers
     const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
-    if (componentsWithoutRenderer.length > 0) {
-      errors.push(
-        `Components without renderer: ${componentsWithoutRenderer
-          .map((comp) => comp.id)
-          .join(', ')}`
-      );
-    }
+    errorBuilder.addIf(
+      componentsWithoutRenderer.length > 0,
+      'MISSING_RENDERER',
+      `Components without renderer: ${componentsWithoutRenderer.map((comp) => comp.id).join(', ')}`
+    );
 
-    return errors;
+    return errorBuilder.build().map((err) => err.message);
   }
 }

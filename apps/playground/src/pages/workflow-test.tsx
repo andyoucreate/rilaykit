@@ -293,17 +293,16 @@ export default function WorkflowTestPage() {
       name: 'Textarea Input',
       renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
       defaultProps: { placeholder: 'Enter text...', rows: 4 },
+    })
+    .configure({
+      rowRenderer: formRowRenderer,
+      bodyRenderer: formBodyRenderer,
+      submitButtonRenderer: formSubmitButtonRenderer,
+      stepperRenderer: workflowStepperRenderer,
+      nextButtonRenderer: workflowNextButtonRenderer,
+      previousButtonRenderer: workflowPreviousButtonRenderer,
+      skipButtonRenderer: workflowSkipButtonRenderer,
     });
-
-  // Set custom renderers
-  factory
-    .setRowRenderer(formRowRenderer)
-    .setBodyRenderer(formBodyRenderer)
-    .setSubmitButtonRenderer(formSubmitButtonRenderer)
-    .setStepperRenderer(workflowStepperRenderer)
-    .setWorkflowNextButtonRenderer(workflowNextButtonRenderer)
-    .setWorkflowPreviousButtonRenderer(workflowPreviousButtonRenderer)
-    .setWorkflowSkipButtonRenderer(workflowSkipButtonRenderer);
 
   // Define validation schemas
   const personalInfoSchema = z.object({
@@ -323,8 +322,8 @@ export default function WorkflowTestPage() {
 
   // Build form configurations for each step
   const personalInfoForm = factory
-    .createForm()
-    .addRowFields([
+    .form()
+    .add([
       {
         id: 'firstName',
         type: 'text',
@@ -338,7 +337,7 @@ export default function WorkflowTestPage() {
         validation: { validator: createZodValidator(personalInfoSchema.shape.lastName) },
       },
     ])
-    .addField({
+    .add({
       id: 'email',
       type: 'email',
       props: { label: 'Email Address', required: true },
@@ -346,8 +345,8 @@ export default function WorkflowTestPage() {
     });
 
   const preferencesForm = factory
-    .createForm()
-    .addField({
+    .form()
+    .add({
       id: 'role',
       type: 'select',
       props: {
@@ -362,7 +361,7 @@ export default function WorkflowTestPage() {
       },
       validation: { validator: createZodValidator(preferencesSchema.shape.role) },
     })
-    .addField({
+    .add({
       id: 'experience',
       type: 'select',
       props: {
@@ -377,7 +376,7 @@ export default function WorkflowTestPage() {
       validation: { validator: createZodValidator(preferencesSchema.shape.experience) },
     });
 
-  const reviewForm = factory.createForm().addField({
+  const reviewForm = factory.form().add({
     id: 'feedback',
     type: 'textarea',
     props: {
@@ -389,7 +388,7 @@ export default function WorkflowTestPage() {
 
   // Build workflow configuration
   const workflowConfig = factory
-    .createFlow(
+    .flow(
       'user-onboarding',
       'User Onboarding Workflow',
       'A multi-step workflow to onboard new users'
@@ -424,22 +423,24 @@ export default function WorkflowTestPage() {
       allowSkip: true,
       formConfig: reviewForm,
     })
-    .setNavigation({
-      allowBackNavigation: true,
-      showProgress: true,
-    })
-    .setAnalytics({
-      onWorkflowStart: (workflowId: string, context: any) => {
-        console.log('Workflow started:', workflowId, context);
+    .configure({
+      navigation: {
+        allowBackNavigation: true,
+        showProgress: true,
       },
-      onStepStart: (stepId: string, timestamp: number, context: any) => {
-        console.log('Step started:', stepId, timestamp, context);
-      },
-      onStepComplete: (stepId: string, duration: number, data: any, context: any) => {
-        console.log('Step completed:', stepId, duration, data, context);
-      },
-      onWorkflowComplete: (workflowId: string, duration: number, data: any) => {
-        console.log('Workflow completed:', workflowId, duration, data);
+      analytics: {
+        onWorkflowStart: (workflowId: string, context: any) => {
+          console.log('Workflow started:', workflowId, context);
+        },
+        onStepStart: (stepId: string, timestamp: number, context: any) => {
+          console.log('Step started:', stepId, timestamp, context);
+        },
+        onStepComplete: (stepId: string, duration: number, data: any, context: any) => {
+          console.log('Step completed:', stepId, duration, data, context);
+        },
+        onWorkflowComplete: (workflowId: string, duration: number, data: any) => {
+          console.log('Workflow completed:', workflowId, duration, data);
+        },
       },
     });
 

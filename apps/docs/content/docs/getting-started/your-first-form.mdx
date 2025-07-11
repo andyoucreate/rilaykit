@@ -57,16 +57,18 @@ export const rilay = ril
   .create()
   .addComponent('text', { name: 'Text Input', renderer: TextInput })
   .addComponent('textarea', { name: 'Text Area', renderer: TextInput })
-  .setRowRenderer(AppRowRenderer)
-  .setSubmitButtonRenderer(AppSubmitButtonRenderer)
-  .setBodyRenderer(({ children }) => <>{children}</>);
+  .configure({
+    rowRenderer: AppRowRenderer,
+    submitButtonRenderer: AppSubmitButtonRenderer,
+    bodyRenderer: ({ children }) => <>{children}</>,
+  });
 ```
 </Step>
 
 <Step>
 ### 2. Build the Form Configuration
 
-Now, use the `rilay` instance you created to build a form. You call `.createForm()` on your instance, which gives you a form builder that is aware of all your registered components and renderers.
+Now, use the `rilay` instance you created to build a form. You call `.form()` on your instance, which gives you a form builder that is aware of all your registered components and renderers.
 
 ```tsx title="components/ContactForm.ts"
 import { z } from 'zod';
@@ -82,14 +84,14 @@ const contactSchema = z.object({
 
 // Build the form configuration from the rilay instance
 export const contactForm = rilay
-  .createForm('contact-us') // Pass a unique ID for the form
-  .addField({
+  .form('contact-us') // Pass a unique ID for the form
+  .add({
     id: 'name',
     type: 'text',
     props: { label: 'Full Name' },
     validation: { validator: createZodValidator(contactSchema.shape.name) },
   })
-  .addField({
+  .add({
     id: 'email',
     type: 'text',
     props: { label: 'Email Address' },
@@ -98,7 +100,7 @@ export const contactForm = rilay
       mode: 'onBlur',
     },
   })
-  .addField({
+  .add({
     id: 'message',
     type: 'textarea',
     props: { label: 'Your Message' },

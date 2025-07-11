@@ -8,7 +8,7 @@ const TestEmailComponent = () => React.createElement('input', { type: 'email' })
 const TestNumberComponent = () => React.createElement('input', { type: 'number' });
 
 describe('Form Builder', () => {
-  let config: ril;
+  let config: ril<Record<string, any>>;
 
   beforeEach(() => {
     config = ril
@@ -59,7 +59,7 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
 
       expect(() => {
-        formBuilder.addField({ id: 'test', type: 'non-existent' as any });
+        formBuilder.add({ id: 'test', type: 'non-existent' as any });
       }).toThrow('No component found with type "non-existent"');
     });
   });
@@ -67,7 +67,7 @@ describe('Form Builder', () => {
   describe('Single Field Operations', () => {
     it('should add a single field', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({
+      formBuilder.add({
         id: 'username',
         type: 'text',
         props: { label: 'Username', required: true },
@@ -87,7 +87,7 @@ describe('Form Builder', () => {
       const mockValidator = () => ({ isValid: true, errors: [] });
 
       const formBuilder = form.create(config);
-      formBuilder.addField({
+      formBuilder.add({
         id: 'email',
         type: 'email',
         props: { label: 'Email' },
@@ -104,7 +104,7 @@ describe('Form Builder', () => {
       const condition = (formData: Record<string, any>) => formData.showEmail === true;
 
       const formBuilder = form.create(config);
-      formBuilder.addField({
+      formBuilder.add({
         id: 'email',
         type: 'email',
         props: { label: 'Email' },
@@ -120,7 +120,7 @@ describe('Form Builder', () => {
 
     it('should merge default props with custom props', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({
+      formBuilder.add({
         id: 'username',
         type: 'text',
         props: {
@@ -141,7 +141,7 @@ describe('Form Builder', () => {
   describe('Row Field Operations', () => {
     it('should add multiple fields on same row', () => {
       const formBuilder = form.create(config);
-      formBuilder.addRowFields([
+      formBuilder.add([
         { id: 'firstName', type: 'text', props: { label: 'First Name' } },
         { id: 'lastName', type: 'text', props: { label: 'Last Name' } },
       ]);
@@ -156,7 +156,7 @@ describe('Form Builder', () => {
 
     it('should set row options correctly', () => {
       const formBuilder = form.create(config);
-      formBuilder.addRowFields(
+      formBuilder.add(
         [
           { id: 'field1', type: 'text' },
           { id: 'field2', type: 'text' },
@@ -173,7 +173,7 @@ describe('Form Builder', () => {
 
     it('should use default row options when not specified', () => {
       const formBuilder = form.create(config);
-      formBuilder.addRowFields([{ id: 'field1', type: 'text' }]);
+      formBuilder.add([{ id: 'field1', type: 'text' }]);
 
       const formConfig = formBuilder.build();
       const row = formConfig.rows[0];
@@ -186,7 +186,7 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
 
       expect(() => {
-        formBuilder.addRowFields([]);
+        formBuilder.add([]);
       }).toThrow('At least one field is required');
     });
 
@@ -194,7 +194,7 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
 
       expect(() => {
-        formBuilder.addRowFields([
+        formBuilder.add([
           { id: 'field1', type: 'text' },
           { id: 'field2', type: 'text' },
           { id: 'field3', type: 'text' },
@@ -207,7 +207,7 @@ describe('Form Builder', () => {
   describe('Multiple Fields Operations', () => {
     it('should add multiple fields each on separate rows', () => {
       const formBuilder = form.create(config);
-      formBuilder.addFields([
+      formBuilder.addSeparateRows([
         { id: 'username', type: 'text', props: { label: 'Username' } },
         { id: 'email', type: 'email', props: { label: 'Email' } },
         { id: 'age', type: 'number', props: { label: 'Age' } },
@@ -229,7 +229,7 @@ describe('Form Builder', () => {
     it('should update existing field', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
         .updateField('username', {
           props: { label: 'Updated Username', required: true },
         });
@@ -244,7 +244,7 @@ describe('Form Builder', () => {
     it('should merge props when updating field', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addField({
+        .add({
           id: 'username',
           type: 'text',
           props: { label: 'Username', placeholder: 'Enter username' },
@@ -271,8 +271,8 @@ describe('Form Builder', () => {
     it('should remove field correctly', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
-        .addField({ id: 'email', type: 'email', props: { label: 'Email' } })
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'email', type: 'email', props: { label: 'Email' } })
         .removeField('username');
 
       const formConfig = formBuilder.build();
@@ -284,7 +284,7 @@ describe('Form Builder', () => {
     it('should remove empty rows after field removal', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
         .removeField('username');
 
       const formConfig = formBuilder.build();
@@ -295,7 +295,7 @@ describe('Form Builder', () => {
 
     it('should get field by ID', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text', props: { label: 'Username' } });
+      formBuilder.add({ id: 'username', type: 'text', props: { label: 'Username' } });
 
       const field = formBuilder.getField('username');
 
@@ -315,11 +315,11 @@ describe('Form Builder', () => {
     it('should get all fields as flat array', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addRowFields([
+        .add([
           { id: 'firstName', type: 'text' },
           { id: 'lastName', type: 'text' },
         ])
-        .addField({ id: 'email', type: 'email' });
+        .add({ id: 'email', type: 'email' });
 
       const fields = formBuilder.getFields();
 
@@ -329,7 +329,7 @@ describe('Form Builder', () => {
 
     it('should get all rows', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'field1', type: 'text' }).addField({ id: 'field2', type: 'text' });
+      formBuilder.add({ id: 'field1', type: 'text' }).add({ id: 'field2', type: 'text' });
 
       const rows = formBuilder.getRows();
 
@@ -342,10 +342,7 @@ describe('Form Builder', () => {
   describe('Form Operations', () => {
     it('should clear all fields and rows', () => {
       const formBuilder = form.create(config);
-      formBuilder
-        .addField({ id: 'field1', type: 'text' })
-        .addField({ id: 'field2', type: 'text' })
-        .clear();
+      formBuilder.add({ id: 'field1', type: 'text' }).add({ id: 'field2', type: 'text' }).clear();
 
       const formConfig = formBuilder.build();
 
@@ -355,10 +352,7 @@ describe('Form Builder', () => {
 
     it('should reset row counter after clear', () => {
       const formBuilder = form.create(config);
-      formBuilder
-        .addField({ id: 'field1', type: 'text' })
-        .clear()
-        .addField({ id: 'field2', type: 'text' });
+      formBuilder.add({ id: 'field1', type: 'text' }).clear().add({ id: 'field2', type: 'text' });
 
       const formConfig = formBuilder.build();
 
@@ -370,8 +364,8 @@ describe('Form Builder', () => {
     it('should clone form with new ID', () => {
       const originalBuilder = form.create(config, 'original-form');
       originalBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
-        .addField({ id: 'email', type: 'email', props: { label: 'Email' } });
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'email', type: 'email', props: { label: 'Email' } });
 
       const clonedBuilder = originalBuilder.clone('cloned-form');
       const clonedConfig = clonedBuilder.build();
@@ -383,7 +377,7 @@ describe('Form Builder', () => {
 
     it('should clone form with auto-generated ID', () => {
       const originalBuilder = form.create(config, 'original-form');
-      originalBuilder.addField({ id: 'username', type: 'text' });
+      originalBuilder.add({ id: 'username', type: 'text' });
 
       const clonedBuilder = originalBuilder.clone();
       const clonedConfig = clonedBuilder.build();
@@ -394,10 +388,10 @@ describe('Form Builder', () => {
 
     it('should create independent clone', () => {
       const originalBuilder = form.create(config);
-      originalBuilder.addField({ id: 'username', type: 'text' });
+      originalBuilder.add({ id: 'username', type: 'text' });
 
       const clonedBuilder = originalBuilder.clone();
-      clonedBuilder.addField({ id: 'email', type: 'email' });
+      clonedBuilder.add({ id: 'email', type: 'email' });
 
       const originalConfig = originalBuilder.build();
       const clonedConfig = clonedBuilder.build();
@@ -410,7 +404,7 @@ describe('Form Builder', () => {
   describe('Validation', () => {
     it('should validate form without errors', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text' });
+      formBuilder.add({ id: 'username', type: 'text' });
 
       const errors = formBuilder.validate();
 
@@ -419,7 +413,7 @@ describe('Form Builder', () => {
 
     it('should detect duplicate field IDs', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text' });
+      formBuilder.add({ id: 'username', type: 'text' });
 
       // Manually add a duplicate field to the internal rows
       const rows = formBuilder.getRows();
@@ -438,7 +432,7 @@ describe('Form Builder', () => {
 
     it('should detect missing components', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text' });
+      formBuilder.add({ id: 'username', type: 'text' });
 
       // Manually corrupt the component reference
       const field = formBuilder.getField('username');
@@ -452,7 +446,7 @@ describe('Form Builder', () => {
 
     it('should detect invalid row constraints', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text' });
+      formBuilder.add({ id: 'username', type: 'text' });
 
       // Manually create invalid row by emptying the fields array
       const rows = formBuilder.getRows();
@@ -464,7 +458,7 @@ describe('Form Builder', () => {
 
     it('should throw error when building invalid form', () => {
       const formBuilder = form.create(config);
-      formBuilder.addField({ id: 'username', type: 'text' });
+      formBuilder.add({ id: 'username', type: 'text' });
 
       // Corrupt the form
       const field = formBuilder.getField('username');
@@ -482,8 +476,8 @@ describe('Form Builder', () => {
     it('should export form to JSON', () => {
       const formBuilder = form.create(config, 'test-form');
       formBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
-        .addField({ id: 'email', type: 'email', props: { label: 'Email' } });
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'email', type: 'email', props: { label: 'Email' } });
 
       const json = formBuilder.toJSON();
 
@@ -555,13 +549,13 @@ describe('Form Builder', () => {
     it('should calculate form statistics correctly', () => {
       const formBuilder = form.create(config);
       formBuilder
-        .addRowFields([
+        .add([
           { id: 'firstName', type: 'text' },
           { id: 'lastName', type: 'text' },
           { id: 'age', type: 'number' },
         ])
-        .addField({ id: 'email', type: 'email' })
-        .addField({ id: 'bio', type: 'text' });
+        .add({ id: 'email', type: 'email' })
+        .add({ id: 'bio', type: 'text' });
 
       const stats = formBuilder.getStats();
 
@@ -590,8 +584,8 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
 
       const result = formBuilder
-        .addField({ id: 'username', type: 'text', props: { label: 'Username' } })
-        .addField({ id: 'email', type: 'email', props: { label: 'Email' } })
+        .add({ id: 'username', type: 'text', props: { label: 'Username' } })
+        .add({ id: 'email', type: 'email', props: { label: 'Email' } })
         .setId('chained-form')
         .updateField('username', { props: { required: true } })
         .build();
@@ -604,24 +598,24 @@ describe('Form Builder', () => {
 });
 
 describe('Module Augmentation API', () => {
-  it('should create form using config.createForm()', () => {
+  it('should create form using config.form()', () => {
     const config = ril.create().addComponent('text', {
       name: 'Text Input',
       renderer: vi.fn(),
     });
 
-    const formInstance = config.createForm('test-form');
+    const formInstance = config.form('test-form');
     expect(formInstance).toBeInstanceOf(form);
     expect(formInstance.build().id).toBe('test-form');
   });
 
-  it('should create form with default ID using config.createForm()', () => {
+  it('should create form with default ID using config.form()', () => {
     const config = ril.create().addComponent('text', {
       name: 'Text Input',
       renderer: vi.fn(),
     });
 
-    const formInstance = config.createForm();
+    const formInstance = config.form();
     expect(formInstance).toBeInstanceOf(form);
     expect(formInstance.build().id).toMatch(/^form-\d+$/);
   });

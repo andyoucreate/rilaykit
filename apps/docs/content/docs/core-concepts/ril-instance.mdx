@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 The `ril` instance is the heart of every Rilaykit application. It serves as a central hub for all your form and workflow configurations. You should create a single, shared `ril` instance for your application and export it from a central file (e.g., `lib/rilay.ts`).
 
 Its primary responsibilities are:
-1.  **To be a Registry:** It holds the central configuration for your components (`addComponent`) and custom renderers (`setRowRenderer`, etc.).
+1.  **To be a Registry:** It holds the central configuration for your components (`addComponent`) and custom renderers (`.configure()`).
 2.  **To be a Factory:** It is used to create `form` and `flow` builders that inherit its configuration.
 
 ## Creating and Configuring
@@ -26,10 +26,12 @@ export const rilay = ril
     name: 'Text Input',
     renderer: MyTextInput,
   })
-  // Set all mandatory renderers for a basic form
-  .setBodyRenderer(myBodyRenderer)
-  .setRowRenderer(myRowRenderer)
-  .setSubmitButtonRenderer(mySubmitButtonRenderer);
+  // Configure all renderers at once
+  .configure({
+    bodyRenderer: myBodyRenderer,
+    rowRenderer: myRowRenderer,
+    submitButtonRenderer: mySubmitButtonRenderer,
+  });
 ```
 
 This configured `rilay` instance is now ready to be used to create builders.
@@ -57,6 +59,20 @@ if (rilay.hasComponent('text')) {
 // Get all component names
 const componentNames = rilay.getAllComponents().map(c => c.name);
 // -> ['Text Input']
+```
+
+## Factory Methods
+
+The `ril` instance provides convenient factory methods for creating builders:
+
+```tsx
+// Create a form builder
+const myForm = rilay.form('my-form')
+  .add({ type: 'text', props: { label: 'Name' } });
+
+// Create a workflow builder
+const myWorkflow = rilay.flow('my-workflow', 'My Workflow')
+  .addStep({ title: 'Step 1', formConfig: myForm });
 ```
 
 ## Introspection & Debugging

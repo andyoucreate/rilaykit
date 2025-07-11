@@ -49,7 +49,7 @@ export default function FormTestPage() {
     });
 
   // This should have autocompletion
-  const testForm = factory.createForm('test-form').addField({
+  const testForm = factory.form('test-form').add({
     id: 'userEmail',
     type: 'text',
     props: {

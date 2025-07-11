@@ -127,57 +127,85 @@ describe('ril', () => {
   });
 
   describe('Form Renderers', () => {
-    it('should set custom row renderer', () => {
-      const config = ril.create().setRowRenderer(TestFormRowRenderer);
+    it('should set custom row renderer using configure', () => {
+      const config = ril.create().configure({
+        rowRenderer: TestFormRowRenderer,
+      });
 
       const renderConfig = config.getFormRenderConfig();
       expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
     });
 
-    it('should set custom body renderer', () => {
-      const config = ril.create().setBodyRenderer(TestFormBodyRenderer);
+    it('should set custom body renderer using configure', () => {
+      const config = ril.create().configure({
+        bodyRenderer: TestFormBodyRenderer,
+      });
 
       const renderConfig = config.getFormRenderConfig();
       expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
     });
 
-    it('should set custom submit button renderer', () => {
-      const config = ril.create().setSubmitButtonRenderer(TestRenderer);
+    it('should set custom submit button renderer using configure', () => {
+      const config = ril.create().configure({
+        submitButtonRenderer: TestRenderer,
+      });
 
       const renderConfig = config.getFormRenderConfig();
       expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
     });
 
-    it('should set complete form render configuration', () => {
-      const formRenderConfig = {
+    it('should set multiple form renderers using configure', () => {
+      const config = ril.create().configure({
         rowRenderer: TestFormRowRenderer,
         bodyRenderer: TestFormBodyRenderer,
         submitButtonRenderer: TestRenderer,
-      };
+      });
 
-      const config = ril.create().setFormRenderConfig(formRenderConfig);
+      const renderConfig = config.getFormRenderConfig();
+      expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
+      expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
+      expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
+    });
 
-      expect(config.getFormRenderConfig()).toEqual(formRenderConfig);
+    it('should set complete form render configuration using configure', () => {
+      const config = ril.create().configure({
+        rowRenderer: TestFormRowRenderer,
+        bodyRenderer: TestFormBodyRenderer,
+        submitButtonRenderer: TestRenderer,
+        fieldRenderer: TestRenderer,
+      });
+
+      const renderConfig = config.getFormRenderConfig();
+      expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
+      expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
+      expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
+      expect(renderConfig.fieldRenderer).toBe(TestRenderer);
     });
   });
 
   describe('Workflow Renderers', () => {
-    it('should set custom stepper renderer', () => {
-      const config = ril.create().setStepperRenderer(TestWorkflowStepperRenderer);
+    it('should set custom stepper renderer using configure', () => {
+      const config = ril.create().configure({
+        stepperRenderer: TestWorkflowStepperRenderer,
+      });
 
       const renderConfig = config.getWorkflowRenderConfig();
       expect(renderConfig.stepperRenderer).toBe(TestWorkflowStepperRenderer);
     });
 
-    it('should set complete workflow render configuration', () => {
-      const workflowRenderConfig = {
+    it('should set multiple workflow renderers using configure', () => {
+      const config = ril.create().configure({
         stepperRenderer: TestWorkflowStepperRenderer,
-        navigationRenderer: TestWorkflowNavRenderer,
-      };
+        nextButtonRenderer: TestWorkflowNavRenderer,
+        previousButtonRenderer: TestWorkflowNavRenderer,
+        skipButtonRenderer: TestWorkflowNavRenderer,
+      });
 
-      const config = ril.create().setWorkflowRenderConfig(workflowRenderConfig);
-
-      expect(config.getWorkflowRenderConfig()).toEqual(workflowRenderConfig);
+      const renderConfig = config.getWorkflowRenderConfig();
+      expect(renderConfig.stepperRenderer).toBe(TestWorkflowStepperRenderer);
+      expect(renderConfig.nextButtonRenderer).toBe(TestWorkflowNavRenderer);
+      expect(renderConfig.previousButtonRenderer).toBe(TestWorkflowNavRenderer);
+      expect(renderConfig.skipButtonRenderer).toBe(TestWorkflowNavRenderer);
     });
   });
 
@@ -197,8 +225,10 @@ describe('ril', () => {
           name: 'Heading',
           renderer: TestComponent,
         })
-        .setRowRenderer(TestFormRowRenderer)
-        .setStepperRenderer(TestWorkflowStepperRenderer);
+        .configure({
+          rowRenderer: TestFormRowRenderer,
+          stepperRenderer: TestWorkflowStepperRenderer,
+        });
 
       const stats = config.getStats();
 
