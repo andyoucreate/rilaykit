@@ -12,7 +12,6 @@ import type {
   WorkflowConfig,
   WorkflowPlugin,
 } from '@rilaykit/core';
-import { ril } from '@rilaykit/core';
 import {
   IdGenerator,
   ValidationErrorBuilder,
@@ -20,7 +19,8 @@ import {
   deepClone,
   ensureUnique,
   normalizeToArray,
-} from '@rilaykit/core/src/utils/builderHelpers';
+  ril,
+} from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
@@ -365,9 +365,8 @@ export class flow {
    *
    * @example
    * ```typescript
-   * workflow.use(analyticsPlugin)
-   *         .use(validationPlugin)
-   *         .use(customRendererPlugin);
+   * workflow.use(customPlugin)
+   *         .use(anotherPlugin);
    * ```
    */
   use(plugin: WorkflowPlugin): this {

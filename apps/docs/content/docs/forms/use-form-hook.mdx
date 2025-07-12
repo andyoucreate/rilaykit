@@ -8,10 +8,10 @@ The `useFormContext` hook is the primary way to interact with a form's state whe
 
 ## How to use it
 
-Import the hook from `@rilaykit/form-builder` and call it inside any component that is a child of a `FormProvider`.
+Import the hook from `@rilaykit/forms` and call it inside any component that is a child of a `FormProvider`.
 
 ```tsx
-import { useFormContext } from '@rilaykit/form-builder';
+import { useFormContext } from '@rilaykit/forms';
 
 function MyCustomField() {
   const form = useFormContext();
@@ -69,7 +69,7 @@ These functions allow you to interact with and control the form.
 You can use `useFormContext` to create custom components that react to the form's state. Here is an example of a submit button that shows a loading state and is disabled if the form is invalid.
 
 ```tsx
-import { useFormContext } from '@rilaykit/form-builder';
+import { useFormContext } from '@rilaykit/forms';
 
 export function CustomSubmitButton() {
   const { formState, submit } = useFormContext();

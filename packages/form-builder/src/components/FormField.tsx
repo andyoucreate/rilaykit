@@ -114,10 +114,8 @@ export function FormField({
     }
   }, [fieldConfig.conditional, shouldShow]);
 
-  // Don't render if hidden by conditional
-  if (!shouldShow && fieldConfig.conditional?.action === 'hide') {
-    return null;
-  }
+  // Check if field should be hidden by conditional
+  const isHidden = !shouldShow && fieldConfig.conditional?.action === 'hide';
 
   // Memoize merged props to avoid recreating on every render
   const mergedProps = useMemo(
@@ -181,6 +179,7 @@ export function FormField({
       className={className}
       data-field-id={fieldConfig.id}
       data-field-type={componentConfig.type}
+      style={isHidden ? { display: 'none !important' } : undefined}
     >
       {content}
     </div>

@@ -7,7 +7,7 @@ import type {
 } from '../types';
 
 /**
- * Create a Zod-based validator
+ * Create a `Zod`-based validator
  * @param schema - Zod schema to validate against
  * @returns Validator function
  */

@@ -5,13 +5,7 @@ import type {
   FormFieldRow,
   ValidationConfig,
 } from '@rilaykit/core';
-import { ril } from '@rilaykit/core';
-import {
-  IdGenerator,
-  ValidationErrorBuilder,
-  deepClone,
-  ensureUnique,
-} from '@rilaykit/core/src/utils/builderHelpers';
+import { IdGenerator, ValidationErrorBuilder, deepClone, ensureUnique, ril } from '@rilaykit/core';
 
 /**
  * Configuration for a form field with type safety
