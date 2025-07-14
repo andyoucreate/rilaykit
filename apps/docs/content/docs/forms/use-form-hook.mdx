@@ -45,7 +45,8 @@ These properties provide a real-time snapshot of the form's state.
 - `formState`: An object containing the core state of the form.
   - `values`: The current values of all form fields.
   - `errors`: An object holding validation errors for each field.
-  - `touched`: A `Set` of field IDs that the user has interacted with.
+  - `validationState`: An object with the validation state for each field (`'idle'`, `'validating'`, `'valid'`, or `'invalid'`).
+  - `touched`: An object indicating which fields the user has interacted with.
   - `isDirty`: `true` if the user has modified any field from its initial value.
   - `isValid`: `true` if there are no validation errors.
   - `isSubmitting`: `true` when the form submission process is active.
@@ -56,11 +57,11 @@ These properties provide a real-time snapshot of the form's state.
 These functions allow you to interact with and control the form.
 
 - `setValue(fieldId, value)`: Updates the value of a specific field.
-- `setError(fieldId, errors)`: Manually sets validation errors for a field.
-- `clearError(fieldId)`: Clears errors for a specific field.
-- `markFieldTouched(fieldId)`: Marks a field as "touched".
-- `validateField(fieldId, value?)`: Triggers validation for a single field.
-- `validateAllFields()`: Validates all fields in the form.
+- `setFieldTouched(fieldId, touched?)`: Marks a field as "touched".
+- `setError(fieldId, errors)`: Manually sets validation errors for a field. This will also set the form's overall `isValid` state to `false`.
+- `clearError(fieldId)`: Clears errors for a specific field. Note: this does not automatically set the form's `isValid` state to `true`; a full form validation might be needed.
+- `validateField(fieldId, value?)`: Triggers validation for a single field. The optional `value` argument allows immediate validation without waiting for a re-render.
+- `validateForm()`: Validates all fields in the form.
 - `reset(values?)`: Resets the form to its initial state or to a new set of values.
 - `submit()`: Programmatically triggers the form submission process.
 

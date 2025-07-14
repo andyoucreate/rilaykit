@@ -36,6 +36,8 @@ export interface FormContextValue {
   isFormValid: () => boolean;
   reset: (values?: Record<string, any>) => void;
   submit: (event?: React.FormEvent) => Promise<boolean>;
+  setError: (fieldId: string, errors: ValidationError[]) => void;
+  clearError: (fieldId: string) => void;
 }
 
 type FormAction =
@@ -68,6 +70,10 @@ function formReducer(state: FormState, action: FormAction): FormState {
         errors: {
           ...state.errors,
           [action.fieldId]: action.errors,
+        },
+        touched: {
+          ...state.touched,
+          [action.fieldId]: true,
         },
       };
 
@@ -300,6 +306,17 @@ export function FormProvider({
     dispatch({ type: 'RESET', values });
   }, []);
 
+  const setError = useCallback((fieldId: string, errors: ValidationError[]) => {
+    dispatch({ type: 'SET_FIELD_ERRORS', fieldId, errors });
+    if (errors.length > 0) {
+      dispatch({ type: 'SET_FORM_VALIDITY', isValid: false });
+    }
+  }, []);
+
+  const clearError = useCallback((fieldId: string) => {
+    dispatch({ type: 'SET_FIELD_ERRORS', fieldId, errors: [] });
+  }, []);
+
   const submit = useCallback(
     async (event?: React.FormEvent): Promise<boolean> => {
       event?.preventDefault();
@@ -344,6 +361,8 @@ export function FormProvider({
       isFormValid,
       reset,
       submit,
+      setError,
+      clearError,
     }),
     [
       formState,
@@ -355,6 +374,8 @@ export function FormProvider({
       isFormValid,
       reset,
       submit,
+      setError,
+      clearError,
     ]
   );
 
