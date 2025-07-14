@@ -1,19 +1,13 @@
-import type { RendererChildrenFunction, WorkflowStepperRendererProps } from '@rilaykit/core';
+import type { ComponentRendererBaseProps, WorkflowStepperRendererProps } from '@rilaykit/core';
+import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useWorkflowContext } from './WorkflowProvider';
 
-export interface WorkflowStepperProps {
+export interface WorkflowStepperProps
+  extends ComponentRendererBaseProps<WorkflowStepperRendererProps> {
   onStepClick?: (stepIndex: number) => void;
-  className?: string;
-  children?: React.ReactNode | RendererChildrenFunction<WorkflowStepperRendererProps>;
-  renderAs?: 'default' | 'children' | boolean;
 }
 
-export function WorkflowStepper({
-  onStepClick,
-  className,
-  children,
-  renderAs,
-}: WorkflowStepperProps) {
+export function WorkflowStepper({ onStepClick, className, ...props }: WorkflowStepperProps) {
   const { workflowConfig, workflowState, goToStep } = useWorkflowContext();
 
   // Handle step click with optional override
@@ -26,39 +20,22 @@ export function WorkflowStepper({
     }
   };
 
-  const baseProps = {
-    steps: workflowState.resolvedSteps,
+  const baseProps: WorkflowStepperRendererProps = {
+    steps: workflowConfig.steps,
     currentStepIndex: workflowState.currentStepIndex,
     visitedSteps: workflowState.visitedSteps,
     onStepClick: handleStepClick,
     className,
   };
 
-  // If renderAs is 'children' or true, use children as renderer
-  const shouldUseChildrenAsRenderer = renderAs === 'children' || renderAs === true;
-
-  if (shouldUseChildrenAsRenderer) {
-    if (typeof children !== 'function') {
-      throw new Error(
-        'When renderAs="children" is used, children must be a function that returns React elements'
-      );
-    }
-    return children(baseProps);
-  }
-
-  // Default behavior: use configured renderer
-  const stepperRenderer = workflowConfig.renderConfig?.stepperRenderer;
-
-  if (!stepperRenderer) {
-    throw new Error(
-      `No stepperRenderer configured for workflow "${workflowConfig.id}". Please configure a stepperRenderer using config.setStepperRenderer() or config.setWorkflowRenderConfig().`
-    );
-  }
-
-  // WorkflowStepperRendererProps doesn't have children, so we just pass the base props
-  const stepperProps: WorkflowStepperRendererProps = baseProps;
-
-  return stepperRenderer(stepperProps);
+  return (
+    <ComponentRendererWrapper
+      name="WorkflowStepper"
+      renderer={workflowConfig.renderConfig?.stepperRenderer}
+      props={baseProps}
+      {...props}
+    />
+  );
 }
 
 export default WorkflowStepper;

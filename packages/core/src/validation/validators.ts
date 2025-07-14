@@ -1,317 +1,354 @@
-import { z } from 'zod';
-import type {
-  ValidationContext,
-  ValidationError,
-  ValidationResult,
-  ValidatorFunction,
-} from '../types';
+/**
+ * @fileoverview Built-in validators
+ *
+ * This module provides a comprehensive set of built-in validators for common
+ * validation scenarios. These validators follow the FieldValidator interface
+ * and can be used standalone or combined with other validators.
+ */
+
+import type { FieldValidator, ValidationContext, ValidationResult } from '../types';
+import { createErrorResult, createSuccessResult } from './utils';
 
 /**
- * Create a `Zod`-based validator
- * @param schema - Zod schema to validate against
- * @returns Validator function
+ * Validates that a value is not empty, null, or undefined
+ *
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const nameValidator = required('Name is required');
+ * ```
  */
-export const createZodValidator = <T>(schema: z.ZodSchema<T>): ValidatorFunction => {
-  return async (value) => {
-    try {
-      await schema.parseAsync(value);
-
-      return {
-        isValid: true,
-        errors: [],
-      };
-    } catch (error) {
-      // Check if it's a ZodError by looking for the errors property
-      if (error && typeof error === 'object' && 'errors' in error && Array.isArray(error.errors)) {
-        return {
-          isValid: false,
-          errors: error.errors.map((err: any) => ({
-            code: err.code,
-            message: err.message,
-            path: err.path ? err.path.map(String) : [],
-          })),
-        };
-      }
-
-      return {
-        isValid: false,
-        errors: [
-          {
-            code: 'unknown',
-            message: error instanceof Error ? error.message : 'Unknown validation error',
-          },
-        ],
-      };
+export function required(message = 'This field is required'): FieldValidator {
+  return (value: any): ReturnType<FieldValidator> => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === '' ||
+      (Array.isArray(value) && value.length === 0)
+    ) {
+      return createErrorResult(message, 'REQUIRED');
     }
+    return createSuccessResult();
   };
-};
+}
 
 /**
- * Create a custom validator from a validation function
- * @param validationFn - Function that returns boolean, string, or Promise
- * @returns Validator function
+ * Validates minimum string length
+ *
+ * @param min - Minimum length required
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const passwordValidator = minLength(8, 'Password must be at least 8 characters');
+ * ```
  */
-export const createCustomValidator = (
-  validationFn: (
-    value: any,
-    context: ValidationContext
-  ) => boolean | string | Promise<boolean | string>
-): ValidatorFunction => {
-  return async (value, context, _props) => {
-    try {
-      const result = await validationFn(value, context);
-
-      if (result === true) {
-        return { isValid: true, errors: [] };
-      }
-
-      if (result === false) {
-        return {
-          isValid: false,
-          errors: [
-            {
-              code: 'validation_failed',
-              message: 'Validation failed',
-            },
-          ],
-        };
-      }
-
-      // If it's a string, it's the error message
-      return {
-        isValid: false,
-        errors: [
-          {
-            code: 'validation_failed',
-            message: String(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        isValid: false,
-        errors: [
-          {
-            code: 'validation_error',
-            message: error instanceof Error ? error.message : 'Validation error',
-          },
-        ],
-      };
+export function minLength(min: number, message?: string): FieldValidator<string> {
+  return (value: string): ReturnType<FieldValidator> => {
+    if (!value || value.length < min) {
+      return createErrorResult(
+        message || `Must be at least ${min} characters long`,
+        'MIN_LENGTH',
+        `length.${min}`
+      );
     }
+    return createSuccessResult();
   };
-};
+}
 
 /**
- * Combine multiple validators
- * @param validators - Array of validators to combine
- * @param mode - 'all' (all must pass) or 'any' (at least one must pass)
- * @returns Combined validator function
+ * Validates maximum string length
+ *
+ * @param max - Maximum length allowed
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const bioValidator = maxLength(500, 'Bio must be under 500 characters');
+ * ```
  */
-export const combineValidators = (
-  validators: ValidatorFunction[],
-  mode: 'all' | 'any' = 'all'
-): ValidatorFunction => {
-  return async (value, context, props) => {
-    const results = await Promise.all(
-      validators.map((validator) => validator(value, context, props))
-    );
-
-    if (mode === 'all') {
-      const allErrors = results.flatMap((result) => result.errors);
-
-      return {
-        isValid: results.every((result) => result.isValid),
-        errors: allErrors,
-      };
+export function maxLength(max: number, message?: string): FieldValidator<string> {
+  return (value: string): ReturnType<FieldValidator> => {
+    if (value && value.length > max) {
+      return createErrorResult(
+        message || `Must be no more than ${max} characters long`,
+        'MAX_LENGTH',
+        `length.${max}`
+      );
     }
-    // mode === 'any'
-    const hasValidResult = results.some((result) => result.isValid);
-
-    if (hasValidResult) {
-      return {
-        isValid: true,
-        errors: [],
-      };
-    }
-    const allErrors = results.flatMap((result) => result.errors);
-    return {
-      isValid: false,
-      errors: allErrors,
-    };
+    return createSuccessResult();
   };
-};
+}
 
 /**
- * Create a conditional validator that only runs when condition is met
- * @param condition - Function to determine if validation should run
- * @param validator - Validator to run when condition is true
- * @returns Conditional validator function
+ * Validates that a string matches a regular expression pattern
+ *
+ * @param regex - The regular expression pattern
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const phoneValidator = pattern(/^\d{3}-\d{3}-\d{4}$/, 'Invalid phone format');
+ * ```
  */
-export const createConditionalValidator = (
-  condition: (value: any, context: ValidationContext) => boolean,
-  validator: ValidatorFunction
-): ValidatorFunction => {
-  return async (value, context, props) => {
-    if (!condition(value, context)) {
-      return { isValid: true, errors: [] };
+export function pattern(regex: RegExp, message?: string): FieldValidator<string> {
+  return (value: string): ReturnType<FieldValidator> => {
+    if (value && !regex.test(value)) {
+      return createErrorResult(
+        message || 'Invalid format',
+        'PATTERN_MISMATCH',
+        `pattern.${regex.source}`
+      );
     }
-
-    return validator(value, context, props);
+    return createSuccessResult();
   };
-};
+}
 
 /**
- * Common validation patterns
+ * Email validation using a comprehensive regex pattern
+ *
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const emailValidator = email('Please enter a valid email address');
+ * ```
  */
-export const commonValidators = {
-  /**
-   * Required field validator
-   */
-  required: (message = 'This field is required'): ValidatorFunction =>
-    createCustomValidator((value) => {
-      if (value === null || value === undefined || value === '') {
-        return message;
-      }
-      return true;
-    }),
+export function email(message = 'Please enter a valid email address'): FieldValidator<string> {
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-  /**
-   * Email validation
-   */
-  email: (message = 'Invalid email format'): ValidatorFunction =>
-    createZodValidator(z.string().email(message)),
-
-  /**
-   * Minimum length validation
-   */
-  minLength: (min: number, message?: string): ValidatorFunction =>
-    createZodValidator(z.string().min(min, message || `Minimum ${min} characters required`)),
-
-  /**
-   * Maximum length validation
-   */
-  maxLength: (max: number, message?: string): ValidatorFunction =>
-    createZodValidator(z.string().max(max, message || `Maximum ${max} characters allowed`)),
-
-  /**
-   * Pattern/regex validation
-   */
-  pattern: (regex: RegExp, message = 'Invalid format'): ValidatorFunction =>
-    createZodValidator(z.string().regex(regex, message)),
-
-  /**
-   * Number range validation
-   */
-  numberRange: (min?: number, max?: number, message?: string): ValidatorFunction => {
-    let schema = z.number();
-
-    if (min !== undefined) {
-      schema = schema.min(min, message || `Value must be at least ${min}`);
+  return (value: string): ReturnType<FieldValidator> => {
+    if (value && !emailRegex.test(value)) {
+      return createErrorResult(message, 'INVALID_EMAIL');
     }
+    return createSuccessResult();
+  };
+}
 
-    if (max !== undefined) {
-      schema = schema.max(max, message || `Value must be at most ${max}`);
+/**
+ * URL validation using a comprehensive regex pattern
+ *
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const websiteValidator = url('Please enter a valid URL');
+ * ```
+ */
+export function url(message = 'Please enter a valid URL'): FieldValidator<string> {
+  const urlRegex =
+    /^https?:\/\/(?:[-\w.])+(?:\:[0-9]+)?(?:\/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?)?$/;
+
+  return (value: string): ReturnType<FieldValidator> => {
+    if (value && !urlRegex.test(value)) {
+      return createErrorResult(message, 'INVALID_URL');
     }
-
-    return createZodValidator(schema);
-  },
-
-  /**
-   * URL validation
-   */
-  url: (message = 'Invalid URL format'): ValidatorFunction =>
-    createZodValidator(z.string().url(message)),
-
-  /**
-   * Phone number validation (basic)
-   */
-  phoneNumber: (message = 'Invalid phone number format'): ValidatorFunction =>
-    createZodValidator(z.string().regex(/^\+?[\d\s\-\(\)]+$/, message)),
-
-  /**
-   * Custom async validation with debouncing
-   */
-  asyncValidation: (
-    asyncFn: (value: any, context: ValidationContext) => Promise<boolean | string>,
-    debounceMs = 300
-  ): ValidatorFunction => {
-    const debounceMap = new Map<string, NodeJS.Timeout>();
-
-    return (value, context, _props) => {
-      return new Promise((resolve) => {
-        const key = `${context.fieldId}-${JSON.stringify(value)}`;
-
-        // Clear existing timeout
-        if (debounceMap.has(key)) {
-          clearTimeout(debounceMap.get(key)!);
-        }
-
-        // Set new timeout
-        const timeout = setTimeout(async () => {
-          try {
-            const result = await asyncFn(value, context);
-
-            if (result === true) {
-              resolve({ isValid: true, errors: [] });
-            } else {
-              resolve({
-                isValid: false,
-                errors: [
-                  {
-                    code: 'async_validation_failed',
-                    message: typeof result === 'string' ? result : 'Async validation failed',
-                  },
-                ],
-              });
-            }
-          } catch (error) {
-            resolve({
-              isValid: false,
-              errors: [
-                {
-                  code: 'async_validation_error',
-                  message: error instanceof Error ? error.message : 'Async validation error',
-                },
-              ],
-            });
-          } finally {
-            debounceMap.delete(key);
-          }
-        }, debounceMs);
-
-        debounceMap.set(key, timeout);
-      });
-    };
-  },
-};
+    return createSuccessResult();
+  };
+}
 
 /**
- * Utility to create validation result
- * @param isValid - Whether validation passed
- * @param errors - Array of errors (optional)
- * @returns ValidationResult object
+ * Validates that a value is a valid number
+ *
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const ageValidator = number('Age must be a valid number');
+ * ```
  */
-export const createValidationResult = (
-  isValid: boolean,
-  errors: ValidationError[] = []
-): ValidationResult => ({
-  isValid,
-  errors,
-});
+export function number(message = 'Must be a valid number'): FieldValidator<string | number> {
+  return (value: string | number): ReturnType<FieldValidator> => {
+    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+    if (Number.isNaN(numValue) || !Number.isFinite(numValue)) {
+      return createErrorResult(message, 'INVALID_NUMBER');
+    }
+    return createSuccessResult();
+  };
+}
 
 /**
- * Utility to create validation error
- * @param code - Error code
- * @param message - Error message
- * @param path - Error path (optional)
- * @returns ValidationError object
+ * Validates minimum numeric value
+ *
+ * @param minValue - Minimum value allowed
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const ageValidator = min(18, 'Must be at least 18 years old');
+ * ```
  */
-export const createValidationError = (
-  code: string,
+export function min(minValue: number, message?: string): FieldValidator<string | number> {
+  return (value: string | number): ReturnType<FieldValidator> => {
+    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+    if (!Number.isNaN(numValue) && numValue < minValue) {
+      return createErrorResult(
+        message || `Must be at least ${minValue}`,
+        'MIN_VALUE',
+        `min.${minValue}`
+      );
+    }
+    return createSuccessResult();
+  };
+}
+
+/**
+ * Validates maximum numeric value
+ *
+ * @param maxValue - Maximum value allowed
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const scoreValidator = max(100, 'Score cannot exceed 100');
+ * ```
+ */
+export function max(maxValue: number, message?: string): FieldValidator<string | number> {
+  return (value: string | number): ReturnType<FieldValidator> => {
+    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+    if (!Number.isNaN(numValue) && numValue > maxValue) {
+      return createErrorResult(
+        message || `Must be no more than ${maxValue}`,
+        'MAX_VALUE',
+        `max.${maxValue}`
+      );
+    }
+    return createSuccessResult();
+  };
+}
+
+/**
+ * Creates a custom validator from a validation function
+ *
+ * @param validateFn - Custom validation function
+ * @param message - Error message for failed validation
+ * @param code - Optional error code
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const evenNumberValidator = custom(
+ *   (value) => Number(value) % 2 === 0,
+ *   'Number must be even',
+ *   'NOT_EVEN'
+ * );
+ * ```
+ */
+export function custom<T>(
+  validateFn: (value: T, context: ValidationContext) => boolean,
   message: string,
-  path?: string[]
-): ValidationError => ({
-  code,
-  message,
-  path,
-});
+  code?: string
+): FieldValidator<T> {
+  return (value: T, context: ValidationContext): ReturnType<FieldValidator> => {
+    if (!validateFn(value, context)) {
+      return createErrorResult(message, code || 'CUSTOM_VALIDATION_FAILED');
+    }
+    return createSuccessResult();
+  };
+}
+
+/**
+ * Creates a validator that checks if a value matches another field's value
+ *
+ * @param targetFieldId - ID of the field to match against
+ * @param message - Custom error message (optional)
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const confirmPasswordValidator = matchField('password', 'Passwords must match');
+ * ```
+ */
+export function matchField(targetFieldId: string, message?: string): FieldValidator {
+  return (value: any, context: ValidationContext): ReturnType<FieldValidator> => {
+    const targetValue = context.allFormData?.[targetFieldId];
+    if (value !== targetValue) {
+      return createErrorResult(
+        message || 'Fields must match',
+        'FIELD_MISMATCH',
+        `match.${targetFieldId}`
+      );
+    }
+    return createSuccessResult();
+  };
+}
+
+/**
+ * Creates a validator that only validates when a condition is met
+ *
+ * @param condition - Function that determines if validation should run
+ * @param validator - The validator to run conditionally
+ * @returns A FieldValidator function
+ *
+ * @example
+ * ```typescript
+ * const conditionalValidator = when(
+ *   (value, context) => context.allFormData?.userType === 'premium',
+ *   required('Premium users must provide this field')
+ * );
+ * ```
+ */
+export function when<T>(
+  condition: (value: T, context: ValidationContext) => boolean,
+  validator: FieldValidator<T>
+): FieldValidator<T> {
+  return (value: T, context: ValidationContext): ReturnType<FieldValidator> => {
+    if (!condition(value, context)) {
+      return createSuccessResult();
+    }
+    return validator(value, context);
+  };
+}
+
+/**
+ * Creates an async custom validator from a validation function
+ *
+ * @param validateFn - Async custom validation function that returns a Promise<boolean>
+ * @param message - Error message for failed validation
+ * @param code - Optional error code
+ * @returns A FieldValidator function that returns a Promise
+ *
+ * @example
+ * ```typescript
+ * const checkEmailUnique = customAsync(
+ *   async (email) => {
+ *     const response = await fetch(`/api/check-email?email=${email}`);
+ *     const data = await response.json();
+ *     return data.isUnique;
+ *   },
+ *   'Email address is already taken',
+ *   'EMAIL_NOT_UNIQUE'
+ * );
+ * ```
+ */
+export function async<T>(
+  validateFn: (value: T, context: ValidationContext) => Promise<boolean>,
+  message: string,
+  code?: string
+): FieldValidator<T> {
+  return async (value: T, context: ValidationContext): Promise<ValidationResult> => {
+    try {
+      const isValid = await validateFn(value, context);
+      if (!isValid) {
+        return createErrorResult(message, code || 'ASYNC_VALIDATION_FAILED');
+      }
+      return createSuccessResult();
+    } catch (error) {
+      return createErrorResult(
+        error instanceof Error ? error.message : 'Async validation error',
+        'ASYNC_ERROR'
+      );
+    }
+  };
+}

@@ -1,5 +1,3 @@
-import type { ValidationError } from '../types';
-
 /**
  * Utility for merging partial configurations into existing objects
  * Eliminates repetitive object spread operations
@@ -53,51 +51,6 @@ export class IdGenerator {
     }
   }
 }
-
-/**
- * Validation error builder for consistent error handling
- */
-export class ValidationErrorBuilder {
-  private errors: ValidationError[] = [];
-
-  add(code: string, message: string, path?: string[]): this {
-    this.errors.push({ code, message, path });
-    return this;
-  }
-
-  addIf(condition: boolean, code: string, message: string, path?: string[]): this {
-    if (condition) {
-      this.add(code, message, path);
-    }
-    return this;
-  }
-
-  build(): ValidationError[] {
-    return [...this.errors];
-  }
-
-  hasErrors(): boolean {
-    return this.errors.length > 0;
-  }
-
-  clear(): this {
-    this.errors = [];
-    return this;
-  }
-}
-
-/**
- * Common validation patterns
- */
-export const ValidationPatterns = {
-  hasValue: (value: any) => value !== undefined && value !== null && value !== '',
-
-  isArray: (value: any) => Array.isArray(value),
-
-  arrayMinLength: (value: any[], min: number) => value.length >= min,
-
-  arrayMaxLength: (value: any[], max: number) => value.length <= max,
-};
 
 /**
  * Polymorphic helper for handling single items or arrays

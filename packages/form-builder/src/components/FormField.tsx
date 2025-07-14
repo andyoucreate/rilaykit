@@ -15,7 +15,7 @@ export function FormField({
   customProps = {},
   className,
 }: FormFieldProps) {
-  const { formState, formConfig, setValue, markFieldTouched, validateField } = useFormContext();
+  const { formState, formConfig, setValue, setFieldTouched, validateField } = useFormContext();
 
   // Memoize field config lookup to avoid repeated searches
   const fieldConfig = useMemo(
@@ -29,7 +29,7 @@ export function FormField({
 
   // Memoize component config lookup
   const componentConfig = useMemo(
-    () => formConfig.config.getComponent(fieldConfig.componentId as never),
+    () => formConfig.config.getComponent(fieldConfig.componentId),
     [formConfig.config, fieldConfig.componentId]
   );
 
@@ -37,85 +37,56 @@ export function FormField({
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }
 
-  // Memoize field state values that are referenced multiple times
+  // Get field state from form state
   const fieldState = useMemo(
     () => ({
-      value: formState.values[fieldConfig.id],
-      errors: formState.errors[fieldConfig.id] || [],
-      touched: formState.touched.has(fieldConfig.id),
-      validating: formState.isValidating.has(fieldConfig.id),
+      value: formState.values[fieldId],
+      errors: formState.errors[fieldId] || [],
+      validationState: formState.validationState[fieldId] || 'idle',
+      isValidating: formState.validationState[fieldId] === 'validating',
+      isTouched: formState.touched[fieldId] || false,
     }),
-    [formState.values, formState.errors, formState.touched, formState.isValidating, fieldConfig.id]
+    [formState.values, formState.errors, formState.validationState, formState.touched, fieldId]
   );
 
-  // Handle field value change - optimized dependencies
+  // Handle field change with validation if configured
   const handleChange = useCallback(
-    (value: any) => {
-      const hadErrors = fieldState.errors.length > 0;
+    async (value: any) => {
       setValue(fieldConfig.id, value);
 
-      // Auto-validate on change if:
-      // - Explicitly configured with validateOnChange
-      // - Field had errors (immediate feedback on correction)
-      // - Field is touched (user has interacted with it before)
-      if (
-        fieldConfig.validation?.validateOnChange ||
-        (hadErrors && fieldConfig.validation?.validator) ||
-        (fieldState.touched && fieldConfig.validation?.validator)
-      ) {
-        validateField(fieldConfig.id, value);
+      // Validate on change if configured OR if field is touched (default behavior)
+      if (fieldConfig.validation?.validateOnChange || fieldState.isTouched) {
+        await validateField(fieldConfig.id);
       }
     },
     [
       fieldConfig.id,
-      fieldConfig.validation,
+      fieldConfig.validation?.validateOnChange,
+      fieldState.isTouched,
       setValue,
       validateField,
-      fieldState.errors.length,
-      fieldState.touched,
     ]
   );
 
-  // Handle field blur - stable callback
-  const handleBlur = useCallback(() => {
-    markFieldTouched(fieldConfig.id);
-
-    // Auto-validate on blur if configured OR if field has validation
-    if (fieldConfig.validation?.validateOnBlur || fieldConfig.validation?.validator) {
-      validateField(fieldConfig.id);
+  // Handle field blur with validation if configured
+  const handleBlur = useCallback(async () => {
+    // Always mark field as touched on blur
+    if (!fieldState.isTouched) {
+      setFieldTouched(fieldConfig.id, true);
     }
-  }, [fieldConfig.id, fieldConfig.validation, markFieldTouched, validateField]);
 
-  // Check conditional logic - memoized expensive calculation
-  const shouldShow = useMemo(() => {
-    if (!fieldConfig.conditional) return true;
-
-    try {
-      return fieldConfig.conditional.condition(formState.values);
-    } catch (error) {
-      console.warn(`Conditional evaluation failed for field "${fieldConfig.id}":`, error);
-      return true;
+    // Validate on blur if configured
+    if (fieldConfig.validation?.validateOnBlur || !fieldConfig.validation?.validateOnChange) {
+      await validateField(fieldConfig.id);
     }
-  }, [fieldConfig.conditional, formState.values, fieldConfig.id]);
-
-  // Apply conditional actions - memoized calculation
-  const conditionalProps = useMemo(() => {
-    if (!fieldConfig.conditional || !shouldShow) return {};
-
-    const action = fieldConfig.conditional.action;
-
-    switch (action) {
-      case 'disable':
-        return { disabled: true };
-      case 'require':
-        return { required: true };
-      default:
-        return {};
-    }
-  }, [fieldConfig.conditional, shouldShow]);
-
-  // Check if field should be hidden by conditional
-  const isHidden = !shouldShow && fieldConfig.conditional?.action === 'hide';
+  }, [
+    fieldConfig.id,
+    fieldConfig.validation?.validateOnBlur,
+    fieldConfig.validation?.validateOnChange,
+    fieldState.isTouched,
+    setFieldTouched,
+    validateField,
+  ]);
 
   // Memoize merged props to avoid recreating on every render
   const mergedProps = useMemo(
@@ -123,9 +94,8 @@ export function FormField({
       ...(componentConfig.defaultProps ?? {}),
       ...fieldConfig.props,
       ...customProps,
-      ...conditionalProps,
     }),
-    [componentConfig.defaultProps, fieldConfig.props, customProps, conditionalProps]
+    [componentConfig.defaultProps, fieldConfig.props, customProps]
   );
 
   // Memoize render props to avoid recreating complex object
@@ -136,22 +106,19 @@ export function FormField({
       value: fieldState.value,
       onChange: handleChange,
       onBlur: handleBlur,
+      disabled: disabled,
       error: fieldState.errors,
-      touched: fieldState.touched,
-      disabled: disabled || conditionalProps.disabled,
-      isValidating: fieldState.validating,
+      isValidating: fieldState.isValidating,
     }),
     [
       fieldConfig.id,
       mergedProps,
       fieldState.value,
+      fieldState.errors,
+      fieldState.isValidating,
       handleChange,
       handleBlur,
-      fieldState.errors,
-      fieldState.touched,
       disabled,
-      conditionalProps.disabled,
-      fieldState.validating,
     ]
   );
 
@@ -166,10 +133,7 @@ export function FormField({
       ? fieldRenderer({
           children: renderedComponent,
           id: fieldConfig.id,
-          error: fieldState.errors,
-          touched: fieldState.touched,
-          disabled: disabled || conditionalProps.disabled,
-          isValidating: fieldState.validating,
+          disabled: disabled,
           ...mergedProps,
         })
       : renderedComponent;
@@ -179,7 +143,6 @@ export function FormField({
       className={className}
       data-field-id={fieldConfig.id}
       data-field-type={componentConfig.type}
-      style={isHidden ? { display: 'none !important' } : undefined}
     >
       {content}
     </div>

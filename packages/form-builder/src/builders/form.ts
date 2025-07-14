@@ -1,11 +1,12 @@
 import type {
-  ConditionalConfig,
+  FieldValidationConfig,
   FormConfiguration,
   FormFieldConfig,
   FormFieldRow,
-  ValidationConfig,
+  FormValidationConfig,
+  FormValidator,
 } from '@rilaykit/core';
-import { IdGenerator, ValidationErrorBuilder, deepClone, ensureUnique, ril } from '@rilaykit/core';
+import { IdGenerator, deepClone, ensureUnique, ril } from '@rilaykit/core';
 
 /**
  * Configuration for a form field with type safety
@@ -18,7 +19,11 @@ import { IdGenerator, ValidationErrorBuilder, deepClone, ensureUnique, ril } fro
  * const fieldConfig: FieldConfig<MyComponents, 'text'> = {
  *   type: 'text',
  *   props: { placeholder: 'Enter your name' },
- *   validation: { required: true }
+ *   validation: {
+ *     validators: [required(), minLength(2)],
+ *     validateOnChange: true,
+ *     validateOnBlur: true
+ *   }
  * };
  * ```
  */
@@ -29,29 +34,9 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
   type: T;
   /** Component-specific properties */
   props?: Partial<C[T]>;
-  /** Validation rules for the field */
-  validation?: ValidationConfig;
-  /** Conditional display logic */
-  conditional?: ConditionalConfig;
+  /** Validation configuration for this field */
+  validation?: FieldValidationConfig;
 };
-
-/**
- * Options for configuring row layout and appearance
- *
- * @example
- * ```typescript
- * const rowOptions: RowOptions = {
- *   spacing: 'loose',
- *   alignment: 'center'
- * };
- * ```
- */
-interface RowOptions {
-  /** Spacing between fields in the row */
-  spacing?: 'tight' | 'normal' | 'loose';
-  /** Vertical alignment of fields in the row */
-  alignment?: 'start' | 'center' | 'end' | 'stretch';
-}
 
 /**
  * Form builder class for creating type-safe form configurations
@@ -77,7 +62,6 @@ interface RowOptions {
  * @remarks
  * - Supports up to 3 fields per row for optimal layout
  * - Automatically generates unique IDs for fields and rows
- * - Provides comprehensive validation before building
  * - Maintains type safety throughout the building process
  */
 export class form<C extends Record<string, any> = Record<string, never>> {
@@ -89,6 +73,8 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   private formId: string;
   /** Generator for creating unique IDs */
   private idGenerator = new IdGenerator();
+  /** Form-level validation configuration */
+  private formValidation?: FormValidationConfig;
 
   /**
    * Creates a new form builder instance
@@ -127,11 +113,15 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
-   * Converts a FieldConfig to a FormFieldConfig with proper validation
+   * Converts a FieldConfig to a FormFieldConfig
    *
    * This internal method handles the transformation from the builder's field
    * configuration format to the final form field configuration, including
-   * component lookup, prop merging, and ID generation.
+   * component lookup, prop merging, ID generation, and validation setup.
+   *
+   * The validation system combines component-level validation (defined in the component config)
+   * with field-level validation (defined in the field config). Component validators are
+   * applied first, followed by field validators.
    *
    * @template T - The component type
    * @param fieldConfig - The field configuration to convert
@@ -149,19 +139,38 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       throw new Error(`No component found with type "${fieldConfig.type}"`);
     }
 
+    // Combine component validation with field validation
+    let combinedValidation: FieldValidationConfig | undefined;
+
+    if (component.validation || fieldConfig.validation) {
+      combinedValidation = {
+        // Merge validation settings, field settings take precedence
+        validateOnChange:
+          fieldConfig.validation?.validateOnChange ?? component.validation?.validateOnChange,
+        validateOnBlur:
+          fieldConfig.validation?.validateOnBlur ?? component.validation?.validateOnBlur,
+        debounceMs: fieldConfig.validation?.debounceMs ?? component.validation?.debounceMs,
+
+        // Combine validators: component validators first, then field validators
+        validators: [
+          ...(component.validation?.validators || []),
+          ...(fieldConfig.validation?.validators || []),
+        ],
+      };
+    }
+
     return {
       id: fieldConfig.id || this.idGenerator.next('field'),
       componentId: component.id,
       props: { ...component.defaultProps, ...fieldConfig.props },
-      validation: fieldConfig.validation,
-      conditional: fieldConfig.conditional,
+      validation: combinedValidation,
     };
   }
 
   /**
    * Creates a form row with the specified fields and options
    *
-   * This internal method handles row creation with validation of field limits,
+   * This internal method handles row creation,
    * proper spacing, and alignment configuration.
    *
    * @template T - The component type
@@ -172,10 +181,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    *
    * @internal
    */
-  private createRow<T extends keyof C & string>(
-    fieldConfigs: FieldConfig<C, T>[],
-    rowOptions?: RowOptions
-  ): FormFieldRow {
+  private createRow<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): FormFieldRow {
     if (fieldConfigs.length === 0) {
       throw new Error('At least one field is required');
     }
@@ -190,8 +196,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       id: this.idGenerator.next('row'),
       fields,
       maxColumns: fieldConfigs.length,
-      spacing: rowOptions?.spacing || 'normal',
-      alignment: rowOptions?.alignment || 'stretch',
     };
   }
 
@@ -230,21 +234,14 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   add<T extends keyof C & string>(...fields: FieldConfig<C, T>[]): this;
-  add<T extends keyof C & string>(fields: FieldConfig<C, T>[], rowOptions?: RowOptions): this;
-  add<T extends keyof C & string>(
-    ...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[], RowOptions?]
-  ): this {
+  add<T extends keyof C & string>(fields: FieldConfig<C, T>[]): this;
+  add<T extends keyof C & string>(...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[]]): this {
     let fieldConfigs: FieldConfig<C, T>[];
-    let rowOptions: RowOptions | undefined;
     let isExplicitArray = false;
 
     // Check if first argument is an array (explicit array syntax)
     if (args.length === 1 && Array.isArray(args[0])) {
       fieldConfigs = args[0];
-      isExplicitArray = true;
-    } else if (args.length === 2 && Array.isArray(args[0])) {
-      fieldConfigs = args[0];
-      rowOptions = args[1] as RowOptions;
       isExplicitArray = true;
     } else {
       // Variadic arguments - all arguments should be field configs
@@ -262,21 +259,21 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     // If only one field, create its own row
     if (fieldConfigs.length === 1) {
-      const row = this.createRow(fieldConfigs, rowOptions);
+      const row = this.createRow(fieldConfigs);
       this.rows.push(row);
       return this;
     }
 
     // If multiple fields and they fit in one row (≤3), put them together
     if (fieldConfigs.length <= 3) {
-      const row = this.createRow(fieldConfigs, rowOptions);
+      const row = this.createRow(fieldConfigs);
       this.rows.push(row);
       return this;
     }
 
     // If more than 3 fields (variadic only), create separate rows for each
     for (const config of fieldConfigs) {
-      const row = this.createRow([config], rowOptions);
+      const row = this.createRow([config]);
       this.rows.push(row);
     }
 
@@ -302,16 +299,13 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    *   { type: 'text', props: { label: 'Field 1' } },
    *   { type: 'text', props: { label: 'Field 2' } },
    *   { type: 'text', props: { label: 'Field 3' } }
-   * ], { spacing: 'loose' });
+   * ]);
    * ```
    */
-  addSeparateRows<T extends keyof C & string>(
-    fieldConfigs: FieldConfig<C, T>[],
-    rowOptions?: RowOptions
-  ): this {
+  addSeparateRows<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): this {
     for (const config of fieldConfigs) {
       // Use array syntax to ensure we're using the correct overload
-      this.add([config], rowOptions);
+      this.add(config);
     }
     return this;
   }
@@ -335,8 +329,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   /**
    * Updates an existing field's configuration
    *
-   * This method allows you to modify field properties, validation rules,
-   * or conditional logic after the field has been added to the form.
+   * This method allows you to modify field properties after the field has been added to the form.
    *
    * @param fieldId - The unique identifier of the field to update
    * @param updates - Partial field configuration with updates to apply
@@ -347,7 +340,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```typescript
    * builder.updateField('email-field', {
    *   props: { placeholder: 'Enter your email address' },
-   *   validation: { required: true, email: true }
    * });
    * ```
    */
@@ -484,6 +476,100 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
+   * Configures validation for the entire form
+   *
+   * This method sets up form-level validation that will be applied when the
+   * form is submitted or when validation is explicitly triggered. Form validators
+   * receive all form data and can perform cross-field validation.
+   *
+   * @param validationConfig - Form validation configuration
+   * @returns The form builder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.setValidation({
+   *   validators: [
+   *     (formData, context) => {
+   *       if (!formData.email && !formData.phone) {
+   *         return createErrorResult('Either email or phone is required');
+   *       }
+   *       return createSuccessResult();
+   *     }
+   *   ],
+   *   validateOnSubmit: true
+   * });
+   * ```
+   */
+  setValidation(validationConfig: FormValidationConfig): this {
+    this.formValidation = validationConfig;
+    return this;
+  }
+
+  /**
+   * Adds validators to the form-level validation
+   *
+   * This method allows adding validators to an existing validation configuration
+   * without replacing the entire configuration.
+   *
+   * @param validators - Array of form validators to add
+   * @returns The form builder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.addValidators([
+   *   customFormValidator,
+   *   anotherFormValidator
+   * ]);
+   * ```
+   */
+  addValidators(validators: FormValidator[]): this {
+    if (!this.formValidation) {
+      this.formValidation = { validators: [] };
+    }
+
+    this.formValidation = {
+      ...this.formValidation,
+      validators: [...(this.formValidation.validators || []), ...validators],
+    };
+
+    return this;
+  }
+
+  /**
+   * Adds validation to a specific field by ID
+   *
+   * This method allows adding validation to a field after it has been created,
+   * useful for dynamic validation requirements.
+   *
+   * @param fieldId - The ID of the field to add validation to
+   * @param validationConfig - Field validation configuration
+   * @returns The form builder instance for method chaining
+   * @throws Error if the field with the specified ID is not found
+   *
+   * @example
+   * ```typescript
+   * builder.addFieldValidation('email', {
+   *   validators: [required(), email()],
+   *   validateOnBlur: true
+   * });
+   * ```
+   */
+  addFieldValidation(fieldId: string, validationConfig: FieldValidationConfig): this {
+    const field = this.findField(fieldId);
+    if (!field) {
+      throw new Error(`Field with ID "${fieldId}" not found`);
+    }
+
+    const updatedValidation: FieldValidationConfig = {
+      ...field.validation,
+      ...validationConfig,
+      validators: [...(field.validation?.validators || []), ...(validationConfig.validators || [])],
+    };
+
+    return this.updateField(fieldId, { validation: updatedValidation });
+  }
+
+  /**
    * Creates a deep copy of the current form builder
    *
    * This method creates a completely independent copy of the form builder,
@@ -507,30 +593,12 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
-   * Validates the current form configuration
+   * Checks the current form configuration for basic structural issues.
    *
-   * This method performs comprehensive validation of the form structure,
-   * checking for common issues like duplicate IDs, missing components,
-   * and invalid row configurations.
-   *
-   * @returns Array of validation error messages (empty if valid)
-   *
-   * @example
-   * ```typescript
-   * const errors = builder.validate();
-   * if (errors.length > 0) {
-   *   console.error('Form validation failed:', errors);
-   * }
-   * ```
-   *
-   * @remarks
-   * Validation checks include:
-   * - Duplicate field IDs across the form
-   * - Missing component definitions for referenced types
-   * - Row constraints (max 3 fields, no empty rows)
+   * @returns Array of error messages (empty if valid)
    */
   validate(): string[] {
-    const errorBuilder = new ValidationErrorBuilder();
+    const errors: string[] = [];
     const allFields = this.getFields();
 
     // Check for duplicate field IDs using shared utility
@@ -538,53 +606,43 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     try {
       ensureUnique(fieldIds, 'field');
     } catch (error) {
-      errorBuilder.add(
-        'DUPLICATE_FIELD_IDS',
-        error instanceof Error ? error.message : String(error)
-      );
+      errors.push(error instanceof Error ? error.message : String(error));
     }
 
     // Check that all referenced components exist
     for (const field of allFields) {
-      errorBuilder.addIf(
-        !this.config.hasComponent(field.componentId),
-        'MISSING_COMPONENT',
-        `Component "${field.componentId}" not found for field "${field.id}"`
-      );
+      if (!this.config.hasComponent(field.componentId)) {
+        errors.push(`Component "${field.componentId}" not found for field "${field.id}"`);
+      }
     }
 
     // Check row constraints
     for (const row of this.rows) {
-      errorBuilder.addIf(
-        row.fields.length > 3,
-        'TOO_MANY_FIELDS_IN_ROW',
-        `Row "${row.id}" has ${row.fields.length} fields, maximum is 3`
-      );
+      if (row.fields.length > 3) {
+        errors.push(`Row "${row.id}" has ${row.fields.length} fields, maximum is 3`);
+      }
 
-      errorBuilder.addIf(row.fields.length === 0, 'EMPTY_ROW', `Row "${row.id}" is empty`);
+      if (row.fields.length === 0) {
+        errors.push(`Row "${row.id}" is empty`);
+      }
     }
 
-    return errorBuilder.build().map((err) => err.message);
+    return errors;
   }
 
   /**
    * Builds the final form configuration
    *
-   * This method performs final validation and creates the complete form
+   * This method creates the complete form
    * configuration object ready for rendering. It includes all field
-   * configurations, render settings, and metadata.
+   * configurations, render settings, validation configuration, and metadata.
    *
    * @returns Complete form configuration ready for use
-   * @throws Error if validation fails
    *
    * @example
    * ```typescript
-   * try {
-   *   const formConfig = builder.build();
-   *   // Use formConfig with your form renderer
-   * } catch (error) {
-   *   console.error('Failed to build form:', error.message);
-   * }
+   * const formConfig = builder.build();
+   * // Use formConfig with your form renderer
    * ```
    *
    * @remarks
@@ -594,20 +652,16 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * - Flattened array of all fields for easy access
    * - Component configuration reference
    * - Render configuration for customization
+   * - Form-level validation configuration
    */
   build(): FormConfiguration {
-    const errors = this.validate();
-
-    if (errors.length > 0) {
-      throw new Error(`Form validation failed: ${errors.join(', ')}`);
-    }
-
     return {
       id: this.formId,
       rows: [...this.rows],
       allFields: this.getFields(),
       config: this.config as ril,
       renderConfig: this.config.getFormRenderConfig(),
+      validation: this.formValidation,
     };
   }
 

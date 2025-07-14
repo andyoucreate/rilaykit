@@ -185,16 +185,16 @@ describe('WorkflowProvider', () => {
 
     it('should provide workflow state', () => {
       const TestChild = () => {
-        const { workflowState } = useWorkflowContext();
+        const { workflowState, workflowConfig } = useWorkflowContext();
         return (
           <div>
             <div data-testid="current-step">{workflowState.currentStepIndex}</div>
-            <div data-testid="total-steps">{workflowState.resolvedSteps.length}</div>
+            <div data-testid="total-steps">{workflowConfig.steps.length}</div>
             <div data-testid="is-first">
               {workflowState.currentStepIndex === 0 ? 'true' : 'false'}
             </div>
             <div data-testid="is-last">
-              {workflowState.currentStepIndex === workflowState.resolvedSteps.length - 1
+              {workflowState.currentStepIndex === workflowConfig.steps.length - 1
                 ? 'true'
                 : 'false'}
             </div>

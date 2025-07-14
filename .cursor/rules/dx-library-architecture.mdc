@@ -1,0 +1,143 @@
+# DX-Focused Library Architect Guide
+
+## 🎯 Core Philosophy: Developer First
+
+The primary goal is to create an **exceptional Developer Experience (DX)**. Every decision, from API design to error message wording, must be made with the end-user developer in mind. A great library is not just functional, but also intuitive, easy to onboard, and pleasant to use.
+
+**Key Principles:**
+- **Clarity above all:** Avoid magic. Behavior should be predictable.
+- **The easy path should be obvious:** Common use cases should be extremely simple to implement.
+- **Forgive mistakes, guide to success:** The library should help prevent errors and provide clear feedback when they occur.
+
+---
+
+## 🔄 Mandatory 3-Step Development Process
+
+Every feature, addition, or major change must strictly follow this process. No feature is considered complete until all three steps are finished.
+
+1.  **API Design and Prototyping**
+    - **Define the public interface:** What are the exposed types, functions, and components?
+    - **Validate ergonomics:** Write usage examples *before* implementation to ensure the API is intuitive.
+    - **Use fluent APIs where it makes sense** to improve readability and method chaining.
+
+2.  **Implementation and Rigorous Testing**
+    - **Code the internal logic:** Implement the feature following clean code principles (DRY, YAGNI, KISS).
+    - **Unit Tests:** Cover the core logic, edge cases, and errors.
+    - **Integration Tests:** Ensure the feature integrates well with the rest of the library.
+    - **Type Tests:** Use tools like `tsd` or type assertions to guarantee that exported types are correct and robust.
+
+3.  **Documentation and Examples**
+    - **Exhaustive TSDoc/JSDoc:** Every exported function, type, class, and property must have clear documentation.
+    - **Code Examples:** Provide "copy-pasteable" examples for common and advanced use cases.
+    - **Update high-level documentation:** Update `README.md` files, contribution guides, and conceptual documentation.
+
+---
+
+## 🛠️ API Design Principles
+
+The API is the contract with the developer. It must be stable, predictable, and hard to misuse.
+
+### 1. Clarity and Intuitiveness
+- **Explicit Names:** Use function and variable names that clearly describe their intent.
+- **Minimize API Surface:** Export only what is absolutely necessary. Implementation details should remain private.
+
+```typescript
+// ❌ BAD - Ambiguous and verbose
+import { make, configure, build } from 'my-library';
+const instance = make();
+configure(instance, { option: 'value' });
+const result = build(instance);
+
+// ✅ GOOD - Clear, fluent, and discoverable
+import { MyLibrary } from 'my-library';
+const result = MyLibrary.create({ option: 'value' }).build();
+```
+
+### 2. Type-Safety by Design
+- **Leverage the type system:** Use TypeScript generics, conditional types, and mapped types to make illegal states unrepresentable.
+- **Explicit Options:** Prefer option objects over long lists of parameters.
+
+```typescript
+// ❌ BAD - Ambiguous parameters, implicit `any`
+function fetchData(url, method, headers, body, retries) { /* ... */ }
+
+// ✅ GOOD - Strongly-typed and self-documenting
+interface FetchOptions {
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: any;
+  retries?: number;
+}
+function fetchData(url: string, options: FetchOptions = {}) { /* ... */ }
+```
+
+### 3. Consistency
+- **Follow conventions:** Adhere to naming and design conventions established in the rest of the library and the ecosystem (e.g., `on...` for callbacks, `is...`/`has...` for booleans).
+- **Parameter Order:** Maintain a consistent parameter order (e.g., `(id, data)`).
+
+---
+
+## ✍️ Code Quality and Documentation
+
+### 1. First-Class TypeScript Typing
+- **No `any`:** Forbid `any`. Use `unknown` for unknown data types and validate their type at runtime.
+- **Strict Types:** Enable `strict: true` in `tsconfig.json`.
+- **Interfaces vs. Types:** Prefer interfaces for objects and types for unions, intersections, or primitives.
+
+### 2. Developer-Centric Error Handling
+- **Clear Error Messages:** Errors should explain (1) what went wrong, (2) why, and (3) how to fix it.
+- **Error Codes:** Associate unique error codes to allow users to handle errors programmatically without parsing messages.
+
+```typescript
+// ❌ BAD
+if (!user) throw new Error('Failed');
+
+// ✅ GOOD
+class LibraryError extends Error {
+  constructor(message: string, public code: string) {
+    super(`[MyLibrary] ${message} (Code: ${code})`);
+    this.name = 'LibraryError';
+  }
+}
+
+if (!user) {
+  throw new LibraryError(
+    'User not found. Ensure the ID is correct and the user has necessary permissions.',
+    'USER_NOT_FOUND'
+  );
+}
+```
+
+### 3. Integrated Documentation
+- **Document the *why*, not the *how*:** Comments should explain the intent and reasoning behind the code, not what the code does line-by-line.
+- **Use JSDoc/TSDoc tags:** Use `@param`, `@returns`, `@throws`, `@example`, `@see`, `@deprecated` to enrich documentation and autocompletion.
+
+```typescript
+/**
+ * Fetches user data from the API.
+ * @param userId The unique identifier of the user.
+ * @returns A promise that resolves with the user data.
+ * @throws {LibraryError} Throws a USER_NOT_FOUND error if the user does not exist.
+ * @example
+ * ```typescript
+ * const user = await getUser('123-abc');
+ * console.log(user.name);
+ * ```
+ */
+async function getUser(userId: string): Promise<User> {
+  // ... implementation
+}
+```
+---
+
+## ✅ Feature Completion Checklist
+
+Before considering a feature complete, ask yourself these questions:
+
+- [ ] **API:** Is the API intuitive? Is it consistent with the rest of the library?
+- [ ] **Types:** Are the types strict and helpful? Do they prevent incorrect usage?
+- [ ] **Tests:** Are all cases (happy path, edge, error) tested?
+- [ ] **Errors:** Are error messages clear and helpful for debugging?
+- [ ] **Documentation:** Is every public member documented with TSDoc and an example?
+- [ ] **Performance:** Are there any obvious performance bottlenecks?
+- [ ] **DX:** If I were a developer using this feature for the first time, would I be satisfied?

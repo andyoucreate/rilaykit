@@ -1,4 +1,5 @@
 import type { FormConfiguration } from '@rilaykit/core';
+import { useMemo } from 'react';
 import { form } from '../builders/form';
 import { FormProvider } from './FormProvider';
 
@@ -13,7 +14,12 @@ export interface FormProps {
 
 export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, children }: FormProps) {
   // Auto-build if it's a form builder
-  const resolvedFormConfig = formConfig instanceof form ? formConfig.build() : formConfig;
+  const resolvedFormConfig = useMemo(() => {
+    if (formConfig instanceof form) {
+      return formConfig.build();
+    }
+    return formConfig;
+  }, [formConfig]);
 
   return (
     <FormProvider

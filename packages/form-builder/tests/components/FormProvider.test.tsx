@@ -524,7 +524,7 @@ describe('FormProvider', () => {
         .build();
 
       const TestChild = () => {
-        const { validateAllFields } = useFormContext();
+        const { validateAllFields, formState } = useFormContext();
         const [result, setResult] = React.useState<boolean | null>(null);
 
         const handleValidateAll = async () => {

@@ -1,244 +1,418 @@
+/**
+ * @fileoverview Tests for built-in validators
+ */
+
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
-import type { ValidationContext } from '../../src/types';
-import { createZodValidator } from '../../src/validation/validators';
+import {
+  createValidationContext,
+  custom,
+  email,
+  matchField,
+  max,
+  maxLength,
+  min,
+  minLength,
+  number,
+  pattern,
+  required,
+  url,
+  when,
+} from '../../src/validation';
 
 describe('Validators', () => {
-  const mockContext: ValidationContext = {
-    fieldId: 'test-field',
-    formData: {},
-    fieldProps: {},
-    touched: false,
-    dirty: false,
-  };
+  const baseContext = createValidationContext();
 
-  describe('createZodValidator', () => {
-    it('should validate string schema successfully', async () => {
-      const schema = z.string().min(3, 'Too short');
-      const validator = createZodValidator(schema);
+  describe('required', () => {
+    const validator = required('This field is required');
 
-      const result = await validator('hello', mockContext, {});
-
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should return validation errors for invalid string', async () => {
-      const schema = z.string().min(3, 'Too short');
-      const validator = createZodValidator(schema);
-
-      const result = await validator('hi', mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toBe('Too short');
-    });
-
-    it('should validate email schema successfully', async () => {
-      const schema = z.string().email('Invalid email');
-      const validator = createZodValidator(schema);
-
-      const result = await validator('test@example.com', mockContext, {});
-
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should return validation errors for invalid email', async () => {
-      const schema = z.string().email('Invalid email');
-      const validator = createZodValidator(schema);
-
-      const result = await validator('invalid-email', mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toBe('Invalid email');
-    });
-
-    it('should validate number schema successfully', async () => {
-      const schema = z.number().min(18, 'Must be at least 18');
-      const validator = createZodValidator(schema);
-
-      const result = await validator(25, mockContext, {});
-
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should return validation errors for invalid number', async () => {
-      const schema = z.number().min(18, 'Must be at least 18');
-      const validator = createZodValidator(schema);
-
-      const result = await validator(15, mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toBe('Must be at least 18');
-    });
-
-    it('should handle coerced number validation', async () => {
-      const schema = z.coerce.number().min(18, 'Must be at least 18');
-      const validator = createZodValidator(schema);
-
-      const result = await validator('25', mockContext, {});
-
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('should validate object schema successfully', async () => {
-      const schema = z.object({
-        name: z.string().min(1, 'Name required'),
-        email: z.string().email('Invalid email'),
+    it('should pass for non-empty values', () => {
+      expect(validator('hello', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
       });
-      const validator = createZodValidator(schema);
-
-      const result = await validator({ name: 'John', email: 'john@example.com' }, mockContext, {});
-
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
     });
 
-    it('should return validation errors for invalid object', async () => {
-      const schema = z.object({
-        name: z.string().min(1, 'Name required'),
-        email: z.string().email('Invalid email'),
+    it('should fail for empty string', () => {
+      expect(validator('', baseContext)).toEqual({
+        isValid: false,
+        errors: [{ message: 'This field is required', code: 'REQUIRED' }],
       });
-      const validator = createZodValidator(schema);
-
-      const result = await validator({ name: '', email: 'invalid-email' }, mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(2);
-      expect(result.errors[0].message).toBe('Name required');
-      expect(result.errors[1].message).toBe('Invalid email');
     });
 
-    it('should handle array validation', async () => {
-      const schema = z.array(z.string().min(1, 'Item required')).min(1, 'Array must not be empty');
-      const validator = createZodValidator(schema);
-
-      const validResult = await validator(['item1', 'item2'], mockContext, {});
-      expect(validResult.isValid).toBe(true);
-
-      const invalidResult = await validator([], mockContext, {});
-      expect(invalidResult.isValid).toBe(false);
-      expect(invalidResult.errors[0].message).toBe('Array must not be empty');
-    });
-
-    it('should handle optional fields', async () => {
-      const schema = z.string().optional();
-      const validator = createZodValidator(schema);
-
-      const result1 = await validator(undefined, mockContext, {});
-      expect(result1.isValid).toBe(true);
-
-      const result2 = await validator('valid', mockContext, {});
-      expect(result2.isValid).toBe(true);
-    });
-
-    it('should handle nullable fields', async () => {
-      const schema = z.string().nullable();
-      const validator = createZodValidator(schema);
-
-      const result1 = await validator(null, mockContext, {});
-      expect(result1.isValid).toBe(true);
-
-      const result2 = await validator('valid', mockContext, {});
-      expect(result2.isValid).toBe(true);
-    });
-
-    it('should handle union types', async () => {
-      const schema = z.union([z.string(), z.number()]);
-      const validator = createZodValidator(schema);
-
-      const stringResult = await validator('hello', mockContext, {});
-      expect(stringResult.isValid).toBe(true);
-
-      const numberResult = await validator(42, mockContext, {});
-      expect(numberResult.isValid).toBe(true);
-
-      const invalidResult = await validator(true, mockContext, {});
-      expect(invalidResult.isValid).toBe(false);
-    });
-
-    it('should handle date validation', async () => {
-      const schema = z.date();
-      const validator = createZodValidator(schema);
-
-      const validResult = await validator(new Date(), mockContext, {});
-      expect(validResult.isValid).toBe(true);
-
-      const invalidResult = await validator('not-a-date', mockContext, {});
-      expect(invalidResult.isValid).toBe(false);
-    });
-
-    it('should handle custom error messages', async () => {
-      const schema = z.string().min(3, 'Custom error message');
-      const validator = createZodValidator(schema);
-
-      const result = await validator('hi', mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors[0].message).toBe('Custom error message');
-    });
-
-    it('should provide error paths for nested objects', async () => {
-      const schema = z.object({
-        user: z.object({
-          name: z.string().min(1, 'Name required'),
-          email: z.string().email('Invalid email'),
-        }),
+    it('should fail for null', () => {
+      expect(validator(null, baseContext)).toEqual({
+        isValid: false,
+        errors: [{ message: 'This field is required', code: 'REQUIRED' }],
       });
-      const validator = createZodValidator(schema);
-
-      const result = await validator({ user: { name: '', email: 'invalid' } }, mockContext, {});
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(2);
-      expect(result.errors[0].path).toEqual(['user', 'name']);
-      expect(result.errors[1].path).toEqual(['user', 'email']);
     });
 
-    it('should handle refinements and custom validation', async () => {
-      const schema = z
-        .string()
-        .refine((val) => val === 'hello', { message: 'Must be exactly "hello"' });
-      const validator = createZodValidator(schema);
-
-      const validResult = await validator('hello', mockContext, {});
-      expect(validResult.isValid).toBe(true);
-
-      const invalidResult = await validator('Hello', mockContext, {});
-      expect(invalidResult.isValid).toBe(false);
-      expect(invalidResult.errors[0].message).toBe('Must be exactly "hello"');
+    it('should fail for undefined', () => {
+      expect(validator(undefined, baseContext)).toEqual({
+        isValid: false,
+        errors: [{ message: 'This field is required', code: 'REQUIRED' }],
+      });
     });
 
-    it('should handle transform operations', async () => {
-      const schema = z.string().transform((val) => val.toUpperCase());
-      const validator = createZodValidator(schema);
+    it('should fail for empty array', () => {
+      expect(validator([], baseContext)).toEqual({
+        isValid: false,
+        errors: [{ message: 'This field is required', code: 'REQUIRED' }],
+      });
+    });
+  });
 
-      const result = await validator('hello', mockContext, {});
-      expect(result.isValid).toBe(true);
+  describe('minLength', () => {
+    const validator = minLength(5);
+
+    it('should pass for strings meeting minimum length', () => {
+      expect(validator('hello', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
     });
 
-    it('should handle async refinements', async () => {
-      const schema = z.string().refine(
-        async (val) => {
-          // Simulate async validation (e.g., checking uniqueness)
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          return val !== 'taken';
-        },
-        { message: 'Value is already taken' }
-      );
-      const validator = createZodValidator(schema);
+    it('should pass for strings exceeding minimum length', () => {
+      expect(validator('hello world', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
 
-      const validResult = await validator('available', mockContext, {});
-      expect(validResult.isValid).toBe(true);
+    it('should fail for strings below minimum length', () => {
+      expect(validator('hi', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be at least 5 characters long',
+            code: 'MIN_LENGTH',
+            path: 'length.5',
+          },
+        ],
+      });
+    });
 
-      const invalidResult = await validator('taken', mockContext, {});
-      expect(invalidResult.isValid).toBe(false);
-      expect(invalidResult.errors[0].message).toBe('Value is already taken');
+    it('should fail for empty strings', () => {
+      expect(validator('', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be at least 5 characters long',
+            code: 'MIN_LENGTH',
+            path: 'length.5',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('maxLength', () => {
+    const validator = maxLength(10);
+
+    it('should pass for strings within maximum length', () => {
+      expect(validator('hello', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should pass for strings at maximum length', () => {
+      expect(validator('1234567890', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail for strings exceeding maximum length', () => {
+      expect(validator('this is too long', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be no more than 10 characters long',
+            code: 'MAX_LENGTH',
+            path: 'length.10',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('email', () => {
+    const validator = email();
+
+    it('should pass for valid email addresses', () => {
+      const validEmails = [
+        'test@example.com',
+        'user.name@domain.co.uk',
+        'test+label@example.org',
+        'user123@example-domain.com',
+      ];
+
+      for (const email of validEmails) {
+        expect(validator(email, baseContext)).toEqual({
+          isValid: true,
+          errors: [],
+        });
+      }
+    });
+
+    it('should fail for invalid email addresses', () => {
+      const invalidEmails = [
+        'invalid-email',
+        '@example.com',
+        'test@',
+        'test.example.com',
+        'test@.com',
+      ];
+
+      for (const email of invalidEmails) {
+        expect(validator(email, baseContext)).toEqual({
+          isValid: false,
+          errors: [
+            {
+              message: 'Please enter a valid email address',
+              code: 'INVALID_EMAIL',
+            },
+          ],
+        });
+      }
+    });
+  });
+
+  describe('number', () => {
+    const validator = number();
+
+    it('should pass for valid numbers', () => {
+      expect(validator(42, baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+
+      expect(validator('42', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+
+      expect(validator('42.5', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail for invalid numbers', () => {
+      expect(validator('not-a-number', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be a valid number',
+            code: 'INVALID_NUMBER',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('min', () => {
+    const validator = min(18);
+
+    it('should pass for numbers meeting minimum', () => {
+      expect(validator(18, baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+
+      expect(validator(25, baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail for numbers below minimum', () => {
+      expect(validator(16, baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be at least 18',
+            code: 'MIN_VALUE',
+            path: 'min.18',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('max', () => {
+    const validator = max(100);
+
+    it('should pass for numbers within maximum', () => {
+      expect(validator(50, baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+
+      expect(validator(100, baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail for numbers exceeding maximum', () => {
+      expect(validator(150, baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Must be no more than 100',
+            code: 'MAX_VALUE',
+            path: 'max.100',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('custom', () => {
+    const validator = custom(
+      (value: string) => value.startsWith('prefix_'),
+      'Value must start with prefix_',
+      'CUSTOM_PREFIX'
+    );
+
+    it('should pass when custom validation passes', () => {
+      expect(validator('prefix_test', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail when custom validation fails', () => {
+      expect(validator('test', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Value must start with prefix_',
+            code: 'CUSTOM_PREFIX',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('matchField', () => {
+    const validator = matchField('password');
+    const context = createValidationContext({
+      allFormData: { password: 'secret123', confirmPassword: 'secret123' },
+    });
+
+    it('should pass when fields match', () => {
+      expect(validator('secret123', context)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail when fields do not match', () => {
+      expect(validator('different', context)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Fields must match',
+            code: 'FIELD_MISMATCH',
+            path: 'match.password',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('when', () => {
+    const conditionalRequired = when(
+      (_value: any, context: any) => context.allFormData?.userType === 'premium',
+      required('This field is required for premium users')
+    );
+
+    it('should validate when condition is met', () => {
+      const context = createValidationContext({
+        allFormData: { userType: 'premium' },
+      });
+
+      expect(conditionalRequired('', context)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'This field is required for premium users',
+            code: 'REQUIRED',
+          },
+        ],
+      });
+    });
+
+    it('should skip validation when condition is not met', () => {
+      const context = createValidationContext({
+        allFormData: { userType: 'basic' },
+      });
+
+      expect(conditionalRequired('', context)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+  });
+
+  describe('pattern', () => {
+    const phoneValidator = pattern(/^\d{3}-\d{3}-\d{4}$/, 'Invalid phone format');
+
+    it('should pass for matching patterns', () => {
+      expect(phoneValidator('123-456-7890', baseContext)).toEqual({
+        isValid: true,
+        errors: [],
+      });
+    });
+
+    it('should fail for non-matching patterns', () => {
+      expect(phoneValidator('123456789', baseContext)).toEqual({
+        isValid: false,
+        errors: [
+          {
+            message: 'Invalid phone format',
+            code: 'PATTERN_MISMATCH',
+            path: 'pattern.^\\d{3}-\\d{3}-\\d{4}$',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('url', () => {
+    const validator = url();
+
+    it('should pass for valid URLs', () => {
+      const validUrls = [
+        'https://example.com',
+        'http://test.org',
+        'https://sub.domain.co.uk/path?query=value',
+      ];
+
+      for (const url of validUrls) {
+        expect(validator(url, baseContext)).toEqual({
+          isValid: true,
+          errors: [],
+        });
+      }
+    });
+
+    it('should fail for invalid URLs', () => {
+      const invalidUrls = ['not-a-url', 'ftp://example.com', 'example.com'];
+
+      for (const url of invalidUrls) {
+        expect(validator(url, baseContext)).toEqual({
+          isValid: false,
+          errors: [
+            {
+              message: 'Please enter a valid URL',
+              code: 'INVALID_URL',
+            },
+          ],
+        });
+      }
     });
   });
 });

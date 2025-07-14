@@ -117,11 +117,8 @@ interface FieldConfig {
   id?: string; // Optional - auto-generated if not provided
   type: string; // The component type to render from your registry
   props?: Record<string, any>; // Props passed to your component renderer
-  validation?: ValidationConfig; // Validation rules for the field
-  conditional?: ConditionalConfig; // Logic to show/hide the field
 }
 ```
-For more details on `validation`, see the [Validation](/core-concepts/validation) page. `conditional` logic is covered in the Advanced Forms guide.
 
 ---
 
@@ -131,7 +128,6 @@ Let's tie everything together. Here is how you would build a complete login form
 
 ```tsx
 import { rilay } from '@/lib/rilay';
-import { z } from 'zod';
 
 export const loginForm = rilay
   .form('login-form')
@@ -143,9 +139,6 @@ export const loginForm = rilay
         label: 'Email Address',
         placeholder: 'Enter your email',
       },
-      validation: (v) =>
-        v.string({ required_error: 'Email is required' })
-         .email('Please enter a valid email address'),
     },
     {
       id: 'password',
@@ -154,8 +147,6 @@ export const loginForm = rilay
         label: 'Password',
         placeholder: 'Enter your password',
       },
-      validation: (v) =>
-        v.string().min(8, 'Password must be at least 8 characters long'),
     }
   );
 ```

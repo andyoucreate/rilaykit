@@ -198,46 +198,6 @@ describe('Workflow Builder (flow)', () => {
   });
 
   describe('Workflow Configuration', () => {
-    it('should configure navigation settings', () => {
-      // Add a step first
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
-
-      workflowBuilder.configure({
-        navigation: {
-          allowBackNavigation: false,
-        },
-      });
-
-      const workflowConfig = workflowBuilder.build();
-      expect(workflowConfig.navigation?.allowBackNavigation).toBe(false);
-    });
-
-    it('should configure completion settings', () => {
-      // Add a step first
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
-
-      workflowBuilder.configure({
-        completion: {},
-      });
-
-      const workflowConfig = workflowBuilder.build();
-      expect(workflowConfig.completion).toBeDefined();
-    });
-
     it('should configure analytics', () => {
       // Add a step first
       const form = createForm(config, 'test-form')

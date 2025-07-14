@@ -1,26 +1,14 @@
 import type {
-  CompletionConfig,
   CustomStepRenderer,
-  DynamicStepConfig,
   FormConfiguration,
-  NavigationConfig,
-  PersistenceConfig,
   StepConfig,
-  StepLifecycleHooks,
-  StepPermissions,
+  StepValidationConfig,
+  StepValidator,
   WorkflowAnalytics,
   WorkflowConfig,
   WorkflowPlugin,
 } from '@rilaykit/core';
-import {
-  IdGenerator,
-  ValidationErrorBuilder,
-  configureObject,
-  deepClone,
-  ensureUnique,
-  normalizeToArray,
-  ril,
-} from '@rilaykit/core';
+import { IdGenerator, deepClone, ensureUnique, normalizeToArray, ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
@@ -71,28 +59,16 @@ export interface StepDefinition {
   requiredToComplete?: boolean;
 
   /**
-   * Lifecycle hooks for step events
-   * Allows custom logic at different points in the step lifecycle
-   */
-  hooks?: StepLifecycleHooks;
-
-  /**
-   * Permission configuration for step access control
-   * Defines who can view, edit, or complete this step
-   */
-  permissions?: StepPermissions;
-
-  /**
    * Custom renderer for the step
    * Allows complete customization of step presentation
    */
   renderer?: CustomStepRenderer;
 
   /**
-   * Dynamic step configuration
-   * Enables conditional step behavior based on previous step data
+   * Validation configuration for this step
+   * Allows step-level validation that can access data from current and previous steps
    */
-  dynamicConfig?: DynamicStepConfig;
+  validation?: StepValidationConfig;
 }
 
 /**
@@ -104,15 +80,6 @@ export interface StepDefinition {
  * @interface WorkflowOptions
  */
 interface WorkflowOptions {
-  /** Navigation behavior configuration */
-  navigation?: NavigationConfig;
-
-  /** Data persistence settings */
-  persistence?: PersistenceConfig;
-
-  /** Workflow completion handling */
-  completion?: CompletionConfig;
-
   /** Analytics and tracking configuration */
   analytics?: WorkflowAnalytics;
 }
@@ -159,9 +126,6 @@ export class flow {
   private workflowName: string;
   private workflowDescription?: string;
   private steps: StepConfig[] = [];
-  private navigation: NavigationConfig = { allowBackNavigation: true };
-  private persistence?: PersistenceConfig;
-  private completion?: CompletionConfig;
   private analytics?: WorkflowAnalytics;
   private plugins: WorkflowPlugin[] = [];
   private idGenerator = new IdGenerator();
@@ -209,7 +173,7 @@ export class flow {
    *
    * This internal method handles the conversion from the user-friendly
    * StepDefinition interface to the internal StepConfig structure,
-   * including ID generation and form configuration processing.
+   * including ID generation, form configuration processing, and validation setup.
    *
    * @private
    * @param stepDef - The step definition to convert
@@ -224,11 +188,8 @@ export class flow {
         stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
       allowSkip: stepDef.allowSkip || false,
       requiredToComplete: stepDef.requiredToComplete !== false,
-      hooks: stepDef.hooks,
-      permissions: stepDef.permissions,
-      isDynamic: Boolean(stepDef.dynamicConfig),
-      dynamicConfig: stepDef.dynamicConfig,
       renderer: stepDef.renderer,
+      validation: stepDef.validation,
     };
   }
 
@@ -282,29 +243,78 @@ export class flow {
   }
 
   /**
-   * Add a dynamic step using StepDefinition with dynamicConfig
+   * Adds step-level validation to a specific step
    *
-   * Dynamic steps can change their behavior, visibility, or configuration
-   * based on data from previous steps. This method is a convenience wrapper
-   * around addStep() with enhanced type safety for dynamic configurations.
+   * This method allows adding validation to a step after it has been created.
+   * Step validators can access data from the current step and all previous steps
+   * in the workflow, enabling complex cross-step validation logic.
    *
-   * @param stepDefinition - Step definition with required dynamicConfig
+   * @param stepId - The ID of the step to add validation to
+   * @param validationConfig - Step validation configuration
    * @returns The flow instance for method chaining
+   * @throws Error if the step with the specified ID is not found
    *
    * @example
    * ```typescript
-   * workflow.addDynamicStep({
-   *   title: 'Conditional Step',
-   *   formConfig: conditionalForm,
-   *   dynamicConfig: {
-   *     condition: (data) => data.userType === 'premium',
-   *     generator: (data) => generatePremiumForm(data)
-   *   }
+   * workflow.addStepValidation('payment-step', {
+   *   validators: [
+   *     (stepData, context) => {
+   *       const previousSteps = context.workflowData;
+   *       if (previousSteps.amount > 1000 && !stepData.verificationCode) {
+   *         return createErrorResult('Verification required for amounts over $1000');
+   *       }
+   *       return createSuccessResult();
+   *     }
+   *   ],
+   *   validateOnNext: true
    * });
    * ```
    */
-  addDynamicStep(stepDefinition: StepDefinition & { dynamicConfig: DynamicStepConfig }): this {
-    return this.addStep(stepDefinition);
+  addStepValidation(stepId: string, validationConfig: StepValidationConfig): this {
+    const stepIndex = this.steps.findIndex((step) => step.id === stepId);
+    if (stepIndex === -1) {
+      throw new Error(`Step with ID "${stepId}" not found`);
+    }
+
+    const currentStep = this.steps[stepIndex];
+    const updatedValidation: StepValidationConfig = {
+      ...currentStep.validation,
+      ...validationConfig,
+      validators: [
+        ...(currentStep.validation?.validators || []),
+        ...(validationConfig.validators || []),
+      ],
+    };
+
+    this.steps[stepIndex] = {
+      ...currentStep,
+      validation: updatedValidation,
+    };
+
+    return this;
+  }
+
+  /**
+   * Adds validators to a specific step
+   *
+   * This method provides a convenient way to add multiple validators to a step
+   * without replacing the existing validation configuration.
+   *
+   * @param stepId - The ID of the step to add validators to
+   * @param validators - Array of step validators to add
+   * @returns The flow instance for method chaining
+   * @throws Error if the step with the specified ID is not found
+   *
+   * @example
+   * ```typescript
+   * workflow.addStepValidators('personal-info', [
+   *   customStepValidator,
+   *   anotherStepValidator
+   * ]);
+   * ```
+   */
+  addStepValidators(stepId: string, validators: StepValidator[]): this {
+    return this.addStepValidation(stepId, { validators });
   }
 
   /**
@@ -336,15 +346,6 @@ export class flow {
    * ```
    */
   configure(options: WorkflowOptions): this {
-    if (options.navigation) {
-      this.navigation = configureObject(this.navigation, options.navigation);
-    }
-    if (options.persistence) {
-      this.persistence = options.persistence;
-    }
-    if (options.completion) {
-      this.completion = options.completion;
-    }
     if (options.analytics) {
       this.analytics = options.analytics;
     }
@@ -542,17 +543,11 @@ export class flow {
     const cloned = new flow(
       this.config,
       newWorkflowId || `${this.workflowId}-clone`,
-      newWorkflowName || `${this.workflowName} (Copy)`,
-      this.workflowDescription
+      newWorkflowName || this.workflowName
     );
-
     cloned.steps = deepClone(this.steps);
-    cloned.navigation = deepClone(this.navigation);
-    cloned.persistence = this.persistence ? deepClone(this.persistence) : undefined;
-    cloned.completion = this.completion ? deepClone(this.completion) : undefined;
     cloned.analytics = this.analytics ? deepClone(this.analytics) : undefined;
     cloned.plugins = [...this.plugins];
-
     return cloned;
   }
 
@@ -574,19 +569,18 @@ export class flow {
    * ```
    */
   validate(): string[] {
-    const errorBuilder = new ValidationErrorBuilder();
+    const errors: string[] = [];
 
-    errorBuilder.addIf(this.steps.length === 0, 'NO_STEPS', 'Workflow must have at least one step');
+    if (this.steps.length === 0) {
+      errors.push('Workflow must have at least one step');
+    }
 
     // Check for duplicate step IDs using shared utility
     const stepIds = this.steps.map((step) => step.id);
     try {
       ensureUnique(stepIds, 'step');
     } catch (error) {
-      errorBuilder.add(
-        'DUPLICATE_STEP_IDS',
-        error instanceof Error ? error.message : String(error)
-      );
+      errors.push(error instanceof Error ? error.message : String(error));
     }
 
     // Check plugin dependencies
@@ -595,15 +589,15 @@ export class flow {
         const missingDeps = plugin.dependencies.filter(
           (dep) => !this.plugins.some((p) => p.name === dep)
         );
-        errorBuilder.addIf(
-          missingDeps.length > 0,
-          'MISSING_PLUGIN_DEPENDENCIES',
-          `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
-        );
+        if (missingDeps.length > 0) {
+          errors.push(
+            `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
+          );
+        }
       }
     }
 
-    return errorBuilder.build().map((err) => err.message);
+    return errors;
   }
 
   /**
@@ -622,24 +616,19 @@ export class flow {
    * ```
    */
   getStats() {
+    const totalFields = this.steps.reduce(
+      (total, step) => total + step.formConfig.allFields.length,
+      0
+    );
+    const fieldCounts = this.steps.map((step) => step.formConfig.allFields.length);
+
     return {
-      /** Total number of steps in the workflow */
       totalSteps: this.steps.length,
-      /** Number of dynamic steps */
-      dynamicSteps: this.steps.filter((step) => step.isDynamic).length,
-      /** Number of installed plugins */
-      pluginsInstalled: this.plugins.length,
-      /** Estimated total number of form fields across all steps */
-      estimatedFields: this.steps.reduce(
-        (total, step) => total + step.formConfig.allFields.length,
-        0
-      ),
-      /** Whether persistence is configured */
-      hasPersistence: Boolean(this.persistence),
-      /** Whether analytics is configured */
+      totalFields,
+      averageFieldsPerStep: this.steps.length > 0 ? totalFields / this.steps.length : 0,
+      maxFieldsInStep: fieldCounts.length > 0 ? Math.max(...fieldCounts) : 0,
+      minFieldsInStep: fieldCounts.length > 0 ? Math.min(...fieldCounts) : 0,
       hasAnalytics: Boolean(this.analytics),
-      /** Whether back navigation is allowed */
-      allowBackNavigation: this.navigation.allowBackNavigation !== false,
     };
   }
 
@@ -664,24 +653,22 @@ export class flow {
    * ```
    */
   build(): WorkflowConfig {
-    const errors = this.validate();
-
-    if (errors.length > 0) {
-      throw new Error(`Workflow validation failed: ${errors.join(', ')}`);
+    const validationErrors = this.validate();
+    if (validationErrors.length > 0) {
+      throw new Error(`Workflow validation failed: ${validationErrors.join(', ')}`);
     }
 
-    return {
+    const finalConfig: WorkflowConfig = {
       id: this.workflowId,
       name: this.workflowName,
       description: this.workflowDescription,
-      steps: [...this.steps],
-      navigation: this.navigation,
-      persistence: this.persistence,
-      completion: this.completion,
+      steps: this.steps,
       analytics: this.analytics,
-      plugins: [...this.plugins],
+      plugins: this.plugins,
       renderConfig: this.config.getWorkflowRenderConfig(),
     };
+
+    return finalConfig;
   }
 
   /**
@@ -705,15 +692,8 @@ export class flow {
       name: this.workflowName,
       description: this.workflowDescription,
       steps: this.steps,
-      navigation: this.navigation,
-      persistence: this.persistence,
-      completion: this.completion,
       analytics: this.analytics,
-      plugins: this.plugins.map((plugin) => ({
-        name: plugin.name,
-        version: plugin.version,
-        dependencies: plugin.dependencies,
-      })),
+      plugins: this.plugins.map((plugin) => ({ name: plugin.name, version: plugin.version })),
     };
   }
 
@@ -734,15 +714,12 @@ export class flow {
    * ```
    */
   fromJSON(json: any): this {
-    if (json.id) this.workflowId = json.id;
-    if (json.name) this.workflowName = json.name;
-    if (json.description) this.workflowDescription = json.description;
-    if (json.steps) this.steps = json.steps;
-    if (json.navigation) this.navigation = json.navigation;
-    if (json.persistence) this.persistence = json.persistence;
-    if (json.completion) this.completion = json.completion;
-    if (json.analytics) this.analytics = json.analytics;
-
+    this.workflowId = json.workflowId;
+    this.workflowName = json.workflowName;
+    this.workflowDescription = json.workflowDescription;
+    this.steps = json.steps;
+    this.analytics = json.analytics;
+    this.plugins = json.plugins || [];
     return this;
   }
 }

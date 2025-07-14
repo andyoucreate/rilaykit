@@ -1,5 +1,5 @@
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
-import { ValidationErrorBuilder, configureObject, ensureUnique } from '../utils/builderHelpers';
+import { configureObject, ensureUnique } from '../utils/builderHelpers';
 
 /**
  * Main configuration class for Rilay form components and workflows
@@ -19,6 +19,20 @@ export class ril<C> {
    * @param type - The component type (e.g., 'text', 'email', 'heading'), used as a unique identifier.
    * @param config - Component configuration without id and type
    * @returns The ril instance for chaining
+   *
+   * @example
+   * ```typescript
+   * // Component avec validation par défaut
+   * const factory = ril.create()
+   *   .addComponent('email', {
+   *     name: 'Email Input',
+   *     renderer: EmailInput,
+   *     validation: {
+   *       validators: [email('Format email invalide')],
+   *       validateOnBlur: true,
+   *     }
+   *   });
+   * ```
    */
   addComponent<NewType extends string, TProps = any>(
     type: NewType,
@@ -206,7 +220,7 @@ export class ril<C> {
    * Enhanced validation using shared utilities
    */
   validate(): string[] {
-    const errorBuilder = new ValidationErrorBuilder();
+    const errors: string[] = [];
     const components = Array.from(this.components.values());
 
     // Check for duplicate IDs using shared utility
@@ -214,17 +228,19 @@ export class ril<C> {
     try {
       ensureUnique(ids, 'component');
     } catch (error) {
-      errorBuilder.add('DUPLICATE_IDS', error instanceof Error ? error.message : String(error));
+      errors.push(error instanceof Error ? error.message : String(error));
     }
 
     // Check for components without renderers
     const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
-    errorBuilder.addIf(
-      componentsWithoutRenderer.length > 0,
-      'MISSING_RENDERER',
-      `Components without renderer: ${componentsWithoutRenderer.map((comp) => comp.id).join(', ')}`
-    );
+    if (componentsWithoutRenderer.length > 0) {
+      errors.push(
+        `Components without renderer: ${componentsWithoutRenderer
+          .map((comp) => comp.id)
+          .join(', ')}`
+      );
+    }
 
-    return errorBuilder.build().map((err) => err.message);
+    return errors;
   }
 }

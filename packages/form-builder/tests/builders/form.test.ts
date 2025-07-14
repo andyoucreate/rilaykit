@@ -100,24 +100,6 @@ describe('Form Builder', () => {
       expect(field.validation?.validator).toBe(mockValidator);
     });
 
-    it('should add field with conditional config', () => {
-      const condition = (formData: Record<string, any>) => formData.showEmail === true;
-
-      const formBuilder = form.create(config);
-      formBuilder.add({
-        id: 'email',
-        type: 'email',
-        props: { label: 'Email' },
-        conditional: { condition, action: 'show' },
-      });
-
-      const formConfig = formBuilder.build();
-      const field = formConfig.rows[0].fields[0];
-
-      expect(field.conditional?.condition).toBe(condition);
-      expect(field.conditional?.action).toBe('show');
-    });
-
     it('should merge default props with custom props', () => {
       const formBuilder = form.create(config);
       formBuilder.add({
@@ -152,34 +134,6 @@ describe('Form Builder', () => {
       expect(formConfig.rows[0].fields).toHaveLength(2);
       expect(formConfig.rows[0].maxColumns).toBe(2);
       expect(formConfig.allFields).toHaveLength(2);
-    });
-
-    it('should set row options correctly', () => {
-      const formBuilder = form.create(config);
-      formBuilder.add(
-        [
-          { id: 'field1', type: 'text' },
-          { id: 'field2', type: 'text' },
-        ],
-        { spacing: 'loose', alignment: 'center' }
-      );
-
-      const formConfig = formBuilder.build();
-      const row = formConfig.rows[0];
-
-      expect(row.spacing).toBe('loose');
-      expect(row.alignment).toBe('center');
-    });
-
-    it('should use default row options when not specified', () => {
-      const formBuilder = form.create(config);
-      formBuilder.add([{ id: 'field1', type: 'text' }]);
-
-      const formConfig = formBuilder.build();
-      const row = formConfig.rows[0];
-
-      expect(row.spacing).toBe('normal');
-      expect(row.alignment).toBe('stretch');
     });
 
     it('should throw error for empty field array', () => {

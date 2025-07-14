@@ -15,7 +15,10 @@ import {
   type WorkflowSkipButtonRendererProps,
   type WorkflowStepperRenderer,
   type WorkflowStepperRendererProps,
-  createZodValidator,
+  async,
+  email,
+  minLength,
+  required,
   ril,
 } from '@rilaykit/core';
 import { FormField } from '@rilaykit/forms';
@@ -30,7 +33,6 @@ import {
 } from '@rilaykit/workflow';
 import type React from 'react';
 import { useState } from 'react';
-import { z } from 'zod';
 
 // Component interfaces
 interface TextInputProps {
@@ -176,9 +178,9 @@ const formRowRenderer: FormRowRenderer = (props: FormRowRendererProps): React.Re
   </div>
 );
 
-const formBodyRenderer: FormBodyRenderer = (props: FormBodyRendererProps): React.ReactElement => (
-  <div className="space-y-4">{props.children}</div>
-);
+const formBodyRenderer: FormBodyRenderer = (props: FormBodyRendererProps): React.ReactElement => {
+  return <div className="space-y-4">{props.children}</div>;
+};
 
 const formSubmitButtonRenderer: FormSubmitButtonRenderer = (
   props: FormSubmitButtonRendererProps
@@ -186,7 +188,7 @@ const formSubmitButtonRenderer: FormSubmitButtonRenderer = (
   <button
     type="submit"
     onClick={props.onSubmit}
-    disabled={props.isSubmitting || !props.isValid}
+    disabled={props.isSubmitting}
     className={`btn-primary w-full ${props.className || ''}`}
   >
     {props.isSubmitting ? 'Submitting...' : props.children || 'Continue'}
@@ -229,8 +231,8 @@ const workflowNextButtonRenderer: WorkflowNextButtonRenderer = (
 ): React.ReactElement => (
   <button
     type="submit"
-    onClick={props.isLastStep ? props.onSubmit : props.onNext}
-    disabled={!props.canGoNext}
+    onClick={props.onSubmit}
+    disabled={!props.canGoNext || props.isSubmitting}
     className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
   >
     {props.children || (props.isLastStep ? 'Complete Workflow' : 'Next →')}
@@ -267,81 +269,76 @@ const workflowSkipButtonRenderer: WorkflowSkipButtonRenderer = (
 
 RilayLicenseManager.setLicenseKey(process.env.NEXT_PUBLIC_RILAY_LICENSE_KEY!);
 
+// Create and configure ril
+const factory = ril
+  .create()
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput as ComponentRenderer<TextInputProps>,
+    defaultProps: { placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input',
+    renderer: EmailInput as ComponentRenderer<EmailInputProps>,
+    defaultProps: { placeholder: 'Enter email...' },
+    validation: {
+      validators: [email('Please enter a valid email address')],
+    },
+  })
+  .addComponent('select', {
+    name: 'Select Input',
+    renderer: SelectInput as ComponentRenderer<SelectInputProps>,
+    defaultProps: { options: [] },
+  })
+  .addComponent('textarea', {
+    name: 'Textarea Input',
+    renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
+    defaultProps: { placeholder: 'Enter text...', rows: 4 },
+  })
+  .configure({
+    rowRenderer: formRowRenderer,
+    bodyRenderer: formBodyRenderer,
+    submitButtonRenderer: formSubmitButtonRenderer,
+    stepperRenderer: workflowStepperRenderer,
+    nextButtonRenderer: workflowNextButtonRenderer,
+    previousButtonRenderer: workflowPreviousButtonRenderer,
+    skipButtonRenderer: workflowSkipButtonRenderer,
+  });
+
 export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
 
-  // Create and configure ril
-  const factory = ril
-    .create()
-    .addComponent('text', {
-      name: 'Text Input',
-      renderer: TextInput as ComponentRenderer<TextInputProps>,
-      defaultProps: { placeholder: 'Enter text...' },
-    })
-    .addComponent('email', {
-      name: 'Email Input',
-      renderer: EmailInput as ComponentRenderer<EmailInputProps>,
-      defaultProps: { placeholder: 'Enter email...' },
-    })
-    .addComponent('select', {
-      name: 'Select Input',
-      renderer: SelectInput as ComponentRenderer<SelectInputProps>,
-      defaultProps: { options: [] },
-    })
-    .addComponent('textarea', {
-      name: 'Textarea Input',
-      renderer: TextareaInput as ComponentRenderer<TextareaInputProps>,
-      defaultProps: { placeholder: 'Enter text...', rows: 4 },
-    })
-    .configure({
-      rowRenderer: formRowRenderer,
-      bodyRenderer: formBodyRenderer,
-      submitButtonRenderer: formSubmitButtonRenderer,
-      stepperRenderer: workflowStepperRenderer,
-      nextButtonRenderer: workflowNextButtonRenderer,
-      previousButtonRenderer: workflowPreviousButtonRenderer,
-      skipButtonRenderer: workflowSkipButtonRenderer,
-    });
-
-  // Define validation schemas
-  const personalInfoSchema = z.object({
-    firstName: z.string().min(1, 'First name is required'),
-    lastName: z.string().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
-  });
-
-  const preferencesSchema = z.object({
-    role: z.string().min(1, 'Role is required'),
-    experience: z.string().min(1, 'Experience level is required'),
-  });
-
-  const reviewSchema = z.object({
-    feedback: z.string().min(10, 'Please provide at least 10 characters of feedback'),
-  });
-
   // Build form configurations for each step
   const personalInfoForm = factory
     .form()
-    .add([
+    .add(
       {
         id: 'firstName',
         type: 'text',
-        props: { label: 'First Name', required: true },
-        validation: { validator: createZodValidator(personalInfoSchema.shape.firstName) },
+        props: { label: 'First Name' },
+        validation: {
+          validators: [required('First name is required'), minLength(2, 'Too short')],
+        },
       },
       {
         id: 'lastName',
         type: 'text',
-        props: { label: 'Last Name', required: true },
-        validation: { validator: createZodValidator(personalInfoSchema.shape.lastName) },
-      },
-    ])
+        props: { label: 'Last Name' },
+        validation: {
+          validators: [required('Last name is required'), minLength(2, 'Too short')],
+        },
+      }
+    )
     .add({
       id: 'email',
-      type: 'email',
-      props: { label: 'Email Address', required: true },
-      validation: { validator: createZodValidator(personalInfoSchema.shape.email) },
+      type: 'email', // This component already has email validation built-in
+      props: { label: 'Email Address' },
+      validation: {
+        // Additional field-level validation combines with component validation
+        validators: [required('Email is required')],
+        validateOnBlur: true,
+      },
     });
 
   const preferencesForm = factory
@@ -359,7 +356,16 @@ export default function WorkflowTestPage() {
           { value: 'other', label: 'Other' },
         ],
       },
-      validation: { validator: createZodValidator(preferencesSchema.shape.role) },
+      validation: {
+        validators: [
+          required('Role is required'),
+          async(async (value) => {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            return value !== 'developer';
+          }, 'Developper is not allowed'),
+        ],
+        validateOnBlur: true,
+      },
     })
     .add({
       id: 'experience',
@@ -373,7 +379,10 @@ export default function WorkflowTestPage() {
           { value: 'senior', label: 'Senior (5+ years)' },
         ],
       },
-      validation: { validator: createZodValidator(preferencesSchema.shape.experience) },
+      validation: {
+        validators: [required('Experience is required')],
+        validateOnBlur: true,
+      },
     });
 
   const reviewForm = factory.form().add({
@@ -383,7 +392,6 @@ export default function WorkflowTestPage() {
       label: 'Your Feedback',
       placeholder: 'Tell us about your experience with this workflow...',
     },
-    validation: { validator: createZodValidator(reviewSchema.shape.feedback) },
   });
 
   // Build workflow configuration
@@ -397,6 +405,7 @@ export default function WorkflowTestPage() {
       id: 'personal-info',
       title: 'Personal Information',
       description: 'Tell us about yourself',
+      allowSkip: false,
       requiredToComplete: true,
       formConfig: personalInfoForm,
       renderer: () => {
@@ -424,10 +433,6 @@ export default function WorkflowTestPage() {
       formConfig: reviewForm,
     })
     .configure({
-      navigation: {
-        allowBackNavigation: true,
-        showProgress: true,
-      },
       analytics: {
         onWorkflowStart: (workflowId: string, context: any) => {
           console.log('Workflow started:', workflowId, context);
@@ -500,7 +505,6 @@ export default function WorkflowTestPage() {
           onWorkflowComplete={handleWorkflowComplete}
           onStepChange={handleStepChange}
           defaultValues={{}}
-          user={{ name: 'Test User' }}
         >
           <WorkflowStepper />
           <WorkflowBody />
@@ -538,8 +542,7 @@ export default function WorkflowTestPage() {
                   disabled={!props.canGoPrevious}
                   className="px-4 py-2 bg-purple-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  🔙 Custom Previous ({props.context.currentStepIndex + 1}/
-                  {props.context.totalSteps})
+                  🔙 Custom Previous
                 </button>
               )}
             </WorkflowPreviousButton>
@@ -561,7 +564,7 @@ export default function WorkflowTestPage() {
                 {(props) => (
                   <button
                     type="submit"
-                    onClick={props.isLastStep ? props.onSubmit : props.onNext}
+                    onClick={props.onSubmit}
                     disabled={!props.canGoNext}
                     className={`px-6 py-2 rounded-lg text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
                       props.isLastStep ? 'bg-green-600' : 'bg-blue-600'
@@ -678,27 +681,56 @@ export default function WorkflowTestPage() {
       </div>
 
       <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">
-          🆕 New Decomposed Button Components:
-        </h3>
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">🆕 Validation System Features:</h3>
         <p className="text-gray-700 mb-4">
-          The workflow navigation can now be composed using individual button components for maximum
-          flexibility:
+          The new validation system combines component-level and field-level validation:
         </p>
-        <div className="bg-gray-100 p-4 rounded-lg text-sm">
-          <code>{`// Replace <WorkflowNavigation /> with:
-<div className="flex justify-between mt-8 pt-6 border-t">
-  <WorkflowPreviousButton />
-  <div className="flex space-x-3">
-    <WorkflowSkipButton />
-    <WorkflowNextButton />
-  </div>
-</div>`}</code>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">Component-Level Validation</h4>
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-2">
+              <code>{`addComponent('email', {
+  validation: {
+    validators: [email()],
+    validateOnBlur: true
+  }
+})`}</code>
+            </div>
+            <p className="text-gray-600 text-sm">
+              Built-in validation for all instances of this component.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">Field-Level Validation</h4>
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-2">
+              <code>{`add({
+  type: 'email',
+  validation: {
+    validators: [required()],
+    validateOnChange: true
+  }
+})`}</code>
+            </div>
+            <p className="text-gray-600 text-sm">
+              Additional validation specific to this field instance.
+            </p>
+          </div>
         </div>
-        <p className="text-gray-600 text-sm mt-3">
-          Each button component automatically handles its own visibility and state based on the
-          workflow configuration.
-        </p>
+
+        <div className="mt-6">
+          <h4 className="text-lg font-medium text-gray-800 mb-2">Validation Features :</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <div className="bg-white p-2 rounded border">✅ Component Defaults</div>
+            <div className="bg-white p-2 rounded border">✅ Field Override</div>
+            <div className="bg-white p-2 rounded border">✅ Zod Integration</div>
+            <div className="bg-white p-2 rounded border">✅ Built-in Validators</div>
+            <div className="bg-white p-2 rounded border">✅ onChange/onBlur</div>
+            <div className="bg-white p-2 rounded border">✅ Async Validation</div>
+            <div className="bg-white p-2 rounded border">✅ Cross-field</div>
+            <div className="bg-white p-2 rounded border">✅ Debouncing</div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 p-6 bg-purple-50 border border-purple-200 rounded-lg">
@@ -710,11 +742,11 @@ export default function WorkflowTestPage() {
           </li>
           <li className="flex items-start">
             <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            Step validation with Zod schemas
+            Component-level + field-level validation combination
           </li>
           <li className="flex items-start">
             <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
-            LocalStorage data persistence between steps
+            Real-time validation feedback with error display
           </li>
           <li className="flex items-start">
             <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />

@@ -1,6 +1,6 @@
 import type { WorkflowConfig } from '@rilaykit/core';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { flow } from '../builders/flow';
 import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 import type { WorkflowProviderProps } from './WorkflowProvider';
@@ -23,8 +23,13 @@ export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) 
   const watermarkMessage = RilayLicenseManager.getWatermarkMessage();
 
   // Auto-build if it's a flow builder
-  const resolvedWorkflowConfig =
-    workflowConfig instanceof flow ? workflowConfig.build() : workflowConfig;
+  const resolvedWorkflowConfig = useMemo(() => {
+    if (workflowConfig instanceof flow) {
+      return workflowConfig.build();
+    }
+
+    return workflowConfig;
+  }, [workflowConfig]);
 
   // Initialize license manager and check watermark only on client side
   useEffect(() => {
