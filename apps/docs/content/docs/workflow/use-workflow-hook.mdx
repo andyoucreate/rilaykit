@@ -45,7 +45,7 @@ These properties give you a snapshot of the workflow's current state. They are r
   - `currentStepIndex`: The index of the active step.
   - `allData`: An object containing all data collected across all steps.
   - `stepData`: The data for the current step.
-  - `errors`: Validation errors for the current step's fields.
+  - `visitedSteps`: A `Set` of visited step IDs.
   - `isSubmitting`: `true` if the entire workflow is currently being submitted.
   - `isTransitioning`: `true` during the transition between steps.
 - `currentStep`: The full configuration object for the current step.
@@ -67,9 +67,6 @@ These functions allow you to change the workflow's state.
 - `setStepData(data: object)`: Replaces the data for the current step.
 - `submitWorkflow()`: Submits the entire workflow.
 - `resetWorkflow()`: Resets the workflow to its initial state.
-- `saveDraft()`: Manually saves the current workflow state if persistence is enabled.
-- `loadDraft()`: Manually loads a saved workflow state.
-- `clearDraft()`: Clears a saved workflow state.
 
 ## Example: Custom Navigation Bar
 

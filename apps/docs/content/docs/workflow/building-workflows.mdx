@@ -129,7 +129,7 @@ The object passed to `.addStep()` has several options:
 - `renderer` (optional): A custom renderer for the body of this specific step, allowing you to override the default `<FormBody>` behavior.
 - `allowSkip` (optional, default: `false`): If `true`, the user can skip this step. The `<WorkflowSkipButton>` will appear.
 - `requiredToComplete` (optional, default: `true`): If `false`, the user can complete the workflow without having visited this step.
-- `hooks` (optional): Lifecycle hooks for the step (`onEnter`, `onExit`).
+- `onAfterValidation` (optional): A powerful hook that runs after the step's form is successfully validated, but before navigating to the next step. See [Advanced Workflows](/docs/workflow/advanced-workflows) for details.
 - `permissions` (optional): Logic to determine if a user can access the step.
 - `dynamicConfig` (optional): Configuration for dynamically generating steps.
 
@@ -146,8 +146,8 @@ First, we define the forms for each step:
 const accountForm = rilay
   .form('account-form')
   .add(
-    { id: 'email', type: 'email', props: { label: 'Email' }, validation: (v) => v.string().email() },
-    { id: 'password', type: 'password', props: { label: 'Password' }, validation: (v) => v.string().min(8) }
+    { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validators: [required(), email()] } },
+    { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validators: [required(), minLength(8)] } }
   );
 
 const profileForm = rilay
@@ -165,9 +165,17 @@ const confirmationForm = rilay
     props: {
       label: 'I agree to the terms and conditions',
     },
-    validation: (v) => v.boolean().refine(val => val === true, { message: 'You must accept the terms' }),
+    validation: {
+      validators: [
+        custom(value => value === true, 'You must accept the terms')
+      ]
+    }
   });
 ```
+
+<Callout title="About Validation">
+  This example uses several built-in validators. To learn more about how validation works in Rilay, check out our in-depth [Field and Form Validation](/docs/forms/validation) guide.
+</Callout>
 
 Now, we use the `flow` builder to chain them together into a workflow:
 

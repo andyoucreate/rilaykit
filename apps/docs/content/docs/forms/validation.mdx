@@ -1,0 +1,154 @@
+---
+title: Field & Form Validation
+description: Learn how to add validation rules to your forms.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Rilay comes with a powerful and extensible validation system. You can add validation rules at both the field level and the form level.
+
+## Field-Level Validation
+
+You can specify validation rules directly on a field when you add it to the form builder.
+
+The `validation` property in the `FieldConfig` object accepts the following:
+
+- `validators`: An array of validator functions.
+- `validateOnChange`: Validate the field whenever its value changes.
+- `validateOnBlur`: Validate the field when the user leaves it (on blur).
+- `debounceMs`: Debounce validation by a specified number of milliseconds.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+import { required, minLength, email } from '@rilaykit/core';
+
+const registrationForm = rilay
+  .form('registration')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [required(), email('Please enter a valid email address.')],
+      validateOnBlur: true,
+    },
+  })
+  .add({
+    id: 'password',
+    type: 'password',
+    props: { label: 'Password' },
+    validation: {
+      validators: [required(), minLength(8)],
+      validateOnChange: true,
+    },
+  });
+```
+
+### Built-in Validators
+
+Rilay provides a set of common validators out of the box, imported from `@rilaykit/core`:
+
+- `required(message?)`: Ensures the field is not empty.
+- `minLength(min, message?)`: Checks for a minimum string length.
+- `maxLength(max, message?)`: Checks for a maximum string length.
+- `pattern(regex, message?)`: Validates against a regular expression.
+- `email(message?)`: Validates for a correct email format.
+- `url(message?)`: Validates for a valid URL format.
+- `number(message?)`: Checks if the value is a valid number.
+- `min(minValue, message?)`: Checks for a minimum numeric value.
+- `max(maxValue, message?)`: Checks for a maximum numeric value.
+- `custom(fn, message, code?)`: Creates a custom synchronous validator.
+- `async(fn, message, code?)`: Creates a custom asynchronous validator.
+- `matchField(fieldId, message?)`: Checks if the value matches another field's value.
+- `when(condition, validator)`: Applies a validator conditionally.
+
+### Custom Validators
+
+You can easily create your own reusable validators. A validator is a function that receives the value and a context object, and returns a `ValidationResult`.
+
+```ts
+import type { ValidationResult, ValidationContext } from '@rilaykit/core';
+
+export function containsRilay(message = 'The value must contain "rilay"') {
+  return (value: string, context: ValidationContext): ValidationResult => {
+    if (typeof value !== 'string' || !value.includes('rilay')) {
+      return { 
+        isValid: false, 
+        errors: [{ message, code: 'DOES_NOT_CONTAIN_RILAY' }] 
+      };
+    }
+    return { isValid: true, errors: [] };
+  };
+}
+```
+
+## Form-Level Validation
+
+Sometimes you need to validate multiple fields together. You can use the `setValidation` method on the form builder to add form-level validators. These validators run when the form is submitted.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+import { createErrorResult, createSuccessResult } from '@rilaykit/core';
+
+const changePasswordForm = rilay
+  .form('change-password')
+  .add({ type: 'password', id: 'newPassword', props: { label: 'New Password' } })
+  .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
+  .setValidation({
+    validators: [
+      (formData) => {
+        if (formData.newPassword !== formData.confirmPassword) {
+          return createErrorResult("Passwords don't match", 'PASSWORD_MISMATCH');
+        }
+        return createSuccessResult();
+      },
+    ],
+  });
+```
+
+## Using Zod Schemas
+
+If you prefer using Zod for validation, Rilay provides an adapter to seamlessly integrate Zod schemas.
+
+<Tabs items={['Field Validation', 'Form Validation']}>
+  <Tab value="Field Validation">
+    You can use `zodFieldValidator` to create a field validator from a Zod schema.
+    ```tsx
+    import { z } from 'zod';
+    import { zodFieldValidator } from '@rilaykit/core';
+
+    const emailField = {
+      id: 'email',
+      type: 'email',
+      props: { label: 'Email' },
+      validation: {
+        validators: [
+          zodFieldValidator(z.string().email('Invalid email from Zod'))
+        ],
+      },
+    };
+    ```
+  </Tab>
+  <Tab value="Form Validation">
+    Use `zodFormValidator` for form-level validation with a Zod object schema.
+    ```tsx
+    import { z } from 'zod';
+    import { zodFormValidator } from '@rilaykit/core';
+
+    const formSchema = z.object({
+      email: z.string().email(),
+      password: z.string().min(8),
+    });
+
+    const myForm = rilay.form('zod-form')
+      .add(...)
+      .setValidation({
+        validators: [zodFormValidator(formSchema)],
+      });
+    ```
+  </Tab>
+</Tabs>
+
+<Callout>
+The Zod adapter is just one example. You can create your own adapter for any validation library by implementing the `ValidationAdapter` interface.
+</Callout> 

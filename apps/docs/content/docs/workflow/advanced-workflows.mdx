@@ -119,8 +119,7 @@ This guide covers advanced workflow features that help you build complex, dynami
 
 ### Best Practices
 
-
-
+```tsx
 // Step 1: Business Registration Form
 const businessRegistrationForm = form.create(config, 'business-registration')
   .add({
@@ -189,71 +188,40 @@ const businessOnboardingWorkflow = flow.create(
     id: 'registration',
     title: 'Business Registration',
     formConfig: businessRegistrationForm,
-    hooks: {
-      onStepTransition: async (stepData, allData, context) => {
-        const { country, registrationNumber } = stepData;
-        
-        // Validate required fields
-        if (!country || !registrationNumber) {
-          return {
-            isValid: false,
-            errors: [
-              {
-                code: 'required_fields',
-                message: 'Country and registration number are required',
-              },
-            ],
-          };
+    onAfterValidation: async (stepData, helper, context) => {
+      const { country, registrationNumber } = stepData;
+
+      // Validate required fields
+      if (!country || !registrationNumber) {
+        // You can throw an error to halt transition
+        throw new Error('Country and registration number are required');
+      }
+
+      try {
+        // Call API to validate and fetch business data
+        const businessData = await validateBusinessRegistration(
+          registrationNumber,
+          country
+        );
+
+        // Use the helper to modify data for subsequent steps
+        helper.setStepFields('company-details', {
+          companyName: businessData.name,
+          legalForm: businessData.legalForm,
+          registeredAddress: businessData.address,
+        });
+
+        // You can also modify the data for the entire workflow
+        helper.setNextStepFields({
+          taxId: businessData.taxId,
+        });
+      } catch (error) {
+        // Throwing an error will prevent navigation and can be caught to display a message
+        if (error.status === 404) {
+          throw new Error('Business registration number not found');
         }
-
-        try {
-          // Call API to validate and fetch business data
-          const businessData = await validateBusinessRegistration(
-            registrationNumber,
-            country
-          );
-
-          // Return success with pre-filled data for next step
-          return {
-            isValid: true,
-            errors: [],
-            modifiedData: {
-              // Store the full business data
-              businessInfo: businessData,
-              validatedAt: new Date().toISOString(),
-            },
-            nextStepData: {
-              // Pre-fill the next step form
-              companyName: businessData.name,
-              legalForm: businessData.legalForm,
-              registeredAddress: businessData.address,
-            },
-          };
-        } catch (error) {
-          // Handle validation errors
-          if (error.status === 404) {
-            return {
-              isValid: false,
-              errors: [
-                {
-                  code: 'invalid_registration',
-                  message: 'Business registration number not found',
-                },
-              ],
-            };
-          }
-
-          return {
-            isValid: false,
-            errors: [
-              {
-                code: 'validation_error',
-                message: 'Unable to validate registration number. Please try again.',
-              },
-            ],
-          };
-        }
-      },
+        throw new Error('Unable to validate registration number. Please try again.');
+      }
     },
   })
   .addStep({
@@ -320,94 +288,61 @@ function BusinessRegistrationStep() {
 
 Here's another example for tax ID validation that works across multiple countries:
 
-```typescript
+```tsx
 const taxIdValidationStep = {
   id: 'tax-validation',
   title: 'Tax Information',
   formConfig: taxIdForm,
-  hooks: {
-    onStepTransition: async (stepData, allData, context) => {
-      const { country, taxId } = stepData;
-      
-      try {
-        // Different validation patterns by country
-        const validationRules = {
-          US: /^\d{2}-\d{7}$/, // EIN format
-          FR: /^\d{11}$/, // SIRET format
-          DE: /^\d{11}$/, // Steuernummer format
-          UK: /^\d{10}$/, // UTR format
-          CA: /^\d{9}$/, // BN format
-        };
+  onAfterValidation: async (stepData, helper, context) => {
+    const { country, taxId } = stepData;
+    
+    try {
+      // Different validation patterns by country
+      const validationRules = {
+        US: /^\\d{2}-\\d{7}$/, // EIN format
+        FR: /^\\d{11}$/, // SIRET format
+        DE: /^\\d{11}$/, // Steuernummer format
+        UK: /^\\d{10}$/, // UTR format
+        CA: /^\\d{9}$/, // BN format
+      };
 
-        const pattern = validationRules[country];
-        if (!pattern || !pattern.test(taxId)) {
-          return {
-            isValid: false,
-            errors: [
-              {
-                code: 'invalid_format',
-                message: `Invalid tax ID format for ${country}`,
-              },
-            ],
-          };
-        }
-
-        // Validate with tax authority API
-        const response = await fetch(`/api/tax/validate/${country}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taxId }),
-        });
-
-        if (!response.ok) {
-          return {
-            isValid: false,
-            errors: [
-              {
-                code: 'tax_validation_failed',
-                message: 'Tax ID could not be verified with authorities',
-              },
-            ],
-          };
-        }
-
-        const taxData = await response.json();
-
-        return {
-          isValid: true,
-          errors: [],
-          modifiedData: {
-            taxInfo: taxData,
-            taxValidatedAt: new Date().toISOString(),
-          },
-          nextStepData: {
-            taxStatus: taxData.status,
-            registeredName: taxData.registeredName,
-          },
-        };
-      } catch (error) {
-        return {
-          isValid: false,
-          errors: [
-            {
-              code: 'api_error',
-              message: 'Unable to validate tax ID. Please try again later.',
-            },
-          ],
-        };
+      const pattern = validationRules[country];
+      if (!pattern || !pattern.test(taxId)) {
+        throw new Error(`Invalid tax ID format for ${country}`);
       }
-    },
+
+      // Validate with tax authority API
+      const response = await fetch(`/api/tax/validate/${country}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taxId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Tax ID could not be verified with authorities');
+      }
+
+      const taxData = await response.json();
+
+      helper.setNextStepFields({
+        taxStatus: taxData.status,
+        registeredName: taxData.registeredName,
+      });
+
+    } catch (error) {
+      throw new Error('Unable to validate tax ID. Please try again later.');
+    }
   },
 };
 ```
 
 ### Best Practices
 
-1. **Error Handling**: Always provide meaningful error messages in the user's language
-2. **Loading States**: Use `isCurrentStepValidating()` to show loading indicators
-3. **Fallback Validation**: Have client-side validation as a fallback
-4. **API Timeouts**: Implement proper timeout handling for API calls
-5. **Retry Logic**: Consider implementing retry mechanisms for transient failures
+1.  **Error Handling**: Always provide meaningful error messages in the user's language
+2.  **Loading States**: Use `isCurrentStepValidating()` to show loading indicators
+3.  **Fallback Validation**: Have client-side validation as a fallback
+4.  **API Timeouts**: Implement proper timeout handling for API calls
+5.  **Retry Logic**: Consider implementing retry mechanisms for transient failures
 
 ```typescript
 // Example with retry logic
@@ -422,25 +357,22 @@ const retryApiCall = async (fn: () => Promise<any>, maxRetries = 3) => {
   }
 };
 
-// Usage in onStepTransition
-onStepTransition: async (stepData, allData, context) => {
-  try {
-    const result = await retryApiCall(() => 
-      validateBusinessRegistration(stepData.registrationNumber, stepData.country)
-    );
-    
-    return {
-      isValid: true,
-      errors: [],
-      modifiedData: { businessInfo: result },
-    };
-  } catch (error) {
-    return {
-      isValid: false,
-      errors: [{ code: 'api_error', message: 'Validation failed after retries' }],
-    };
-  }
-},
+// Usage in onAfterValidation
+const stepConfig = {
+  // ... other step properties
+  onAfterValidation: async (stepData, helper, context) => {
+    try {
+      const result = await retryApiCall(() => 
+        validateBusinessRegistration(stepData.registrationNumber, stepData.country)
+      );
+      
+      helper.setNextStepFields({ businessInfo: result });
+
+    } catch (error) {
+      throw new Error('Validation failed after retries');
+    }
+  },
+};
 ```
 
 This approach provides a robust, international-friendly way to handle step transitions with API validation that can adapt to different countries and regulatory requirements. 
