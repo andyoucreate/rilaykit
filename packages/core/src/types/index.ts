@@ -48,11 +48,6 @@ export type FormValidator<T = Record<string, any>> = (
   context: ValidationContext
 ) => ValidationResult | Promise<ValidationResult>;
 
-export type StepValidator<T = Record<string, any>> = (
-  stepData: T,
-  context: ValidationContext
-) => ValidationResult | Promise<ValidationResult>;
-
 // 2.3. Validation Schema Types (for adapters like Zod)
 export type ValidationSchema<T = any> = {
   parse: (value: T) => T;
@@ -65,7 +60,6 @@ export interface ValidationAdapter<TSchema = any> {
   readonly version?: string;
   createFieldValidator<T>(schema: TSchema): FieldValidator<T>;
   createFormValidator<T>(schema: TSchema): FormValidator<T>;
-  createStepValidator<T>(schema: TSchema): StepValidator<T>;
 }
 
 // 2.5. Validation Configuration
@@ -82,13 +76,6 @@ export interface FormValidationConfig {
   readonly schema?: ValidationSchema;
   readonly validateOnSubmit?: boolean;
   readonly validateOnStepChange?: boolean;
-}
-
-export interface StepValidationConfig {
-  readonly validators?: StepValidator[];
-  readonly schema?: ValidationSchema;
-  readonly validateOnNext?: boolean;
-  readonly validateOnComplete?: boolean;
 }
 
 // =================================================================
@@ -230,9 +217,7 @@ export interface StepConfig {
   readonly description?: string;
   readonly formConfig: FormConfiguration;
   readonly allowSkip?: boolean;
-  readonly requiredToComplete?: boolean;
   readonly renderer?: CustomStepRenderer;
-  readonly validation?: StepValidationConfig;
 }
 
 export type CustomStepRenderer = (props: StepConfig) => React.ReactElement;

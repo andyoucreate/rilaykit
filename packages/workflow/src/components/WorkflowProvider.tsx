@@ -311,19 +311,6 @@ export function WorkflowProvider({
     return goToStep(workflowState.currentStepIndex - 1);
   }, [workflowState.currentStepIndex, goToStep]);
 
-  const skipStep = useCallback(async (): Promise<boolean> => {
-    if (!currentStep?.allowSkip) {
-      return false;
-    }
-
-    if (memoizedWorkflowConfig.analytics?.onStepSkip) {
-      memoizedWorkflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
-    }
-
-    // Skipping does not trigger validation, so we call goToStep directly
-    return goNext();
-  }, [currentStep, memoizedWorkflowConfig.analytics, workflowContext, goNext]);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const submitWorkflow = useCallback(async () => {
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
@@ -357,6 +344,25 @@ export function WorkflowProvider({
     memoizedWorkflowConfig.analytics,
     workflowContext,
   ]);
+
+  const skipStep = useCallback(async (): Promise<boolean> => {
+    if (!currentStep?.allowSkip) {
+      return false;
+    }
+
+    if (memoizedWorkflowConfig.analytics?.onStepSkip) {
+      memoizedWorkflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
+    }
+
+    // If this is the last step, complete the workflow instead of going to next step
+    if (workflowContext.isLastStep) {
+      await submitWorkflow();
+      return true;
+    }
+
+    // Otherwise, go to next step (skipping does not trigger validation)
+    return goNext();
+  }, [currentStep, memoizedWorkflowConfig.analytics, workflowContext, goNext, submitWorkflow]);
 
   const resetWorkflow = useCallback(() => {
     dispatch({ type: 'RESET_WORKFLOW' });

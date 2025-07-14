@@ -2,8 +2,6 @@ import type {
   CustomStepRenderer,
   FormConfiguration,
   StepConfig,
-  StepValidationConfig,
-  StepValidator,
   WorkflowAnalytics,
   WorkflowConfig,
   WorkflowPlugin,
@@ -63,12 +61,6 @@ export interface StepDefinition {
    * Allows complete customization of step presentation
    */
   renderer?: CustomStepRenderer;
-
-  /**
-   * Validation configuration for this step
-   * Allows step-level validation that can access data from current and previous steps
-   */
-  validation?: StepValidationConfig;
 }
 
 /**
@@ -187,9 +179,7 @@ export class flow {
       formConfig:
         stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
       allowSkip: stepDef.allowSkip || false,
-      requiredToComplete: stepDef.requiredToComplete !== false,
       renderer: stepDef.renderer,
-      validation: stepDef.validation,
     };
   }
 
@@ -240,81 +230,6 @@ export class flow {
     }
 
     return this;
-  }
-
-  /**
-   * Adds step-level validation to a specific step
-   *
-   * This method allows adding validation to a step after it has been created.
-   * Step validators can access data from the current step and all previous steps
-   * in the workflow, enabling complex cross-step validation logic.
-   *
-   * @param stepId - The ID of the step to add validation to
-   * @param validationConfig - Step validation configuration
-   * @returns The flow instance for method chaining
-   * @throws Error if the step with the specified ID is not found
-   *
-   * @example
-   * ```typescript
-   * workflow.addStepValidation('payment-step', {
-   *   validators: [
-   *     (stepData, context) => {
-   *       const previousSteps = context.workflowData;
-   *       if (previousSteps.amount > 1000 && !stepData.verificationCode) {
-   *         return createErrorResult('Verification required for amounts over $1000');
-   *       }
-   *       return createSuccessResult();
-   *     }
-   *   ],
-   *   validateOnNext: true
-   * });
-   * ```
-   */
-  addStepValidation(stepId: string, validationConfig: StepValidationConfig): this {
-    const stepIndex = this.steps.findIndex((step) => step.id === stepId);
-    if (stepIndex === -1) {
-      throw new Error(`Step with ID "${stepId}" not found`);
-    }
-
-    const currentStep = this.steps[stepIndex];
-    const updatedValidation: StepValidationConfig = {
-      ...currentStep.validation,
-      ...validationConfig,
-      validators: [
-        ...(currentStep.validation?.validators || []),
-        ...(validationConfig.validators || []),
-      ],
-    };
-
-    this.steps[stepIndex] = {
-      ...currentStep,
-      validation: updatedValidation,
-    };
-
-    return this;
-  }
-
-  /**
-   * Adds validators to a specific step
-   *
-   * This method provides a convenient way to add multiple validators to a step
-   * without replacing the existing validation configuration.
-   *
-   * @param stepId - The ID of the step to add validators to
-   * @param validators - Array of step validators to add
-   * @returns The flow instance for method chaining
-   * @throws Error if the step with the specified ID is not found
-   *
-   * @example
-   * ```typescript
-   * workflow.addStepValidators('personal-info', [
-   *   customStepValidator,
-   *   anotherStepValidator
-   * ]);
-   * ```
-   */
-  addStepValidators(stepId: string, validators: StepValidator[]): this {
-    return this.addStepValidation(stepId, { validators });
   }
 
   /**

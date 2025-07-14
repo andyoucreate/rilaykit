@@ -30,6 +30,7 @@ import {
   WorkflowPreviousButton,
   WorkflowSkipButton,
   WorkflowStepper,
+  useWorkflowContext,
 } from '@rilaykit/workflow';
 import type React from 'react';
 import { useState } from 'react';
@@ -228,16 +229,21 @@ const workflowStepperRenderer: WorkflowStepperRenderer = (
 // New individual button renderers - children is always React.ReactNode
 const workflowNextButtonRenderer: WorkflowNextButtonRenderer = (
   props: WorkflowNextButtonRendererProps
-): React.ReactElement => (
-  <button
-    type="submit"
-    onClick={props.onSubmit}
-    disabled={!props.canGoNext || props.isSubmitting}
-    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {props.children || (props.isLastStep ? 'Complete Workflow' : 'Next →')}
-  </button>
-);
+): React.ReactElement => {
+  const { workflowState } = useWorkflowContext();
+
+  return (
+    <button
+      type="submit"
+      onClick={props.onSubmit}
+      disabled={!props.canGoNext || workflowState.isSubmitting}
+      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {props.children || (props.isLastStep ? 'Complete Workflow' : 'Next →')}
+      {props.isSubmitting && ' ⏳'}
+    </button>
+  );
+};
 
 const workflowPreviousButtonRenderer: WorkflowPreviousButtonRenderer = (
   props: WorkflowPreviousButtonRendererProps

@@ -23,7 +23,7 @@ export function WorkflowNextButton({
   const baseProps: WorkflowNextButtonRendererProps = {
     isLastStep: context.isLastStep,
     canGoNext,
-    isSubmitting: workflowState.isSubmitting,
+    isSubmitting: formState.isSubmitting || workflowState.isSubmitting,
     onSubmit: handleSubmit,
     className,
     currentStep,

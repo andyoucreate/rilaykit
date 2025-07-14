@@ -279,19 +279,21 @@ export function FormProvider({
     async (event?: React.FormEvent): Promise<boolean> => {
       event?.preventDefault();
 
-      // Always validate the form before submission
-      const validationResult = await validateForm();
-
-      // If validation fails, don't proceed with submission
-      if (!validationResult.isValid) {
-        return false;
-      }
-
-      if (!onSubmitRef.current) return true;
-
-      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
-
       try {
+        dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+
+        // Always validate the form before submission
+        const validationResult = await validateForm();
+
+        // If validation fails, don't proceed with submission
+        if (!validationResult.isValid) {
+          return false;
+        }
+
+        if (!onSubmitRef.current) {
+          return true;
+        }
+
         await onSubmitRef.current(formState.values);
         return true;
       } catch (error) {

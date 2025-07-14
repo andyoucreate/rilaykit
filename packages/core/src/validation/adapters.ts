@@ -6,13 +6,7 @@
  * into Rilay validators while maintaining type safety and error handling.
  */
 
-import type {
-  FieldValidator,
-  FormValidator,
-  StepValidator,
-  ValidationAdapter,
-  ValidationContext,
-} from '../types';
+import type { FieldValidator, FormValidator, ValidationAdapter, ValidationContext } from '../types';
 import { createErrorResult, createSuccessResult } from './utils';
 
 /**
@@ -131,51 +125,6 @@ export class ZodValidationAdapter implements ValidationAdapter<ZodLikeSchema> {
       }
     };
   }
-
-  /**
-   * Creates a step validator from a Zod object schema
-   *
-   * @param schema - The Zod object schema to convert
-   * @returns A StepValidator function compatible with Rilay
-   *
-   * @example
-   * ```typescript
-   * const stepSchema = z.object({
-   *   personalInfo: z.object({
-   *     name: z.string().min(1),
-   *     age: z.number().min(18)
-   *   })
-   * });
-   * const validator = adapter.createStepValidator(stepSchema);
-   * ```
-   */
-  createStepValidator<T>(schema: ZodLikeSchema<T>): StepValidator<T> {
-    return (stepData: T, context: ValidationContext): ReturnType<StepValidator> => {
-      try {
-        const result = schema.safeParse(stepData);
-
-        if (!result.success) {
-          const errors = result.error.errors.map((err) => ({
-            message: err.message,
-            code: 'VALIDATION_ERROR',
-            path: err.path.join('.') || context.stepId,
-          }));
-
-          return {
-            isValid: false,
-            errors,
-          };
-        }
-
-        return createSuccessResult();
-      } catch (error) {
-        return createErrorResult(
-          error instanceof Error ? error.message : 'Step validation failed',
-          'VALIDATION_ERROR'
-        );
-      }
-    };
-  }
 }
 
 /**
@@ -234,28 +183,4 @@ export function zodFieldValidator<T>(schema: ZodLikeSchema<T>): FieldValidator<T
 export function zodFormValidator<T>(schema: ZodLikeSchema<T>): FormValidator<T> {
   const adapter = createZodAdapter();
   return adapter.createFormValidator(schema);
-}
-
-/**
- * Helper function to create a step validator directly from a Zod schema
- *
- * @param schema - The Zod object schema to convert
- * @returns A StepValidator function
- *
- * @example
- * ```typescript
- * import { z } from 'zod';
- * import { zodStepValidator } from '@rilaykit/core';
- *
- * const stepValidator = zodStepValidator(z.object({
- *   userInfo: z.object({
- *     name: z.string(),
- *     email: z.string().email()
- *   })
- * }));
- * ```
- */
-export function zodStepValidator<T>(schema: ZodLikeSchema<T>): StepValidator<T> {
-  const adapter = createZodAdapter();
-  return adapter.createStepValidator(schema);
 }

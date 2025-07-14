@@ -21,7 +21,7 @@ export function WorkflowSkipButton({
     await skipStep();
   };
 
-  const baseProps = {
+  const baseProps: WorkflowSkipButtonRendererProps = {
     canSkip,
     onSkip: handleSkip,
     className,

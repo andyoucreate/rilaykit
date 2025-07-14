@@ -10,6 +10,7 @@ export function FormSubmitButton({
 
   const baseProps: FormSubmitButtonRendererProps = {
     isSubmitting: formState.isSubmitting,
+
     onSubmit: submit,
     className,
   };

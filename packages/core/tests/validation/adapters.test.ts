@@ -8,7 +8,6 @@ import {
   createZodAdapter,
   zodFieldValidator,
   zodFormValidator,
-  zodStepValidator,
 } from '../../src/validation';
 
 // Mock Zod-like schema for testing
@@ -147,40 +146,6 @@ describe('ZodValidationAdapter', () => {
     });
   });
 
-  describe('createStepValidator', () => {
-    it('should validate step data', () => {
-      const validSchema = createMockSchema(true);
-      const validator = adapter.createStepValidator(validSchema);
-
-      const stepData = { userInfo: { name: 'John', age: 25 } };
-      const result = validator(stepData, baseContext);
-
-      expect(result).toEqual({
-        isValid: true,
-        errors: [],
-      });
-    });
-
-    it('should handle step validation errors', () => {
-      const invalidSchema = createMockSchema(false, 'Step data is invalid');
-      const validator = adapter.createStepValidator(invalidSchema);
-
-      const stepData = { userInfo: { name: '', age: 15 } };
-      const result = validator(stepData, baseContext);
-
-      expect(result).toEqual({
-        isValid: false,
-        errors: [
-          {
-            message: 'Step data is invalid',
-            code: 'VALIDATION_ERROR',
-            path: '',
-          },
-        ],
-      });
-    });
-  });
-
   describe('helper functions', () => {
     it('zodFieldValidator should create field validator', () => {
       const schema = createMockSchema(true);
@@ -198,17 +163,6 @@ describe('ZodValidationAdapter', () => {
       const validator = zodFormValidator(schema);
 
       const result = validator({ test: 'data' }, baseContext);
-      expect(result).toEqual({
-        isValid: true,
-        errors: [],
-      });
-    });
-
-    it('zodStepValidator should create step validator', () => {
-      const schema = createMockSchema(true);
-      const validator = zodStepValidator(schema);
-
-      const result = validator({ step: 'data' }, baseContext);
       expect(result).toEqual({
         isValid: true,
         errors: [],
