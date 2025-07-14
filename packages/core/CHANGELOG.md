@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 4.0.0
+
+### Major Changes
+
+- Major update with huges changes
+
 ## 3.0.0
 
 ### Major Changes

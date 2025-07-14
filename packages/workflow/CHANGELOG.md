@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 4.0.0
+
+### Major Changes
+
+- Major update with huges changes
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@4.0.0
+  - @rilaykit/forms@4.0.0
+
 ## 3.0.0
 
 ### Major Changes
