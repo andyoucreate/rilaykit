@@ -211,6 +211,43 @@ export interface WorkflowContext {
   readonly visitedSteps: Set<string>;
 }
 
+export interface StepDataHelper {
+  /**
+   * Set data for a specific step by step ID
+   */
+  setStepData: (stepId: string, data: Record<string, any>) => void;
+
+  /**
+   * Set specific field values for a step
+   */
+  setStepFields: (stepId: string, fields: Record<string, any>) => void;
+
+  /**
+   * Get current data for a specific step
+   */
+  getStepData: (stepId: string) => Record<string, any>;
+
+  /**
+   * Set field value for the next step
+   */
+  setNextStepField: (fieldId: string, value: any) => void;
+
+  /**
+   * Set multiple fields for the next step
+   */
+  setNextStepFields: (fields: Record<string, any>) => void;
+
+  /**
+   * Get all workflow data
+   */
+  getAllData: () => Record<string, any>;
+
+  /**
+   * Get all step configurations for reference
+   */
+  getSteps: () => StepConfig[];
+}
+
 export interface StepConfig {
   readonly id: string;
   readonly title: string;
@@ -218,6 +255,11 @@ export interface StepConfig {
   readonly formConfig: FormConfiguration;
   readonly allowSkip?: boolean;
   readonly renderer?: CustomStepRenderer;
+  readonly onAfterValidation?: (
+    stepData: Record<string, any>,
+    helper: StepDataHelper,
+    context: WorkflowContext
+  ) => void | Promise<void>;
 }
 
 export type CustomStepRenderer = (props: StepConfig) => React.ReactElement;

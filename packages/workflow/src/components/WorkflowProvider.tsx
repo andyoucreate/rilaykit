@@ -1,6 +1,7 @@
 import type {
   FormConfiguration,
   StepConfig,
+  StepDataHelper,
   WorkflowConfig,
   WorkflowContext,
 } from '@rilaykit/core';
@@ -288,6 +289,53 @@ export function WorkflowProvider({
     ]
   );
 
+  // Create step data helper with clean methods for modifying workflow data
+  const createStepDataHelper = useCallback((): StepDataHelper => {
+    return {
+      setStepData: (stepId: string, data: Record<string, any>) => {
+        dispatch({ type: 'SET_STEP_DATA', data, stepId });
+      },
+
+      setStepFields: (stepId: string, fields: Record<string, any>) => {
+        const existingData = workflowState.allData[stepId] || {};
+        const mergedData = { ...existingData, ...fields };
+        dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId });
+      },
+
+      getStepData: (stepId: string) => {
+        return workflowState.allData[stepId] || {};
+      },
+
+      setNextStepField: (fieldId: string, value: any) => {
+        const nextStepIndex = workflowState.currentStepIndex + 1;
+        if (nextStepIndex < memoizedWorkflowConfig.steps.length) {
+          const nextStepId = memoizedWorkflowConfig.steps[nextStepIndex].id;
+          const existingData = workflowState.allData[nextStepId] || {};
+          const mergedData = { ...existingData, [fieldId]: value };
+          dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId: nextStepId });
+        }
+      },
+
+      setNextStepFields: (fields: Record<string, any>) => {
+        const nextStepIndex = workflowState.currentStepIndex + 1;
+        if (nextStepIndex < memoizedWorkflowConfig.steps.length) {
+          const nextStepId = memoizedWorkflowConfig.steps[nextStepIndex].id;
+          const existingData = workflowState.allData[nextStepId] || {};
+          const mergedData = { ...existingData, ...fields };
+          dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId: nextStepId });
+        }
+      },
+
+      getAllData: () => {
+        return { ...workflowState.allData };
+      },
+
+      getSteps: () => {
+        return [...memoizedWorkflowConfig.steps];
+      },
+    };
+  }, [workflowState.allData, workflowState.currentStepIndex, memoizedWorkflowConfig.steps]);
+
   const setValue = useCallback(
     (fieldId: string, value: any) => {
       dispatch({ type: 'SET_FIELD_VALUE', fieldId, value, stepId: currentStep?.id || '' });
@@ -303,9 +351,33 @@ export function WorkflowProvider({
   );
 
   const goNext = useCallback(async (): Promise<boolean> => {
+    // Before transitioning, call onAfterValidation if it exists
+    if (currentStep?.onAfterValidation) {
+      try {
+        const helper = createStepDataHelper();
+
+        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
+      } catch (error) {
+        console.error('onAfterValidation failed:', error);
+        if (memoizedWorkflowConfig.analytics?.onError) {
+          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
+        }
+        return false;
+      }
+    }
+
     const nextStepIndex = workflowState.currentStepIndex + 1;
+
     return goToStep(nextStepIndex);
-  }, [goToStep, workflowState.currentStepIndex]);
+  }, [
+    currentStep,
+    createStepDataHelper,
+    workflowState.stepData,
+    workflowContext,
+    memoizedWorkflowConfig.analytics,
+    goToStep,
+    workflowState.currentStepIndex,
+  ]);
 
   const goPrevious = useCallback(async (): Promise<boolean> => {
     return goToStep(workflowState.currentStepIndex - 1);

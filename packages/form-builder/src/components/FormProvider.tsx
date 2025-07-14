@@ -1,7 +1,15 @@
 import type { FormConfiguration, ValidationError, ValidationResult } from '@rilaykit/core';
 import { createValidationContext, runValidatorsAsync } from '@rilaykit/core';
 import type React from 'react';
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
 
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
@@ -132,8 +140,8 @@ export function FormProvider({
     values: defaultValues,
     errors: {},
     validationState: {},
-    isDirty: false,
     touched: {},
+    isDirty: false,
     isSubmitting: false,
     isValid: true,
   };
@@ -143,10 +151,23 @@ export function FormProvider({
   // Use refs to avoid recreating callbacks when these change
   const onSubmitRef = useRef(onSubmit);
   const onFieldChangeRef = useRef(onFieldChange);
+  const defaultValuesRef = useRef(defaultValues);
 
   // Update refs when props change
   onSubmitRef.current = onSubmit;
   onFieldChangeRef.current = onFieldChange;
+
+  // Watch for defaultValues changes and update the form state
+  useEffect(() => {
+    // Only update if defaultValues actually changed (deep comparison for objects)
+    const hasChanged = JSON.stringify(defaultValuesRef.current) !== JSON.stringify(defaultValues);
+
+    if (hasChanged) {
+      defaultValuesRef.current = defaultValues;
+      // Reset form with new default values
+      dispatch({ type: 'RESET', values: defaultValues });
+    }
+  }, [defaultValues]);
 
   // Optimize setValue with minimal dependencies
   const setValue = useCallback(

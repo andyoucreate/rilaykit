@@ -345,6 +345,25 @@ export default function WorkflowTestPage() {
         validators: [required('Email is required')],
         validateOnBlur: true,
       },
+    })
+    .add({
+      id: 'siren',
+      type: 'text',
+      props: { label: 'SIREN (French company number)', placeholder: 'Ex: 123456789' },
+      validation: {
+        validators: [
+          required('SIREN is required'),
+          (value) => {
+            if (!/^\d{9}$/.test(value)) {
+              return {
+                isValid: false,
+                errors: [{ message: 'SIREN must be 9 digits', code: 'INVALID_FORMAT' }],
+              };
+            }
+            return { isValid: true, errors: [] };
+          },
+        ],
+      },
     });
 
   const preferencesForm = factory
@@ -368,7 +387,7 @@ export default function WorkflowTestPage() {
           async(async (value) => {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             return value !== 'developer';
-          }, 'Developper is not allowed'),
+          }, 'Developer is not allowed'),
         ],
         validateOnBlur: true,
       },
@@ -391,6 +410,35 @@ export default function WorkflowTestPage() {
       },
     });
 
+  const companyInfoForm = factory
+    .form()
+    .add({
+      id: 'companyName',
+      type: 'text',
+      props: { label: 'Company Name' },
+    })
+    .add({
+      id: 'companyAddress',
+      type: 'text',
+      props: { label: 'Company Address' },
+    })
+    .add({
+      id: 'industry',
+      type: 'select',
+      props: {
+        label: 'Industry',
+        options: [
+          { value: 'tech', label: 'Technology' },
+          { value: 'finance', label: 'Finance' },
+          { value: 'healthcare', label: 'Healthcare' },
+          { value: 'education', label: 'Education' },
+          { value: 'retail', label: 'Retail' },
+          { value: 'manufacturing', label: 'Manufacturing' },
+          { value: 'other', label: 'Other' },
+        ],
+      },
+    });
+
   const reviewForm = factory.form().add({
     id: 'feedback',
     type: 'textarea',
@@ -400,35 +448,97 @@ export default function WorkflowTestPage() {
     },
   });
 
+  // Simulation d'un appel API pour récupérer les infos d'une entreprise par SIREN
+  const fetchCompanyBySiren = async (siren: string) => {
+    // Simulation d'un délai d'API
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Données simulées
+    const mockCompanies: Record<string, any> = {
+      '123456789': {
+        name: 'Tech Innovation SAS',
+        address: '123 Avenue des Champs-Élysées, 75008 Paris',
+        industry: 'tech',
+        legalForm: 'SAS',
+        foundedYear: 2015,
+      },
+      '987654321': {
+        name: 'Finance Pro SARL',
+        address: '456 Rue de la Paix, 75001 Paris',
+        industry: 'finance',
+        legalForm: 'SARL',
+        foundedYear: 2010,
+      },
+    };
+
+    return (
+      mockCompanies[siren] || {
+        name: 'Unknown Company',
+        address: 'Address not found',
+        industry: 'other',
+        legalForm: 'Unknown',
+        foundedYear: new Date().getFullYear(),
+      }
+    );
+  };
+
   // Build workflow configuration
   const workflowConfig = factory
     .flow(
       'user-onboarding',
       'User Onboarding Workflow',
-      'A multi-step workflow to onboard new users'
+      'A multi-step workflow to onboard new users with API integration'
     )
     .addStep({
       id: 'personal-info',
       title: 'Personal Information',
-      description: 'Tell us about yourself',
+      description: 'Tell us about yourself and your company',
       allowSkip: false,
-      requiredToComplete: true,
       formConfig: personalInfoForm,
+      // 🎯 Exemple d'onAfterValidation avec appel API
+      onAfterValidation: async (stepData, helper, _context) => {
+        console.log('🔍 Personal info step validated, checking SIREN...', stepData);
+
+        if (stepData.siren) {
+          try {
+            console.log('📡 Calling API for SIREN:', stepData.siren);
+            const companyInfo = await fetchCompanyBySiren(stepData.siren);
+            console.log('✅ Company info fetched:', companyInfo);
+
+            // 🎯 Pré-remplir l'étape suivante avec les données de l'entreprise
+            helper.setNextStepFields({
+              companyName: companyInfo.name,
+              companyAddress: companyInfo.address,
+              industry: companyInfo.industry,
+            });
+
+            console.log('🎯 Next step pre-filled with company data');
+          } catch (error) {
+            console.error('❌ Failed to fetch company info:', error);
+          }
+        }
+      },
       renderer: () => {
         return (
           <div className="flex-col gap-4 grid grid-cols-2">
             <FormField fieldId="firstName" className="" />
             <FormField fieldId="lastName" className="" />
             <FormField fieldId="email" className="" />
+            <FormField fieldId="siren" className="" />
           </div>
         );
       },
     })
     .addStep({
+      id: 'company-info',
+      title: 'Company Information',
+      description: 'Company details (auto-filled from SIREN)',
+      formConfig: companyInfoForm,
+    })
+    .addStep({
       id: 'preferences',
       title: 'Preferences',
       description: 'Set your preferences',
-      requiredToComplete: true,
       formConfig: preferencesForm,
     })
     .addStep({
@@ -740,6 +850,90 @@ export default function WorkflowTestPage() {
       </div>
 
       <div className="mt-8 p-6 bg-purple-50 border border-purple-200 rounded-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">🚀 NEW: onAfterValidation Hook</h3>
+        <p className="text-gray-700 mb-4">
+          Execute custom logic after step validation and before moving to the next step. Perfect for
+          API calls and data pre-filling!
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">🎯 Use Cases</h4>
+            <ul className="space-y-2 text-gray-700 text-sm">
+              <li className="flex items-start">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
+                Fetch company data from SIREN number
+              </li>
+              <li className="flex items-start">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
+                Auto-fill address from postal code
+              </li>
+              <li className="flex items-start">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
+                Calculate pricing based on selections
+              </li>
+              <li className="flex items-start">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0" />
+                Validate data against external APIs
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-medium text-gray-800 mb-2">🛠️ Helper Methods</h4>
+            <ul className="space-y-2 text-gray-700 text-sm">
+              <li className="flex items-start">
+                <code className="bg-purple-100 px-2 py-1 rounded text-xs mr-2">
+                  setNextStepFields()
+                </code>
+                <span>Pre-fill next step</span>
+              </li>
+              <li className="flex items-start">
+                <code className="bg-purple-100 px-2 py-1 rounded text-xs mr-2">
+                  setStepFields()
+                </code>
+                <span>Set data for any step</span>
+              </li>
+              <li className="flex items-start">
+                <code className="bg-purple-100 px-2 py-1 rounded text-xs mr-2">getStepData()</code>
+                <span>Read step data</span>
+              </li>
+              <li className="flex items-start">
+                <code className="bg-purple-100 px-2 py-1 rounded text-xs mr-2">getAllData()</code>
+                <span>Access all workflow data</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="bg-gray-100 p-4 rounded-lg">
+          <h4 className="text-lg font-medium text-gray-800 mb-2">📝 Example Implementation</h4>
+          <div className="bg-gray-800 text-gray-100 p-3 rounded text-sm overflow-x-auto">
+            <pre>{`onAfterValidation: async (stepData, helper, context) => {
+  if (stepData.siren) {
+    // 📡 API call
+    const company = await fetchCompanyBySiren(stepData.siren);
+    
+    // 🎯 Pre-fill next step
+    helper.setNextStepFields({
+      companyName: company.name,
+      address: company.address,
+      industry: company.sector
+    });
+  }
+}`}</pre>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+          <p className="text-purple-800 text-sm">
+            <strong>💡 Try it:</strong> Enter a SIREN number (123456789 or 987654321) in the first
+            step and see how it auto-fills the company information step!
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">🔧 Features being tested:</h3>
         <ul className="space-y-2 text-gray-700">
           <li className="flex items-start">

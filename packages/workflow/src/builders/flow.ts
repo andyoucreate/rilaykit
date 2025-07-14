@@ -2,8 +2,10 @@ import type {
   CustomStepRenderer,
   FormConfiguration,
   StepConfig,
+  StepDataHelper,
   WorkflowAnalytics,
   WorkflowConfig,
+  WorkflowContext,
   WorkflowPlugin,
 } from '@rilaykit/core';
 import { IdGenerator, deepClone, ensureUnique, normalizeToArray, ril } from '@rilaykit/core';
@@ -61,6 +63,41 @@ export interface StepDefinition {
    * Allows complete customization of step presentation
    */
   renderer?: CustomStepRenderer;
+
+  /**
+   * Callback function that executes after successful validation and before moving to next step
+   * Provides clean helper methods for modifying workflow data and pre-filling subsequent steps
+   *
+   * @param stepData - The validated data from the current step
+   * @param helper - Helper object with methods to modify workflow data cleanly
+   * @param context - Full workflow context for reference
+   *
+   * @example
+   * ```typescript
+   * onAfterValidation: async (stepData, helper, context) => {
+   *   // API call based on current step data
+   *   const companyInfo = await fetchCompanyBySiren(stepData.siren);
+   *
+   *   // Pre-fill next step with clean helper methods
+   *   helper.setNextStepFields({
+   *     companyName: companyInfo.name,
+   *     address: companyInfo.address,
+   *     industry: companyInfo.sector
+   *   });
+   *
+   *   // Or set data for a specific step
+   *   helper.setStepFields('company-details', {
+   *     legalForm: companyInfo.legalForm,
+   *     foundedYear: companyInfo.creation_date
+   *   });
+   * }
+   * ```
+   */
+  onAfterValidation?: (
+    stepData: Record<string, any>,
+    helper: StepDataHelper,
+    context: WorkflowContext
+  ) => void | Promise<void>;
 }
 
 /**
@@ -180,6 +217,7 @@ export class flow {
         stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
       allowSkip: stepDef.allowSkip || false,
       renderer: stepDef.renderer,
+      onAfterValidation: stepDef.onAfterValidation,
     };
   }
 
