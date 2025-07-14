@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  url,
   createValidationContext,
   custom,
   email,
@@ -15,7 +16,6 @@ import {
   number,
   pattern,
   required,
-  url,
   when,
 } from '../../src/validation';
 
