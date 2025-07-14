@@ -7,9 +7,12 @@ export { FormProvider, useFormContext } from './components/FormProvider';
 export { FormRow } from './components/FormRow';
 export { FormSubmitButton } from './components/FormSubmitButton';
 
-// Export form builder
+// Export form builder and ensure prototype extension is applied
 export { createForm, form, form as FormBuilder } from './builders/form';
 export type { FieldConfig } from './builders/form';
+
+// Import the form module to ensure prototype extension is applied
+import './builders/form';
 
 // Re-export types and utilities from core
 export type * from '@rilaykit/core';
