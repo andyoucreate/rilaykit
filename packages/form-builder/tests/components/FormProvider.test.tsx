@@ -1,3 +1,4 @@
+import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -26,7 +27,7 @@ const TestSubmitButtonRenderer = ({ onSubmit, isSubmitting, isValid }: any) =>
 
 describe('FormProvider', () => {
   let config: ril<Record<string, any>>;
-  let formConfig: any;
+  let formConfig: FormConfiguration;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -178,8 +179,10 @@ describe('FormProvider', () => {
             <div data-testid="is-dirty">{formState.isDirty ? 'true' : 'false'}</div>
             <div data-testid="is-valid">{formState.isValid ? 'true' : 'false'}</div>
             <div data-testid="is-submitting">{formState.isSubmitting ? 'true' : 'false'}</div>
-            <div data-testid="touched-count">{formState.touched.size}</div>
-            <div data-testid="validating-count">{formState.isValidating.size}</div>
+            <div data-testid="touched-count">{Object.keys(formState.touched).length}</div>
+            <div data-testid="validating-count">
+              {Object.values(formState.validationState).filter((s) => s === 'validating').length}
+            </div>
           </div>
         );
       };
@@ -256,61 +259,65 @@ describe('FormProvider', () => {
     });
 
     it('should manage field errors', async () => {
+      const mockValidator = vi
+        .fn()
+        .mockReturnValue({ isValid: false, errors: [{ message: 'Invalid' }] });
+
+      const formConfigWithValidation = createForm(config, 'test-form')
+        .add({
+          id: 'firstName',
+          type: 'text',
+          validation: { validators: [mockValidator] },
+        })
+        .build();
+
       const TestChild = () => {
-        const { formState, setError, clearError } = useFormContext();
+        const { formState, validateField, reset } = useFormContext();
         return (
           <div>
-            <div data-testid="errors">{JSON.stringify(formState.errors)}</div>
-            <div data-testid="is-valid">{formState.isValid ? 'true' : 'false'}</div>
-            <button
-              type="button"
-              onClick={() =>
-                setError('firstName', [{ code: 'REQUIRED', message: 'Required field' }])
-              }
-              data-testid="set-error"
-            >
-              Set Error
+            <div data-testid="errors">
+              {JSON.stringify(formState.errors.firstName?.[0]?.message)}
+            </div>
+            <button type="button" onClick={() => validateField('firstName')} data-testid="validate">
+              Validate
             </button>
-            <button type="button" onClick={() => clearError('firstName')} data-testid="clear-error">
-              Clear Error
+            <button type="button" onClick={() => reset()} data-testid="clear">
+              Clear
             </button>
           </div>
         );
       };
 
       render(
-        <FormProvider formConfig={formConfig}>
+        <FormProvider formConfig={formConfigWithValidation}>
           <TestChild />
         </FormProvider>
       );
 
-      expect(screen.getByTestId('errors')).toHaveTextContent('{}');
-      expect(screen.getByTestId('is-valid')).toHaveTextContent('true');
+      expect(screen.queryByTestId('errors')?.textContent).toBeFalsy();
 
-      fireEvent.click(screen.getByTestId('set-error'));
+      fireEvent.click(screen.getByTestId('validate'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('errors')).toHaveTextContent('Required field');
-        expect(screen.getByTestId('is-valid')).toHaveTextContent('false');
+        expect(screen.getByTestId('errors')).toHaveTextContent('Invalid');
       });
 
-      fireEvent.click(screen.getByTestId('clear-error'));
+      fireEvent.click(screen.getByTestId('clear'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('errors')).toHaveTextContent('{}');
-        expect(screen.getByTestId('is-valid')).toHaveTextContent('true');
+        expect(screen.queryByTestId('errors')?.textContent).toBeFalsy();
       });
     });
 
     it('should manage touched fields', async () => {
       const TestChild = () => {
-        const { formState, markFieldTouched } = useFormContext();
+        const { formState, setFieldTouched } = useFormContext();
         return (
           <div>
-            <div data-testid="touched-count">{formState.touched.size}</div>
+            <div data-testid="touched-count">{Object.keys(formState.touched).length}</div>
             <button
               type="button"
-              onClick={() => markFieldTouched('firstName')}
+              onClick={() => setFieldTouched('firstName', true)}
               data-testid="mark-touched"
             >
               Mark Touched
@@ -335,47 +342,49 @@ describe('FormProvider', () => {
     });
 
     it('should manage validation state', async () => {
+      const mockValidator = vi.fn(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ isValid: true, errors: [] }), 10)
+          ) as Promise<ValidationResult>
+      );
+
+      const formConfigWithValidation = createForm(config, 'test-form')
+        .add({
+          id: 'firstName',
+          type: 'text',
+          validation: { validators: [mockValidator] },
+        })
+        .build();
+
       const TestChild = () => {
-        const { formState, setFieldValidating } = useFormContext();
+        const { formState, validateField } = useFormContext();
         return (
           <div>
-            <div data-testid="validating-count">{formState.isValidating.size}</div>
-            <button
-              type="button"
-              onClick={() => setFieldValidating('firstName', true)}
-              data-testid="start-validation"
-            >
-              Start Validation
-            </button>
-            <button
-              type="button"
-              onClick={() => setFieldValidating('firstName', false)}
-              data-testid="stop-validation"
-            >
-              Stop Validation
+            <div data-testid="validation-state">{formState.validationState.firstName}</div>
+            <button type="button" onClick={() => validateField('firstName')} data-testid="validate">
+              Validate
             </button>
           </div>
         );
       };
 
       render(
-        <FormProvider formConfig={formConfig}>
+        <FormProvider formConfig={formConfigWithValidation}>
           <TestChild />
         </FormProvider>
       );
 
-      expect(screen.getByTestId('validating-count')).toHaveTextContent('0');
+      expect(screen.getByTestId('validation-state').textContent).toBeFalsy();
 
-      fireEvent.click(screen.getByTestId('start-validation'));
+      fireEvent.click(screen.getByTestId('validate'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('validating-count')).toHaveTextContent('1');
+        expect(screen.getByTestId('validation-state')).toHaveTextContent('validating');
       });
 
-      fireEvent.click(screen.getByTestId('stop-validation'));
-
       await waitFor(() => {
-        expect(screen.getByTestId('validating-count')).toHaveTextContent('0');
+        expect(screen.getByTestId('validation-state')).toHaveTextContent('valid');
       });
     });
 
@@ -464,7 +473,7 @@ describe('FormProvider', () => {
           id: 'email',
           type: 'email',
           props: { label: 'Email' },
-          validation: { validator: mockValidator },
+          validation: { validators: [mockValidator] },
         })
         .build();
 
@@ -475,7 +484,9 @@ describe('FormProvider', () => {
             <div data-testid="errors">{JSON.stringify(formState.errors)}</div>
             <button
               type="button"
-              onClick={() => validateField('email', 'invalid-email')}
+              onClick={() => {
+                validateField('email');
+              }}
               data-testid="validate"
             >
               Validate
@@ -485,7 +496,10 @@ describe('FormProvider', () => {
       };
 
       render(
-        <FormProvider formConfig={formConfigWithValidation}>
+        <FormProvider
+          formConfig={formConfigWithValidation}
+          defaultValues={{ email: 'invalid-email' }}
+        >
           <TestChild />
         </FormProvider>
       );
@@ -493,11 +507,7 @@ describe('FormProvider', () => {
       fireEvent.click(screen.getByTestId('validate'));
 
       await waitFor(() => {
-        expect(mockValidator).toHaveBeenCalledWith(
-          'invalid-email',
-          expect.any(Object),
-          expect.any(Object)
-        );
+        expect(mockValidator).toHaveBeenCalledWith('invalid-email', expect.any(Object));
         expect(screen.getByTestId('errors')).toHaveTextContent('Invalid value');
       });
     });
@@ -513,29 +523,29 @@ describe('FormProvider', () => {
           id: 'firstName',
           type: 'text',
           props: { label: 'First Name' },
-          validation: { validator: mockValidator },
+          validation: { validators: [mockValidator] },
         })
         .add({
           id: 'lastName',
           type: 'text',
           props: { label: 'Last Name' },
-          validation: { validator: mockValidator },
+          validation: { validators: [mockValidator] },
         })
         .build();
 
       const TestChild = () => {
-        const { validateAllFields, formState } = useFormContext();
-        const [result, setResult] = React.useState<boolean | null>(null);
+        const { validateForm } = useFormContext();
+        const [result, setResult] = React.useState<ValidationResult | null>(null);
 
         const handleValidateAll = async () => {
-          const isValid = await validateAllFields();
-          setResult(isValid);
+          const validationResult = await validateForm();
+          setResult(validationResult);
         };
 
         return (
           <div>
             <div data-testid="validation-result">
-              {result !== null ? result.toString() : 'null'}
+              {result !== null ? result.isValid.toString() : 'null'}
             </div>
             <button type="button" onClick={handleValidateAll} data-testid="validate-all">
               Validate All
@@ -641,7 +651,7 @@ describe('FormProvider', () => {
           id: 'email',
           type: 'email',
           props: { label: 'Email' },
-          validation: { validator: mockValidator },
+          validation: { validators: [mockValidator] },
         })
         .build();
 
@@ -728,18 +738,21 @@ describe('FormProvider', () => {
           id: 'email',
           type: 'email',
           props: { label: 'Email' },
-          validation: { validator: mockValidator },
+          validation: { validators: [mockValidator] },
         })
         .build();
 
       const TestChild = () => {
-        const { formState, validateField } = useFormContext();
+        const { formState, validateField, setValue } = useFormContext();
         return (
           <div>
             <div data-testid="errors">{JSON.stringify(formState.errors)}</div>
             <button
               type="button"
-              onClick={() => validateField('email', 'test@example.com')}
+              onClick={() => {
+                setValue('email', 'test@example.com');
+                validateField('email');
+              }}
               data-testid="validate"
             >
               Validate

@@ -56,7 +56,7 @@ export function FormField({
 
       // Validate on change if configured OR if field is touched (default behavior)
       if (fieldConfig.validation?.validateOnChange || fieldState.isTouched) {
-        await validateField(fieldConfig.id);
+        await validateField(fieldConfig.id, value);
       }
     },
     [
@@ -109,6 +109,7 @@ export function FormField({
       disabled: disabled,
       error: fieldState.errors,
       isValidating: fieldState.isValidating,
+      touched: fieldState.isTouched,
     }),
     [
       fieldConfig.id,
@@ -116,6 +117,7 @@ export function FormField({
       fieldState.value,
       fieldState.errors,
       fieldState.isValidating,
+      fieldState.isTouched,
       handleChange,
       handleBlur,
       disabled,

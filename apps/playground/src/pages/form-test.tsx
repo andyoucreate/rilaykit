@@ -1,5 +1,6 @@
 import type { ComponentRenderProps, ComponentRenderer } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
+import '@rilaykit/forms';
 
 // Define component prop interfaces
 interface TextInputProps {

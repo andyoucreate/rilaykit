@@ -31,7 +31,7 @@ export interface FormContextValue {
   formConfig: FormConfiguration;
   setValue: (fieldId: string, value: any) => void;
   setFieldTouched: (fieldId: string, touched?: boolean) => void;
-  validateField: (fieldId: string) => Promise<ValidationResult>;
+  validateField: (fieldId: string, value?: any) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
   isFormValid: () => boolean;
   reset: (values?: Record<string, any>) => void;
@@ -185,23 +185,27 @@ export function FormProvider({
 
   // Validate a specific field
   const validateField = useCallback(
-    async (fieldId: string): Promise<ValidationResult> => {
+    async (fieldId: string, value?: any): Promise<ValidationResult> => {
       const fieldConfig = formConfig.allFields.find((field) => field.id === fieldId);
       if (!fieldConfig || !fieldConfig.validation?.validators) {
         return createSuccessResult();
       }
 
-      const value = formState.values[fieldId];
+      const valueToValidate = value !== undefined ? value : formState.values[fieldId];
       const context = createValidationContext({
         fieldId,
         formId: formConfig.id,
-        allFormData: formState.values,
+        allFormData: { ...formState.values, [fieldId]: valueToValidate },
       });
 
       dispatch({ type: 'SET_FIELD_VALIDATION_STATE', fieldId, state: 'validating' });
 
       try {
-        const result = await runValidatorsAsync(fieldConfig.validation.validators, value, context);
+        const result = await runValidatorsAsync(
+          fieldConfig.validation.validators,
+          valueToValidate,
+          context
+        );
 
         dispatch({ type: 'SET_FIELD_ERRORS', fieldId, errors: result.errors });
         dispatch({

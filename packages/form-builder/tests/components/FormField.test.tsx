@@ -207,7 +207,7 @@ describe('FormField', () => {
           type: 'email',
           props: { label: 'Email' },
           validation: {
-            validator: mockValidator,
+            validators: [mockValidator],
             validateOnBlur: true,
           },
         })
@@ -266,7 +266,7 @@ describe('FormField', () => {
           type: 'email',
           props: { label: 'Email' },
           validation: {
-            validator: mockValidator,
+            validators: [mockValidator],
             validateOnChange: true,
           },
         })
@@ -283,11 +283,7 @@ describe('FormField', () => {
       fireEvent.change(input, { target: { value: 'test@example.com' } });
 
       await waitFor(() => {
-        expect(mockValidator).toHaveBeenCalledWith(
-          'test@example.com',
-          expect.any(Object),
-          expect.any(Object)
-        );
+        expect(mockValidator).toHaveBeenCalledWith('test@example.com', expect.any(Object));
       });
     });
 
@@ -303,7 +299,7 @@ describe('FormField', () => {
           type: 'email',
           props: { label: 'Email' },
           validation: {
-            validator: mockValidator,
+            validators: [mockValidator],
             validateOnBlur: true,
           },
         })
@@ -321,11 +317,7 @@ describe('FormField', () => {
       fireEvent.blur(input);
 
       await waitFor(() => {
-        expect(mockValidator).toHaveBeenCalledWith(
-          'test@example.com',
-          expect.any(Object),
-          expect.any(Object)
-        );
+        expect(mockValidator).toHaveBeenCalledWith('test@example.com', expect.any(Object));
       });
     });
   });
@@ -360,7 +352,7 @@ describe('FormField', () => {
           type: 'email',
           props: { label: 'Email' },
           validation: {
-            validator: mockValidator,
+            validators: [mockValidator],
             validateOnChange: true,
           },
         })
@@ -390,11 +382,7 @@ describe('FormField', () => {
       fireEvent.change(input, { target: { value: 'valid@example.com' } });
 
       await waitFor(() => {
-        expect(mockValidator).toHaveBeenCalledWith(
-          'valid@example.com',
-          expect.any(Object),
-          expect.any(Object)
-        );
+        expect(mockValidator).toHaveBeenCalledWith('valid@example.com', expect.any(Object));
       });
     });
   });

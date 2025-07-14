@@ -56,7 +56,7 @@ export class ZodValidationAdapter implements ValidationAdapter<ZodLikeSchema> {
    * ```
    */
   createFieldValidator<T>(schema: ZodLikeSchema<T>): FieldValidator<T> {
-    return (value: T, context: ValidationContext): ReturnType<FieldValidator> => {
+    return (value: T, _context: ValidationContext): ReturnType<FieldValidator> => {
       try {
         const result = schema.safeParse(value);
 
@@ -64,7 +64,7 @@ export class ZodValidationAdapter implements ValidationAdapter<ZodLikeSchema> {
           const errors = result.error.errors.map((err) => ({
             message: err.message,
             code: 'VALIDATION_ERROR',
-            path: err.path.join('.') || context.fieldId,
+            path: err.path.join('.'),
           }));
 
           return {
@@ -99,7 +99,7 @@ export class ZodValidationAdapter implements ValidationAdapter<ZodLikeSchema> {
    * ```
    */
   createFormValidator<T>(schema: ZodLikeSchema<T>): FormValidator<T> {
-    return (formData: T, context: ValidationContext): ReturnType<FormValidator> => {
+    return (formData: T, _context: ValidationContext): ReturnType<FormValidator> => {
       try {
         const result = schema.safeParse(formData);
 
@@ -107,7 +107,7 @@ export class ZodValidationAdapter implements ValidationAdapter<ZodLikeSchema> {
           const errors = result.error.errors.map((err) => ({
             message: err.message,
             code: 'VALIDATION_ERROR',
-            path: err.path.join('.') || context.formId,
+            path: err.path.join('.'),
           }));
 
           return {

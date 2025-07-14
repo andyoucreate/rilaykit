@@ -655,6 +655,11 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * - Form-level validation configuration
    */
   build(): FormConfiguration {
+    const errors = this.validate();
+    if (errors.length > 0) {
+      throw new Error(`Form validation failed: ${errors.join(', ')}`);
+    }
+
     return {
       id: this.formId,
       rows: [...this.rows],

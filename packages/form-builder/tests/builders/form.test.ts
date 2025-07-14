@@ -91,13 +91,13 @@ describe('Form Builder', () => {
         id: 'email',
         type: 'email',
         props: { label: 'Email' },
-        validation: { validator: mockValidator },
+        validation: { validators: [mockValidator] },
       });
 
       const formConfig = formBuilder.build();
       const field = formConfig.rows[0].fields[0];
 
-      expect(field.validation?.validator).toBe(mockValidator);
+      expect(field.validation?.validators).toContain(mockValidator);
     });
 
     it('should merge default props with custom props', () => {
@@ -422,7 +422,7 @@ describe('Form Builder', () => {
 
       expect(() => {
         formBuilder.build();
-      }).toThrow('Form validation failed');
+      }).toThrow(/Form validation failed/);
     });
   });
 

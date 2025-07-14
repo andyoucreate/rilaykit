@@ -1,8 +1,8 @@
 import { ril } from '@rilaykit/core';
+import { createForm, useFormContext } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm } from '../../../form-builder/src/builders/form';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
 
@@ -438,11 +438,11 @@ describe('WorkflowProvider', () => {
   describe('Validation', () => {
     it('should validate current step', async () => {
       const TestChild = () => {
-        const { validateCurrentStep } = useWorkflowContext();
+        const { validateForm } = useFormContext();
         const [result, setResult] = React.useState<any>(null);
 
         const handleValidate = async () => {
-          const validationResult = await validateCurrentStep();
+          const validationResult = await validateForm();
           setResult(validationResult);
         };
 
