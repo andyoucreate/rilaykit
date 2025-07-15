@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 5.2.0
+
+### Minor Changes
+
+- Fix props in field renderer
+
 ## 5.1.0
 
 ### Minor Changes

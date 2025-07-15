@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 5.2.0
+
+### Minor Changes
+
+- Fix props in field renderer
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@5.2.0
+
 ## 5.1.0
 
 ### Minor Changes
