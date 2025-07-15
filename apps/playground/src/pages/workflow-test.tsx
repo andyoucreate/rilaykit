@@ -563,7 +563,7 @@ export default function WorkflowTestPage() {
       id: 'review',
       title: 'Review & Feedback',
       description: 'Review your information and provide feedback',
-      allowSkip: true,
+      allowSkip: false,
       formConfig: reviewForm,
     })
     .configure({

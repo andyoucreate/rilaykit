@@ -350,39 +350,6 @@ export function WorkflowProvider({
     [currentStep?.id]
   );
 
-  const goNext = useCallback(async (): Promise<boolean> => {
-    // Before transitioning, call onAfterValidation if it exists
-    if (currentStep?.onAfterValidation) {
-      try {
-        const helper = createStepDataHelper();
-
-        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
-      } catch (error) {
-        console.error('onAfterValidation failed:', error);
-        if (memoizedWorkflowConfig.analytics?.onError) {
-          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
-        }
-        return false;
-      }
-    }
-
-    const nextStepIndex = workflowState.currentStepIndex + 1;
-
-    return goToStep(nextStepIndex);
-  }, [
-    currentStep,
-    createStepDataHelper,
-    workflowState.stepData,
-    workflowContext,
-    memoizedWorkflowConfig.analytics,
-    goToStep,
-    workflowState.currentStepIndex,
-  ]);
-
-  const goPrevious = useCallback(async (): Promise<boolean> => {
-    return goToStep(workflowState.currentStepIndex - 1);
-  }, [workflowState.currentStepIndex, goToStep]);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const submitWorkflow = useCallback(async () => {
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
@@ -416,6 +383,47 @@ export function WorkflowProvider({
     memoizedWorkflowConfig.analytics,
     workflowContext,
   ]);
+
+  const goNext = useCallback(async (): Promise<boolean> => {
+    // Before transitioning, call onAfterValidation if it exists
+    if (currentStep?.onAfterValidation) {
+      try {
+        const helper = createStepDataHelper();
+
+        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
+      } catch (error) {
+        console.error('onAfterValidation failed:', error);
+        if (memoizedWorkflowConfig.analytics?.onError) {
+          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
+        }
+        return false;
+      }
+    }
+
+    const nextStepIndex = workflowState.currentStepIndex + 1;
+
+    // If we're at the last step, complete the workflow instead of going to next step
+    if (nextStepIndex >= memoizedWorkflowConfig.steps.length) {
+      await submitWorkflow();
+      return true;
+    }
+
+    return goToStep(nextStepIndex);
+  }, [
+    currentStep,
+    createStepDataHelper,
+    workflowState.stepData,
+    workflowContext,
+    memoizedWorkflowConfig.analytics,
+    memoizedWorkflowConfig.steps.length,
+    goToStep,
+    workflowState.currentStepIndex,
+    submitWorkflow,
+  ]);
+
+  const goPrevious = useCallback(async (): Promise<boolean> => {
+    return goToStep(workflowState.currentStepIndex - 1);
+  }, [workflowState.currentStepIndex, goToStep]);
 
   const skipStep = useCallback(async (): Promise<boolean> => {
     if (!currentStep?.allowSkip) {
