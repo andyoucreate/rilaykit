@@ -137,7 +137,9 @@ export function FormField({
           id: fieldConfig.id,
           disabled: disabled,
           ...mergedProps,
-          ...fieldState,
+          error: fieldState.errors,
+          isValidating: fieldState.isValidating,
+          touched: fieldState.isTouched,
         })
       : renderedComponent;
 

@@ -302,6 +302,24 @@ const factory = ril
     defaultProps: { placeholder: 'Enter text...', rows: 4 },
   })
   .configure({
+    fieldRenderer: (props) => {
+      return (
+        <div className="flex flex-col gap-2">
+          {props.children}
+          <code>
+            {JSON.stringify(
+              {
+                touched: props.touched,
+                error: props.error,
+                isValidating: props.isValidating,
+              },
+              null,
+              2
+            )}
+          </code>
+        </div>
+      );
+    },
     rowRenderer: formRowRenderer,
     bodyRenderer: formBodyRenderer,
     submitButtonRenderer: formSubmitButtonRenderer,
