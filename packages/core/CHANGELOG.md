@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 5.1.0
+
+### Minor Changes
+
+- Add values to FieldRendererProps
+
 ## 5.0.0
 
 ### Major Changes

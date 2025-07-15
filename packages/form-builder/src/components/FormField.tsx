@@ -137,6 +137,7 @@ export function FormField({
           id: fieldConfig.id,
           disabled: disabled,
           ...mergedProps,
+          ...fieldState,
         })
       : renderedComponent;
 

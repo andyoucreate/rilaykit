@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 5.1.0
+
+### Minor Changes
+
+- Add values to FieldRendererProps
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/forms@5.1.0
+  - @rilaykit/core@5.1.0
+
 ## 5.0.0
 
 ### Major Changes

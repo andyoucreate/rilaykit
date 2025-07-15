@@ -187,6 +187,9 @@ export interface FieldRendererProps {
   children: React.ReactNode;
   id: string;
   disabled?: boolean;
+  error?: ValidationError[];
+  isValidating?: boolean;
+  touched?: boolean;
   [key: string]: any;
 }
 

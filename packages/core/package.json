@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/core",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "Core types, configurations, and utilities for the RilayKit form library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
