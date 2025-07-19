@@ -1,137 +1,48 @@
 import type {
-  ConditionalBehavior,
   FormConfiguration,
   StepConfig,
-  StepDataHelper,
   WorkflowConfig,
   WorkflowContext,
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-} from 'react';
-import {
-  type ConditionEvaluationResult,
-  useConditionEvaluation,
-  useMultipleConditionEvaluation,
-} from '../hooks/useConditionEvaluation';
-
-export interface WorkflowState {
-  currentStepIndex: number;
-  allData: Record<string, any>;
-  stepData: Record<string, any>;
-  visitedSteps: Set<string>;
-  isSubmitting: boolean;
-  isTransitioning: boolean;
-}
+  type UseWorkflowConditionsReturn,
+  useWorkflowAnalytics,
+  useWorkflowConditions,
+  useWorkflowNavigation,
+  useWorkflowState,
+  useWorkflowSubmission,
+} from '../hooks';
 
 export interface WorkflowContextValue {
-  workflowState: WorkflowState;
+  workflowState: ReturnType<typeof useWorkflowState>['workflowState'];
   workflowConfig: WorkflowConfig;
   currentStep: StepConfig;
   context: WorkflowContext;
   formConfig?: FormConfiguration;
-  stepConditions: ConditionEvaluationResult;
-  fieldConditions: Record<string, ConditionEvaluationResult>;
+  conditionsHelpers: UseWorkflowConditionsReturn;
 
-  // Actions
+  // Navigation actions
   goToStep: (stepIndex: number) => Promise<boolean>;
   goNext: () => Promise<boolean>;
   goPrevious: () => Promise<boolean>;
   skipStep: () => Promise<boolean>;
+  canGoToStep: (stepIndex: number) => boolean;
+  canGoNext: () => boolean;
+  canGoPrevious: () => boolean;
+  canSkipCurrentStep: () => boolean;
+
+  // Data actions
   setValue: (fieldId: string, value: any) => void;
   setStepData: (data: Record<string, any>) => void;
-  submitWorkflow: () => Promise<void>;
   resetWorkflow: () => void;
-}
 
-type WorkflowAction =
-  | { type: 'SET_CURRENT_STEP'; stepIndex: number }
-  | { type: 'SET_STEP_DATA'; data: Record<string, any>; stepId: string }
-  | { type: 'SET_ALL_DATA'; data: Record<string, any> }
-  | { type: 'SET_FIELD_VALUE'; fieldId: string; value: any; stepId: string }
-  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
-  | { type: 'SET_TRANSITIONING'; isTransitioning: boolean }
-  | { type: 'MARK_STEP_VISITED'; stepIndex: number; stepId: string }
-  | { type: 'RESET_WORKFLOW' };
-
-function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
-  switch (action.type) {
-    case 'SET_CURRENT_STEP':
-      return {
-        ...state,
-        currentStepIndex: action.stepIndex,
-      };
-
-    case 'SET_STEP_DATA': {
-      const currentStepId = action.stepId; // We need to pass stepId in the action
-      return {
-        ...state,
-        stepData: action.data,
-        allData: {
-          ...state.allData,
-          [currentStepId]: action.data,
-        },
-      };
-    }
-
-    case 'SET_ALL_DATA':
-      return {
-        ...state,
-        allData: action.data,
-      };
-
-    case 'SET_FIELD_VALUE': {
-      const currentStepIdForField = action.stepId; // We need to pass stepId in the action
-      const newStepData = { ...state.stepData, [action.fieldId]: action.value };
-      return {
-        ...state,
-        stepData: newStepData,
-        allData: {
-          ...state.allData,
-          [currentStepIdForField]: newStepData,
-        },
-      };
-    }
-
-    case 'SET_SUBMITTING':
-      return {
-        ...state,
-        isSubmitting: action.isSubmitting,
-      };
-
-    case 'SET_TRANSITIONING':
-      return {
-        ...state,
-        isTransitioning: action.isTransitioning,
-      };
-
-    case 'MARK_STEP_VISITED':
-      return {
-        ...state,
-        visitedSteps: new Set([...state.visitedSteps, action.stepId]), // We need to pass stepId
-      };
-
-    case 'RESET_WORKFLOW':
-      return {
-        currentStepIndex: 0,
-        allData: {},
-        stepData: {},
-        visitedSteps: new Set(),
-        isSubmitting: false,
-        isTransitioning: false,
-      };
-
-    default:
-      return state;
-  }
+  // Submission
+  submitWorkflow: () => Promise<void>;
+  isSubmitting: boolean;
+  canSubmit: boolean;
 }
 
 const WorkflowReactContext = createContext<WorkflowContextValue | null>(null);
@@ -153,384 +64,177 @@ export function WorkflowProvider({
   onWorkflowComplete,
   className,
 }: WorkflowProviderProps) {
-  const [workflowState, dispatch] = useReducer<React.Reducer<WorkflowState, WorkflowAction>>(
-    workflowReducer,
-    {
-      currentStepIndex: 0,
-      allData: defaultValues,
-      stepData: {},
-      visitedSteps: new Set(),
-      isSubmitting: false,
-      isTransitioning: false,
-    }
-  );
+  // 1. Initialize workflow state management
+  const {
+    workflowState,
+    setCurrentStep,
+    setStepData,
+    setFieldValue,
+    setSubmitting,
+    setTransitioning,
+    markStepVisited,
+    resetWorkflow,
+  } = useWorkflowState({ defaultValues });
 
-  const analyticsStartTime = useRef<number>(Date.now());
-  const stepStartTimes = useRef<Map<string, number>>(new Map());
-  const workflowStartedRef = useRef<boolean>(false);
-  const currentStepRef = useRef<string | null>(null);
-
-  // Use refs for callbacks to avoid recreating context
-  const onStepChangeRef = useRef(onStepChange);
-  const onWorkflowCompleteRef = useRef(onWorkflowComplete);
-
-  // Update refs when props change
-  onStepChangeRef.current = onStepChange;
-  onWorkflowCompleteRef.current = onWorkflowComplete;
-
-  // Memoize workflow config to avoid unnecessary recalculations
-  const memoizedWorkflowConfig = useMemo(() => workflowConfig, [workflowConfig]);
-
-  // Memoize workflow context creation - this is the expensive operation
-  const workflowContext = useMemo((): WorkflowContext => {
-    return {
-      workflowId: memoizedWorkflowConfig.id,
+  // 2. Create workflow context for conditions and callbacks
+  const workflowContext = useMemo(
+    (): WorkflowContext => ({
+      workflowId: workflowConfig.id,
       currentStepIndex: workflowState.currentStepIndex,
-      totalSteps: memoizedWorkflowConfig.steps.length,
+      totalSteps: workflowConfig.steps.length,
       allData: workflowState.allData,
       stepData: workflowState.stepData,
       isFirstStep: workflowState.currentStepIndex === 0,
-      isLastStep: workflowState.currentStepIndex === memoizedWorkflowConfig.steps.length - 1,
+      isLastStep: workflowState.currentStepIndex === workflowConfig.steps.length - 1,
       visitedSteps: workflowState.visitedSteps,
-    };
-  }, [
-    memoizedWorkflowConfig.id,
-    workflowState.currentStepIndex,
-    memoizedWorkflowConfig.steps.length,
-    workflowState.allData,
-    workflowState.stepData,
-    workflowState.visitedSteps,
-  ]);
-
-  // Analytics tracking - only run once on mount
-  useEffect(() => {
-    if (memoizedWorkflowConfig.analytics?.onWorkflowStart && !workflowStartedRef.current) {
-      workflowStartedRef.current = true;
-      memoizedWorkflowConfig.analytics.onWorkflowStart(memoizedWorkflowConfig.id, workflowContext);
-    }
-  }, [memoizedWorkflowConfig.id, memoizedWorkflowConfig.analytics, workflowContext]);
-
-  // Step change analytics - optimized to avoid spam
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    const currentStep = memoizedWorkflowConfig.steps[workflowState.currentStepIndex];
-    if (!currentStep) return;
-
-    // Only trigger if step actually changed
-    if (currentStepRef.current === currentStep.id) return;
-
-    // Track step completion for previous step
-    if (currentStepRef.current && memoizedWorkflowConfig.analytics?.onStepComplete) {
-      const startTime = stepStartTimes.current.get(currentStepRef.current);
-      if (startTime) {
-        memoizedWorkflowConfig.analytics.onStepComplete(
-          currentStepRef.current,
-          Date.now() - startTime,
-          workflowState.stepData,
-          workflowContext
-        );
-      }
-    }
-
-    // Update current step reference
-    currentStepRef.current = currentStep.id;
-
-    // Track step start for new step
-    stepStartTimes.current.set(currentStep.id, Date.now());
-    if (memoizedWorkflowConfig.analytics?.onStepStart) {
-      memoizedWorkflowConfig.analytics.onStepStart(currentStep.id, Date.now(), workflowContext);
-    }
-  }, [
-    workflowState.currentStepIndex,
-    memoizedWorkflowConfig.steps,
-    memoizedWorkflowConfig.analytics,
-    workflowContext,
-  ]);
-
-  // Memoize current step to avoid recalculation
-  const currentStep = useMemo(
-    () => memoizedWorkflowConfig.steps[workflowState.currentStepIndex],
-    [memoizedWorkflowConfig.steps, workflowState.currentStepIndex]
-  );
-
-  // Get form configuration from current step
-  const formConfig = useMemo(() => currentStep?.formConfig, [currentStep]);
-
-  // Evaluate step-level conditions
-  const stepConditions = useConditionEvaluation(currentStep?.conditions, workflowState.allData, {
-    visible: true,
-    disabled: false,
-    required: false,
-    readonly: false,
-  });
-
-  // Evaluate field-level conditions for the current step form
-  const fieldsWithConditions = useMemo(() => {
-    if (!formConfig?.allFields) return {};
-
-    const conditionsMap: Record<string, ConditionalBehavior | undefined> = {};
-    for (const field of formConfig.allFields) {
-      if (field.conditions) {
-        conditionsMap[field.id] = field.conditions;
-      }
-    }
-    return conditionsMap;
-  }, [formConfig?.allFields]);
-
-  const fieldConditions = useMultipleConditionEvaluation(fieldsWithConditions, {
-    ...workflowState.allData,
-    ...workflowState.stepData,
-  });
-
-  // Core navigation functions - optimized with fewer dependencies
-  const goToStep = useCallback(
-    async (stepIndex: number): Promise<boolean> => {
-      if (stepIndex < 0 || stepIndex >= memoizedWorkflowConfig.steps.length) {
-        return false;
-      }
-
-      dispatch({ type: 'SET_TRANSITIONING', isTransitioning: true });
-
-      try {
-        // Call onStepChange using ref
-        if (onStepChangeRef.current) {
-          onStepChangeRef.current(workflowState.currentStepIndex, stepIndex, workflowContext);
-        }
-
-        dispatch({ type: 'SET_CURRENT_STEP', stepIndex });
-        dispatch({
-          type: 'MARK_STEP_VISITED',
-          stepIndex,
-          stepId: memoizedWorkflowConfig.steps[stepIndex].id,
-        });
-
-        return true;
-      } catch (error) {
-        console.error('Step transition failed:', error);
-        if (memoizedWorkflowConfig.analytics?.onError) {
-          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
-        }
-        return false;
-      } finally {
-        dispatch({ type: 'SET_TRANSITIONING', isTransitioning: false });
-      }
-    },
+    }),
     [
-      memoizedWorkflowConfig.steps,
+      workflowConfig.id,
+      workflowConfig.steps.length,
       workflowState.currentStepIndex,
-      workflowContext,
-      memoizedWorkflowConfig.analytics,
+      workflowState.allData,
+      workflowState.stepData,
+      workflowState.visitedSteps,
     ]
   );
 
-  // Create step data helper with clean methods for modifying workflow data
-  const createStepDataHelper = useCallback((): StepDataHelper => {
-    return {
-      setStepData: (stepId: string, data: Record<string, any>) => {
-        dispatch({ type: 'SET_STEP_DATA', data, stepId });
-      },
+  // 3. Get current step info
+  const currentStep = useMemo(
+    () => workflowConfig.steps[workflowState.currentStepIndex],
+    [workflowConfig.steps, workflowState.currentStepIndex]
+  );
 
-      setStepFields: (stepId: string, fields: Record<string, any>) => {
-        const existingData = workflowState.allData[stepId] || {};
-        const mergedData = { ...existingData, ...fields };
-        dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId });
-      },
+  const formConfig = useMemo(() => currentStep?.formConfig, [currentStep]);
 
-      getStepData: (stepId: string) => {
-        return workflowState.allData[stepId] || {};
-      },
+  // 4. Initialize analytics tracking
+  const { analyticsStartTime } = useWorkflowAnalytics({
+    workflowConfig,
+    workflowState,
+    workflowContext,
+  });
 
-      setNextStepField: (fieldId: string, value: any) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < memoizedWorkflowConfig.steps.length) {
-          const nextStepId = memoizedWorkflowConfig.steps[nextStepIndex].id;
-          const existingData = workflowState.allData[nextStepId] || {};
-          const mergedData = { ...existingData, [fieldId]: value };
-          dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId: nextStepId });
-        }
-      },
+  // 5. Initialize conditional logic for steps and fields
+  const conditionsHelpers = useWorkflowConditions({
+    workflowConfig,
+    workflowState,
+    currentStep,
+  });
 
-      setNextStepFields: (fields: Record<string, any>) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < memoizedWorkflowConfig.steps.length) {
-          const nextStepId = memoizedWorkflowConfig.steps[nextStepIndex].id;
-          const existingData = workflowState.allData[nextStepId] || {};
-          const mergedData = { ...existingData, ...fields };
-          dispatch({ type: 'SET_STEP_DATA', data: mergedData, stepId: nextStepId });
-        }
-      },
+  // 6. Initialize navigation
+  const {
+    goToStep,
+    goNext,
+    goPrevious,
+    skipStep,
+    canGoToStep,
+    canGoNext,
+    canGoPrevious,
+    canSkipCurrentStep,
+  } = useWorkflowNavigation({
+    workflowConfig,
+    workflowState,
+    workflowContext,
+    conditionsHelpers,
+    setCurrentStep,
+    setTransitioning,
+    markStepVisited,
+    setStepData,
+    onStepChange,
+  });
 
-      getAllData: () => {
-        return { ...workflowState.allData };
-      },
+  // 7. Initialize submission
+  const { submitWorkflow, isSubmitting, canSubmit } = useWorkflowSubmission({
+    workflowConfig,
+    workflowState,
+    workflowContext,
+    setSubmitting,
+    onWorkflowComplete,
+    analyticsStartTime,
+  });
 
-      getSteps: () => {
-        return [...memoizedWorkflowConfig.steps];
-      },
-    };
-  }, [workflowState.allData, workflowState.currentStepIndex, memoizedWorkflowConfig.steps]);
-
+  // 8. Create field value setter for form integration
   const setValue = useCallback(
     (fieldId: string, value: any) => {
-      dispatch({ type: 'SET_FIELD_VALUE', fieldId, value, stepId: currentStep?.id || '' });
+      setFieldValue(fieldId, value, currentStep?.id || '');
     },
-    [currentStep?.id]
+    [setFieldValue, currentStep?.id]
   );
 
-  const setStepData = useCallback(
+  // 9. Create step data setter
+  const handleSetStepData = useCallback(
     (data: Record<string, any>) => {
-      dispatch({ type: 'SET_STEP_DATA', data, stepId: currentStep?.id || '' });
+      setStepData(data, currentStep?.id || '');
     },
-    [currentStep?.id]
+    [setStepData, currentStep?.id]
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  const submitWorkflow = useCallback(async () => {
-    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
-
-    try {
-      if (onWorkflowCompleteRef.current) {
-        await onWorkflowCompleteRef.current(workflowState.allData);
-      }
-
-      // Track workflow completion
-      if (memoizedWorkflowConfig.analytics?.onWorkflowComplete) {
-        const totalTime = Date.now() - analyticsStartTime.current;
-        memoizedWorkflowConfig.analytics.onWorkflowComplete(
-          memoizedWorkflowConfig.id,
-          totalTime,
-          workflowState.allData
-        );
-      }
-    } catch (error) {
-      console.error('Workflow submission failed:', error);
-      if (memoizedWorkflowConfig.analytics?.onError) {
-        memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
-      }
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
-    }
-  }, [
-    workflowState.allData,
-    onWorkflowCompleteRef,
-    memoizedWorkflowConfig.analytics,
-    workflowContext,
-  ]);
-
-  const goNext = useCallback(async (): Promise<boolean> => {
-    // Before transitioning, call onAfterValidation if it exists
-    if (currentStep?.onAfterValidation) {
-      try {
-        const helper = createStepDataHelper();
-
-        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
-      } catch (error) {
-        console.error('onAfterValidation failed:', error);
-        if (memoizedWorkflowConfig.analytics?.onError) {
-          memoizedWorkflowConfig.analytics.onError(error as Error, workflowContext);
-        }
-        return false;
-      }
-    }
-
-    const nextStepIndex = workflowState.currentStepIndex + 1;
-
-    // If we're at the last step, complete the workflow instead of going to next step
-    if (nextStepIndex >= memoizedWorkflowConfig.steps.length) {
-      await submitWorkflow();
-      return true;
-    }
-
-    return goToStep(nextStepIndex);
-  }, [
-    currentStep,
-    createStepDataHelper,
-    workflowState.stepData,
-    workflowContext,
-    memoizedWorkflowConfig.analytics,
-    memoizedWorkflowConfig.steps.length,
-    goToStep,
-    workflowState.currentStepIndex,
-    submitWorkflow,
-  ]);
-
-  const goPrevious = useCallback(async (): Promise<boolean> => {
-    return goToStep(workflowState.currentStepIndex - 1);
-  }, [workflowState.currentStepIndex, goToStep]);
-
-  const skipStep = useCallback(async (): Promise<boolean> => {
-    if (!currentStep?.allowSkip) {
-      return false;
-    }
-
-    if (memoizedWorkflowConfig.analytics?.onStepSkip) {
-      memoizedWorkflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
-    }
-
-    // If this is the last step, complete the workflow instead of going to next step
+  // 10. Create form submission handler
+  const handleSubmit = useCallback(async () => {
     if (workflowContext.isLastStep) {
       await submitWorkflow();
-      return true;
+    } else {
+      await goNext();
     }
+  }, [workflowContext.isLastStep, submitWorkflow, goNext]);
 
-    // Otherwise, go to next step (skipping does not trigger validation)
-    return goNext();
-  }, [currentStep, memoizedWorkflowConfig.analytics, workflowContext, goNext, submitWorkflow]);
-
-  const resetWorkflow = useCallback(() => {
-    dispatch({ type: 'RESET_WORKFLOW' });
-  }, []);
-
-  // Memoize context value to prevent unnecessary re-renders of all children
+  // 11. Memoize context value to prevent unnecessary re-renders
   const contextValue: WorkflowContextValue = useMemo(
     () => ({
       workflowState,
-      workflowConfig: memoizedWorkflowConfig,
+      workflowConfig,
       currentStep,
       context: workflowContext,
       formConfig,
-      stepConditions,
-      fieldConditions,
+      conditionsHelpers,
+      // Navigation
       goToStep,
       goNext,
       goPrevious,
       skipStep,
+      canGoToStep,
+      canGoNext,
+      canGoPrevious,
+      canSkipCurrentStep,
+      // Data
       setValue,
-      setStepData,
-      submitWorkflow,
+      setStepData: handleSetStepData,
       resetWorkflow,
+      // Submission
+      submitWorkflow,
+      isSubmitting,
+      canSubmit,
     }),
     [
       workflowState,
-      memoizedWorkflowConfig,
+      workflowConfig,
       currentStep,
       workflowContext,
       formConfig,
-      stepConditions,
-      fieldConditions,
+      conditionsHelpers,
       goToStep,
       goNext,
       goPrevious,
       skipStep,
+      canGoToStep,
+      canGoNext,
+      canGoPrevious,
+      canSkipCurrentStep,
       setValue,
-      setStepData,
-      submitWorkflow,
+      handleSetStepData,
       resetWorkflow,
+      submitWorkflow,
+      isSubmitting,
+      canSubmit,
     ]
   );
-
-  const handleSubmit = useCallback(async () => {
-    await goNext();
-  }, [goNext]);
 
   return (
     <WorkflowReactContext.Provider value={contextValue}>
       <FormProvider
-        formConfig={currentStep?.formConfig}
+        formConfig={formConfig}
         defaultValues={workflowState?.allData[currentStep?.id] || {}}
         onFieldChange={setValue}
-        data-workflow-id={memoizedWorkflowConfig.id}
+        data-workflow-id={workflowConfig.id}
         className={className}
         onSubmit={handleSubmit}
       >
