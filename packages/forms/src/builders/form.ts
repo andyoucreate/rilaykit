@@ -1,4 +1,5 @@
 import type {
+  ConditionalBehavior,
   FieldValidationConfig,
   FormConfiguration,
   FormFieldConfig,
@@ -36,6 +37,8 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
   props?: Partial<C[T]>;
   /** Validation configuration for this field */
   validation?: FieldValidationConfig;
+  /** Conditional behavior configuration for this field */
+  conditions?: ConditionalBehavior;
 };
 
 /**
@@ -89,7 +92,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   constructor(config: ril<C>, formId?: string) {
     this.config = config;
-    this.formId = formId || `form-${Date.now()}`;
+    this.formId = formId || `form-${Math.random().toString(36).substring(2, 15)}`;
   }
 
   /**
@@ -164,6 +167,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       componentId: component.id,
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: combinedValidation,
+      conditions: fieldConfig.conditions,
     };
   }
 
@@ -175,7 +179,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    *
    * @template T - The component type
    * @param fieldConfigs - Array of field configurations for the row
-   * @param rowOptions - Optional row layout configuration
    * @returns A complete FormFieldRow configuration
    * @throws Error if no fields provided or more than 3 fields specified
    *
@@ -289,7 +292,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    *
    * @template T - The component type
    * @param fieldConfigs - Array of field configurations
-   * @param rowOptions - Optional row layout configuration applied to all rows
    * @returns The form builder instance for method chaining
    *
    * @example
@@ -567,6 +569,39 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     };
 
     return this.updateField(fieldId, { validation: updatedValidation });
+  }
+
+  /**
+   * Adds conditions to a specific field by ID
+   *
+   * This method allows adding conditional behavior to a field after it has been created,
+   * useful for dynamic conditional requirements.
+   *
+   * @param fieldId - The ID of the field to add conditions to
+   * @param conditions - Conditional behavior configuration
+   * @returns The form builder instance for method chaining
+   * @throws Error if the field with the specified ID is not found
+   *
+   * @example
+   * ```typescript
+   * builder.addFieldConditions('phone', {
+   *   visible: when('contactMethod').equals('phone').build(),
+   *   required: when('contactMethod').equals('phone').build()
+   * });
+   * ```
+   */
+  addFieldConditions(fieldId: string, conditions: ConditionalBehavior): this {
+    const field = this.findField(fieldId);
+    if (!field) {
+      throw new Error(`Field with ID "${fieldId}" not found`);
+    }
+
+    const updatedConditions: ConditionalBehavior = {
+      ...field.conditions,
+      ...conditions,
+    };
+
+    return this.updateField(fieldId, { conditions: updatedConditions });
   }
 
   /**

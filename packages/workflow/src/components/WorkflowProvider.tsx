@@ -1,4 +1,5 @@
 import type {
+  ConditionalBehavior,
   FormConfiguration,
   StepConfig,
   StepDataHelper,
@@ -16,6 +17,11 @@ import {
   useReducer,
   useRef,
 } from 'react';
+import {
+  type ConditionEvaluationResult,
+  useConditionEvaluation,
+  useMultipleConditionEvaluation,
+} from '../hooks/useConditionEvaluation';
 
 export interface WorkflowState {
   currentStepIndex: number;
@@ -32,6 +38,8 @@ export interface WorkflowContextValue {
   currentStep: StepConfig;
   context: WorkflowContext;
   formConfig?: FormConfiguration;
+  stepConditions: ConditionEvaluationResult;
+  fieldConditions: Record<string, ConditionEvaluationResult>;
 
   // Actions
   goToStep: (stepIndex: number) => Promise<boolean>;
@@ -248,6 +256,32 @@ export function WorkflowProvider({
   // Get form configuration from current step
   const formConfig = useMemo(() => currentStep?.formConfig, [currentStep]);
 
+  // Evaluate step-level conditions
+  const stepConditions = useConditionEvaluation(currentStep?.conditions, workflowState.allData, {
+    visible: true,
+    disabled: false,
+    required: false,
+    readonly: false,
+  });
+
+  // Evaluate field-level conditions for the current step form
+  const fieldsWithConditions = useMemo(() => {
+    if (!formConfig?.allFields) return {};
+
+    const conditionsMap: Record<string, ConditionalBehavior | undefined> = {};
+    for (const field of formConfig.allFields) {
+      if (field.conditions) {
+        conditionsMap[field.id] = field.conditions;
+      }
+    }
+    return conditionsMap;
+  }, [formConfig?.allFields]);
+
+  const fieldConditions = useMultipleConditionEvaluation(fieldsWithConditions, {
+    ...workflowState.allData,
+    ...workflowState.stepData,
+  });
+
   // Core navigation functions - optimized with fewer dependencies
   const goToStep = useCallback(
     async (stepIndex: number): Promise<boolean> => {
@@ -456,6 +490,8 @@ export function WorkflowProvider({
       currentStep,
       context: workflowContext,
       formConfig,
+      stepConditions,
+      fieldConditions,
       goToStep,
       goNext,
       goPrevious,
@@ -471,6 +507,8 @@ export function WorkflowProvider({
       currentStep,
       workflowContext,
       formConfig,
+      stepConditions,
+      fieldConditions,
       goToStep,
       goNext,
       goPrevious,

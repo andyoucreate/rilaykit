@@ -13,6 +13,12 @@ export type { FieldConfig } from './builders/form';
 // Import the form module to ensure prototype extension is applied
 import './builders/form';
 
+// Export custom hooks for advanced usage
+export * from './hooks';
+
+// Export specific types for condition evaluation
+export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
+
 // Re-export types and utilities from core
 export type * from '@rilaykit/core';
 

@@ -1,7 +1,7 @@
 import { ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm } from '../../../form-builder/src/builders/form';
+import { createForm } from '../../../forms/src/builders/form';
 import { flow } from '../../src/builders/flow';
 
 // Mock components

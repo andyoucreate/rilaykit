@@ -1,5 +1,14 @@
 # @rilaykit/forms
 
+## 5.2.1
+
+### Patch Changes
+
+- Fix issue with onCompleteWorkflow
+
+- Updated dependencies []:
+  - @rilaykit/core@5.2.1
+
 ## 5.2.0
 
 ### Minor Changes

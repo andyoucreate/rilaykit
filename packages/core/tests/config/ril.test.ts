@@ -109,9 +109,10 @@ describe('ril', () => {
       });
 
       expect(config.hasComponent('text')).toBe(true);
-      const removed = config.removeComponent('text');
-      expect(removed).toBe(true);
-      expect(config.hasComponent('text')).toBe(false);
+      const newConfig = config.removeComponent('text');
+      expect(newConfig.hasComponent('text')).toBe(false);
+      // Original config should still have the component (immutable)
+      expect(config.hasComponent('text')).toBe(true);
     });
 
     it('should clear all components', () => {
@@ -121,8 +122,10 @@ describe('ril', () => {
         .addComponent('email', { name: 'Email Input', renderer: TestRenderer });
 
       expect(config.getAllComponents()).toHaveLength(2);
-      config.clear();
-      expect(config.getAllComponents()).toHaveLength(0);
+      const clearedConfig = config.clear();
+      expect(clearedConfig.getAllComponents()).toHaveLength(0);
+      // Original config should still have components (immutable)
+      expect(config.getAllComponents()).toHaveLength(2);
     });
   });
 

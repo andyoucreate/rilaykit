@@ -18,9 +18,7 @@ export type WorkflowProps = Omit<WorkflowProviderProps, 'children' | 'workflowCo
  * Accepts both WorkflowConfig and flow builder instances.
  */
 export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) {
-  const [isClient, setIsClient] = useState(false);
-  const shouldDisplayWatermark = RilayLicenseManager.shouldDisplayWatermark();
-  const watermarkMessage = RilayLicenseManager.getWatermarkMessage();
+  const [watermarkMessage, setWatermarkMessage] = useState<string>();
 
   // Auto-build if it's a flow builder
   const resolvedWorkflowConfig = useMemo(() => {
@@ -33,7 +31,15 @@ export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) 
 
   // Initialize license manager and check watermark only on client side
   useEffect(() => {
-    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      const shouldDisplayWatermark = RilayLicenseManager.shouldDisplayWatermark();
+
+      if (shouldDisplayWatermark) {
+        const watermarkMessage = RilayLicenseManager.getWatermarkMessage();
+
+        setWatermarkMessage(watermarkMessage);
+      }
+    }
   }, []);
 
   return (
@@ -42,7 +48,7 @@ export function Workflow({ children, workflowConfig, ...props }: WorkflowProps) 
         {children}
       </WorkflowProvider>
 
-      {isClient && shouldDisplayWatermark && (
+      {watermarkMessage && (
         <div
           style={{
             position: 'absolute',

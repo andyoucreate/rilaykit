@@ -35,7 +35,7 @@ describe('Form Builder', () => {
       const formBuilder = form.create(config);
       const formConfig = formBuilder.build();
 
-      expect(formConfig.id).toMatch(/^form-\d+$/);
+      expect(formConfig.id).toMatch(/^form-/);
       expect(formConfig.rows).toEqual([]);
       expect(formConfig.allFields).toEqual([]);
     });
@@ -571,6 +571,6 @@ describe('Module Augmentation API', () => {
 
     const formInstance = config.form();
     expect(formInstance).toBeInstanceOf(form);
-    expect(formInstance.build().id).toMatch(/^form-\d+$/);
+    expect(formInstance.build().id).toMatch(/^form-/);
   });
 });

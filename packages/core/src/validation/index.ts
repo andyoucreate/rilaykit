@@ -50,12 +50,5 @@ export {
   pattern,
   required,
   url,
-  when,
+  validateWhen,
 } from './validators';
-
-// Validation adapters
-export {
-  createZodAdapter,
-  zodFieldValidator,
-  zodFormValidator,
-} from './adapters';

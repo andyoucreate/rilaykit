@@ -12,3 +12,6 @@ export * from './utils/componentHelpers';
 
 // Export validation system
 export * from './validation';
+
+// Export condition system
+export * from './conditions';

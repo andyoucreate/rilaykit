@@ -173,11 +173,11 @@ describe('FormProvider', () => {
 
     it('should provide form state', () => {
       const TestChild = () => {
-        const { formState } = useFormContext();
+        const { formState, isFormValid } = useFormContext();
         return (
           <div>
             <div data-testid="is-dirty">{formState.isDirty ? 'true' : 'false'}</div>
-            <div data-testid="is-valid">{formState.isValid ? 'true' : 'false'}</div>
+            <div data-testid="is-valid">{isFormValid() ? 'true' : 'false'}</div>
             <div data-testid="is-submitting">{formState.isSubmitting ? 'true' : 'false'}</div>
             <div data-testid="touched-count">{Object.keys(formState.touched).length}</div>
             <div data-testid="validating-count">

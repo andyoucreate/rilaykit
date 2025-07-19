@@ -1,12 +1,10 @@
 {
   "name": "@rilaykit/core",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "description": "Core types, configurations, and utilities for the RilayKit form library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -18,13 +16,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "forms",
-    "typescript",
-    "validation",
-    "builder-pattern"
-  ],
+  "keywords": ["react", "forms", "typescript", "validation", "builder-pattern"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.io",
@@ -43,9 +35,6 @@
     "@types/react": "^18.3.23",
     "react": "^19.1.0",
     "typescript": "^5.3.0"
-  },
-  "dependencies": {
-    "zod": "^3.22.4"
   },
   "publishConfig": {
     "access": "public"

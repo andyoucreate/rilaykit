@@ -1,6 +1,7 @@
 import type { ComponentRenderProps, ComponentRenderer } from '@rilaykit/core';
-import { ril } from '@rilaykit/core';
+import { ril, when } from '@rilaykit/core';
 import '@rilaykit/forms';
+import { Form, FormField } from '@rilaykit/forms';
 
 // Define component prop interfaces
 interface TextInputProps {
@@ -50,15 +51,29 @@ export default function FormTestPage() {
     });
 
   // This should have autocompletion
-  const testForm = factory.form('test-form').add({
-    id: 'userEmail',
-    type: 'text',
-    props: {
-      label: 'Email Address',
-      placeholder: 'Enter your email',
-      required: true,
-    },
-  });
+  const testForm = factory
+    .form('test-form')
+    .add({
+      id: 'userEmail',
+      type: 'text',
+      props: {
+        label: 'Email Address',
+        placeholder: 'Enter your email',
+        required: true,
+      },
+    })
+    .add({
+      id: 'test',
+      type: 'email',
+      props: {
+        label: 'Email Address',
+        placeholder: 'Enter your email',
+        required: true,
+      },
+      conditions: {
+        visible: when('userEmail').equals('karl@karl.fr'),
+      },
+    });
 
   return (
     <div className="max-w-2xl mx-auto p-8">
@@ -80,6 +95,11 @@ export default function FormTestPage() {
           <li>Pour 'email': label, placeholder?, required?</li>
         </ul>
       </div>
+
+      <Form formConfig={testForm}>
+        <FormField fieldId="test" />
+        <FormField fieldId="userEmail" />
+      </Form>
 
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <h2 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Info</h2>

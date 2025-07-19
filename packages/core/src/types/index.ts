@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { ConditionConfig } from '../conditions';
 import type { ril } from '../config/ril';
 
 // =================================================================
@@ -125,15 +126,27 @@ export interface ComponentConfig<TProps = any> {
 }
 
 // =================================================================
-// 4. FORM SYSTEM
+// 4. CONDITION SYSTEM
 // =================================================================
 
-// 4.1. Form Structure
+export interface ConditionalBehavior {
+  readonly visible?: ConditionConfig;
+  readonly disabled?: ConditionConfig;
+  readonly required?: ConditionConfig;
+  readonly readonly?: ConditionConfig;
+}
+
+// =================================================================
+// 5. FORM SYSTEM
+// =================================================================
+
+// 5.1. Form Structure
 export interface FormFieldConfig {
   readonly id: string;
   readonly componentId: string;
   readonly props: Record<string, any>;
   readonly validation?: FieldValidationConfig;
+  readonly conditions?: ConditionalBehavior;
 }
 
 export interface FormFieldRow {
@@ -199,10 +212,10 @@ export type FormSubmitButtonRenderer = RendererChildrenFunction<FormSubmitButton
 export type FieldRenderer = RendererChildrenFunction<FieldRendererProps>;
 
 // =================================================================
-// 5. WORKFLOW SYSTEM
+// 6. WORKFLOW SYSTEM
 // =================================================================
 
-// 5.1. Workflow Structure
+// 6.1. Workflow Structure
 export interface WorkflowContext {
   readonly workflowId: string;
   readonly currentStepIndex: number;
@@ -258,6 +271,7 @@ export interface StepConfig {
   readonly formConfig: FormConfiguration;
   readonly allowSkip?: boolean;
   readonly renderer?: CustomStepRenderer;
+  readonly conditions?: ConditionalBehavior;
   readonly onAfterValidation?: (
     stepData: Record<string, any>,
     helper: StepDataHelper,
@@ -267,7 +281,7 @@ export interface StepConfig {
 
 export type CustomStepRenderer = (props: StepConfig) => React.ReactElement;
 
-// 5.2. Workflow Configuration
+// 6.2. Workflow Configuration
 export interface WorkflowConfig {
   readonly id: string;
   readonly name: string;
@@ -285,7 +299,7 @@ export interface WorkflowRenderConfig {
   readonly skipButtonRenderer?: WorkflowSkipButtonRenderer;
 }
 
-// 5.3. Workflow Plugins & Analytics
+// 6.3. Workflow Plugins & Analytics
 export interface WorkflowAnalytics {
   readonly onWorkflowStart?: (workflowId: string, context: WorkflowContext) => void;
   readonly onWorkflowComplete?: (workflowId: string, duration: number, data: any) => void;
@@ -308,7 +322,7 @@ export interface WorkflowPlugin {
   readonly dependencies?: string[];
 }
 
-// 5.4. Workflow Renderers
+// 6.4. Workflow Renderers
 export interface WorkflowComponentRendererBaseProps {
   children?: React.ReactNode;
   className?: string;

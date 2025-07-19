@@ -1,4 +1,5 @@
 import type {
+  ConditionalBehavior,
   CustomStepRenderer,
   FormConfiguration,
   StepConfig,
@@ -10,7 +11,6 @@ import type {
 } from '@rilaykit/core';
 import { IdGenerator, deepClone, ensureUnique, normalizeToArray, ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { RilayLicenseManager } from '../licensing/RilayLicenseManager';
 
 /**
  * Enhanced step configuration interface for better type safety and simplicity
@@ -63,6 +63,12 @@ export interface StepDefinition {
    * Allows complete customization of step presentation
    */
   renderer?: CustomStepRenderer;
+
+  /**
+   * Conditional behavior configuration for this step
+   * Controls visibility, disabled state, and other dynamic behaviors
+   */
+  conditions?: ConditionalBehavior;
 
   /**
    * Callback function that executes after successful validation and before moving to next step
@@ -172,8 +178,6 @@ export class flow {
     this.workflowId = workflowId;
     this.workflowName = workflowName;
     this.workflowDescription = description;
-
-    RilayLicenseManager.logLicenseStatus();
   }
 
   /**
@@ -217,6 +221,7 @@ export class flow {
         stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
       allowSkip: stepDef.allowSkip || false,
       renderer: stepDef.renderer,
+      conditions: stepDef.conditions,
       onAfterValidation: stepDef.onAfterValidation,
     };
   }
@@ -401,6 +406,40 @@ export class flow {
     }
 
     this.steps[stepIndex] = { ...this.steps[stepIndex], ...updates };
+    return this;
+  }
+
+  /**
+   * Adds conditions to a specific step by ID
+   *
+   * This method allows adding conditional behavior to a step after it has been created,
+   * useful for dynamic conditional requirements.
+   *
+   * @param stepId - The ID of the step to add conditions to
+   * @param conditions - Conditional behavior configuration
+   * @returns The flow instance for method chaining
+   * @throws Error if the step with the specified ID is not found
+   *
+   * @example
+   * ```typescript
+   * workflow.addStepConditions('payment-step', {
+   *   visible: when('hasPayment').equals(true).build(),
+   *   disabled: when('balance').equals(0).build()
+   * });
+   * ```
+   */
+  addStepConditions(stepId: string, conditions: ConditionalBehavior): this {
+    const stepIndex = this.steps.findIndex((step) => step.id === stepId);
+    if (stepIndex === -1) {
+      throw new Error(`Step with ID "${stepId}" not found`);
+    }
+
+    const updatedConditions: ConditionalBehavior = {
+      ...this.steps[stepIndex].conditions,
+      ...conditions,
+    };
+
+    this.steps[stepIndex] = { ...this.steps[stepIndex], conditions: updatedConditions };
     return this;
   }
 

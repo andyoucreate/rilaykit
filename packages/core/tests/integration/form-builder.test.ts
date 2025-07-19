@@ -65,8 +65,8 @@ describe('Core-FormBuilder Integration', () => {
     });
 
     it('should maintain component registry state', () => {
-      // Add more components
-      config.addComponent('number', {
+      // Add more components (immutable API returns new instance)
+      config = config.addComponent('number', {
         name: 'Number Input',
         renderer: vi.fn(),
         defaultProps: { min: 0 },
@@ -127,9 +127,9 @@ describe('Core-FormBuilder Integration', () => {
     it('should handle many components efficiently', () => {
       const startTime = performance.now();
 
-      // Add 100 components
+      // Add 100 components (immutable API requires reassignment)
       for (let i = 0; i < 100; i++) {
-        config.addComponent(`component${i}`, {
+        config = config.addComponent(`component${i}`, {
           name: `Component ${i}`,
           renderer: vi.fn(),
           defaultProps: { index: i },
@@ -231,7 +231,7 @@ describe('Core-FormBuilder Integration', () => {
   });
 
   describe('Validation Integration', () => {
-    it('should support validation configuration', () => {
+    it('should support validation configuration', async () => {
       // Test validation patterns
       const fieldConfig = {
         id: 'email',
@@ -248,10 +248,10 @@ describe('Core-FormBuilder Integration', () => {
 
       // Simulate validation
       const validationResult = fieldConfig.validation.validator('test@example.com');
-      expect(validationResult).resolves.toEqual({ isValid: true, errors: [] });
+      await expect(validationResult).resolves.toEqual({ isValid: true, errors: [] });
     });
 
-    it('should handle validation errors', () => {
+    it('should handle validation errors', async () => {
       const validator = vi.fn().mockResolvedValue({
         isValid: false,
         errors: [{ code: 'INVALID_EMAIL', message: 'Invalid email format' }],
@@ -264,7 +264,7 @@ describe('Core-FormBuilder Integration', () => {
       };
 
       const result = fieldConfig.validation.validator('invalid-email');
-      expect(result).resolves.toEqual({
+      await expect(result).resolves.toEqual({
         isValid: false,
         errors: [{ code: 'INVALID_EMAIL', message: 'Invalid email format' }],
       });

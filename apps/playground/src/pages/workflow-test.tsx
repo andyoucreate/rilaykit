@@ -17,9 +17,11 @@ import {
   type WorkflowStepperRendererProps,
   async,
   email,
+  min,
   minLength,
   required,
   ril,
+  when,
 } from '@rilaykit/core';
 import { FormField } from '@rilaykit/forms';
 import {
@@ -344,6 +346,9 @@ export default function WorkflowTestPage() {
         validation: {
           validators: [required('First name is required'), minLength(2, 'Too short')],
         },
+        conditions: {
+          visible: when('email').equals('karl@karl.fr').or(when('age').equals('18')),
+        },
       },
       {
         id: 'lastName',
@@ -354,6 +359,14 @@ export default function WorkflowTestPage() {
         },
       }
     )
+    .add({
+      id: 'age',
+      type: 'text',
+      props: { label: 'Age' },
+      validation: {
+        validators: [required('Age is required'), min(18, 'You must be at least 18 years old')],
+      },
+    })
     .add({
       id: 'email',
       type: 'email', // This component already has email validation built-in
@@ -539,6 +552,7 @@ export default function WorkflowTestPage() {
       renderer: () => {
         return (
           <div className="flex-col gap-4 grid grid-cols-2">
+            <FormField fieldId="age" className="" />
             <FormField fieldId="firstName" className="" />
             <FormField fieldId="lastName" className="" />
             <FormField fieldId="email" className="" />

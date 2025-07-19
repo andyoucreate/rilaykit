@@ -25,7 +25,7 @@ export default defineConfig({
   target: 'es2020',
   
   // External peer dependencies - don't bundle these
-  external: ['react', 'typescript', 'zod'],
+  external: ['react', 'typescript'],
   
   // Bundle internal modules for proper resolution
   bundle: true,

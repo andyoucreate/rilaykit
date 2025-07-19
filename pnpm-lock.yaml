@@ -110,7 +110,7 @@ importers:
         version: link:../../packages/core
       '@rilaykit/forms':
         specifier: workspace:*
-        version: link:../../packages/form-builder
+        version: link:../../packages/forms
       '@rilaykit/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
@@ -161,7 +161,7 @@ importers:
   packages/core:
     dependencies:
       zod:
-        specifier: ^3.22.4
+        specifier: '>=3.22.4'
         version: 3.25.67
     devDependencies:
       '@types/react':
@@ -174,7 +174,7 @@ importers:
         specifier: ^5.3.0
         version: 5.8.3
 
-  packages/form-builder:
+  packages/forms:
     dependencies:
       '@rilaykit/core':
         specifier: workspace:*
@@ -218,7 +218,7 @@ importers:
         version: link:../core
       '@rilaykit/forms':
         specifier: workspace:*
-        version: link:../form-builder
+        version: link:../forms
     devDependencies:
       '@types/react':
         specifier: ^18.2.0

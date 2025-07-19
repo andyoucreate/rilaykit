@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/forms",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "description": "Form building utilities and components for RilayKit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

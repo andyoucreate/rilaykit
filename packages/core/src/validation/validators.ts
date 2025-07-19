@@ -293,13 +293,13 @@ export function matchField(targetFieldId: string, message?: string): FieldValida
  *
  * @example
  * ```typescript
- * const conditionalValidator = when(
+ * const conditionalValidator = validateWhen(
  *   (value, context) => context.allFormData?.userType === 'premium',
  *   required('Premium users must provide this field')
  * );
  * ```
  */
-export function when<T>(
+export function validateWhen<T>(
   condition: (value: T, context: ValidationContext) => boolean,
   validator: FieldValidator<T>
 ): FieldValidator<T> {

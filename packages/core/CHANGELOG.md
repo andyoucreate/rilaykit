@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 5.2.1
+
+### Patch Changes
+
+- Fix issue with onCompleteWorkflow
+
 ## 5.2.0
 
 ### Minor Changes
