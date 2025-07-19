@@ -98,11 +98,8 @@ export function useWorkflowNavigation({
         return false;
       }
 
-      // Check if step is visible and not disabled
-      if (
-        !conditionsHelpers.isStepVisible(stepIndex) ||
-        conditionsHelpers.isStepDisabled(stepIndex)
-      ) {
+      // Check if step is visible
+      if (!conditionsHelpers.isStepVisible(stepIndex)) {
         return false;
       }
 
@@ -208,9 +205,7 @@ export function useWorkflowNavigation({
   const canGoToStep = useCallback(
     (stepIndex: number): boolean => {
       if (stepIndex < 0 || stepIndex >= workflowConfig.steps.length) return false;
-      return (
-        conditionsHelpers.isStepVisible(stepIndex) && !conditionsHelpers.isStepDisabled(stepIndex)
-      );
+      return conditionsHelpers.isStepVisible(stepIndex);
     },
     [workflowConfig.steps.length, conditionsHelpers]
   );

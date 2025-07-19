@@ -1,7 +1,7 @@
 import type {
-  ConditionalBehavior,
   CustomStepRenderer,
   FormConfiguration,
+  StepConditionalBehavior,
   StepConfig,
   StepDataHelper,
   WorkflowAnalytics,
@@ -66,9 +66,9 @@ export interface StepDefinition {
 
   /**
    * Conditional behavior configuration for this step
-   * Controls visibility, disabled state, and other dynamic behaviors
+   * Controls visibility and skippable state
    */
-  conditions?: ConditionalBehavior;
+  conditions?: StepConditionalBehavior;
 
   /**
    * Callback function that executes after successful validation and before moving to next step
@@ -424,17 +424,17 @@ export class flow {
    * ```typescript
    * workflow.addStepConditions('payment-step', {
    *   visible: when('hasPayment').equals(true).build(),
-   *   disabled: when('balance').equals(0).build()
+   *   skippable: when('balance').equals(0).build()
    * });
    * ```
    */
-  addStepConditions(stepId: string, conditions: ConditionalBehavior): this {
+  addStepConditions(stepId: string, conditions: StepConditionalBehavior): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
       throw new Error(`Step with ID "${stepId}" not found`);
     }
 
-    const updatedConditions: ConditionalBehavior = {
+    const updatedConditions: StepConditionalBehavior = {
       ...this.steps[stepIndex].conditions,
       ...conditions,
     };

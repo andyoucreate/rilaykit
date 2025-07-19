@@ -4,6 +4,7 @@ import {
   type ConditionEvaluationResult,
   useConditionEvaluation,
   useMultipleConditionEvaluation,
+  useMultipleStepConditionEvaluation,
 } from './useConditionEvaluation';
 import type { WorkflowState } from './useWorkflowState';
 
@@ -13,13 +14,20 @@ export interface UseWorkflowConditionsProps {
   currentStep: StepConfig;
 }
 
+/**
+ * Result of step condition evaluation - only relevant properties for workflow steps
+ */
+export interface StepConditionResult {
+  visible: boolean;
+  skippable: boolean;
+}
+
 export interface UseWorkflowConditionsReturn {
-  stepConditions: ConditionEvaluationResult;
+  stepConditions: StepConditionResult;
   fieldConditions: Record<string, ConditionEvaluationResult>;
-  allStepConditions: Record<number, ConditionEvaluationResult>;
+  allStepConditions: Record<number, StepConditionResult>;
   isStepVisible: (stepIndex: number) => boolean;
   isStepSkippable: (stepIndex: number) => boolean;
-  isStepDisabled: (stepIndex: number) => boolean;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldDisabled: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
@@ -27,10 +35,28 @@ export interface UseWorkflowConditionsReturn {
 }
 
 /**
+ * Converts full condition evaluation result to step-specific result
+ */
+function toStepConditionResult(
+  fullResult: ConditionEvaluationResult,
+  allowSkip?: boolean
+): StepConditionResult {
+  return {
+    visible: fullResult.visible,
+    // For steps: skippable means NOT required and allowSkip is true
+    skippable: !fullResult.required && allowSkip === true,
+  };
+}
+
+/**
  * Hook to manage conditional behaviors for workflow steps and fields
  *
  * This hook evaluates conditions for steps and form fields within a workflow,
  * providing convenient methods to check step and field states based on conditions.
+ *
+ * Steps have different condition types than fields:
+ * - Steps: visible, skippable
+ * - Fields: visible, disabled, required, readonly
  */
 export function useWorkflowConditions({
   workflowConfig,
@@ -47,41 +73,54 @@ export function useWorkflowConditions({
   );
 
   // Evaluate current step-level conditions
-  const stepConditions = useConditionEvaluation(currentStep?.conditions, conditionData, {
+  const currentStepEvaluation = useConditionEvaluation(currentStep?.conditions, conditionData, {
     visible: true,
     disabled: false,
     required: false, // For steps, "required" means "not skippable"
     readonly: false,
   });
 
-  // Pre-evaluate all steps conditions to avoid hook violations in callbacks
+  const stepConditions = useMemo(
+    () => toStepConditionResult(currentStepEvaluation, currentStep?.allowSkip),
+    [currentStepEvaluation, currentStep?.allowSkip]
+  );
+
+  // Pre-evaluate all steps conditions - create conditions map first
+  const allStepConditionsMap = useMemo(() => {
+    const conditionsMap: Record<number, ConditionalBehavior | undefined> = {};
+    workflowConfig.steps.forEach((step, index) => {
+      conditionsMap[index] = step.conditions;
+    });
+    return conditionsMap;
+  }, [workflowConfig.steps]);
+
+  // Evaluate all step conditions using specialized hook
+  const allStepEvaluations = useMultipleStepConditionEvaluation(
+    allStepConditionsMap,
+    conditionData
+  );
+
+  // Convert to step-specific results
   const allStepConditions = useMemo(() => {
-    const results: Record<number, ConditionEvaluationResult> = {};
+    const results: Record<number, StepConditionResult> = {};
 
     workflowConfig.steps.forEach((step, index) => {
-      if (step.conditions) {
-        // We can't use hooks here, so we'll need a different approach
-        // For now, we'll create a basic evaluation structure
-        results[index] = {
-          visible: true,
-          disabled: false,
-          required: false, // For steps, this controls if step can be skipped
-          readonly: false,
-        };
+      const evaluation = allStepEvaluations[index];
+      if (evaluation) {
+        results[index] = toStepConditionResult(evaluation, step.allowSkip);
       } else {
+        // No conditions = visible and respects allowSkip setting
         results[index] = {
           visible: true,
-          disabled: false,
-          required: false,
-          readonly: false,
+          skippable: step.allowSkip === true,
         };
       }
     });
 
     return results;
-  }, [workflowConfig.steps]);
+  }, [workflowConfig.steps, allStepEvaluations]);
 
-  // Evaluate field-level conditions for the current step form
+  // Evaluate field-level conditions for the current step form (uses full field conditions)
   const fieldsWithConditions = useMemo(() => {
     if (!currentStep?.formConfig?.allFields) return {};
 
@@ -107,33 +146,17 @@ export function useWorkflowConditions({
     [allStepConditions, workflowConfig.steps.length]
   );
 
-  const isStepDisabled = useCallback(
-    (stepIndex: number): boolean => {
-      if (stepIndex < 0 || stepIndex >= workflowConfig.steps.length) return true;
-
-      const stepCondition = allStepConditions[stepIndex];
-      return stepCondition?.disabled ?? false;
-    },
-    [allStepConditions, workflowConfig.steps.length]
-  );
-
   const isStepSkippable = useCallback(
     (stepIndex: number): boolean => {
       if (stepIndex < 0 || stepIndex >= workflowConfig.steps.length) return false;
 
-      const step = workflowConfig.steps[stepIndex];
       const stepCondition = allStepConditions[stepIndex];
-
-      // Si l'étape est marquée comme "required" par les conditions, elle n'est pas skippable
-      if (stepCondition?.required) return false;
-
-      // Check allowSkip property
-      return step?.allowSkip === true;
+      return stepCondition?.skippable ?? false;
     },
-    [allStepConditions, workflowConfig.steps]
+    [allStepConditions, workflowConfig.steps.length]
   );
 
-  // Helper functions for field-level conditions
+  // Helper functions for field-level conditions (use full field condition system)
   const isFieldVisible = useCallback(
     (fieldId: string): boolean => {
       const condition = fieldConditions[fieldId];
@@ -172,7 +195,6 @@ export function useWorkflowConditions({
     allStepConditions,
     isStepVisible,
     isStepSkippable,
-    isStepDisabled,
     isFieldVisible,
     isFieldDisabled,
     isFieldRequired,

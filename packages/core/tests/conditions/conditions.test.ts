@@ -1,4 +1,5 @@
-import { when, evaluateCondition, ConditionConfig } from '../../src/conditions';
+import { describe, expect, test } from 'vitest';
+import { evaluateCondition, when } from '../../src/conditions';
 
 describe('Condition System', () => {
   describe('Basic Conditions', () => {
@@ -51,20 +52,16 @@ describe('Condition System', () => {
 
   describe('Complex Conditions', () => {
     test('AND conditions', () => {
-      const condition = when('age').greaterThan(18)
-        .and(when('status').equals('active'))
-        .build();
-      
+      const condition = when('age').greaterThan(18).and(when('status').equals('active')).build();
+
       expect(evaluateCondition(condition, { age: 25, status: 'active' })).toBe(true);
       expect(evaluateCondition(condition, { age: 15, status: 'active' })).toBe(false);
       expect(evaluateCondition(condition, { age: 25, status: 'inactive' })).toBe(false);
     });
 
     test('OR conditions', () => {
-      const condition = when('type').equals('premium')
-        .or(when('age').greaterThan(65))
-        .build();
-      
+      const condition = when('type').equals('premium').or(when('age').greaterThan(65)).build();
+
       expect(evaluateCondition(condition, { type: 'premium', age: 30 })).toBe(true);
       expect(evaluateCondition(condition, { type: 'basic', age: 70 })).toBe(true);
       expect(evaluateCondition(condition, { type: 'basic', age: 30 })).toBe(false);
@@ -77,11 +74,11 @@ describe('Condition System', () => {
       const data = {
         user: {
           profile: {
-            age: 25
-          }
-        }
+            age: 25,
+          },
+        },
       };
-      
+
       expect(evaluateCondition(condition, data)).toBe(true);
     });
 
@@ -90,11 +87,11 @@ describe('Condition System', () => {
       const data = {
         user: {
           profile: {
-            age: 25
-          }
-        }
+            age: 25,
+          },
+        },
       };
-      
+
       expect(evaluateCondition(condition, data)).toBe(false);
     });
   });
@@ -103,7 +100,7 @@ describe('Condition System', () => {
     test('fluent API with method chaining', () => {
       const builder = when('field1').equals('value1');
       expect(builder).toBeDefined();
-      
+
       const condition = builder.build();
       expect(condition.field).toBe('field1');
       expect(condition.operator).toBe('equals');

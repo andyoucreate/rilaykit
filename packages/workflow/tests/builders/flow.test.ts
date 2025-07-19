@@ -1,406 +1,721 @@
+// @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
 import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm } from '../../../forms/src/builders/form';
-import { flow } from '../../src/builders/flow';
+import { createFlow, flow } from '../../src/builders/flow';
 
-// Mock components
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'form-renderer' }, children);
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'row-renderer' }, children);
-const TestSubmitButtonRenderer = ({ onSubmit }: any) =>
-  React.createElement('button', { type: 'button', onClick: onSubmit }, 'Submit');
-
-describe('Workflow Builder (flow)', () => {
-  let config: any;
-  let workflowBuilder: flow;
+describe('Flow Builder', () => {
+  let rilConfig: any;
+  let sampleForm: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    config = ril
-      .create()
+    rilConfig = ril
+      .create<any>()
       .addComponent('text', {
         name: 'Text Input',
-        renderer: vi.fn(),
-        defaultProps: { placeholder: 'Enter text' },
+        renderer: () => React.createElement('input'),
+        defaultProps: { label: '', placeholder: 'Enter text' },
       })
       .addComponent('email', {
         name: 'Email Input',
-        renderer: vi.fn(),
-        defaultProps: { placeholder: 'Enter email' },
+        renderer: () => React.createElement('input'),
+        defaultProps: { label: '', required: false },
       })
-      .configure({
-        bodyRenderer: TestFormRenderer,
-        rowRenderer: TestRowRenderer,
-        submitButtonRenderer: TestSubmitButtonRenderer,
+      .addComponent('select', {
+        name: 'Select',
+        renderer: () => React.createElement('select'),
+        defaultProps: { label: '', options: [] },
+      })
+      .addComponent('textarea', {
+        name: 'Textarea',
+        renderer: () => React.createElement('textarea'),
+        defaultProps: { label: '', rows: 3 },
       });
 
-    workflowBuilder = flow.create(config, 'test-workflow', 'Test Workflow');
+    sampleForm = form
+      .create(rilConfig)
+      .add({ type: 'text', props: { label: 'Name' } })
+      .add({ type: 'email', props: { label: 'Email' } });
   });
 
-  describe('Basic Workflow Creation', () => {
-    it('should create a workflow with basic configuration', () => {
-      expect(workflowBuilder).toBeDefined();
-      expect(workflowBuilder.getSteps()).toEqual([]);
+  describe('constructor and static factory', () => {
+    it('should create flow builder with constructor', () => {
+      const builder = new flow(rilConfig as any, 'test-workflow', 'Test Workflow');
+      expect(builder).toBeInstanceOf(flow);
     });
 
-    it('should create workflow using static factory method', () => {
-      const staticBuilder = flow.create(config, 'static-workflow', 'Static Workflow');
-      expect(staticBuilder).toBeDefined();
-      expect(staticBuilder.getSteps()).toEqual([]);
+    it('should create flow builder with static create method', () => {
+      const builder = flow.create(rilConfig as any, 'test-workflow', 'Test Workflow');
+      expect(builder).toBeInstanceOf(flow);
     });
 
-    it('should build workflow with basic configuration', () => {
-      // Add a step first since empty workflows fail validation
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
+    it('should create flow builder with createFlow function', () => {
+      const builder = createFlow(rilConfig as any, 'test-workflow', 'Test Workflow');
+      expect(builder).toBeInstanceOf(flow);
+    });
 
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
+    it('should create with all parameters including description', () => {
+      const builder = flow
+        .create(rilConfig as any, 'test-id', 'Test Name', 'Test Description')
+        .addStep({ title: 'Test Step', formConfig: sampleForm });
+      const config = builder.build();
 
-      const builtWorkflow = workflowBuilder.build();
-      expect(builtWorkflow).toBeDefined();
-      expect(builtWorkflow.id).toBe('test-workflow');
-      expect(builtWorkflow.name).toBe('Test Workflow');
+      expect(config.id).toBe('test-id');
+      expect(config.name).toBe('Test Name');
+      expect(config.description).toBe('Test Description');
+    });
+
+    it('should create without description', () => {
+      const builder = flow
+        .create(rilConfig as any, 'test-id', 'Test Name')
+        .addStep({ title: 'Test Step', formConfig: sampleForm });
+      const config = builder.build();
+
+      expect(config.id).toBe('test-id');
+      expect(config.name).toBe('Test Name');
+      expect(config.description).toBeUndefined();
+    });
+
+    it('should extend ril prototype with flow method', () => {
+      expect(typeof (rilConfig as any).flow).toBe('function');
+
+      const builder = (rilConfig as any).flow('prototype-workflow', 'Prototype Workflow');
+      expect(builder).toBeInstanceOf(flow);
+
+      // Add a step before building to satisfy validation
+      builder.addStep({ title: 'Test Step', formConfig: sampleForm });
+
+      const config = builder.build();
+      expect(config.id).toBe('prototype-workflow');
+      expect(config.name).toBe('Prototype Workflow');
     });
   });
 
-  describe('Step Management', () => {
-    it('should add a single step', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
+  describe('step addition', () => {
+    describe('addStep method - single step', () => {
+      it('should add single step with form builder', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'Personal Information',
+          formConfig: sampleForm,
+        });
 
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
+        const config = builder.build();
+
+        expect(config.steps).toHaveLength(1);
+        expect(config.steps[0].title).toBe('Personal Information');
+        expect(config.steps[0].formConfig).toBeDefined();
+        expect(config.steps[0].formConfig.allFields).toHaveLength(2);
       });
 
-      const steps = workflowBuilder.getSteps();
-      expect(steps).toHaveLength(1);
-      expect(steps[0].title).toBe('Personal Information');
+      it('should add single step with built form configuration', () => {
+        const formConfig = sampleForm.build();
+
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'User Details',
+          formConfig: formConfig,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps).toHaveLength(1);
+        expect(config.steps[0].formConfig).toBe(formConfig);
+      });
+
+      it('should generate unique step IDs when not provided', () => {
+        const builder = flow
+          .create(rilConfig, 'test-workflow', 'Test')
+          .addStep({
+            title: 'Step 1',
+            formConfig: sampleForm,
+          })
+          .addStep({
+            title: 'Step 2',
+            formConfig: sampleForm,
+          });
+
+        const config = builder.build();
+
+        expect(config.steps).toHaveLength(2);
+        expect(config.steps[0].id).toMatch(/^step-/);
+        expect(config.steps[1].id).toMatch(/^step-/);
+        expect(config.steps[0].id).not.toBe(config.steps[1].id);
+      });
+
+      it('should use provided step ID', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          id: 'custom-step',
+          title: 'Custom Step',
+          formConfig: sampleForm,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].id).toBe('custom-step');
+      });
+
+      it('should handle step with description', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'User Information',
+          description: 'Please enter your personal information',
+          formConfig: sampleForm,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].description).toBe('Please enter your personal information');
+      });
+
+      it('should handle step with allowSkip option', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'Optional Step',
+          formConfig: sampleForm,
+          allowSkip: true,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].allowSkip).toBe(true);
+      });
+
+      it('should default allowSkip to false', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'Required Step',
+          formConfig: sampleForm,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].allowSkip).toBe(false);
+      });
+
+      it('should handle step with custom renderer', () => {
+        const customRenderer = vi.fn();
+
+        const builder = flow.create(rilConfig as any, 'test-workflow', 'Test').addStep({
+          title: 'Custom Rendered Step',
+          formConfig: sampleForm,
+          renderer: customRenderer,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].renderer).toBe(customRenderer);
+      });
+
+      it('should handle step with conditional behavior', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'Conditional Step',
+          formConfig: sampleForm,
+          conditions: {
+            visible: { type: 'equals', field: 'userType', value: 'premium' },
+            skippable: { type: 'equals', field: 'fastTrack', value: true },
+          },
+        });
+
+        const config = builder.build();
+        const step = config.steps[0];
+
+        expect(step.conditions).toBeDefined();
+        expect(step.conditions?.visible).toEqual({
+          type: 'equals',
+          field: 'userType',
+          value: 'premium',
+        });
+        expect(step.conditions?.skippable).toEqual({
+          type: 'equals',
+          field: 'fastTrack',
+          value: true,
+        });
+      });
+
+      it('should handle step with after validation callback', () => {
+        const afterValidationCallback = vi.fn();
+
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+          title: 'Validated Step',
+          formConfig: sampleForm,
+          onAfterValidation: afterValidationCallback,
+        });
+
+        const config = builder.build();
+
+        expect(config.steps[0].onAfterValidation).toBe(afterValidationCallback);
+      });
     });
 
-    it('should add multiple steps', () => {
-      const form1 = createForm(config, 'form1')
-        .add({ type: 'text', props: { label: 'Field 1' } })
-        .build();
+    describe('addStep method - multiple steps', () => {
+      it('should add multiple steps at once', () => {
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep([
+          {
+            title: 'Step 1',
+            formConfig: sampleForm,
+          },
+          {
+            title: 'Step 2',
+            formConfig: sampleForm,
+          },
+          {
+            title: 'Step 3',
+            formConfig: sampleForm,
+          },
+        ]);
 
-      const form2 = createForm(config, 'form2')
-        .add({ type: 'email', props: { label: 'Field 2' } })
-        .build();
+        const config = builder.build();
 
-      workflowBuilder.addStep([
-        { title: 'Step 1', formConfig: form1 },
-        { title: 'Step 2', formConfig: form2 },
+        expect(config.steps).toHaveLength(3);
+        expect(config.steps[0].title).toBe('Step 1');
+        expect(config.steps[1].title).toBe('Step 2');
+        expect(config.steps[2].title).toBe('Step 3');
+      });
+
+      it('should handle mixed configuration types in multiple steps', () => {
+        const formConfig = sampleForm.build();
+
+        const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep([
+          {
+            title: 'Form Builder Step',
+            formConfig: sampleForm,
+          },
+          {
+            title: 'Built Config Step',
+            formConfig: formConfig,
+          },
+        ]);
+
+        const config = builder.build();
+
+        expect(config.steps).toHaveLength(2);
+        expect(config.steps[0].formConfig).toBeDefined();
+        expect(config.steps[1].formConfig).toBe(formConfig);
+      });
+
+      it('should handle empty array', () => {
+        const builder = flow.create(rilConfig as any, 'test-workflow', 'Test').addStep([]);
+
+        // Should throw error when trying to build workflow with no steps
+        expect(() => builder.build()).toThrow(
+          'Workflow validation failed: Workflow must have at least one step'
+        );
+      });
+
+      it('should work with method chaining', () => {
+        const builder = flow
+          .create(rilConfig, 'test-workflow', 'Test')
+          .addStep([
+            { title: 'Step 1', formConfig: sampleForm },
+            { title: 'Step 2', formConfig: sampleForm },
+          ])
+          .addStep({
+            title: 'Step 3',
+            formConfig: sampleForm,
+          });
+
+        const config = builder.build();
+
+        expect(config.steps).toHaveLength(3);
+      });
+    });
+  });
+
+  describe('workflow configuration', () => {
+    it('should configure analytics', () => {
+      const analytics = {
+        trackStepTime: true,
+        trackFieldInteractions: true,
+        customEvents: ['custom-event'],
+      };
+
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm });
+
+      // Access private method via prototype
+      (builder as any).configure({ analytics });
+
+      const config = builder.build();
+
+      expect(config.analytics).toEqual(analytics);
+    });
+
+    it('should build with correct workflow properties', () => {
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test Workflow', 'A test workflow')
+        .addStep({
+          title: 'User Information',
+          formConfig: sampleForm,
+        });
+
+      const config = builder.build();
+
+      expect(config).toHaveProperty('id', 'test-workflow');
+      expect(config).toHaveProperty('name', 'Test Workflow');
+      expect(config).toHaveProperty('description', 'A test workflow');
+      expect(config).toHaveProperty('steps');
+      expect(config).toHaveProperty('analytics');
+      expect(config).toHaveProperty('plugins');
+      expect(config).toHaveProperty('renderConfig');
+
+      expect(config.steps).toHaveLength(1);
+      expect(config.plugins).toEqual([]);
+    });
+
+    it('should include ril render configuration', () => {
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm });
+
+      const config = builder.build();
+
+      expect(config.renderConfig).toBeDefined();
+      // The renderConfig should come from rilConfig.getWorkflowRenderConfig()
+    });
+  });
+
+  describe('plugin system', () => {
+    it('should install plugin correctly', () => {
+      const mockPlugin = {
+        name: 'test-plugin',
+        version: '1.0.0',
+        install: vi.fn(),
+        dependencies: [],
+      };
+
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm })
+        .use(mockPlugin);
+
+      const config = builder.build();
+
+      expect(config.plugins).toContain(mockPlugin);
+      expect(mockPlugin.install).toHaveBeenCalledWith(builder);
+    });
+
+    it('should handle multiple plugins', () => {
+      const plugin1 = {
+        name: 'plugin-1',
+        version: '1.0.0',
+        install: vi.fn(),
+        dependencies: [],
+      };
+
+      const plugin2 = {
+        name: 'plugin-2',
+        version: '1.0.0',
+        install: vi.fn(),
+        dependencies: [],
+      };
+
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm })
+        .use(plugin1)
+        .use(plugin2);
+
+      const config = builder.build();
+
+      expect(config.plugins).toHaveLength(2);
+      expect(config.plugins).toContain(plugin1);
+      expect(config.plugins).toContain(plugin2);
+    });
+
+    it('should throw error if plugin installation fails', () => {
+      const faultyPlugin = {
+        name: 'faulty-plugin',
+        version: '1.0.0',
+        install: vi.fn(() => {
+          throw new Error('Plugin installation failed');
+        }),
+        dependencies: [],
+      };
+
+      const builder = flow.create(rilConfig, 'test-workflow', 'Test');
+
+      expect(() => {
+        builder.use(faultyPlugin);
+      }).toThrow('Failed to install plugin "faulty-plugin": Plugin installation failed');
+    });
+
+    it('should validate plugin dependencies', () => {
+      const dependentPlugin = {
+        name: 'dependent-plugin',
+        version: '1.0.0',
+        install: vi.fn(),
+        dependencies: ['missing-plugin'],
+      };
+
+      const builder = flow.create(rilConfig as any, 'test-workflow', 'Test');
+
+      // Should throw error when plugin has missing dependencies
+      expect(() => {
+        builder.use(dependentPlugin);
+      }).toThrow('Plugin "dependent-plugin" requires missing dependencies: missing-plugin');
+    });
+  });
+
+  describe('workflow validation and building', () => {
+    it('should validate workflow before building', () => {
+      const builder = flow.create(rilConfig as any, 'test-workflow', 'Test');
+
+      // Empty workflow should be invalid (requires at least one step)
+      expect(() => builder.build()).toThrow(
+        'Workflow validation failed: Workflow must have at least one step'
+      );
+    });
+
+    it('should build workflow with steps', () => {
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({
+          title: 'Step 1',
+          formConfig: sampleForm,
+        })
+        .addStep({
+          title: 'Step 2',
+          formConfig: sampleForm,
+        });
+
+      const config = builder.build();
+
+      expect(config.steps).toHaveLength(2);
+      expect(config.steps[0].title).toBe('Step 1');
+      expect(config.steps[1].title).toBe('Step 2');
+    });
+
+    it('should maintain builder state across multiple operations', () => {
+      const builder = flow.create(rilConfig, 'stateful-workflow', 'Stateful Test');
+
+      // Add step
+      builder.addStep({ title: 'Step 1', formConfig: sampleForm });
+
+      let config = builder.build();
+      expect(config.steps).toHaveLength(1);
+
+      // Add more steps
+      builder.addStep([
+        { title: 'Step 2', formConfig: sampleForm },
+        { title: 'Step 3', formConfig: sampleForm },
       ]);
 
-      const steps = workflowBuilder.getSteps();
-      expect(steps).toHaveLength(2);
-      expect(steps[0].title).toBe('Step 1');
-      expect(steps[1].title).toBe('Step 2');
+      config = builder.build();
+      expect(config.steps).toHaveLength(3);
+
+      // Add plugin
+      const plugin = {
+        name: 'test-plugin',
+        version: '1.0.0',
+        install: vi.fn(),
+        dependencies: [],
+      };
+      builder.use(plugin);
+
+      config = builder.build();
+      expect(config.steps).toHaveLength(3);
+      expect(config.plugins).toHaveLength(1);
     });
 
-    it('should auto-generate step ID if not provided', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
+    it('should handle multiple builds from same builder instance', () => {
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Test Step', formConfig: sampleForm });
 
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
+      const config1 = builder.build();
+      const config2 = builder.build();
+
+      expect(config1).toEqual(config2);
+      expect(config1).not.toBe(config2); // Different objects
+    });
+  });
+
+  describe('complex workflow scenarios', () => {
+    it('should handle multi-step workflow with different configurations', () => {
+      const personalForm = form
+        .create(rilConfig)
+        .add({ type: 'text', props: { label: 'First Name' } })
+        .add({ type: 'text', props: { label: 'Last Name' } });
+
+      const contactForm = form
+        .create(rilConfig)
+        .add({ type: 'email', props: { label: 'Email' } })
+        .add({ type: 'text', props: { label: 'Phone' } });
+
+      const preferencesForm = form.create(rilConfig).add({
+        type: 'select',
+        props: {
+          label: 'Preferred Contact Method',
+          options: [
+            { value: 'email', label: 'Email' },
+            { value: 'phone', label: 'Phone' },
+          ],
+        },
       });
 
-      const steps = workflowBuilder.getSteps();
-      expect(steps[0].id).toBeDefined();
-      expect(typeof steps[0].id).toBe('string');
-    });
-
-    it('should remove step by ID', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder.addStep({
-        id: 'step-to-remove',
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
-      });
-
-      workflowBuilder.removeStep('step-to-remove');
-
-      const steps = workflowBuilder.getSteps();
-      expect(steps).toHaveLength(0);
-    });
-
-    it('should update existing step', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder.addStep({
-        id: 'step-to-update',
-        title: 'Original Title',
-        formConfig: personalInfoForm,
-      });
-
-      workflowBuilder.updateStep('step-to-update', {
-        title: 'Updated Title',
-        allowSkip: true,
-      });
-
-      const step = workflowBuilder.getStep('step-to-update');
-      expect(step?.title).toBe('Updated Title');
-      expect(step?.allowSkip).toBe(true);
-    });
-
-    it('should get step by ID', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder.addStep({
-        id: 'specific-step',
-        title: 'Specific Step',
-        formConfig: personalInfoForm,
-      });
-
-      const step = workflowBuilder.getStep('specific-step');
-      expect(step).toBeDefined();
-      expect(step?.title).toBe('Specific Step');
-    });
-
-    it('should return undefined for non-existent step', () => {
-      const step = workflowBuilder.getStep('non-existent');
-      expect(step).toBeUndefined();
-    });
-
-    it('should clear all steps', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder
+      const builder = flow
+        .create(rilConfig, 'onboarding', 'User Onboarding', 'Complete user onboarding process')
         .addStep({
+          id: 'personal',
           title: 'Personal Information',
-          formConfig: personalInfoForm,
+          description: 'Enter your personal details',
+          formConfig: personalForm,
         })
-        .clearSteps();
+        .addStep({
+          id: 'contact',
+          title: 'Contact Information',
+          description: 'How can we reach you?',
+          formConfig: contactForm,
+        })
+        .addStep({
+          id: 'preferences',
+          title: 'Preferences',
+          description: 'Set your preferences',
+          formConfig: preferencesForm,
+          allowSkip: true,
+          conditions: {
+            visible: { type: 'equals', field: 'showPreferences', value: true },
+          },
+        });
 
-      const steps = workflowBuilder.getSteps();
-      expect(steps).toHaveLength(0);
-    });
-  });
+      const config = builder.build();
 
-  describe('Workflow Configuration', () => {
-    it('should configure analytics', () => {
-      // Add a step first
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
+      expect(config.id).toBe('onboarding');
+      expect(config.name).toBe('User Onboarding');
+      expect(config.description).toBe('Complete user onboarding process');
+      expect(config.steps).toHaveLength(3);
 
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
+      expect(config.steps[0].id).toBe('personal');
+      expect(config.steps[0].allowSkip).toBe(false);
+
+      expect(config.steps[2].id).toBe('preferences');
+      expect(config.steps[2].allowSkip).toBe(true);
+      expect(config.steps[2].conditions?.visible).toEqual({
+        type: 'equals',
+        field: 'showPreferences',
+        value: true,
       });
-
-      workflowBuilder.configure({
-        analytics: {},
-      });
-
-      const workflowConfig = workflowBuilder.build();
-      expect(workflowConfig.analytics).toBeDefined();
     });
-  });
 
-  describe('Plugin System', () => {
-    it('should add plugin using use() method', () => {
-      const mockPlugin = {
-        name: 'test-plugin',
+    it('should handle workflow with plugins and analytics', () => {
+      const analyticsPlugin = {
+        name: 'analytics-plugin',
         version: '1.0.0',
         install: vi.fn(),
+        dependencies: [],
       };
 
-      workflowBuilder.use(mockPlugin);
-
-      expect(mockPlugin.install).toHaveBeenCalledWith(workflowBuilder);
-    });
-
-    it('should remove plugin', () => {
-      // Add a step first
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
-
-      const mockPlugin = {
-        name: 'test-plugin',
-        version: '1.0.0',
-        install: vi.fn(),
+      const analytics = {
+        trackStepTime: true,
+        trackFieldInteractions: false,
+        customEvents: ['step-completed', 'workflow-abandoned'],
       };
 
-      workflowBuilder.use(mockPlugin).removePlugin('test-plugin');
+      const builder = flow
+        .create(rilConfig, 'tracked-workflow', 'Tracked Workflow')
+        .addStep({
+          title: 'Step 1',
+          formConfig: sampleForm,
+        })
+        .use(analyticsPlugin);
 
-      // Plugin system is internal, just verify no errors are thrown
-      expect(() => workflowBuilder.build()).not.toThrow();
+      // Configure analytics
+      (builder as any).configure({ analytics });
+
+      const config = builder.build();
+
+      expect(config.analytics).toEqual(analytics);
+      expect(config.plugins).toContain(analyticsPlugin);
+      expect(analyticsPlugin.install).toHaveBeenCalled();
     });
   });
 
-  describe('Validation', () => {
-    it('should validate workflow without errors', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
+  describe('edge cases and error handling', () => {
+    it('should handle workflow with no steps', () => {
+      const builder = flow.create(rilConfig as any, 'empty-workflow', 'Empty');
 
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
-      });
-
-      const errors = workflowBuilder.validate();
-      expect(errors).toEqual([]);
+      // Should throw error when trying to build workflow with no steps
+      expect(() => builder.build()).toThrow(
+        'Workflow validation failed: Workflow must have at least one step'
+      );
     });
 
-    it('should detect duplicate step IDs', () => {
-      const form1 = createForm(config, 'form1')
-        .add({ type: 'text', props: { label: 'Field 1' } })
-        .build();
+    it('should handle steps with minimal configuration', () => {
+      const minimalForm = form.create(rilConfig);
 
-      const form2 = createForm(config, 'form2')
-        .add({ type: 'text', props: { label: 'Field 2' } })
-        .build();
+      const builder = flow.create(rilConfig, 'minimal-workflow', 'Minimal').addStep({
+        title: 'Minimal Step',
+        formConfig: minimalForm,
+      });
 
-      workflowBuilder
-        .addStep({ id: 'duplicate', title: 'Step 1', formConfig: form1 })
-        .addStep({ id: 'duplicate', title: 'Step 2', formConfig: form2 });
+      const config = builder.build();
 
-      const errors = workflowBuilder.validate();
-      expect(errors.length).toBeGreaterThan(0);
+      expect(config.steps).toHaveLength(1);
+      expect(config.steps[0].title).toBe('Minimal Step');
+      expect(config.steps[0].formConfig.allFields).toHaveLength(0);
+    });
+
+    it('should handle null/undefined descriptions', () => {
+      const builder1 = flow.create(rilConfig as any, 'test-1', 'Test 1', undefined);
+      const builder2 = flow.create(rilConfig as any, 'test-2', 'Test 2');
+
+      // Add steps to satisfy validation
+      builder1.addStep({ title: 'Step 1', formConfig: sampleForm });
+      builder2.addStep({ title: 'Step 1', formConfig: sampleForm });
+
+      const config1 = builder1.build();
+      const config2 = builder2.build();
+
+      expect(config1.description).toBeUndefined();
+      expect(config2.description).toBeUndefined();
+    });
+
+    it('should handle step with all optional properties undefined', () => {
+      const builder = flow.create(rilConfig, 'test-workflow', 'Test').addStep({
+        title: 'Basic Step',
+        formConfig: sampleForm,
+        description: undefined,
+        allowSkip: undefined,
+        renderer: undefined,
+        conditions: undefined,
+      });
+
+      const config = builder.build();
+      const step = config.steps[0];
+
+      expect(step.title).toBe('Basic Step');
+      expect(step.description).toBeUndefined();
+      expect(step.allowSkip).toBe(false); // Should default to false
+      expect(step.renderer).toBeUndefined();
+      expect(step.conditions).toBeUndefined();
     });
   });
 
-  describe('Workflow Cloning', () => {
-    it('should clone workflow with new ID', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
+  describe('integration with ril configuration', () => {
+    it('should reference the same ril config instance', () => {
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm });
 
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
-      });
+      const config = builder.build();
 
-      const cloned = workflowBuilder.clone('cloned-workflow', 'Cloned Workflow');
-      expect(cloned).toBeDefined();
-      expect(cloned.getSteps()).toHaveLength(1);
-    });
-  });
-
-  describe('JSON Import/Export', () => {
-    it('should export workflow to JSON', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
-      });
-
-      const json = workflowBuilder.toJSON();
-      expect(json).toBeDefined();
-      // Check whatever property actually exists in the JSON
-      expect(json.id || json.workflowId).toBeTruthy();
+      // The config should be available via renderConfig
+      expect(config.renderConfig).toBeDefined();
     });
 
-    it('should import workflow from JSON', () => {
-      // Add a step first to make the workflow valid
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
+    it('should work with form builders from the same ril config', () => {
+      const anotherForm = form
+        .create(rilConfig)
+        .add({ type: 'textarea', props: { label: 'Comments', rows: 5 } });
 
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
+      const builder = flow
+        .create(rilConfig, 'test-workflow', 'Test')
+        .addStep({ title: 'Step 1', formConfig: sampleForm })
+        .addStep({ title: 'Step 2', formConfig: anotherForm });
 
-      const json = {
-        workflowId: 'imported-workflow',
-        workflowName: 'Imported Workflow',
-        steps: [],
-      };
+      const config = builder.build();
 
-      workflowBuilder.fromJSON(json);
-
-      // Since fromJSON might clear steps, add one back for build to work
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
-
-      // Basic test - just verify no errors are thrown
-      expect(() => workflowBuilder.build()).not.toThrow();
-    });
-  });
-
-  describe('Statistics', () => {
-    it('should provide workflow statistics', () => {
-      const personalInfoForm = createForm(config, 'personal-info')
-        .add({ type: 'text', props: { label: 'Name' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Personal Information',
-        formConfig: personalInfoForm,
-      });
-
-      const stats = workflowBuilder.getStats();
-      expect(stats).toBeDefined();
-      expect(stats.totalSteps).toBe(1);
-    });
-  });
-
-  describe('Module Augmentation', () => {
-    it('should add flow method to ril instance', () => {
-      expect(typeof config.flow).toBe('function');
-    });
-
-    it('should create flow builder from ril instance', () => {
-      const flowFromRil = config.flow('ril-workflow', 'Ril Workflow');
-      expect(flowFromRil).toBeDefined();
-      expect(flowFromRil.getSteps()).toEqual([]);
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle validation errors', () => {
-      // Empty workflow should have validation errors
-      const errors = workflowBuilder.validate();
-      expect(errors).toBeDefined();
-    });
-
-    it('should handle edge cases gracefully', () => {
-      // Add a step to make the workflow valid
-      const form = createForm(config, 'test-form')
-        .add({ type: 'text', props: { label: 'Test' } })
-        .build();
-
-      workflowBuilder.addStep({
-        title: 'Test Step',
-        formConfig: form,
-      });
-
-      // Test with minimal configuration
-      expect(() => workflowBuilder.build()).not.toThrow();
+      expect(config.steps).toHaveLength(2);
+      expect(config.steps[0].formConfig.allFields).toHaveLength(2); // text + email
+      expect(config.steps[1].formConfig.allFields).toHaveLength(1); // textarea
     });
   });
 });

@@ -136,6 +136,11 @@ export interface ConditionalBehavior {
   readonly readonly?: ConditionConfig;
 }
 
+export interface StepConditionalBehavior {
+  readonly visible?: ConditionConfig;
+  readonly skippable?: ConditionConfig;
+}
+
 // =================================================================
 // 5. FORM SYSTEM
 // =================================================================
@@ -271,7 +276,7 @@ export interface StepConfig {
   readonly formConfig: FormConfiguration;
   readonly allowSkip?: boolean;
   readonly renderer?: CustomStepRenderer;
-  readonly conditions?: ConditionalBehavior;
+  readonly conditions?: StepConditionalBehavior;
   readonly onAfterValidation?: (
     stepData: Record<string, any>,
     helper: StepDataHelper,

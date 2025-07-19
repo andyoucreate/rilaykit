@@ -43,13 +43,6 @@ export function useConditionEvaluation(
           conditionToEvaluate = condition as ConditionConfig;
         }
 
-        // Debug logging for workflow conditions
-        console.log('🔍 [WORKFLOW] Evaluating condition:', {
-          condition: conditionToEvaluate,
-          workflowData: workflowData,
-          result: evaluateCondition(conditionToEvaluate, workflowData),
-        });
-
         return evaluateCondition(conditionToEvaluate, workflowData);
       } catch (error) {
         console.warn('Error evaluating condition:', error);
@@ -58,27 +51,19 @@ export function useConditionEvaluation(
     };
 
     return {
-      visible: conditions.visible
-        ? evaluateConditionSafe(conditions.visible)
-        : (defaultState.visible ?? true),
-      disabled: conditions.disabled
-        ? evaluateConditionSafe(conditions.disabled)
-        : (defaultState.disabled ?? false),
-      required: conditions.required
-        ? evaluateConditionSafe(conditions.required)
-        : (defaultState.required ?? false),
-      readonly: conditions.readonly
-        ? evaluateConditionSafe(conditions.readonly)
-        : (defaultState.readonly ?? false),
+      visible: conditions.visible ? evaluateConditionSafe(conditions.visible) : true,
+      disabled: conditions.disabled ? evaluateConditionSafe(conditions.disabled) : false,
+      required: conditions.required ? evaluateConditionSafe(conditions.required) : false,
+      readonly: conditions.readonly ? evaluateConditionSafe(conditions.readonly) : false,
     };
   }, [conditions, workflowData, defaultState]);
 }
 
 /**
- * Hook to evaluate conditions for multiple fields at once
+ * Hook to evaluate multiple field conditions at once
  *
  * @param fieldsWithConditions - Map of field IDs to their conditional behaviors
- * @param workflowData - Current workflow data
+ * @param workflowData - Current workflow data to evaluate against
  * @returns Map of field IDs to their evaluated conditions
  */
 export function useMultipleConditionEvaluation(
@@ -120,4 +105,53 @@ export function useMultipleConditionEvaluation(
 
     return results;
   }, [fieldsWithConditions, workflowData]);
+}
+
+/**
+ * Hook to evaluate multiple step conditions at once using numeric indices
+ *
+ * @param stepsWithConditions - Map of step indices to their conditional behaviors
+ * @param workflowData - Current workflow data to evaluate against
+ * @returns Map of step indices to their evaluated conditions
+ */
+export function useMultipleStepConditionEvaluation(
+  stepsWithConditions: Record<number, ConditionalBehavior | undefined>,
+  workflowData: Record<string, any> = {}
+): Record<number, ConditionEvaluationResult> {
+  return useMemo(() => {
+    const results: Record<number, ConditionEvaluationResult> = {};
+
+    for (const [stepIndexStr, conditions] of Object.entries(stepsWithConditions)) {
+      const stepIndex = Number.parseInt(stepIndexStr, 10);
+      results[stepIndex] = {
+        visible: true,
+        disabled: false,
+        required: false,
+        readonly: false,
+      };
+
+      if (conditions) {
+        const evaluateConditionSafe = (condition: ConditionConfig | ConditionBuilder): boolean => {
+          try {
+            if (condition && typeof condition === 'object' && 'build' in condition) {
+              return evaluateCondition(condition.build(), workflowData);
+            }
+            return evaluateCondition(condition as ConditionConfig, workflowData);
+          } catch (error) {
+            console.warn(`Error evaluating condition for step ${stepIndex}:`, error);
+            return false;
+          }
+        };
+
+        results[stepIndex] = {
+          visible: conditions.visible ? evaluateConditionSafe(conditions.visible) : true,
+          disabled: conditions.disabled ? evaluateConditionSafe(conditions.disabled) : false,
+          required: conditions.required ? evaluateConditionSafe(conditions.required) : false,
+          readonly: conditions.readonly ? evaluateConditionSafe(conditions.readonly) : false,
+        };
+      }
+    }
+
+    return results;
+  }, [stepsWithConditions, workflowData]);
 }
