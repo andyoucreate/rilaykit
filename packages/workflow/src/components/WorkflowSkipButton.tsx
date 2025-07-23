@@ -7,11 +7,13 @@ export function WorkflowSkipButton({
   className,
   ...props
 }: ComponentRendererBaseProps<WorkflowSkipButtonRendererProps>) {
-  const { currentStep, skipStep, workflowState, workflowConfig, context } = useWorkflowContext();
+  const { currentStep, skipStep, workflowState, workflowConfig, context, conditionsHelpers } =
+    useWorkflowContext();
   const { formState } = useFormContext();
 
   const canSkip =
-    Boolean(currentStep?.allowSkip) &&
+    (Boolean(currentStep?.allowSkip) ||
+      conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) &&
     !workflowState.isTransitioning &&
     !workflowState.isSubmitting;
 

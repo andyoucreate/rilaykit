@@ -43,8 +43,9 @@ function toStepConditionResult(
 ): StepConditionResult {
   return {
     visible: fullResult.visible,
-    // For steps: skippable means NOT required and allowSkip is true
-    skippable: !fullResult.required && allowSkip === true,
+    // For steps: skippable if either allowSkip is true OR skippable condition is true
+    // Note: fullResult.required now represents the skippable condition (mapped above)
+    skippable: allowSkip === true || fullResult.required,
   };
 }
 
@@ -73,7 +74,18 @@ export function useWorkflowConditions({
   );
 
   // Evaluate current step-level conditions
-  const currentStepEvaluation = useConditionEvaluation(currentStep?.conditions, conditionData, {
+  const currentStepConditions = useMemo(() => {
+    if (!currentStep?.conditions) return undefined;
+
+    // Transform StepConditionalBehavior to ConditionalBehavior
+    // Map 'skippable' to 'required' (inverted logic)
+    return {
+      visible: currentStep.conditions.visible,
+      required: currentStep.conditions.skippable, // skippable condition becomes required condition
+    };
+  }, [currentStep?.conditions]);
+
+  const currentStepEvaluation = useConditionEvaluation(currentStepConditions, conditionData, {
     visible: true,
     disabled: false,
     required: false, // For steps, "required" means "not skippable"
@@ -89,7 +101,14 @@ export function useWorkflowConditions({
   const allStepConditionsMap = useMemo(() => {
     const conditionsMap: Record<number, ConditionalBehavior | undefined> = {};
     workflowConfig.steps.forEach((step, index) => {
-      conditionsMap[index] = step.conditions;
+      if (step.conditions) {
+        // Transform StepConditionalBehavior to ConditionalBehavior
+        // Map 'skippable' to 'required' (inverted logic)
+        conditionsMap[index] = {
+          visible: step.conditions.visible,
+          required: step.conditions.skippable, // skippable condition becomes required condition
+        };
+      }
     });
     return conditionsMap;
   }, [workflowConfig.steps]);
@@ -106,6 +125,7 @@ export function useWorkflowConditions({
 
     workflowConfig.steps.forEach((step, index) => {
       const evaluation = allStepEvaluations[index];
+
       if (evaluation) {
         results[index] = toStepConditionResult(evaluation, step.allowSkip);
       } else {

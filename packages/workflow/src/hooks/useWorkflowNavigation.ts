@@ -137,6 +137,32 @@ export function useWorkflowNavigation({
     ]
   );
 
+  // Helper function to find the next visible step
+  const findNextVisibleStep = useCallback(
+    (fromIndex: number): number | null => {
+      for (let i = fromIndex + 1; i < workflowConfig.steps.length; i++) {
+        if (conditionsHelpers.isStepVisible(i)) {
+          return i;
+        }
+      }
+      return null;
+    },
+    [workflowConfig.steps.length, conditionsHelpers]
+  );
+
+  // Helper function to find the previous visible step
+  const findPreviousVisibleStep = useCallback(
+    (fromIndex: number): number | null => {
+      for (let i = fromIndex - 1; i >= 0; i--) {
+        if (conditionsHelpers.isStepVisible(i)) {
+          return i;
+        }
+      }
+      return null;
+    },
+    [conditionsHelpers]
+  );
+
   // Navigate to next step
   const goNext = useCallback(async (): Promise<boolean> => {
     // Before transitioning, call onAfterValidation if it exists
@@ -153,10 +179,11 @@ export function useWorkflowNavigation({
       }
     }
 
-    const nextStepIndex = workflowState.currentStepIndex + 1;
+    // Find the next visible step
+    const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
 
-    // Check if we have a next step
-    if (nextStepIndex >= workflowConfig.steps.length) {
+    // Check if we have a next visible step
+    if (nextStepIndex === null) {
       return false; // Let the submission hook handle this
     }
 
@@ -167,20 +194,28 @@ export function useWorkflowNavigation({
     workflowState.stepData,
     workflowContext,
     workflowConfig.analytics,
-    workflowConfig.steps.length,
     workflowState.currentStepIndex,
+    findNextVisibleStep,
     goToStep,
   ]);
 
   // Navigate to previous step
   const goPrevious = useCallback(async (): Promise<boolean> => {
-    return goToStep(workflowState.currentStepIndex - 1);
-  }, [workflowState.currentStepIndex, goToStep]);
+    // Find the previous visible step
+    const previousStepIndex = findPreviousVisibleStep(workflowState.currentStepIndex);
+
+    // Check if we have a previous visible step
+    if (previousStepIndex === null) {
+      return false;
+    }
+
+    return goToStep(previousStepIndex);
+  }, [workflowState.currentStepIndex, findPreviousVisibleStep, goToStep]);
 
   // Skip current step
   const skipStep = useCallback(async (): Promise<boolean> => {
     if (
-      !currentStep?.allowSkip ||
+      !currentStep?.allowSkip &&
       !conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
     ) {
       return false;
@@ -212,16 +247,15 @@ export function useWorkflowNavigation({
 
   // Check if we can go to next step
   const canGoNext = useCallback((): boolean => {
-    const nextStepIndex = workflowState.currentStepIndex + 1;
-    if (nextStepIndex >= workflowConfig.steps.length) return false;
-    return canGoToStep(nextStepIndex);
-  }, [workflowState.currentStepIndex, workflowConfig.steps.length, canGoToStep]);
+    const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
+    return nextStepIndex !== null && canGoToStep(nextStepIndex);
+  }, [workflowState.currentStepIndex, findNextVisibleStep, canGoToStep]);
 
   // Check if we can go to previous step
   const canGoPrevious = useCallback((): boolean => {
-    const prevStepIndex = workflowState.currentStepIndex - 1;
-    return canGoToStep(prevStepIndex);
-  }, [workflowState.currentStepIndex, canGoToStep]);
+    const prevStepIndex = findPreviousVisibleStep(workflowState.currentStepIndex);
+    return prevStepIndex !== null && canGoToStep(prevStepIndex);
+  }, [workflowState.currentStepIndex, findPreviousVisibleStep, canGoToStep]);
 
   // Check if current step can be skipped
   const canSkipCurrentStep = useCallback((): boolean => {

@@ -269,9 +269,11 @@ const workflowSkipButtonRenderer: WorkflowSkipButtonRenderer = (
     type="button"
     onClick={props.onSkip}
     disabled={!props.canSkip}
-    className={`btn-outline ${!props.canSkip ? 'hidden' : ''}`}
+    className="btn-outline disabled:opacity-50 disabled:cursor-not-allowed"
+    title={!props.canSkip ? 'Cannot skip this step' : 'Skip this step'}
   >
     {props.children || 'Skip Step'}
+    {!props.canSkip && ' 🚫'}
   </button>
 );
 
@@ -566,6 +568,10 @@ export default function WorkflowTestPage() {
       title: 'Company Information',
       description: 'Company details (auto-filled from SIREN)',
       formConfig: companyInfoForm,
+      conditions: {
+        visible: when('personal-info.siren').equals('123456789'),
+        skippable: when('company-info.companyName').equals('Tech Innovation SAS'),
+      },
     })
     .addStep({
       id: 'preferences',

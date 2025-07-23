@@ -6,7 +6,7 @@ import type {
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import {
   type UseWorkflowConditionsReturn,
   useWorkflowAnalytics,
@@ -142,7 +142,30 @@ export function WorkflowProvider({
     onStepChange,
   });
 
-  // 7. Initialize submission
+  // 7. Ensure we start on the first visible step
+  useEffect(() => {
+    // Only run this check on initial mount or when conditions change
+    const currentStepIsVisible = conditionsHelpers.isStepVisible(workflowState.currentStepIndex);
+
+    if (!currentStepIsVisible) {
+      // Find the first visible step
+      for (let i = 0; i < workflowConfig.steps.length; i++) {
+        if (conditionsHelpers.isStepVisible(i)) {
+          setCurrentStep(i);
+          markStepVisited(i, workflowConfig.steps[i].id);
+          break;
+        }
+      }
+    }
+  }, [
+    conditionsHelpers,
+    workflowState.currentStepIndex,
+    workflowConfig.steps,
+    setCurrentStep,
+    markStepVisited,
+  ]);
+
+  // 8. Initialize submission
   const { submitWorkflow, isSubmitting, canSubmit } = useWorkflowSubmission({
     workflowConfig,
     workflowState,
@@ -152,7 +175,7 @@ export function WorkflowProvider({
     analyticsStartTime,
   });
 
-  // 8. Create field value setter for form integration
+  // 9. Create field value setter for form integration
   const setValue = useCallback(
     (fieldId: string, value: any) => {
       setFieldValue(fieldId, value, currentStep?.id || '');
@@ -160,7 +183,7 @@ export function WorkflowProvider({
     [setFieldValue, currentStep?.id]
   );
 
-  // 9. Create step data setter
+  // 10. Create step data setter
   const handleSetStepData = useCallback(
     (data: Record<string, any>) => {
       setStepData(data, currentStep?.id || '');
@@ -168,7 +191,7 @@ export function WorkflowProvider({
     [setStepData, currentStep?.id]
   );
 
-  // 10. Create form submission handler
+  // 11. Create form submission handler
   const handleSubmit = useCallback(async () => {
     if (workflowContext.isLastStep) {
       await submitWorkflow();
@@ -177,7 +200,7 @@ export function WorkflowProvider({
     }
   }, [workflowContext.isLastStep, submitWorkflow, goNext]);
 
-  // 11. Memoize context value to prevent unnecessary re-renders
+  // 12. Memoize context value to prevent unnecessary re-renders
   const contextValue: WorkflowContextValue = useMemo(
     () => ({
       workflowState,
