@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 6.0.0
+
+### Major Changes
+
+- Major refactor
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@6.0.0
+  - @rilaykit/forms@6.0.0
+
 ## 5.2.1
 
 ### Patch Changes

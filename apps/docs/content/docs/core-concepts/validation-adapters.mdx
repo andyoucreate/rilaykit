@@ -44,6 +44,10 @@ The `@rilaykit/validation-adapters` package provides seamless integration betwee
     
     # Install your preferred validation library
     yarn add zod
+    # Or for Yup
+    yarn add yup
+    # Or for Joi
+    yarn add joi
     ```
   </Tab>
 </Tabs>
@@ -495,67 +499,555 @@ const onboardingWorkflow = factory
   });
 ```
 
+## Yup Integration
+
+### Basic Field Validation
+
+Use Yup schemas in your Rilay forms:
+
+```typescript
+import * as yup from 'yup';
+import { createYupValidator } from '@rilaykit/validation-adapters/yup';
+
+// Create Yup validators
+const emailValidator = createYupValidator(
+  yup.string()
+    .email('Please enter a valid email address')
+    .required('Email is required')
+);
+
+const ageValidator = createYupValidator(
+  yup.number()
+    .min(18, 'You must be at least 18 years old')
+    .required('Age is required')
+);
+
+// Use in form configuration
+const form = factory
+  .form('user-registration')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [emailValidator]
+    }
+  })
+  .add({
+    id: 'age',
+    type: 'number',
+    props: { label: 'Age' },
+    validation: {
+      validators: [ageValidator]
+    }
+  });
+```
+
+### Form-Level Validation
+
+Validate entire forms with cross-field validation:
+
+```typescript
+import { createYupFormValidator } from '@rilaykit/validation-adapters/yup';
+
+// Define complete form schema
+const registrationSchema = yup.object({
+  email: yup.string().email('Invalid email format').required('Email is required'),
+  password: yup.string().min(8, 'Password must be at least 8 characters').required(),
+  confirmPassword: yup.string()
+    .required('Confirm password is required')
+    .oneOf([yup.ref('password')], 'Passwords must match')
+});
+
+// Create form validator
+const formValidator = createYupFormValidator(registrationSchema);
+
+// Apply to entire form
+const form = factory
+  .form('registration')
+  .add({ id: 'email', type: 'email' })
+  .add({ id: 'password', type: 'password' })
+  .add({ id: 'confirmPassword', type: 'password' })
+  .setValidation({
+    validators: [formValidator]
+  });
+```
+
+## Joi Integration
+
+### Basic Field Validation
+
+Use Joi schemas in your Rilay forms:
+
+```typescript
+import Joi from 'joi';
+import { createJoiValidator } from '@rilaykit/validation-adapters/joi';
+
+// Create Joi validators
+const emailValidator = createJoiValidator(
+  Joi.string()
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      'string.email': 'Please enter a valid email address',
+      'any.required': 'Email is required'
+    })
+);
+
+const ageValidator = createJoiValidator(
+  Joi.number()
+    .min(18)
+    .required()
+    .messages({
+      'number.min': 'You must be at least 18 years old',
+      'any.required': 'Age is required'
+    })
+);
+
+// Use in form configuration
+const form = factory
+  .form('user-registration')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [emailValidator]
+    }
+  })
+  .add({
+    id: 'age',
+    type: 'number',
+    props: { label: 'Age' },
+    validation: {
+      validators: [ageValidator]
+    }
+  });
+```
+
+### Form-Level Validation
+
+Validate entire forms with complex cross-field validation:
+
+```typescript
+import { createJoiFormValidator } from '@rilaykit/validation-adapters/joi';
+
+// Define complete form schema
+const registrationSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'Invalid email format',
+    'any.required': 'Email is required'
+  }),
+  password: Joi.string().min(8).required().messages({
+    'string.min': 'Password must be at least 8 characters',
+    'any.required': 'Password is required'
+  }),
+  confirmPassword: Joi.string().required().messages({
+    'any.required': 'Confirm password is required'
+  })
+}).custom((value, helpers) => {
+  if (value.password !== value.confirmPassword) {
+    return helpers.error('any.custom', { 
+      path: ['confirmPassword'],
+      message: 'Passwords must match'
+    });
+  }
+  return value;
+});
+
+// Create form validator
+const formValidator = createJoiFormValidator(registrationSchema);
+
+// Apply to entire form
+const form = factory
+  .form('registration')
+  .add({ id: 'email', type: 'email' })
+  .add({ id: 'password', type: 'password' })
+  .add({ id: 'confirmPassword', type: 'password' })
+  .setValidation({
+    validators: [formValidator]
+  });
+```
+
+## Advanced Features
+
+### Custom Error Transformation
+
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    import { zodErrorTransforms } from '@rilaykit/validation-adapters/zod';
+
+    const validator = createZodValidator(
+      z.string().min(3).max(50),
+      {
+        // Use built-in transformation
+        errorTransform: zodErrorTransforms.userFriendly,
+        
+        // Custom transformation
+        errorTransform: (issues) => {
+          const issue = issues[0];
+          switch (issue.code) {
+            case 'too_small':
+              return 'This field is too short';
+            case 'too_big':
+              return 'This field is too long';
+            default:
+              return issue.message;
+          }
+        }
+      }
+    );
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    import { yupErrorTransforms } from '@rilaykit/validation-adapters/yup';
+
+    const validator = createYupValidator(
+      yup.string().min(3).max(50),
+      {
+        // Use built-in transformation
+        errorTransform: yupErrorTransforms.userFriendly,
+        
+        // Custom transformation
+        errorTransform: (errors) => {
+          const error = errors[0];
+          switch (error.type) {
+            case 'min':
+              return 'This field is too short';
+            case 'max':
+              return 'This field is too long';
+            default:
+              return error.message;
+          }
+        }
+      }
+    );
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    import { joiErrorTransforms } from '@rilaykit/validation-adapters/joi';
+
+    const validator = createJoiValidator(
+      Joi.string().min(3).max(50),
+      {
+        // Use built-in transformation
+        errorTransform: joiErrorTransforms.userFriendly,
+        
+        // Custom transformation
+        errorTransform: (details) => {
+          const detail = details[0];
+          switch (detail.type) {
+            case 'string.min':
+              return 'This field is too short';
+            case 'string.max':
+              return 'This field is too long';
+            default:
+              return detail.message;
+          }
+        }
+      }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Validation Presets
+
+Use predefined configurations for common scenarios:
+
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    import { createZodValidatorWithPreset } from '@rilaykit/validation-adapters/zod';
+
+    // User-friendly preset
+    const validator = createZodValidatorWithPreset(
+      z.string().email(),
+      'userFriendly'
+    );
+
+    // Fast preset (aborts on first error)
+    const fastValidator = createZodValidatorWithPreset(
+      z.string().email(),
+      'fast'
+    );
+
+    // Async preset
+    const asyncValidator = createZodValidatorWithPreset(
+      z.string().email(),
+      'async'
+    );
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    import { createYupValidatorWithPreset } from '@rilaykit/validation-adapters/yup';
+
+    // User-friendly preset
+    const validator = createYupValidatorWithPreset(
+      yup.string().email(),
+      'userFriendly'
+    );
+
+    // Fast preset (aborts on first error)
+    const fastValidator = createYupValidatorWithPreset(
+      yup.string().email(),
+      'fast'
+    );
+
+    // Lenient preset (strips unknown keys)
+    const lenientValidator = createYupValidatorWithPreset(
+      yup.string().email(),
+      'lenient'
+    );
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    import { createJoiValidatorWithPreset } from '@rilaykit/validation-adapters/joi';
+
+    // User-friendly preset
+    const validator = createJoiValidatorWithPreset(
+      Joi.string().email(),
+      'userFriendly'
+    );
+
+    // Fast preset (aborts on first error)
+    const fastValidator = createJoiValidatorWithPreset(
+      Joi.string().email(),
+      'fast'
+    );
+
+    // Lenient preset (allows unknown keys)
+    const lenientValidator = createJoiValidatorWithPreset(
+      Joi.string().email(),
+      'lenient'
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Path Formatting
+
+Customize how nested field paths are displayed:
+
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    import { zodPathFormatters } from '@rilaykit/validation-adapters/zod';
+
+    const validator = createZodValidator(
+      z.object({
+        user: z.object({
+          profile: z.object({
+            name: z.string().min(1)
+          })
+        })
+      }),
+      {
+        pathFormatter: zodPathFormatters.humanReadable // "User Profile Name"
+        // or zodPathFormatters.bracketNotation     // "user[profile][name]"
+        // or zodPathFormatters.dotNotation         // "user.profile.name" (default)
+      }
+    );
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    import { yupPathFormatters } from '@rilaykit/validation-adapters/yup';
+
+    const validator = createYupValidator(
+      yup.object({
+        user: yup.object({
+          profile: yup.object({
+            name: yup.string().required()
+          })
+        })
+      }),
+      {
+        pathFormatter: yupPathFormatters.humanReadable // "User Profile Name"
+        // or yupPathFormatters.bracketNotation     // "user[profile][name]"
+        // or yupPathFormatters.dotNotation         // "user.profile.name" (default)
+      }
+    );
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    import { joiPathFormatters } from '@rilaykit/validation-adapters/joi';
+
+    const validator = createJoiValidator(
+      Joi.object({
+        user: Joi.object({
+          profile: Joi.object({
+            name: Joi.string().required()
+          })
+        })
+      }),
+      {
+        pathFormatter: joiPathFormatters.humanReadable // "User Profile Name"
+        // or joiPathFormatters.bracketNotation     // "user[profile][name]"
+        // or joiPathFormatters.dotNotation         // "user.profile.name" (default)
+      }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Convenience Functions
+
+Each adapter provides convenience functions for common use cases:
+
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    // Sync and async validators
+    const syncValidator = createZodSyncValidator(schema);
+    const asyncValidator = createZodAsyncValidator(schema);
+
+    // Form validators
+    const formValidator = createZodFormValidator(schema);
+    const strictFormValidator = createZodSyncFormValidator(schema);
+    const asyncFormValidator = createZodAsyncFormValidator(schema);
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    // Strict and lenient validators
+    const strictValidator = createYupStrictValidator(schema);
+    const lenientValidator = createYupLenientValidator(schema);
+
+    // Form validators
+    const formValidator = createYupFormValidator(schema);
+    const strictFormValidator = createYupStrictFormValidator(schema);
+    const lenientFormValidator = createYupLenientFormValidator(schema);
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    // Strict and lenient validators
+    const strictValidator = createJoiStrictValidator(schema);
+    const lenientValidator = createJoiLenientValidator(schema);
+
+    // Form validators
+    const formValidator = createJoiFormValidator(schema);
+    const strictFormValidator = createJoiStrictFormValidator(schema);
+    const lenientFormValidator = createJoiLenientFormValidator(schema);
+    ```
+  </Tab>
+</Tabs>
+
 ## API Reference
 
 ### Field Validators
 
-```typescript
-// Primary functions
-createZodValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldValidator<T>
-createZodSyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
-createZodAsyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    // Primary functions
+    createZodValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldValidator<T>
+    createZodSyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
+    createZodAsyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
 
-// Preset helpers
-createZodValidatorWithPreset<T>(schema: ZodSchema<T>, preset: PresetName, overrides?: Partial<ZodValidatorOptions>): FieldValidator<T>
-```
+    // Preset helpers
+    createZodValidatorWithPreset<T>(schema: ZodSchema<T>, preset: PresetName, overrides?: Partial<ZodValidatorOptions>): FieldValidator<T>
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    // Primary functions
+    createYupValidator<T>(schema: yup.Schema<T>, options?: YupValidatorOptions): FieldValidator<T>
+    createYupStrictValidator<T>(schema: yup.Schema<T>, options?: Omit<YupValidatorOptions, 'stripUnknown'>): FieldValidator<T>
+    createYupLenientValidator<T>(schema: yup.Schema<T>, options?: Omit<YupValidatorOptions, 'stripUnknown'>): FieldValidator<T>
+
+    // Preset helpers
+    createYupValidatorWithPreset<T>(schema: yup.Schema<T>, preset: PresetName, overrides?: Partial<YupValidatorOptions>): FieldValidator<T>
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    // Primary functions
+    createJoiValidator<T>(schema: Joi.Schema, options?: JoiValidatorOptions): FieldValidator<T>
+    createJoiStrictValidator<T>(schema: Joi.Schema, options?: Omit<JoiValidatorOptions, 'allowUnknown'>): FieldValidator<T>
+    createJoiLenientValidator<T>(schema: Joi.Schema, options?: Omit<JoiValidatorOptions, 'allowUnknown'>): FieldValidator<T>
+
+    // Preset helpers
+    createJoiValidatorWithPreset<T>(schema: Joi.Schema, preset: PresetName, overrides?: Partial<JoiValidatorOptions>): FieldValidator<T>
+    ```
+  </Tab>
+</Tabs>
 
 ### Form Validators
 
-```typescript
-createZodFormValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FormValidator<T>
-createZodFormValidatorWithFieldErrors<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldErrorsValidator<T>
-createZodSyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
-createZodAsyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
-```
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    createZodFormValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FormValidator<T>
+    createZodFormValidatorWithFieldErrors<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldErrorsValidator<T>
+    createZodSyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
+    createZodAsyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    createYupFormValidator<T>(schema: yup.Schema<T>, options?: YupValidatorOptions): FormValidator<T>
+    createYupFormValidatorWithFieldErrors<T>(schema: yup.Schema<T>, options?: YupValidatorOptions): FieldErrorsValidator<T>
+    createYupStrictFormValidator<T>(schema: yup.Schema<T>, options?: Omit<YupValidatorOptions, 'stripUnknown'>): FormValidator<T>
+    createYupLenientFormValidator<T>(schema: yup.Schema<T>, options?: Omit<YupValidatorOptions, 'stripUnknown'>): FormValidator<T>
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    createJoiFormValidator<T>(schema: Joi.Schema, options?: JoiValidatorOptions): FormValidator<T>
+    createJoiFormValidatorWithFieldErrors<T>(schema: Joi.Schema, options?: JoiValidatorOptions): FieldErrorsValidator<T>
+    createJoiStrictFormValidator<T>(schema: Joi.Schema, options?: Omit<JoiValidatorOptions, 'allowUnknown'>): FormValidator<T>
+    createJoiLenientFormValidator<T>(schema: Joi.Schema, options?: Omit<JoiValidatorOptions, 'allowUnknown'>): FormValidator<T>
+    ```
+  </Tab>
+</Tabs>
 
 ### Options
 
-```typescript
-interface ZodValidatorOptions {
-  parseMode?: 'sync' | 'async';
-  errorTransform?: (issues: ZodIssue[]) => string;
-  pathFormatter?: (path: (string | number)[]) => string;
-  abortEarly?: boolean;
-}
-```
-
-### Utilities
-
-```typescript
-// Error transformations
-zodErrorTransforms.userFriendly: (issues: ZodIssue[]) => string
-zodErrorTransforms.concatenated: (issues: ZodIssue[], separator?: string) => string  
-zodErrorTransforms.firstOnly: (issues: ZodIssue[]) => string
-
-// Path formatters
-zodPathFormatters.dotNotation: (path: (string | number)[]) => string
-zodPathFormatters.bracketNotation: (path: (string | number)[]) => string
-zodPathFormatters.humanReadable: (path: (string | number)[]) => string
-
-// Presets
-zodValidatorPresets.default: ZodValidatorOptions
-zodValidatorPresets.strict: ZodValidatorOptions
-zodValidatorPresets.fast: ZodValidatorOptions
-zodValidatorPresets.async: ZodValidatorOptions
-zodValidatorPresets.userFriendly: ZodValidatorOptions
-
-// Type utilities
-isZodError(error: unknown): error is ZodError
-type ZodInfer<T> = T extends ZodSchema<infer U> ? U : never
-```
+<Tabs items={['Zod', 'Yup', 'Joi']}>
+  <Tab value="Zod">
+    ```typescript
+    interface ZodValidatorOptions {
+      parseMode?: 'sync' | 'async';
+      errorTransform?: (issues: ZodIssue[]) => string;
+      pathFormatter?: (path: (string | number)[]) => string;
+      abortEarly?: boolean;
+    }
+    ```
+  </Tab>
+  <Tab value="Yup">
+    ```typescript
+    interface YupValidatorOptions {
+      context?: Record<string, any>;
+      stripUnknown?: boolean;
+      errorTransform?: (errors: any[]) => string;
+      pathFormatter?: (path: (string | number)[]) => string;
+      abortEarly?: boolean;
+    }
+    ```
+  </Tab>
+  <Tab value="Joi">
+    ```typescript
+    interface JoiValidatorOptions {
+      context?: Record<string, any>;
+      allowUnknown?: boolean;
+      errorTransform?: (details: any[]) => string;
+      pathFormatter?: (path: (string | number)[]) => string;
+      abortEarly?: boolean;  
+    }
+    ```
+  </Tab>
+</Tabs>
 
 <Callout type="info">
-**Mixing Validators**: You can combine Zod validators with Rilay's built-in validators in the same field's `validators` array. They will be executed in order.
+**Mixing Validators**: You can combine validation adapters with Rilay's built-in validators in the same field's `validators` array. They will be executed in order.
 </Callout>
 
 <Callout type="tip">
@@ -563,5 +1055,5 @@ type ZodInfer<T> = T extends ZodSchema<infer U> ? U : never
 </Callout>
 
 <Callout type="warning">
-**Async Validation**: When using async validation, make sure to set `parseMode: 'async'` and consider using debouncing to avoid excessive API calls.
+**Library Installation**: Remember to install the validation library you want to use (`zod`, `yup`, or `joi`) alongside the adapters package. The adapters are designed to work without hard dependencies.
 </Callout>

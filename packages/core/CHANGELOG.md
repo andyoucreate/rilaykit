@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 6.0.0
+
+### Major Changes
+
+- Major refactor
+
 ## 5.2.1
 
 ### Patch Changes
