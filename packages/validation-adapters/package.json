@@ -1,0 +1,70 @@
+{
+  "name": "@rilaykit/validation-adapters",
+  "version": "1.0.0",
+  "description": "Validation adapters for popular schema libraries (Zod, Yup, Joi) to integrate with Rilay forms",
+  "keywords": ["rilay", "validation", "zod", "yup", "joi", "schema", "forms"],
+  "license": "MIT",
+  "author": "Rilay Team",
+  "homepage": "https://docs.rilay.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilaykit.git",
+    "directory": "packages/validation-adapters"
+  },
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilaykit/issues"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./zod": {
+      "types": "./dist/zod/index.d.ts",
+      "import": "./dist/zod/index.mjs",
+      "require": "./dist/zod/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "peerDependencies": {
+    "@rilaykit/core": "^5.2.0",
+    "react": ">=18.0.0",
+    "zod": ">=3.20.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    },
+    "yup": {
+      "optional": true
+    },
+    "joi": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@rilaykit/core": "workspace:*",
+    "@types/react": "^18.2.0",
+    "react": "^18.2.0",
+    "typescript": "^5.0.0",
+    "tsup": "^8.0.0",
+    "vitest": "^1.0.0",
+    "rimraf": "^5.0.0",
+    "zod": "^3.22.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

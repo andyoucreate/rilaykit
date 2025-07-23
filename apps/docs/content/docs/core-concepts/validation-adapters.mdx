@@ -1,0 +1,567 @@
+---
+title: Validation Adapters
+description: Integrate popular validation libraries like Zod, Yup, and Joi with Rilay forms.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+The `@rilaykit/validation-adapters` package provides seamless integration between popular schema validation libraries and Rilay's form system, allowing you to use your existing validation schemas.
+
+## Installation
+
+<Tabs items={['npm', 'pnpm', 'yarn']}>
+  <Tab value="npm">
+    ```bash
+    # Install the adapters package
+    npm install @rilaykit/validation-adapters
+    
+    # Install your preferred validation library
+    npm install zod
+    # Or for Yup
+    npm install yup
+    # Or for Joi  
+    npm install joi
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    # Install the adapters package
+    pnpm add @rilaykit/validation-adapters
+    
+    # Install your preferred validation library
+    pnpm add zod
+    # Or for Yup
+    pnpm add yup
+    # Or for Joi
+    pnpm add joi
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    # Install the adapters package
+    yarn add @rilaykit/validation-adapters
+    
+    # Install your preferred validation library
+    yarn add zod
+    ```
+  </Tab>
+</Tabs>
+
+## Supported Libraries
+
+| Library | Status | Import |
+|---------|--------|--------|
+| **Zod** | ✅ Available | `@rilaykit/validation-adapters/zod` |
+| **Yup** | ✅ Available | `@rilaykit/validation-adapters/yup` |
+| **Joi** | ✅ Available | `@rilaykit/validation-adapters/joi` |
+
+## Zod Integration
+
+### Basic Field Validation
+
+Use Zod schemas directly in your Rilay forms:
+
+```typescript
+import { z } from 'zod';
+import { createZodValidator } from '@rilaykit/validation-adapters/zod';
+
+// Create Zod validators
+const emailValidator = createZodValidator(
+  z.string().email('Please enter a valid email address')
+);
+
+const ageValidator = createZodValidator(
+  z.number().min(18, 'You must be at least 18 years old')
+);
+
+// Use in form configuration
+const form = factory
+  .form('user-registration')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [emailValidator]
+    }
+  })
+  .add({
+    id: 'age',
+    type: 'number',
+    props: { label: 'Age' },
+    validation: {
+      validators: [ageValidator]
+    }
+  });
+```
+
+### Component-Level Validation
+
+Apply Zod validation to all instances of a component:
+
+```typescript
+const factory = ril
+  .create()
+  .addComponent('email', {
+    renderer: EmailInput,
+    validation: {
+      validators: [
+        createZodValidator(z.string().email('Invalid email format'))
+      ]
+    }
+  })
+  .addComponent('password', {
+    renderer: PasswordInput,
+    validation: {
+      validators: [
+        createZodValidator(
+          z.string()
+            .min(8, 'Password must be at least 8 characters')
+            .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+            .regex(/[0-9]/, 'Must contain at least one number')
+        )
+      ]
+    }
+  });
+```
+
+### Form-Level Validation
+
+Validate entire forms with complex cross-field validation:
+
+```typescript
+import { createZodFormValidator } from '@rilaykit/validation-adapters/zod';
+
+// Define complete form schema
+const registrationSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+  terms: z.boolean().refine(val => val === true, 'You must accept the terms')
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+});
+
+// Create form validator
+const formValidator = createZodFormValidator(registrationSchema);
+
+// Apply to entire form
+const form = factory
+  .form('registration')
+  .add({ id: 'email', type: 'email' })
+  .add({ id: 'password', type: 'password' })
+  .add({ id: 'confirmPassword', type: 'password' })
+  .add({ id: 'terms', type: 'checkbox' })
+  .setValidation({
+    validators: [formValidator]
+  });
+```
+
+## Advanced Features
+
+### Async Validation
+
+Integrate async validation like API calls:
+
+```typescript
+// Schema with async refinement
+const usernameSchema = z.string()
+  .min(3, 'Username must be at least 3 characters')
+  .refine(async (username) => {
+    const response = await fetch(`/api/check-username/${username}`);
+    const { available } = await response.json();
+    return available;
+  }, 'Username is already taken');
+
+// Create async validator
+const asyncValidator = createZodValidator(usernameSchema, {
+  parseMode: 'async'
+});
+
+// Use with debouncing for better UX
+const form = factory
+  .form()
+  .add({
+    id: 'username',
+    type: 'text',
+    validation: {
+      validators: [asyncValidator],
+      validateOnBlur: true,
+      debounceMs: 500
+    }
+  });
+```
+
+### Custom Error Transformation
+
+Transform Zod errors to be more user-friendly:
+
+```typescript
+import { zodErrorTransforms } from '@rilaykit/validation-adapters/zod';
+
+const validator = createZodValidator(
+  z.string().min(3).max(50),
+  {
+    // Use built-in transformation
+    errorTransform: zodErrorTransforms.userFriendly,
+    
+    // Custom transformation
+    errorTransform: (issues) => {
+      const issue = issues[0];
+      switch (issue.code) {
+        case 'too_small':
+          return 'This field is too short';
+        case 'too_big':
+          return 'This field is too long';
+        default:
+          return issue.message;
+      }
+    }
+  }
+);
+```
+
+### Path Formatting
+
+Customize how nested field paths are displayed:
+
+```typescript
+import { zodPathFormatters } from '@rilaykit/validation-adapters/zod';
+
+const validator = createZodValidator(
+  z.object({
+    user: z.object({
+      profile: z.object({
+        name: z.string().min(1)
+      })
+    })
+  }),
+  {
+    pathFormatter: zodPathFormatters.humanReadable // "User Profile Name"
+    // or zodPathFormatters.bracketNotation     // "user[profile][name]"
+    // or zodPathFormatters.dotNotation         // "user.profile.name" (default)
+  }
+);
+```
+
+### Validation Presets
+
+Use predefined configurations for common scenarios:
+
+<Tabs items={['User Friendly', 'Performance', 'Strict', 'Async']}>
+  <Tab value="User Friendly">
+    ```typescript
+    import { createZodValidatorWithPreset } from '@rilaykit/validation-adapters/zod';
+
+    const validator = createZodValidatorWithPreset(
+      z.string().email(),
+      'userFriendly'  // Transforms errors to be more readable
+    );
+    
+    // Equivalent to:
+    // createZodValidator(schema, {
+    //   parseMode: 'sync',
+    //   errorTransform: zodErrorTransforms.concatenated,
+    //   pathFormatter: zodPathFormatters.humanReadable,
+    //   abortEarly: false
+    // })
+    ```
+  </Tab>
+  <Tab value="Performance">
+    ```typescript
+    const validator = createZodValidatorWithPreset(
+      z.string().email(),
+      'fast'  // Aborts on first error for better performance
+    );
+    
+    // Equivalent to:
+    // createZodValidator(schema, {
+    //   parseMode: 'sync',
+    //   errorTransform: zodErrorTransforms.firstOnly,
+    //   abortEarly: true
+    // })
+    ```
+  </Tab>
+  <Tab value="Strict">
+    ```typescript
+    const validator = createZodValidatorWithPreset(
+      z.string().email(),
+      'strict'  // Uses original Zod errors without transformation
+    );
+    
+    // Equivalent to:
+    // createZodValidator(schema, {
+    //   parseMode: 'sync',
+    //   abortEarly: false
+    // })
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```typescript
+    const validator = createZodValidatorWithPreset(
+      z.string().email(),
+      'async'  // Optimized for async validation
+    );
+    
+    // Equivalent to:
+    // createZodValidator(schema, {
+    //   parseMode: 'async',
+    //   errorTransform: zodErrorTransforms.userFriendly,
+    //   pathFormatter: zodPathFormatters.dotNotation,
+    //   abortEarly: false
+    // })
+    ```
+  </Tab>
+</Tabs>
+
+## Real-World Example
+
+Here's a complete example of a complex registration form using Zod validation:
+
+```typescript
+import { z } from 'zod';
+import { 
+  createZodValidator, 
+  createZodFormValidator,
+  zodErrorTransforms 
+} from '@rilaykit/validation-adapters/zod';
+import { ril, when, required } from '@rilaykit/core';
+
+// Define schemas
+const personalSchema = z.object({
+  firstName: z.string().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  phone: z.string().regex(/^\d{3}-\d{3}-\d{4}$/, 'Phone must be XXX-XXX-XXXX')
+});
+
+const businessSchema = z.object({
+  userType: z.enum(['individual', 'business']),
+  companyName: z.string().optional(),
+  taxId: z.string().optional()
+}).refine(data => {
+  if (data.userType === 'business') {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: 'Company name is required for business accounts',
+  path: ['companyName']
+});
+
+// Create validators
+const emailValidator = createZodValidator(
+  personalSchema.shape.email,
+  { errorTransform: zodErrorTransforms.userFriendly }
+);
+
+const phoneValidator = createZodValidator(
+  personalSchema.shape.phone,
+  { abortEarly: true }
+);
+
+const formValidator = createZodFormValidator(
+  personalSchema.merge(businessSchema)
+);
+
+// Configure factory
+const factory = ril
+  .create()
+  .addComponent('text', { renderer: TextInput })
+  .addComponent('email', { renderer: EmailInput })
+  .addComponent('select', { renderer: SelectInput });
+
+// Build form
+const registrationForm = factory
+  .form('registration')
+  .add({
+    id: 'userType',
+    type: 'select',
+    props: {
+      label: 'Account Type',
+      options: [
+        { value: 'individual', label: 'Individual' },
+        { value: 'business', label: 'Business' }
+      ]
+    }
+  })
+  .add(
+    {
+      id: 'firstName',
+      type: 'text',
+      props: { label: 'First Name' },
+      validation: {
+        validators: [createZodValidator(personalSchema.shape.firstName)]
+      }
+    },
+    {
+      id: 'lastName', 
+      type: 'text',
+      props: { label: 'Last Name' },
+      validation: {
+        validators: [createZodValidator(personalSchema.shape.lastName)]
+      }
+    }
+  )
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [
+        emailValidator,
+        // Mix Zod with built-in validators
+        required('Email is required')
+      ],
+      validateOnBlur: true
+    }
+  })
+  .add({
+    id: 'phone',
+    type: 'text',
+    props: { label: 'Phone Number', placeholder: '123-456-7890' },
+    validation: {
+      validators: [phoneValidator],
+      validateOnChange: true,
+      debounceMs: 300
+    }
+  })
+  .add({
+    id: 'companyName',
+    type: 'text',
+    props: { label: 'Company Name' },
+    conditions: {
+      visible: when('userType').equals('business'),
+      required: when('userType').equals('business')
+    }
+  })
+  .add({
+    id: 'taxId',
+    type: 'text', 
+    props: { label: 'Tax ID' },
+    conditions: {
+      visible: when('userType').equals('business'),
+      required: when('userType').equals('business')
+    }
+  })
+  .setValidation({
+    validators: [formValidator]
+  });
+```
+
+## Integration with Workflows
+
+Zod validators work seamlessly with Rilay workflows:
+
+```typescript
+const onboardingWorkflow = factory
+  .flow('user-onboarding')
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Information',
+    formConfig: factory.form()
+      .add({
+        id: 'email',
+        type: 'email',
+        validation: {
+          validators: [
+            createZodValidator(z.string().email()),
+            // Mix with conditions
+            required('Email is required')
+          ]
+        }
+      })
+  })
+  .addStep({
+    id: 'verification',
+    title: 'Email Verification',
+    conditions: {
+      visible: when('personal-info.email').isNotEmpty()
+    },
+    formConfig: factory.form()
+      .add({
+        id: 'verificationCode',
+        type: 'text',
+        validation: {
+          validators: [
+            createZodValidator(
+              z.string().length(6, 'Verification code must be 6 digits')
+            )
+          ]
+        }
+      })
+  });
+```
+
+## API Reference
+
+### Field Validators
+
+```typescript
+// Primary functions
+createZodValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldValidator<T>
+createZodSyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
+createZodAsyncValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FieldValidator<T>
+
+// Preset helpers
+createZodValidatorWithPreset<T>(schema: ZodSchema<T>, preset: PresetName, overrides?: Partial<ZodValidatorOptions>): FieldValidator<T>
+```
+
+### Form Validators
+
+```typescript
+createZodFormValidator<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FormValidator<T>
+createZodFormValidatorWithFieldErrors<T>(schema: ZodSchema<T>, options?: ZodValidatorOptions): FieldErrorsValidator<T>
+createZodSyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
+createZodAsyncFormValidator<T>(schema: ZodSchema<T>, options?: Omit<ZodValidatorOptions, 'parseMode'>): FormValidator<T>
+```
+
+### Options
+
+```typescript
+interface ZodValidatorOptions {
+  parseMode?: 'sync' | 'async';
+  errorTransform?: (issues: ZodIssue[]) => string;
+  pathFormatter?: (path: (string | number)[]) => string;
+  abortEarly?: boolean;
+}
+```
+
+### Utilities
+
+```typescript
+// Error transformations
+zodErrorTransforms.userFriendly: (issues: ZodIssue[]) => string
+zodErrorTransforms.concatenated: (issues: ZodIssue[], separator?: string) => string  
+zodErrorTransforms.firstOnly: (issues: ZodIssue[]) => string
+
+// Path formatters
+zodPathFormatters.dotNotation: (path: (string | number)[]) => string
+zodPathFormatters.bracketNotation: (path: (string | number)[]) => string
+zodPathFormatters.humanReadable: (path: (string | number)[]) => string
+
+// Presets
+zodValidatorPresets.default: ZodValidatorOptions
+zodValidatorPresets.strict: ZodValidatorOptions
+zodValidatorPresets.fast: ZodValidatorOptions
+zodValidatorPresets.async: ZodValidatorOptions
+zodValidatorPresets.userFriendly: ZodValidatorOptions
+
+// Type utilities
+isZodError(error: unknown): error is ZodError
+type ZodInfer<T> = T extends ZodSchema<infer U> ? U : never
+```
+
+<Callout type="info">
+**Mixing Validators**: You can combine Zod validators with Rilay's built-in validators in the same field's `validators` array. They will be executed in order.
+</Callout>
+
+<Callout type="tip">
+**Performance**: Use the `fast` preset or `abortEarly: true` for forms with many validation rules to improve performance by stopping at the first error.
+</Callout>
+
+<Callout type="warning">
+**Async Validation**: When using async validation, make sure to set `parseMode: 'async'` and consider using debouncing to avoid excessive API calls.
+</Callout>
