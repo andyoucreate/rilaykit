@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  url,
   async,
   createValidationContext,
   custom,
@@ -12,7 +13,6 @@ import {
   number,
   pattern,
   required,
-  url,
   validateWhen,
 } from '../../src/validation';
 
