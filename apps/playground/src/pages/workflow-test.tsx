@@ -82,7 +82,7 @@ const zodValidators = {
   age: createZodValidator(zodSchemas.age),
   email: createZodValidator(zodSchemas.email),
   siren: createZodValidator(zodSchemas.siren),
-  role: createZodValidator(zodSchemas.role),
+  role: createZodValidator(zodSchemas.role, { parseMode: 'async' }), // Mode async pour le refine asynchrone
   experience: createZodValidator(zodSchemas.experience),
   companyName: createZodValidator(zodSchemas.companyName),
   companyAddress: createZodValidator(zodSchemas.companyAddress),
