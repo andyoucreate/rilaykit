@@ -14,6 +14,9 @@ export { WorkflowStepper } from './components/WorkflowStepper';
 // Hooks
 export * from './hooks';
 
+// Persistence system
+export * from './persistence';
+
 // Licensing
 export { RilayLicenseManager } from './licensing/RilayLicenseManager';
 export type { LicensePayload, LicensePlan, LicenseResult } from './licensing/types';

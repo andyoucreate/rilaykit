@@ -1,4 +1,6 @@
 import { useCallback, useReducer } from 'react';
+import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
+import { usePersistence } from './usePersistence';
 
 export interface WorkflowState {
   currentStepIndex: number;
@@ -17,7 +19,8 @@ export type WorkflowAction =
   | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
   | { type: 'SET_TRANSITIONING'; isTransitioning: boolean }
   | { type: 'MARK_STEP_VISITED'; stepIndex: number; stepId: string }
-  | { type: 'RESET_WORKFLOW' };
+  | { type: 'RESET_WORKFLOW' }
+  | { type: 'LOAD_PERSISTED_STATE'; state: Partial<WorkflowState> };
 
 function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
   switch (action.type) {
@@ -84,6 +87,12 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
         isTransitioning: false,
       };
 
+    case 'LOAD_PERSISTED_STATE':
+      return {
+        ...state,
+        ...action.state,
+      };
+
     default:
       return state;
   }
@@ -91,9 +100,16 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
 
 export interface UseWorkflowStateProps {
   defaultValues?: Record<string, any>;
+  persistence?: {
+    workflowId: string;
+    adapter?: WorkflowPersistenceAdapter;
+    options?: PersistenceOptions;
+    userId?: string;
+    autoLoad?: boolean;
+  };
 }
 
-export function useWorkflowState({ defaultValues = {} }: UseWorkflowStateProps) {
+export function useWorkflowState({ defaultValues = {}, persistence }: UseWorkflowStateProps) {
   const initialState: WorkflowState = {
     currentStepIndex: 0,
     allData: defaultValues,
@@ -104,6 +120,17 @@ export function useWorkflowState({ defaultValues = {} }: UseWorkflowStateProps) 
   };
 
   const [workflowState, dispatch] = useReducer(workflowReducer, initialState);
+
+  // Initialize persistence if configured
+  const persistenceHook = persistence?.adapter
+    ? usePersistence({
+        workflowId: persistence.workflowId,
+        workflowState,
+        adapter: persistence.adapter,
+        options: persistence.options,
+        userId: persistence.userId,
+      })
+    : null;
 
   // Simple actions
   const setCurrentStep = useCallback((stepIndex: number) => {
@@ -134,6 +161,32 @@ export function useWorkflowState({ defaultValues = {} }: UseWorkflowStateProps) 
     dispatch({ type: 'RESET_WORKFLOW' });
   }, []);
 
+  /**
+   * Load persisted state into the current workflow
+   */
+  const loadPersistedState = useCallback(async () => {
+    if (!persistenceHook) return false;
+
+    try {
+      const persistedData = await persistenceHook.loadPersistedData();
+      if (persistedData) {
+        const stateUpdate: Partial<WorkflowState> = {
+          currentStepIndex: persistedData.currentStepIndex,
+          allData: persistedData.allData,
+          stepData: persistedData.stepData,
+          visitedSteps: new Set(persistedData.visitedSteps),
+        };
+
+        dispatch({ type: 'LOAD_PERSISTED_STATE', state: stateUpdate });
+        return true;
+      }
+    } catch (error) {
+      console.error('Failed to load persisted state:', error);
+    }
+
+    return false;
+  }, [persistenceHook]);
+
   return {
     workflowState,
     setCurrentStep,
@@ -143,5 +196,16 @@ export function useWorkflowState({ defaultValues = {} }: UseWorkflowStateProps) 
     setTransitioning,
     markStepVisited,
     resetWorkflow,
+    loadPersistedState,
+    // Persistence utilities
+    persistence: persistenceHook
+      ? {
+          isPersisting: persistenceHook.isPersisting,
+          persistenceError: persistenceHook.persistenceError,
+          persistNow: persistenceHook.persistNow,
+          clearPersistedData: persistenceHook.clearPersistedData,
+          hasPersistedData: persistenceHook.hasPersistedData,
+        }
+      : null,
   };
 }
