@@ -1,15 +1,6 @@
 import type { FieldValidator, ValidationError, ValidationResult } from '@rilaykit/core';
 import type { ZodValidatorOptions } from '../types';
 
-// Conditional import to avoid runtime dependency when Zod is not installed
-let z: any;
-try {
-  z = require('zod');
-} catch {
-  // Zod not installed - will throw helpful error when used
-  z = null;
-}
-
 /**
  * Default path formatter for nested fields
  */
@@ -61,14 +52,6 @@ export function createZodValidator<T = any>(
   schema: any, // ZodSchema<T> - using any to avoid hard dependency
   options: ZodValidatorOptions = {}
 ): FieldValidator<T> {
-  // Check if Zod is available
-  if (!z) {
-    throw new Error(
-      '@rilaykit/validation-adapters: Zod is required but not installed. ' +
-        'Please install it with: npm install zod'
-    );
-  }
-
   // Validate that the schema is a Zod schema
   if (!schema || typeof schema.parse !== 'function') {
     throw new Error(

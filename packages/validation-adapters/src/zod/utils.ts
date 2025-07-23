@@ -13,9 +13,9 @@ export const zodErrorTransforms = {
    */
   userFriendly: (issues: any[]) => {
     if (issues.length === 0) return 'Validation failed';
-    
+
     const issue = issues[0];
-    
+
     // Map Zod error codes to user-friendly messages
     switch (issue.code) {
       case 'invalid_type':
@@ -26,10 +26,10 @@ export const zodErrorTransforms = {
           return 'Please enter a valid number';
         }
         return `Expected ${issue.expected}, received ${issue.received}`;
-        
+
       case 'too_small':
         if (issue.type === 'string') {
-          return issue.minimum === 1 
+          return issue.minimum === 1
             ? 'This field is required'
             : `Must be at least ${issue.minimum} characters`;
         }
@@ -40,7 +40,7 @@ export const zodErrorTransforms = {
           return `Must have at least ${issue.minimum} items`;
         }
         return issue.message;
-        
+
       case 'too_big':
         if (issue.type === 'string') {
           return `Must be no more than ${issue.maximum} characters`;
@@ -52,7 +52,7 @@ export const zodErrorTransforms = {
           return `Must have no more than ${issue.maximum} items`;
         }
         return issue.message;
-        
+
       case 'invalid_string':
         switch (issue.validation) {
           case 'email':
@@ -64,11 +64,11 @@ export const zodErrorTransforms = {
           default:
             return issue.message;
         }
-        
+
       case 'custom':
         // Custom validation messages should already be user-friendly
         return issue.message;
-        
+
       default:
         return issue.message;
     }
@@ -77,8 +77,8 @@ export const zodErrorTransforms = {
   /**
    * Concatenates multiple error messages
    */
-  concatenated: (issues: any[], separator: string = '; ') => {
-    return issues.map(issue => issue.message).join(separator);
+  concatenated: (issues: any[], separator = '; ') => {
+    return issues.map((issue) => issue.message).join(separator);
   },
 
   /**
@@ -86,7 +86,7 @@ export const zodErrorTransforms = {
    */
   firstOnly: (issues: any[]) => {
     return issues.length > 0 ? issues[0].message : 'Validation failed';
-  }
+  },
 };
 
 /**
@@ -108,7 +108,7 @@ export const zodPathFormatters = {
   bracketNotation: (path: (string | number)[]): string => {
     if (path.length === 0) return '';
     const [first, ...rest] = path;
-    return first + rest.map(segment => `[${segment}]`).join('');
+    return first + rest.map((segment) => `[${segment}]`).join('');
   },
 
   /**
@@ -117,13 +117,13 @@ export const zodPathFormatters = {
    */
   humanReadable: (path: (string | number)[]): string => {
     return path
-      .map(segment => 
-        typeof segment === 'string' 
-          ? segment.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+      .map((segment) =>
+        typeof segment === 'string'
+          ? segment.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())
           : segment.toString()
       )
       .join(' ');
-  }
+  },
 };
 
 /**
@@ -137,7 +137,7 @@ export const zodValidatorPresets = {
     parseMode: 'sync',
     errorTransform: zodErrorTransforms.userFriendly,
     pathFormatter: zodPathFormatters.dotNotation,
-    abortEarly: false
+    abortEarly: false,
   } as ZodValidatorOptions,
 
   /**
@@ -145,7 +145,7 @@ export const zodValidatorPresets = {
    */
   strict: {
     parseMode: 'sync',
-    abortEarly: false
+    abortEarly: false,
   } as ZodValidatorOptions,
 
   /**
@@ -154,7 +154,7 @@ export const zodValidatorPresets = {
   fast: {
     parseMode: 'sync',
     errorTransform: zodErrorTransforms.firstOnly,
-    abortEarly: true
+    abortEarly: true,
   } as ZodValidatorOptions,
 
   /**
@@ -164,7 +164,7 @@ export const zodValidatorPresets = {
     parseMode: 'async',
     errorTransform: zodErrorTransforms.userFriendly,
     pathFormatter: zodPathFormatters.dotNotation,
-    abortEarly: false
+    abortEarly: false,
   } as ZodValidatorOptions,
 
   /**
@@ -174,34 +174,34 @@ export const zodValidatorPresets = {
     parseMode: 'sync',
     errorTransform: zodErrorTransforms.concatenated,
     pathFormatter: zodPathFormatters.humanReadable,
-    abortEarly: false
-  } as ZodValidatorOptions
+    abortEarly: false,
+  } as ZodValidatorOptions,
 };
 
 /**
  * Helper to create a Zod validator with a preset configuration
  */
-export function createZodValidatorWithPreset<T = any>(
+export function createZodValidatorWithPreset(
   schema: any,
   preset: keyof typeof zodValidatorPresets,
   overrides: Partial<ZodValidatorOptions> = {}
 ) {
-  const { createZodValidator } = require('./field-validator');
+  const validatorModule = require('./field-validator');
   const options = { ...zodValidatorPresets[preset], ...overrides };
-  return createZodValidator<T>(schema, options);
+  return validatorModule.createZodValidator(schema, options);
 }
 
 /**
  * Helper to create a Zod form validator with a preset configuration
  */
-export function createZodFormValidatorWithPreset<T extends Record<string, any> = Record<string, any>>(
+export function createZodFormValidatorWithPreset(
   schema: any,
   preset: keyof typeof zodValidatorPresets,
   overrides: Partial<ZodValidatorOptions> = {}
 ) {
-  const { createZodFormValidator } = require('./form-validator');
+  const validatorModule = require('./form-validator');
   const options = { ...zodValidatorPresets[preset], ...overrides };
-  return createZodFormValidator<T>(schema, options);
+  return validatorModule.createZodFormValidator(schema, options);
 }
 
 /**

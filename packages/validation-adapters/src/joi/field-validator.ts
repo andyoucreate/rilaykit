@@ -1,15 +1,6 @@
 import type { FieldValidator, ValidationError, ValidationResult } from '@rilaykit/core';
 import type { JoiValidatorOptions } from '../types';
 
-// Conditional import to avoid runtime dependency when Joi is not installed
-let Joi: any;
-try {
-  Joi = require('joi');
-} catch {
-  // Joi not installed - will throw helpful error when used
-  Joi = null;
-}
-
 /**
  * Default path formatter for nested fields
  */
@@ -63,14 +54,6 @@ export function createJoiValidator<T = any>(
   schema: any, // Joi.Schema - using any to avoid hard dependency
   options: JoiValidatorOptions = {}
 ): FieldValidator<T> {
-  // Check if Joi is available
-  if (!Joi) {
-    throw new Error(
-      '@rilaykit/validation-adapters: Joi is required but not installed. ' +
-        'Please install it with: npm install joi'
-    );
-  }
-
   // Validate that the schema is a Joi schema
   if (!schema || typeof schema.validate !== 'function') {
     throw new Error(
@@ -102,8 +85,8 @@ export function createJoiValidator<T = any>(
       }
 
       return { isValid: true, errors: [] };
-    } catch (error) {
-      throw error;
+    } catch {
+      return { isValid: false, errors: [{ message: 'Invalid value', code: 'INVALID_VALUE' }] };
     }
   };
 }

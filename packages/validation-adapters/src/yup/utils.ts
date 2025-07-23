@@ -191,29 +191,27 @@ export const yupValidatorPresets = {
 /**
  * Helper to create a Yup validator with a preset configuration
  */
-export function createYupValidatorWithPreset<T = any>(
+export function createYupValidatorWithPreset(
   schema: any,
   preset: keyof typeof yupValidatorPresets,
   overrides: Partial<YupValidatorOptions> = {}
 ) {
-  const { createYupValidator } = require('./field-validator');
+  const validatorModule = require('./field-validator');
   const options = { ...yupValidatorPresets[preset], ...overrides };
-  return createYupValidator<T>(schema, options);
+  return validatorModule.createYupValidator(schema, options);
 }
 
 /**
  * Helper to create a Yup form validator with a preset configuration
  */
-export function createYupFormValidatorWithPreset<
-  T extends Record<string, any> = Record<string, any>,
->(
+export function createYupFormValidatorWithPreset(
   schema: any,
   preset: keyof typeof yupValidatorPresets,
   overrides: Partial<YupValidatorOptions> = {}
 ) {
-  const { createYupFormValidator } = require('./form-validator');
+  const validatorModule = require('./form-validator');
   const options = { ...yupValidatorPresets[preset], ...overrides };
-  return createYupFormValidator<T>(schema, options);
+  return validatorModule.createYupFormValidator(schema, options);
 }
 
 /**

@@ -196,29 +196,28 @@ export const joiValidatorPresets = {
 /**
  * Helper to create a Joi validator with a preset configuration
  */
-export function createJoiValidatorWithPreset<T = any>(
+export function createJoiValidatorWithPreset(
   schema: any,
   preset: keyof typeof joiValidatorPresets,
   overrides: Partial<JoiValidatorOptions> = {}
 ) {
-  const { createJoiValidator } = require('./field-validator');
+  // Import needed at runtime to avoid circular dependencies
+  const validatorModule = require('./field-validator');
   const options = { ...joiValidatorPresets[preset], ...overrides };
-  return createJoiValidator<T>(schema, options);
+  return validatorModule.createJoiValidator(schema, options);
 }
 
 /**
  * Helper to create a Joi form validator with a preset configuration
  */
-export function createJoiFormValidatorWithPreset<
-  T extends Record<string, any> = Record<string, any>,
->(
+export function createJoiFormValidatorWithPreset(
   schema: any,
   preset: keyof typeof joiValidatorPresets,
   overrides: Partial<JoiValidatorOptions> = {}
 ) {
-  const { createJoiFormValidator } = require('./form-validator');
+  const validatorModule = require('./form-validator');
   const options = { ...joiValidatorPresets[preset], ...overrides };
-  return createJoiFormValidator<T>(schema, options);
+  return validatorModule.createJoiFormValidator(schema, options);
 }
 
 /**

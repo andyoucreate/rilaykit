@@ -1,13 +1,6 @@
 import type { ValidationError, ValidationResult } from '@rilaykit/core';
+import * as yup from 'yup';
 import type { FormValidator, YupValidatorOptions } from '../types';
-
-// Conditional import to avoid runtime dependency when Yup is not installed
-let yup: any;
-try {
-  yup = require('yup');
-} catch {
-  yup = null;
-}
 
 /**
  * Default path formatter for nested fields
@@ -79,14 +72,6 @@ export function createYupFormValidator<T extends Record<string, any> = Record<st
   schema: any, // yup.ObjectSchema<any> - using any to avoid hard dependency
   options: YupValidatorOptions = {}
 ): FormValidator<T> {
-  // Check if Yup is available
-  if (!yup) {
-    throw new Error(
-      '@rilaykit/validation-adapters: Yup is required but not installed. ' +
-        'Please install it with: npm install yup'
-    );
-  }
-
   // Validate that the schema is a Yup schema
   if (!schema || typeof schema.validate !== 'function') {
     throw new Error(

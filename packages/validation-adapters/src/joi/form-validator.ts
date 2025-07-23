@@ -1,13 +1,6 @@
 import type { ValidationError, ValidationResult } from '@rilaykit/core';
+import * as Joi from 'joi';
 import type { FormValidator, JoiValidatorOptions } from '../types';
-
-// Conditional import to avoid runtime dependency when Joi is not installed
-let Joi: any;
-try {
-  Joi = require('joi');
-} catch {
-  Joi = null;
-}
 
 /**
  * Default path formatter for nested fields
@@ -87,14 +80,6 @@ export function createJoiFormValidator<T extends Record<string, any> = Record<st
   schema: any, // Joi.ObjectSchema<any> - using any to avoid hard dependency
   options: JoiValidatorOptions = {}
 ): FormValidator<T> {
-  // Check if Joi is available
-  if (!Joi) {
-    throw new Error(
-      '@rilaykit/validation-adapters: Joi is required but not installed. ' +
-        'Please install it with: npm install joi'
-    );
-  }
-
   // Validate that the schema is a Joi schema
   if (!schema || typeof schema.validate !== 'function') {
     throw new Error(

@@ -15,15 +15,11 @@ import {
   type WorkflowSkipButtonRendererProps,
   type WorkflowStepperRenderer,
   type WorkflowStepperRendererProps,
-  async,
-  email,
-  min,
-  minLength,
-  required,
   ril,
   when,
 } from '@rilaykit/core';
 import { FormField } from '@rilaykit/forms';
+import { createZodValidator } from '@rilaykit/validation-adapters';
 import {
   RilayLicenseManager,
   Workflow,
@@ -36,6 +32,63 @@ import {
 } from '@rilaykit/workflow';
 import type React from 'react';
 import { useState } from 'react';
+import { z } from 'zod';
+
+// 🎯 Schémas Zod pour la validation
+const zodSchemas = {
+  // Schémas de base
+  firstName: z.string().min(2, 'Too short').min(1, 'First name is required'),
+  lastName: z.string().min(2, 'Too short').min(1, 'Last name is required'),
+  age: z
+    .string()
+    .min(1, 'Age is required')
+    .refine((val) => {
+      const num = Number.parseInt(val);
+      return !Number.isNaN(num) && num >= 18;
+    }, 'You must be at least 18 years old'),
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
+
+  // Schéma personnalisé pour SIREN
+  siren: z
+    .string()
+    .min(1, 'SIREN is required')
+    .refine((value) => {
+      return /^\d{9}$/.test(value);
+    }, 'SIREN must be 9 digits'),
+
+  // Schémas pour les préférences
+  role: z
+    .string()
+    .min(1, 'Role is required')
+    .refine(async (value) => {
+      // Simulation de validation asynchrone
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return value !== 'developer';
+    }, 'Developer is not allowed'),
+
+  experience: z.string().min(1, 'Experience is required'),
+
+  // Schémas optionnels pour les informations d'entreprise
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  industry: z.string().optional(),
+  feedback: z.string().optional(),
+};
+
+// 🎯 Créer les validateurs Zod
+const zodValidators = {
+  firstName: createZodValidator(zodSchemas.firstName),
+  lastName: createZodValidator(zodSchemas.lastName),
+  age: createZodValidator(zodSchemas.age),
+  email: createZodValidator(zodSchemas.email),
+  siren: createZodValidator(zodSchemas.siren),
+  role: createZodValidator(zodSchemas.role),
+  experience: createZodValidator(zodSchemas.experience),
+  companyName: createZodValidator(zodSchemas.companyName),
+  companyAddress: createZodValidator(zodSchemas.companyAddress),
+  industry: createZodValidator(zodSchemas.industry),
+  feedback: createZodValidator(zodSchemas.feedback),
+};
 
 // Component interfaces
 interface TextInputProps {
@@ -292,7 +345,7 @@ const factory = ril
     renderer: EmailInput as ComponentRenderer<EmailInputProps>,
     defaultProps: { placeholder: 'Enter email...' },
     validation: {
-      validators: [email('Please enter a valid email address')],
+      validators: [zodValidators.email],
     },
   })
   .addComponent('select', {
@@ -346,7 +399,7 @@ export default function WorkflowTestPage() {
         type: 'text',
         props: { label: 'First Name' },
         validation: {
-          validators: [required('First name is required'), minLength(2, 'Too short')],
+          validators: [zodValidators.firstName],
         },
         conditions: {
           visible: when('email').equals('karl@karl.fr').or(when('age').equals('18')),
@@ -357,7 +410,7 @@ export default function WorkflowTestPage() {
         type: 'text',
         props: { label: 'Last Name' },
         validation: {
-          validators: [required('Last name is required'), minLength(2, 'Too short')],
+          validators: [zodValidators.lastName],
         },
       }
     )
@@ -366,7 +419,7 @@ export default function WorkflowTestPage() {
       type: 'text',
       props: { label: 'Age' },
       validation: {
-        validators: [required('Age is required'), min(18, 'You must be at least 18 years old')],
+        validators: [zodValidators.age],
       },
     })
     .add({
@@ -375,7 +428,7 @@ export default function WorkflowTestPage() {
       props: { label: 'Email Address' },
       validation: {
         // Additional field-level validation combines with component validation
-        validators: [required('Email is required')],
+        validators: [zodValidators.email],
         validateOnBlur: true,
       },
     })
@@ -384,18 +437,7 @@ export default function WorkflowTestPage() {
       type: 'text',
       props: { label: 'SIREN (French company number)', placeholder: 'Ex: 123456789' },
       validation: {
-        validators: [
-          required('SIREN is required'),
-          (value) => {
-            if (!/^\d{9}$/.test(value)) {
-              return {
-                isValid: false,
-                errors: [{ message: 'SIREN must be 9 digits', code: 'INVALID_FORMAT' }],
-              };
-            }
-            return { isValid: true, errors: [] };
-          },
-        ],
+        validators: [zodValidators.siren],
       },
     });
 
@@ -415,13 +457,7 @@ export default function WorkflowTestPage() {
         ],
       },
       validation: {
-        validators: [
-          required('Role is required'),
-          async(async (value) => {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            return value !== 'developer';
-          }, 'Developer is not allowed'),
-        ],
+        validators: [zodValidators.role],
         validateOnBlur: true,
       },
     })
@@ -438,7 +474,7 @@ export default function WorkflowTestPage() {
         ],
       },
       validation: {
-        validators: [required('Experience is required')],
+        validators: [zodValidators.experience],
         validateOnBlur: true,
       },
     });
