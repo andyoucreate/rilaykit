@@ -1,0 +1,561 @@
+---
+title: Complete Workflow Example
+description: A comprehensive workflow example with API integration, conditional logic, and custom renderers.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+This example demonstrates a complete user onboarding workflow with advanced features including API integration, conditional steps, custom validation, and analytics tracking.
+
+## Overview
+
+This workflow includes:
+
+- **4 steps**: Personal Info → Company Info → Preferences → Review
+- **API Integration**: Fetches company data from SIREN number
+- **Conditional Logic**: Steps shown/hidden based on user input
+- **Custom Validation**: Built-in + async validation
+- **Analytics Tracking**: Step timing and completion rates
+
+## Step 1: Component Setup
+
+First, define your component interfaces and renderers:
+
+```tsx title="components/WorkflowComponents.tsx"
+import {
+  type ComponentRenderProps,
+  type ComponentRenderer,
+  type WorkflowStepperRendererProps,
+  type WorkflowNextButtonRendererProps,
+} from '@rilaykit/core';
+import type React from 'react';
+
+// Component prop interfaces
+interface TextInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+interface SelectInputProps {
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  required?: boolean;
+}
+
+// Component renderers
+const TextInput: ComponentRenderer<TextInputProps> = (props) => (
+  <div className="mb-4">
+    <label htmlFor={props.id} className="block text-sm font-medium text-gray-700 mb-2">
+      {props.props.label}
+      {props.props.required && <span className="text-red-500 ml-1">*</span>}
+    </label>
+    <input
+      id={props.id}
+      type="text"
+      value={props.value || ''}
+      onChange={(e) => props.onChange?.(e.target.value)}
+      onBlur={props.onBlur}
+      placeholder={props.props.placeholder}
+      required={props.props.required}
+      disabled={props.disabled}
+      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        props.error && props.error.length > 0 ? 'border-red-500' : 'border-gray-300'
+      }`}
+    />
+    {props.error && props.error.length > 0 && (
+      <p className="mt-1 text-sm text-red-600">{props.error[0].message}</p>
+    )}
+  </div>
+);
+
+const SelectInput: ComponentRenderer<SelectInputProps> = (props) => (
+  <div className="mb-4">
+    <label htmlFor={props.id} className="block text-sm font-medium text-gray-700 mb-2">
+      {props.props.label}
+      {props.props.required && <span className="text-red-500 ml-1">*</span>}
+    </label>
+    <select
+      id={props.id}
+      value={props.value || ''}
+      onChange={(e) => props.onChange?.(e.target.value)}
+      onBlur={props.onBlur}
+      required={props.props.required}
+      disabled={props.disabled}
+      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        props.error && props.error.length > 0 ? 'border-red-500' : 'border-gray-300'
+      }`}
+    >
+      <option value="">Select an option...</option>
+      {props.props.options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+    {props.error && props.error.length > 0 && (
+      <p className="mt-1 text-sm text-red-600">{props.error[0].message}</p>
+    )}
+  </div>
+);
+
+// Custom workflow stepper
+const workflowStepperRenderer = (props: WorkflowStepperRendererProps) => (
+  <div className="mb-8">
+    <div className="flex items-center justify-between">
+      {props.steps.map((step, index) => (
+        <div key={step.id} className="flex items-center">
+          <div
+            className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+              index === props.currentStepIndex
+                ? 'bg-blue-500 text-white'
+                : props.visitedSteps.has(step.id)
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-300 text-gray-600'
+            }`}
+          >
+            {index + 1}
+          </div>
+          <div className="ml-2">
+            <div className="text-sm font-medium text-gray-900">{step.title}</div>
+            {step.description && <div className="text-xs text-gray-500">{step.description}</div>}
+          </div>
+          {index < props.steps.length - 1 && <div className="flex-1 h-px bg-gray-300 mx-4" />}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export { TextInput, SelectInput, workflowStepperRenderer };
+```
+
+## Step 2: Configure RIL Instance
+
+Create your RIL instance with components and custom renderers:
+
+```tsx title="lib/rilay-config.tsx"
+import { ril, email, required, min, minLength, async } from '@rilaykit/core';
+import { RilayLicenseManager } from '@rilaykit/workflow';
+import { TextInput, SelectInput, workflowStepperRenderer } from './WorkflowComponents';
+
+// Set your license key for workflow features
+RilayLicenseManager.setLicenseKey(process.env.RILAY_LICENSE_KEY!);
+
+export const factory = ril
+  .create()
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput,
+    defaultProps: { placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input',
+    renderer: TextInput, // Reuse TextInput but with email validation
+    defaultProps: { placeholder: 'Enter email...' },
+    validation: {
+      validators: [email('Please enter a valid email address')],
+    },
+  })
+  .addComponent('select', {
+    name: 'Select Input',
+    renderer: SelectInput,
+    defaultProps: { options: [] },
+  })
+  .configure({
+    stepperRenderer: workflowStepperRenderer,
+    // Add other custom renderers as needed
+  });
+```
+
+## Step 3: Build Form Configurations
+
+Create form configurations for each workflow step:
+
+```tsx title="forms/workflow-forms.tsx"
+import { required, minLength, min, async, when } from '@rilaykit/core';
+import { factory } from '../lib/rilay-config';
+
+// Personal Information Form
+export const personalInfoForm = factory
+  .form('personal-info')
+  .add(
+    {
+      id: 'firstName',
+      type: 'text',
+      props: { label: 'First Name', required: true },
+      validation: {
+        validators: [required('First name is required'), minLength(2, 'Too short')],
+      },
+    },
+    {
+      id: 'lastName',
+      type: 'text',
+      props: { label: 'Last Name', required: true },
+      validation: {
+        validators: [required('Last name is required'), minLength(2, 'Too short')],
+      },
+    }
+  )
+  .add({
+    id: 'age',
+    type: 'text',
+    props: { label: 'Age', required: true },
+    validation: {
+      validators: [required('Age is required'), min(18, 'You must be at least 18 years old')],
+    },
+  })
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address', required: true },
+    validation: {
+      validators: [required('Email is required')],
+      validateOnBlur: true,
+    },
+  })
+  .add({
+    id: 'siren',
+    type: 'text',
+    props: { 
+      label: 'SIREN (French company number)', 
+      placeholder: 'Ex: 123456789',
+      required: true 
+    },
+    validation: {
+      validators: [
+        required('SIREN is required'),
+        (value) => {
+          if (!/^\d{9}$/.test(value)) {
+            return {
+              isValid: false,
+              errors: [{ message: 'SIREN must be 9 digits', code: 'INVALID_FORMAT' }],
+            };
+          }
+          return { isValid: true, errors: [] };
+        },
+      ],
+    },
+  });
+
+// Company Information Form (auto-filled from API)
+export const companyInfoForm = factory
+  .form('company-info')
+  .add({
+    id: 'companyName',
+    type: 'text',
+    props: { label: 'Company Name' },
+  })
+  .add({
+    id: 'companyAddress',
+    type: 'text',
+    props: { label: 'Company Address' },
+  })
+  .add({
+    id: 'industry',
+    type: 'select',
+    props: {
+      label: 'Industry',
+      options: [
+        { value: 'tech', label: 'Technology' },
+        { value: 'finance', label: 'Finance' },
+        { value: 'healthcare', label: 'Healthcare' },
+        { value: 'education', label: 'Education' },
+        { value: 'retail', label: 'Retail' },
+        { value: 'manufacturing', label: 'Manufacturing' },
+        { value: 'other', label: 'Other' },
+      ],
+    },
+  });
+
+// Preferences Form with async validation
+export const preferencesForm = factory
+  .form('preferences')
+  .add({
+    id: 'role',
+    type: 'select',
+    props: {
+      label: 'Your Role',
+      required: true,
+      options: [
+        { value: 'developer', label: 'Developer' },
+        { value: 'designer', label: 'Designer' },
+        { value: 'manager', label: 'Product Manager' },
+        { value: 'other', label: 'Other' },
+      ],
+    },
+    validation: {
+      validators: [
+        required('Role is required'),
+        async(async (value) => {
+          // Simulate API validation
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return value !== 'developer'; // Demo: developers not allowed
+        }, 'Developer role is not available'),
+      ],
+      validateOnBlur: true,
+    },
+  });
+```
+
+## Step 4: API Integration
+
+Create a service to fetch company data:
+
+```tsx title="services/company-api.ts"
+// Simulate API call to fetch company data by SIREN
+export const fetchCompanyBySiren = async (siren: string) => {
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  // Mock company data
+  const mockCompanies: Record<string, any> = {
+    '123456789': {
+      name: 'Tech Innovation SAS',
+      address: '123 Avenue des Champs-Élysées, 75008 Paris',
+      industry: 'tech',
+      legalForm: 'SAS',
+      foundedYear: 2015,
+    },
+    '987654321': {
+      name: 'Finance Pro SARL',
+      address: '456 Rue de la Paix, 75001 Paris',
+      industry: 'finance',
+      legalForm: 'SARL',
+      foundedYear: 2010,
+    },
+  };
+
+  return (
+    mockCompanies[siren] || {
+      name: 'Unknown Company',
+      address: 'Address not found',
+      industry: 'other',
+      legalForm: 'Unknown',
+      foundedYear: new Date().getFullYear(),
+    }
+  );
+};
+```
+
+## Step 5: Build the Workflow
+
+Create the complete workflow configuration:
+
+```tsx title="workflows/onboarding-workflow.tsx"
+import { when } from '@rilaykit/core';
+import { factory } from '../lib/rilay-config';
+import { personalInfoForm, companyInfoForm, preferencesForm } from '../forms/workflow-forms';
+import { fetchCompanyBySiren } from '../services/company-api';
+
+export const onboardingWorkflow = factory
+  .flow(
+    'user-onboarding',
+    'User Onboarding Workflow',
+    'A multi-step workflow to onboard new users with API integration'
+  )
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Information',
+    description: 'Tell us about yourself and your company',
+    allowSkip: false,
+    formConfig: personalInfoForm,
+    // 🎯 API integration hook
+    onAfterValidation: async (stepData, helper, context) => {
+      console.log('Personal info validated:', stepData);
+
+      if (stepData.siren) {
+        try {
+          console.log('Fetching company data for SIREN:', stepData.siren);
+          const companyInfo = await fetchCompanyBySiren(stepData.siren);
+          console.log('Company data fetched:', companyInfo);
+
+          // 🎯 Pre-fill next step with API data
+          helper.setNextStepFields({
+            companyName: companyInfo.name,
+            companyAddress: companyInfo.address,
+            industry: companyInfo.industry,
+          });
+
+          console.log('Next step pre-filled with company data');
+        } catch (error) {
+          console.error('Failed to fetch company data:', error);
+        }
+      }
+    },
+  })
+  .addStep({
+    id: 'company-info',
+    title: 'Company Information',
+    description: 'Company details (auto-filled from SIREN)',
+    formConfig: companyInfoForm,
+    conditions: {
+      // Only show this step for specific SIREN numbers
+      visible: when('personal-info.siren').equals('123456789'),
+      // Allow skipping if company name is already filled
+      skippable: when('company-info.companyName').equals('Tech Innovation SAS'),
+    },
+  })
+  .addStep({
+    id: 'preferences',
+    title: 'Preferences',
+    description: 'Set your preferences',
+    formConfig: preferencesForm,
+  })
+  .configure({
+    analytics: {
+      onWorkflowStart: (workflowId: string, context: any) => {
+        console.log('Workflow started:', workflowId, context);
+      },
+      onStepStart: (stepId: string, timestamp: number, context: any) => {
+        console.log('Step started:', stepId, timestamp, context);
+      },
+      onStepComplete: (stepId: string, duration: number, data: any, context: any) => {
+        console.log('Step completed:', stepId, duration, data, context);
+      },
+      onWorkflowComplete: (workflowId: string, duration: number, data: any) => {
+        console.log('Workflow completed:', workflowId, duration, data);
+      },
+    },
+  });
+```
+
+## Step 6: Render the Workflow
+
+Finally, create the React component to render the workflow:
+
+```tsx title="components/OnboardingWorkflow.tsx"
+import React, { useState } from 'react';
+import {
+  Workflow,
+  WorkflowStepper,
+  WorkflowBody,
+  WorkflowNextButton,
+  WorkflowPreviousButton,
+  WorkflowSkipButton,
+} from '@rilaykit/workflow';
+import { onboardingWorkflow } from '../workflows/onboarding-workflow';
+
+export function OnboardingWorkflow() {
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
+
+  const handleWorkflowComplete = (data: Record<string, any>) => {
+    console.log('Workflow completed with data:', data);
+    setWorkflowData(data);
+    setIsCompleted(true);
+  };
+
+  const handleStepChange = (fromStep: number, toStep: number) => {
+    console.log(`Step changed from ${fromStep} to ${toStep}`);
+  };
+
+  if (isCompleted) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-12">
+        <div className="text-6xl mb-4">🎉</div>
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Workflow Completed!</h1>
+        <p className="text-gray-600 mb-8">Thank you for completing the onboarding workflow.</p>
+
+        <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm text-left max-w-2xl mx-auto">
+          <h3 className="text-lg font-semibold mb-4">Collected Data:</h3>
+          <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-auto">
+            {JSON.stringify(workflowData, null, 2)}
+          </pre>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsCompleted(false);
+            setWorkflowData({});
+          }}
+          className="mt-8 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Start Again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-800 mb-4">User Onboarding</h1>
+      <p className="text-gray-600 mb-8">
+        Complete this multi-step workflow to set up your account.
+      </p>
+
+      <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-sm">
+        <Workflow
+          workflowConfig={onboardingWorkflow}
+          onWorkflowComplete={handleWorkflowComplete}
+          onStepChange={handleStepChange}
+          defaultValues={{}}
+        >
+          <WorkflowStepper />
+          <WorkflowBody />
+
+          {/* Navigation buttons */}
+          <div className="flex justify-between mt-8 pt-6 border-t">
+            <WorkflowPreviousButton>
+              {(props) => (
+                <span className={!props.canGoPrevious ? 'opacity-50' : ''}>
+                  ← {props.canGoPrevious ? 'Previous' : 'No previous step'}
+                </span>
+              )}
+            </WorkflowPreviousButton>
+            
+            <div className="flex space-x-3">
+              <WorkflowSkipButton>
+                {(props) => (
+                  <span className={!props.canSkip ? 'opacity-50' : ''}>
+                    {props.canSkip ? '⏭️ Skip' : '🚫 Required'}
+                  </span>
+                )}
+              </WorkflowSkipButton>
+              
+              <WorkflowNextButton>
+                {(props) => (
+                  <span>
+                    {props.isLastStep ? '🎉 Complete' : '➡️ Next'}
+                    {props.isSubmitting && ' ⏳'}
+                  </span>
+                )}
+              </WorkflowNextButton>
+            </div>
+          </div>
+        </Workflow>
+      </div>
+    </div>
+  );
+}
+```
+
+## Key Features Demonstrated
+
+<Callout type="info">
+**API Integration**: The `onAfterValidation` hook fetches company data from the SIREN number and pre-fills the next step.
+</Callout>
+
+<Callout type="info">
+**Conditional Logic**: The company info step is only shown for specific SIREN numbers and can be skipped if data is already filled.
+</Callout>
+
+<Callout type="info">
+**Validation System**: Combines component-level validation (email format) with field-level validation (required, async checks).
+</Callout>
+
+<Callout type="info">
+**Analytics**: Built-in tracking of workflow start, step completion, and total duration.
+</Callout>
+
+## Try It Out
+
+To test the workflow:
+
+1. **Enter SIREN "123456789"** - This will trigger the API call and show the company step
+2. **Enter SIREN "987654321"** - This will fetch different company data
+3. **Try the role "developer"** - This will trigger async validation failure
+4. **Check the console** - See analytics events and API calls
+
+This example showcases the power of Rilay's workflow system for building complex, data-driven multi-step forms with enterprise-grade features.

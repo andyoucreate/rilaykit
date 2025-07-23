@@ -21,46 +21,75 @@ Rilaykit is headless, which means you must provide your own layout components (r
 Let's define the components and renderers, then create and configure the `ril` instance.
 
 ```tsx title="lib/rilay.ts"
-import { ril, type ComponentRenderProps, type FormRowRendererProps, type FormSubmitButtonRendererProps } from '@rilaykit/core';
+import { ril, type ComponentRenderProps, type ComponentRenderer } from '@rilaykit/core';
 import type React from 'react';
 
-// Define a simple field component
-const TextInput: React.FC<ComponentRenderProps<{ label: string }>> = ({
-  id, value, onChange, onBlur, props, error,
-}) => (
+// Define component prop interfaces
+interface TextInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+interface EmailInputProps {
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+// Define component renderers
+const TextInput: ComponentRenderer<TextInputProps> = (
+  props: ComponentRenderProps<TextInputProps>
+) => (
   <div>
-    <label htmlFor={id}>{props.label}</label>
+    <label htmlFor={props.id}>
+      {props.props.label}
+      {props.props.required && <span style={{ color: 'red' }}>*</span>}
+    </label>
     <input
-      id={id}
+      id={props.id}
       type="text"
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={onBlur}
+      placeholder={props.props.placeholder}
+      value={props.value || ''}
+      onChange={(e) => props.onChange?.(e.target.value)}
+      onBlur={props.onBlur}
     />
-    {error && <p style={{ color: 'red' }}>{error[0].message}</p>}
+    {props.error && <p style={{ color: 'red' }}>{props.error[0].message}</p>}
   </div>
 );
 
-// Define layout renderers
-const AppRowRenderer: React.FC<FormRowRendererProps> = ({ children }) => (
-  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>{children}</div>
-);
-
-const AppSubmitButtonRenderer: React.FC<FormSubmitButtonRendererProps> = (props) => (
-  <button type="submit" disabled={!props.isValid || props.isSubmitting}>
-    {props.isSubmitting ? 'Submitting...' : props.children || 'Submit'}
-  </button>
+const EmailInput: ComponentRenderer<EmailInputProps> = (
+  props: ComponentRenderProps<EmailInputProps>
+) => (
+  <div>
+    <label htmlFor={props.id}>
+      {props.props.label}
+      {props.props.required && <span style={{ color: 'red' }}>*</span>}
+    </label>
+    <input
+      id={props.id}
+      type="email"
+      placeholder={props.props.placeholder}
+      value={props.value || ''}
+      onChange={(e) => props.onChange?.(e.target.value)}
+      onBlur={props.onBlur}
+    />
+    {props.error && <p style={{ color: 'red' }}>{props.error[0].message}</p>}
+  </div>
 );
 
 // Create and export the configured ril instance
 export const rilay = ril
   .create()
-  .addComponent('text', { name: 'Text Input', renderer: TextInput })
-  .addComponent('textarea', { name: 'Text Area', renderer: TextInput })
-  .configure({
-    rowRenderer: AppRowRenderer,
-    submitButtonRenderer: AppSubmitButtonRenderer,
-    bodyRenderer: ({ children }) => <>{children}</>,
+  .addComponent('text', {
+    name: 'Text Input',
+    renderer: TextInput,
+    defaultProps: { label: 'Text Field', placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input',
+    renderer: EmailInput,
+    defaultProps: { label: 'Email Field', placeholder: 'Enter email...' },
   });
 ```
 </Step>
@@ -71,16 +100,8 @@ export const rilay = ril
 Now, use the `rilay` instance you created to build a form. You call `.form()` on your instance, which gives you a form builder that is aware of all your registered components and renderers.
 
 ```tsx title="components/ContactForm.ts"
-import { z } from 'zod';
-import { createZodValidator } from '@rilaykit/core';
+import { required, email, minLength, when } from '@rilaykit/core';
 import { rilay } from '@/lib/rilay'; // Import your configured instance
-
-// Define a Zod schema for validation
-const contactSchema = z.object({
-  name: z.string().min(1, 'Name is required.'),
-  email: z.string().email('Please enter a valid email.'),
-  message: z.string().min(10, 'Message must be at least 10 characters.'),
-});
 
 // Build the form configuration from the rilay instance
 export const contactForm = rilay
@@ -88,23 +109,44 @@ export const contactForm = rilay
   .add({
     id: 'name',
     type: 'text',
-    props: { label: 'Full Name' },
-    validation: { validator: createZodValidator(contactSchema.shape.name) },
+    props: { 
+      label: 'Full Name',
+      placeholder: 'Enter your full name',
+      required: true 
+    },
+    validation: {
+      validators: [required(), minLength(2, 'Name must be at least 2 characters')],
+      validateOnBlur: true
+    }
   })
   .add({
     id: 'email',
-    type: 'text',
-    props: { label: 'Email Address' },
-    validation: {
-      validator: createZodValidator(contactSchema.shape.email),
-      mode: 'onBlur',
+    type: 'email',
+    props: { 
+      label: 'Email Address',
+      placeholder: 'Enter your email',
+      required: true 
     },
+    validation: {
+      validators: [required(), email('Please enter a valid email')],
+      validateOnBlur: true
+    }
   })
   .add({
     id: 'message',
-    type: 'textarea',
-    props: { label: 'Your Message' },
-    validation: { validator: createZodValidator(contactSchema.shape.message) },
+    type: 'text',
+    props: { 
+      label: 'Your Message',
+      placeholder: 'Enter your message...',
+      required: true 
+    },
+    validation: {
+      validators: [required(), minLength(10, 'Message must be at least 10 characters')],
+      validateOnChange: true
+    },
+    conditions: {
+      visible: when('email').isNotEmpty()
+    }
   });
 ```
 </Step>
@@ -115,7 +157,7 @@ export const contactForm = rilay
 Finally, use the `<Form>` component from `@rilaykit/forms` to render your form. You can pass the form builder instance directly to it—it will be built automatically.
 
 ```tsx title="components/ContactForm.tsx"
-import { Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
+import { Form, FormField } from '@rilaykit/forms';
 import { contactForm } from './ContactForm';
 
 export function ContactForm() {
@@ -125,14 +167,20 @@ export function ContactForm() {
   };
 
   return (
-    <Form
-      formConfig={contactForm}
-      onSubmit={handleSubmit}
-      defaultValues={{ name: '', email: '', message: '' }}
-    >
-      <FormBody />
-      <FormSubmitButton>Send Message</FormSubmitButton>
-    </Form>
+    <div>
+      <h2>Contact Us</h2>
+      <Form
+        formConfig={contactForm}
+        onSubmit={handleSubmit}
+        defaultValues={{ name: '', email: '', message: '' }}
+      >
+        <FormField fieldId="name" />
+        <FormField fieldId="email" />
+        <FormField fieldId="message" />
+        
+        <button type="submit">Send Message</button>
+      </Form>
+    </div>
   );
 }
 ```

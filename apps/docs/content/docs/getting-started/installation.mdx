@@ -4,7 +4,33 @@ description: How to install Rilaykit packages in your project.
 ---
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-Rilaykit is modular. You can install only the packages you need. `@rilaykit/core` is always required.
+Rilay is modular. You can install only the packages you need. `@rilaykit/core` is always required.
+
+## Basic Installation (Forms)
+
+For simple forms, install the core and forms packages:
+
+<Tabs items={['pnpm', 'npm', 'yarn']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+</Tabs>
+
+## Full Installation (With Workflows)
+
+For multi-step workflows, add the workflow package (commercial license required):
 
 <Tabs items={['pnpm', 'npm', 'yarn']}>
   <Tab value="pnpm">
@@ -24,26 +50,65 @@ Rilaykit is modular. You can install only the packages you need. `@rilaykit/core
   </Tab>
 </Tabs>
 
-- **`@rilaykit/core`**: The core engine. Contains all the fundamental logic.
-- **`@rilaykit/forms`**: The Form Builder for single-step forms. Depends on `@rilaykit/core`.
-- **`@rilaykit/workflow`**: The Workflow Engine for multi-step flows. Depends on `@rilaykit/core` and `@rilaykit/forms`.
+## Package Overview
 
-You will also likely need a validation library. We recommend **Zod**.
+- **`@rilaykit/core`** (MIT): Core engine with configuration system, types, and validation
+- **`@rilaykit/forms`** (MIT): Form builder for single-step forms
+- **`@rilaykit/workflow`** (Commercial): Workflow engine for multi-step forms with advanced features
+
+## Peer Dependencies
+
+Rilay requires React 18+ and TypeScript 5+:
+
+```json
+{
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "typescript": ">=5.0.0"
+  }
+}
+```
+
+## Validation (Optional)
+
+Rilay includes built-in validators, but you can use any validation library:
 
 <Tabs items={['pnpm', 'npm', 'yarn']}>
   <Tab value="pnpm">
     ```bash
+    # Zod (recommandé)
     pnpm add zod
+    
+    # Ou Yup
+    pnpm add yup
+    
+    # Ou Joi
+    pnpm add joi
     ```
   </Tab>
   <Tab value="npm">
     ```bash
+    # Zod (recommandé)
     npm install zod
+    
+    # Ou Yup
+    npm install yup
+    
+    # Ou Joi
+    npm install joi
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
+    # Zod (recommandé)
     yarn add zod
+    
+    # Ou Yup
+    yarn add yup
+    
+    # Ou Joi
+    yarn add joi
     ```
   </Tab>
 </Tabs> 

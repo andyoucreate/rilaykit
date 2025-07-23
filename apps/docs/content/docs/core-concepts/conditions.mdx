@@ -1,0 +1,623 @@
+---
+title: Conditions System
+description: Create dynamic forms and workflows with Rilay's powerful conditions system.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+The Rilay conditions system provides a powerful, type-safe way to create dynamic forms and workflows that adapt based on user input. Conditions are evaluated in real-time and can control field visibility, requirement status, disabled state, and step navigation in workflows.
+
+## The `when()` Function
+
+The system centers around the `when()` function which returns a `ConditionBuilder` instance:
+
+```typescript
+import { when } from '@rilaykit/core';
+
+// Basic condition
+const condition = when('fieldName').equals('value');
+
+// Evaluate condition
+const result = condition.evaluate({ fieldName: 'value' }); // true
+```
+
+## Available Operators
+
+### Equality Operators
+
+```typescript
+// Exact equality
+when('status').equals('active')
+when('age').equals(25)
+when('isVip').equals(true)
+
+// Not equal
+when('status').notEquals('inactive')
+when('role').notEquals('admin')
+```
+
+### Numeric Comparisons
+
+```typescript
+// Age must be greater than 18
+when('age').greaterThan(18)
+
+// Price must be less than 100
+when('price').lessThan(100)
+
+// Score must be at least 70
+when('score').greaterThanOrEqual(70)
+
+// Discount cannot exceed 50%
+when('discount').lessThanOrEqual(50)
+```
+
+### String Operations
+
+```typescript
+// Name contains "John"
+when('name').contains('John')
+
+// Email doesn't contain "test"
+when('email').notContains('test')
+
+// Starts with prefix
+when('code').startsWith('PREFIX_')
+
+// Ends with suffix
+when('email').endsWith('@company.com')
+
+// Regex pattern matching
+when('phone').matches(/^\d{3}-\d{3}-\d{4}$/)
+```
+
+### Array Operations
+
+```typescript
+// Status is one of active, pending, or approved
+when('status').in(['active', 'pending', 'approved'])
+
+// Role is not admin or super-admin
+when('role').notIn(['admin', 'super-admin'])
+```
+
+### Existence Checks
+
+```typescript
+// Field has a value (not null/undefined/empty)
+when('companyName').isNotEmpty()
+
+// Field is empty, null, or undefined
+when('optionalField').isEmpty()
+```
+
+## Logical Operators
+
+### AND Operations
+
+Combine multiple conditions where **all** must be true:
+
+```typescript
+// Multiple conditions must be true
+when('age').greaterThan(18)
+  .and(when('status').equals('active'))
+  .and(when('country').equals('US'))
+
+// Complex nested example
+when('userType').equals('premium')
+  .and(
+    when('subscription.plan').equals('pro')
+      .or(when('subscription.legacy').equals(true))
+  )
+```
+
+### OR Operations
+
+Combine conditions where **any** can be true:
+
+```typescript
+// Any condition can be true
+when('type').equals('premium')
+  .or(when('age').greaterThan(65))
+  .or(when('vipStatus').equals(true))
+```
+
+## Field Path Resolution
+
+The condition system supports dot notation for nested object access:
+
+```typescript
+// Access nested properties
+when('user.profile.age').greaterThan(18)
+when('company.address.country').equals('US')
+when('settings.notifications.email').equals(true)
+
+// Example data structure
+const data = {
+  user: {
+    profile: {
+      age: 25,
+      name: 'John Doe'
+    }
+  },
+  company: {
+    address: {
+      country: 'US',
+      city: 'New York'
+    }
+  }
+};
+
+// This condition evaluates to true
+when('user.profile.age').greaterThan(18).evaluate(data); // true
+```
+
+## Field-Level Conditions
+
+Control individual form field behavior with four types of conditions:
+
+<Tabs items={['Visibility', 'Required', 'Disabled', 'Readonly']}>
+  <Tab value="Visibility">
+    ```typescript
+    // Show/hide fields dynamically
+    factory.form()
+      .add({
+        id: 'phoneNumber',
+        type: 'text',
+        props: { label: 'Phone Number' },
+        conditions: {
+          visible: when('contactMethod').equals('phone')
+        }
+      })
+      .add({
+        id: 'companyDetails',
+        type: 'text',
+        props: { label: 'Company Details' },
+        conditions: {
+          visible: when('userType').equals('business')
+            .and(when('hasCompany').equals(true))
+        }
+      });
+    ```
+  </Tab>
+  <Tab value="Required">
+    ```typescript
+    // Make fields required conditionally
+    factory.form()
+      .add({
+        id: 'businessLicense',
+        type: 'text',
+        props: { label: 'Business License' },
+        conditions: {
+          required: when('businessType').equals('corporation')
+            .and(when('state').in(['NY', 'CA', 'TX']))
+        }
+      })
+      .add({
+        id: 'taxId',
+        type: 'text',
+        props: { label: 'Tax ID' },
+        conditions: {
+          required: when('orderTotal').greaterThan(1000)
+        }
+      });
+    ```
+  </Tab>
+  <Tab value="Disabled">
+    ```typescript
+    // Disable fields based on conditions
+    factory.form()
+      .add({
+        id: 'email',
+        type: 'email',
+        props: { label: 'Email Address' },
+        conditions: {
+          disabled: when('emailVerified').equals(true)
+        }
+      })
+      .add({
+        id: 'discount',
+        type: 'number',
+        props: { label: 'Discount %' },
+        conditions: {
+          disabled: when('userRole').notEquals('admin')
+        }
+      });
+    ```
+  </Tab>
+  <Tab value="Readonly">
+    ```typescript
+    // Make fields read-only conditionally
+    factory.form()
+      .add({
+        id: 'accountNumber',
+        type: 'text',
+        props: { label: 'Account Number' },
+        conditions: {
+          readonly: when('accountLocked').equals(true)
+        }
+      })
+      .add({
+        id: 'finalScore',
+        type: 'number',
+        props: { label: 'Final Score' },
+        conditions: {
+          readonly: when('testSubmitted').equals(true)
+        }
+      });
+    ```
+  </Tab>
+</Tabs>
+
+## Step-Level Conditions (Workflows)
+
+Control workflow step navigation with visibility and skip conditions:
+
+```typescript
+const workflow = factory.flow('user-onboarding')
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Information',
+    formConfig: personalInfoForm
+  })
+  .addStep({
+    id: 'company-info',
+    title: 'Company Information',
+    conditions: {
+      // Only show for business users
+      visible: when('personal-info.userType').equals('business'),
+      // Allow skipping if company data already exists
+      skippable: when('personal-info.hasCompanyData').equals(true)
+    },
+    formConfig: companyInfoForm
+  })
+  .addStep({
+    id: 'payment-info',
+    title: 'Payment Information',
+    conditions: {
+      // Show for premium users or large companies
+      visible: when('personal-info.planType').equals('premium')
+        .or(when('company-info.employees').greaterThan(50)),
+      // Cannot be skipped for premium users
+      skippable: when('personal-info.planType').notEquals('premium')
+    },
+    formConfig: paymentForm
+  });
+```
+
+## Cross-Step References
+
+Reference data from previous workflow steps using `"stepId.fieldId"` format:
+
+```typescript
+// Reference specific step data
+when('personal-info.age').greaterThan(18)
+when('contact-details.email').contains('@company.com')
+when('preferences.notifications').equals(true)
+
+// Real-world example
+const workflow = factory.flow('loan-application')
+  .addStep({
+    id: 'applicant-info',
+    formConfig: applicantForm
+  })
+  .addStep({
+    id: 'employment-details',
+    conditions: {
+      visible: when('applicant-info.age').greaterThan(18)
+        .and(when('applicant-info.citizenship').equals('US'))
+    }
+  })
+  .addStep({
+    id: 'co-signer',
+    conditions: {
+      visible: when('applicant-info.creditScore').lessThan(650)
+        .or(when('employment-details.income').lessThan(50000))
+    }
+  });
+```
+
+## Real-World Examples
+
+### E-commerce Checkout Form
+
+```typescript
+const checkoutForm = factory.form('checkout')
+  .add({
+    id: 'billingAddress',
+    type: 'address',
+    props: { label: 'Billing Address' },
+    conditions: {
+      visible: when('sameAsShipping').equals(false)
+    }
+  })
+  .add({
+    id: 'creditCardNumber',
+    type: 'text',
+    props: { label: 'Credit Card Number' },
+    conditions: {
+      visible: when('paymentMethod').equals('credit_card'),
+      required: when('paymentMethod').equals('credit_card')
+    }
+  })
+  .add({
+    id: 'paypalEmail',
+    type: 'email',
+    props: { label: 'PayPal Email' },
+    conditions: {
+      visible: when('paymentMethod').equals('paypal'),
+      required: when('paymentMethod').equals('paypal')
+    }
+  })
+  .add({
+    id: 'companyTaxId',
+    type: 'text',
+    props: { label: 'Company Tax ID' },
+    conditions: {
+      visible: when('customerType').equals('business')
+        .and(when('country').in(['US', 'CA', 'UK'])),
+      required: when('customerType').equals('business')
+        .and(when('orderTotal').greaterThan(1000))
+    }
+  });
+```
+
+### Survey with Skip Logic
+
+```typescript
+const surveyForm = factory.form('customer-survey')
+  .add({
+    id: 'satisfaction',
+    type: 'select',
+    props: {
+      label: 'How satisfied are you?',
+      options: [
+        { value: 'very-satisfied', label: 'Very Satisfied' },
+        { value: 'satisfied', label: 'Satisfied' },
+        { value: 'neutral', label: 'Neutral' },
+        { value: 'dissatisfied', label: 'Dissatisfied' },
+        { value: 'very-dissatisfied', label: 'Very Dissatisfied' }
+      ]
+    }
+  })
+  .add({
+    id: 'positiveReason',
+    type: 'textarea',
+    props: { label: 'What did you like most?' },
+    conditions: {
+      visible: when('satisfaction').in(['very-satisfied', 'satisfied'])
+    }
+  })
+  .add({
+    id: 'improvementSuggestions',
+    type: 'textarea',
+    props: { label: 'How can we improve?' },
+    conditions: {
+      visible: when('satisfaction').in(['neutral', 'dissatisfied', 'very-dissatisfied']),
+      required: when('satisfaction').in(['dissatisfied', 'very-dissatisfied'])
+    }
+  })
+  .add({
+    id: 'recommendToFriend',
+    type: 'select',
+    props: {
+      label: 'Would you recommend us to a friend?',
+      options: [
+        { value: 'yes', label: 'Yes' },
+        { value: 'no', label: 'No' },
+        { value: 'maybe', label: 'Maybe' }
+      ]
+    },
+    conditions: {
+      visible: when('satisfaction').in(['very-satisfied', 'satisfied', 'neutral'])
+    }
+  });
+```
+
+### Job Application Workflow
+
+```typescript
+const jobApplicationFlow = factory.flow('job-application')
+  .addStep({
+    id: 'basic-info',
+    title: 'Basic Information',
+    formConfig: basicInfoForm
+  })
+  .addStep({
+    id: 'experience',
+    title: 'Work Experience',
+    conditions: {
+      skippable: when('basic-info.isRecentGraduate').equals(true)
+        .and(when('basic-info.degree').in(['bachelor', 'master', 'phd']))
+    },
+    formConfig: experienceForm
+  })
+  .addStep({
+    id: 'portfolio',
+    title: 'Portfolio',
+    conditions: {
+      visible: when('basic-info.position').in(['designer', 'developer', 'architect'])
+        .or(when('experience.yearsExperience').greaterThan(3))
+    },
+    formConfig: portfolioForm
+  })
+  .addStep({
+    id: 'references',
+    title: 'References',
+    conditions: {
+      visible: when('basic-info.position').in(['manager', 'director', 'vp'])
+        .or(when('experience.yearsExperience').greaterThan(5)),
+      skippable: when('basic-info.isInternalCandidate').equals(true)
+    },
+    formConfig: referencesForm
+  });
+```
+
+## Advanced Patterns
+
+### Progressive Disclosure
+
+Reveal fields progressively based on user choices:
+
+```typescript
+factory.form('progressive-form')
+  .add({
+    id: 'experience',
+    type: 'select',
+    props: {
+      label: 'Experience Level',
+      options: [
+        { value: 'beginner', label: 'Beginner' },
+        { value: 'intermediate', label: 'Intermediate' },
+        { value: 'advanced', label: 'Advanced' }
+      ]
+    }
+  })
+  .add({
+    id: 'yearsExperience',
+    type: 'number',
+    props: { label: 'Years of Experience' },
+    conditions: {
+      visible: when('experience').in(['intermediate', 'advanced'])
+    }
+  })
+  .add({
+    id: 'specializations',
+    type: 'multiselect',
+    props: { label: 'Specializations' },
+    conditions: {
+      visible: when('experience').equals('advanced')
+        .and(when('yearsExperience').greaterThan(5))
+    }
+  })
+  .add({
+    id: 'certifications',
+    type: 'textarea',
+    props: { label: 'Professional Certifications' },
+    conditions: {
+      visible: when('experience').equals('advanced')
+        .and(when('yearsExperience').greaterThan(3)),
+      required: when('specializations').contains('security')
+        .or(when('specializations').contains('architecture'))
+    }
+  });
+```
+
+### Dynamic Validation
+
+Combine conditions with validation for smart form behavior:
+
+```typescript
+factory.form('smart-validation')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validators: [
+        required('Email is required'),
+        email('Please enter a valid email')
+      ]
+    },
+    conditions: {
+      required: when('contactMethod').equals('email'),
+      readonly: when('emailVerified').equals(true)
+    }
+  })
+  .add({
+    id: 'phone',
+    type: 'text',
+    props: { label: 'Phone Number' },
+    validation: {
+      validators: [
+        validateWhen(
+          (data) => data.contactMethod === 'phone',
+          required('Phone is required when contact method is phone')
+        ),
+        pattern(/^\d{3}-\d{3}-\d{4}$/, 'Please enter a valid phone number')
+      ]
+    },
+    conditions: {
+      visible: when('contactMethod').in(['phone', 'both']),
+      required: when('contactMethod').equals('phone')
+    }
+  });
+```
+
+<Callout type="info">
+**Performance Note**: Conditions are evaluated efficiently with short-circuit logic. OR conditions stop evaluating once a true condition is found, and field paths are resolved using optimized object traversal.
+</Callout>
+
+## Integration with Validation
+
+When a field is not visible due to conditions, its validation is automatically skipped, ensuring the form can be submitted without errors from hidden fields.
+
+```typescript
+// This field's validation only runs when visible
+factory.form()
+  .add({
+    id: 'businessTaxId',
+    type: 'text',
+    validation: {
+      validators: [
+        required('Tax ID is required for business accounts'),
+        pattern(/^\d{2}-\d{7}$/, 'Tax ID must be in format XX-XXXXXXX')
+      ]
+    },
+    conditions: {
+      visible: when('accountType').equals('business'),
+      required: when('accountType').equals('business')
+    }
+  });
+```
+
+## Debugging Conditions
+
+Test conditions directly for debugging:
+
+```typescript
+// Test conditions with sample data
+const condition = when('age').greaterThan(18);
+console.log(condition.evaluate({ age: 25 })); // true
+console.log(condition.evaluate({ age: 16 })); // false
+
+// Complex condition testing
+const complexCondition = when('type').equals('premium')
+  .or(when('age').greaterThan(65));
+  
+console.log(complexCondition.evaluate({ 
+  type: 'basic', 
+  age: 70 
+})); // true (age > 65)
+
+// Debug helper function
+const debugCondition = (condition, data, label) => {
+  const result = condition.evaluate(data);
+  console.log(`${label}:`, result, { 
+    condition: condition.build(), 
+    data 
+  });
+  return result;
+};
+```
+
+## Best Practices
+
+<Callout type="tip">
+**Keep conditions simple**: Prefer multiple simple conditions over complex nested ones for better maintainability.
+</Callout>
+
+<Callout type="tip">
+**Use meaningful field names**: Clear field names make conditions easier to read and debug.
+</Callout>
+
+<Callout type="tip">
+**Test edge cases**: Always test conditions with empty, null, and undefined values.
+</Callout>
+
+<Callout type="warning">
+**Avoid circular dependencies**: Don't create conditions where fields depend on each other in a circular manner.
+</Callout>
+
+The conditions system makes Rilay forms and workflows incredibly flexible, allowing you to create sophisticated user experiences that adapt dynamically to user input while maintaining type safety and performance.

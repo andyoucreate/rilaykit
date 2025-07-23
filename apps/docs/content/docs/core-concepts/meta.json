@@ -1,4 +1,11 @@
 {
   "name": "Core Concepts",
-  "pages": ["ril-instance", "component-registry", "renderers", "validation", "typescript-support"]
+  "pages": [
+    "ril-instance",
+    "component-registry",
+    "renderers",
+    "validation",
+    "typescript-support",
+    "conditions"
+  ]
 }
