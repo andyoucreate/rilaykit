@@ -18,7 +18,7 @@ const transformZodIssuesForForm = (
   const pathFormatter = options.pathFormatter || defaultPathFormatter;
   const fieldErrors: Record<string, ValidationError[]> = {};
 
-  issues.forEach((issue) => {
+  for (const issue of issues) {
     const fieldPath = issue.path && issue.path.length > 0 ? pathFormatter(issue.path) : '_form'; // Form-level errors go to special '_form' key
 
     if (!fieldErrors[fieldPath]) {
@@ -30,7 +30,7 @@ const transformZodIssuesForForm = (
       code: issue.code || 'VALIDATION_ERROR',
       path: fieldPath !== '_form' ? fieldPath : undefined,
     });
-  });
+  }
 
   return fieldErrors;
 };
@@ -105,14 +105,14 @@ export function createZodFormValidator<T extends Record<string, any> = Record<st
         // Convert to ValidationResult format
         // For form validation, we flatten field errors into a single errors array
         const allErrors: ValidationError[] = [];
-        Object.entries(fieldErrors).forEach(([fieldPath, errors]) => {
-          errors.forEach((error) => {
+        for (const [fieldPath, errors] of Object.entries(fieldErrors)) {
+          for (const error of errors) {
             allErrors.push({
               ...error,
               path: fieldPath !== '_form' ? fieldPath : undefined,
             });
-          });
-        });
+          }
+        }
 
         return { isValid: false, errors: allErrors };
       }
@@ -192,14 +192,14 @@ export function createZodFormValidatorWithFieldErrors<
 
         // Flatten to allErrors array
         const allErrors: ValidationError[] = [];
-        Object.entries(fieldErrors).forEach(([fieldPath, errors]) => {
-          errors.forEach((error) => {
+        for (const [fieldPath, errors] of Object.entries(fieldErrors)) {
+          for (const error of errors) {
             allErrors.push({
               ...error,
               path: fieldPath !== '_form' ? fieldPath : undefined,
             });
-          });
-        });
+          }
+        }
 
         return {
           isValid: false,

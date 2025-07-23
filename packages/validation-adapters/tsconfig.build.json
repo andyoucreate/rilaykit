@@ -6,11 +6,5 @@
     "declarationMap": true,
     "emitDeclarationOnly": false
   },
-  "exclude": [
-    "tests/**/*",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx"
-  ]
+  "exclude": ["tests/**/*", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
 }

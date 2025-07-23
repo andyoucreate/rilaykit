@@ -19,7 +19,7 @@ const transformJoiErrorsForForm = (
   const pathFormatter = options.pathFormatter || defaultPathFormatter;
   const fieldErrors: Record<string, ValidationError[]> = {};
 
-  details.forEach((detail) => {
+  for (const detail of details) {
     const fieldPath = detail.path && detail.path.length > 0 ? pathFormatter(detail.path) : '_form'; // Form-level errors go to special '_form' key
 
     if (!fieldErrors[fieldPath]) {
@@ -31,7 +31,7 @@ const transformJoiErrorsForForm = (
       code: detail.type || 'VALIDATION_ERROR',
       path: fieldPath !== '_form' ? fieldPath : undefined,
     });
-  });
+  }
 
   return fieldErrors;
 };
@@ -110,22 +110,21 @@ export function createJoiFormValidator<T extends Record<string, any> = Record<st
 
         // Convert to ValidationResult format
         const allErrors: ValidationError[] = [];
-        Object.entries(fieldErrors).forEach(([fieldPath, errors]) => {
-          errors.forEach((error) => {
+        for (const [fieldPath, errors] of Object.entries(fieldErrors)) {
+          for (const error of errors) {
             allErrors.push({
               ...error,
               path: fieldPath !== '_form' ? fieldPath : undefined,
             });
-          });
-        });
+          }
+        }
 
         return { isValid: false, errors: allErrors };
       }
 
       return { isValid: true, errors: [] };
-    } catch (error) {
-      // Re-throw non-Joi errors
-      throw error;
+    } catch {
+      return { isValid: false, errors: [{ message: 'Invalid value', code: 'INVALID_VALUE' }] };
     }
   };
 }
@@ -170,50 +169,45 @@ export function createJoiFormValidatorWithFieldErrors<
   const { abortEarly = false, context, allowUnknown = false } = options;
 
   return async (formData: T) => {
-    try {
-      const validationOptions = {
-        abortEarly,
-        context,
-        allowUnknown,
-        errors: {
-          label: 'key',
-        },
-      };
+    const validationOptions = {
+      abortEarly,
+      context,
+      allowUnknown,
+      errors: {
+        label: 'key',
+      },
+    };
 
-      const result = schema.validate(formData, validationOptions);
+    const result = schema.validate(formData, validationOptions);
 
-      if (result.error) {
-        const details = result.error.details || [];
+    if (result.error) {
+      const details = result.error.details || [];
 
-        const fieldErrors = transformJoiErrorsForForm(details, options);
+      const fieldErrors = transformJoiErrorsForForm(details, options);
 
-        // Flatten to allErrors array
-        const allErrors: ValidationError[] = [];
-        Object.entries(fieldErrors).forEach(([fieldPath, errors]) => {
-          errors.forEach((error) => {
-            allErrors.push({
-              ...error,
-              path: fieldPath !== '_form' ? fieldPath : undefined,
-            });
+      // Flatten to allErrors array
+      const allErrors: ValidationError[] = [];
+      for (const [fieldPath, errors] of Object.entries(fieldErrors)) {
+        for (const error of errors) {
+          allErrors.push({
+            ...error,
+            path: fieldPath !== '_form' ? fieldPath : undefined,
           });
-        });
-
-        return {
-          isValid: false,
-          fieldErrors,
-          allErrors,
-        };
+        }
       }
 
       return {
-        isValid: true,
-        fieldErrors: {},
-        allErrors: [],
+        isValid: false,
+        fieldErrors,
+        allErrors,
       };
-    } catch (error) {
-      // Re-throw non-Joi errors
-      throw error;
     }
+
+    return {
+      isValid: true,
+      fieldErrors: {},
+      allErrors: [],
+    };
   };
 }
 
