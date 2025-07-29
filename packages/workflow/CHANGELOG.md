@@ -1,5 +1,11 @@
 # @rilaykit/workflow
 
+## 7.1.0
+
+### Minor Changes
+
+- Fix persistence bug
+
 ## 7.0.0
 
 ### Major Changes

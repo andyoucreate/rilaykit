@@ -50,25 +50,26 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
   private readonly compress: boolean;
   private readonly maxAge?: number;
   private readonly version = '1.0.0';
+  private readonly _isAvailable: boolean;
 
   constructor(config: LocalStorageAdapterConfig = {}) {
     this.keyPrefix = config.keyPrefix ?? 'rilay_workflow_';
     this.compress = config.compress ?? false;
     this.maxAge = config.maxAge;
 
-    // Validate localStorage availability
-    if (!this.isLocalStorageAvailable()) {
-      throw new WorkflowPersistenceError(
-        'localStorage is not available in this environment',
-        'LOCALSTORAGE_UNAVAILABLE'
-      );
-    }
+    // Check localStorage availability once at initialization
+    this._isAvailable = this.isLocalStorageAvailable();
   }
 
   /**
    * Save workflow data to localStorage
    */
   async save(key: string, data: PersistedWorkflowData): Promise<void> {
+    // Skip silently if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return;
+    }
+
     try {
       const storageKey = this.getStorageKey(key);
       const storageEntry: StorageEntry = {
@@ -127,6 +128,11 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
    * Load workflow data from localStorage
    */
   async load(key: string): Promise<PersistedWorkflowData | null> {
+    // Return null if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return null;
+    }
+
     try {
       const storageKey = this.getStorageKey(key);
       const rawData = localStorage.getItem(storageKey);
@@ -170,6 +176,11 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
    * Remove workflow data from localStorage
    */
   async remove(key: string): Promise<void> {
+    // Skip silently if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return;
+    }
+
     try {
       const storageKey = this.getStorageKey(key);
       localStorage.removeItem(storageKey);
@@ -190,6 +201,11 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
    * Check if data exists for the given key
    */
   async exists(key: string): Promise<boolean> {
+    // Return false if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return false;
+    }
+
     try {
       const storageKey = this.getStorageKey(key);
       const rawData = localStorage.getItem(storageKey);
@@ -217,6 +233,11 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
    * List all available keys
    */
   async listKeys(): Promise<string[]> {
+    // Return empty array if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return [];
+    }
+
     try {
       const keys: string[] = [];
 
@@ -325,6 +346,11 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
    * Clear expired data entries
    */
   private async clearExpiredData(): Promise<void> {
+    // Skip if localStorage is not available (SSR)
+    if (!this._isAvailable) {
+      return;
+    }
+
     const keysToRemove: string[] = [];
 
     for (let i = 0; i < localStorage.length; i++) {
