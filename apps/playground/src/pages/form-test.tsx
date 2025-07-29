@@ -1,6 +1,5 @@
 import type { ComponentRenderProps, ComponentRenderer } from '@rilaykit/core';
 import { ril, when } from '@rilaykit/core';
-import '@rilaykit/forms';
 import { Form, FormField } from '@rilaykit/forms';
 
 // Define component prop interfaces
