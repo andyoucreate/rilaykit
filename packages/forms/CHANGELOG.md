@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 7.0.0
+
+### Major Changes
+
+- Add persistence
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@7.0.0
+
 ## 6.0.0
 
 ### Major Changes

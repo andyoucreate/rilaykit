@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 7.0.0
+
+### Major Changes
+
+- Add persistence
+
 ## 6.0.0
 
 ### Major Changes
