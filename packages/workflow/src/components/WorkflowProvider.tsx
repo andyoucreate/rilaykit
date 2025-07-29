@@ -43,6 +43,11 @@ export interface WorkflowContextValue {
   submitWorkflow: () => Promise<void>;
   isSubmitting: boolean;
   canSubmit: boolean;
+
+  // Persistence
+  persistNow?: () => Promise<void>;
+  isPersisting?: boolean;
+  persistenceError?: Error | null;
 }
 
 const WorkflowReactContext = createContext<WorkflowContextValue | null>(null);
@@ -54,6 +59,7 @@ export interface WorkflowProviderProps {
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
   className?: string;
+  // Note: persistence is now configured via workflowConfig.persistence from flow builder
 }
 
 export function WorkflowProvider({
@@ -64,7 +70,7 @@ export function WorkflowProvider({
   onWorkflowComplete,
   className,
 }: WorkflowProviderProps) {
-  // 1. Initialize workflow state management
+  // 1. Initialize workflow state management with persistence from config
   const {
     workflowState,
     setCurrentStep,
@@ -74,9 +80,35 @@ export function WorkflowProvider({
     setTransitioning,
     markStepVisited,
     resetWorkflow,
-  } = useWorkflowState({ defaultValues });
+    loadPersistedState,
+    persistence,
+  } = useWorkflowState({
+    defaultValues,
+    persistence: workflowConfig.persistence
+      ? {
+          workflowId: workflowConfig.id,
+          adapter: workflowConfig.persistence.adapter,
+          options: workflowConfig.persistence.options,
+          userId: workflowConfig.persistence.userId,
+          autoLoad: true,
+        }
+      : undefined,
+  });
 
-  // 2. Create workflow context for conditions and callbacks
+  // 2. Load persisted data on mount if persistence is enabled
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  useEffect(() => {
+    if (workflowConfig.persistence && loadPersistedState) {
+      loadPersistedState();
+    }
+  }, []);
+
+  // Extract persistence utilities
+  const isPersisting = persistence?.isPersisting ?? false;
+  const persistenceError = persistence?.persistenceError ?? null;
+  const persistNow = persistence?.persistNow;
+
+  // 3. Create workflow context for conditions and callbacks
   const workflowContext = useMemo(
     (): WorkflowContext => ({
       workflowId: workflowConfig.id,
@@ -226,6 +258,10 @@ export function WorkflowProvider({
       submitWorkflow,
       isSubmitting,
       canSubmit,
+      // Persistence
+      persistNow,
+      isPersisting,
+      persistenceError,
     }),
     [
       workflowState,
@@ -248,12 +284,16 @@ export function WorkflowProvider({
       submitWorkflow,
       isSubmitting,
       canSubmit,
+      persistNow,
+      isPersisting,
+      persistenceError,
     ]
   );
 
   return (
     <WorkflowReactContext.Provider value={contextValue}>
       <FormProvider
+        key={workflowState.isInitializing.toString()}
         formConfig={formConfig}
         defaultValues={workflowState?.allData[currentStep?.id] || {}}
         onFieldChange={setValue}

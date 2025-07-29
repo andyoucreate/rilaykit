@@ -18,9 +18,9 @@ import {
   ril,
   when,
 } from '@rilaykit/core';
-import { FormField } from '@rilaykit/forms';
 import { createZodValidator } from '@rilaykit/validation-adapters';
 import {
+  LocalStorageAdapter,
   RilayLicenseManager,
   Workflow,
   WorkflowBody,
@@ -390,6 +390,13 @@ export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
 
+  // 🗄️ Configure persistence with localStorage
+  const persistenceAdapter = new LocalStorageAdapter({
+    keyPrefix: 'rilay_playground_workflow_',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    compress: false, // Disable compression for easier debugging
+  });
+
   // Build form configurations for each step
   const personalInfoForm = factory
     .form()
@@ -479,7 +486,7 @@ export default function WorkflowTestPage() {
       },
     });
 
-  const companyInfoForm = factory
+  const companyDetailsForm = factory
     .form()
     .add({
       id: 'companyName',
@@ -508,7 +515,7 @@ export default function WorkflowTestPage() {
       },
     });
 
-  const reviewForm = factory.form().add({
+  const confirmationForm = factory.form().add({
     id: 'feedback',
     type: 'textarea',
     props: {
@@ -580,64 +587,58 @@ export default function WorkflowTestPage() {
               companyAddress: companyInfo.address,
               industry: companyInfo.industry,
             });
-
-            console.log('🎯 Next step pre-filled with company data');
           } catch (error) {
-            console.error('❌ Failed to fetch company info:', error);
+            console.error('❌ SIREN API call failed:', error);
           }
         }
-      },
-      renderer: () => {
-        return (
-          <div className="flex-col gap-4 grid grid-cols-2">
-            <FormField fieldId="age" className="" />
-            <FormField fieldId="firstName" className="" />
-            <FormField fieldId="lastName" className="" />
-            <FormField fieldId="email" className="" />
-            <FormField fieldId="siren" className="" />
-          </div>
-        );
-      },
-    })
-    .addStep({
-      id: 'company-info',
-      title: 'Company Information',
-      description: 'Company details (auto-filled from SIREN)',
-      formConfig: companyInfoForm,
-      conditions: {
-        visible: when('personal-info.siren').equals('123456789'),
-        skippable: when('company-info.companyName').equals('Tech Innovation SAS'),
       },
     })
     .addStep({
       id: 'preferences',
-      title: 'Preferences',
-      description: 'Set your preferences',
+      title: 'Your Preferences',
+      description: 'Help us customize your experience',
+      allowSkip: true,
       formConfig: preferencesForm,
     })
     .addStep({
-      id: 'review',
-      title: 'Review & Feedback',
-      description: 'Review your information and provide feedback',
+      id: 'company-details',
+      title: 'Company Details',
+      description: 'Additional company information',
       allowSkip: false,
-      formConfig: reviewForm,
+      formConfig: companyDetailsForm,
+      conditions: {
+        visible: when('role').in(['manager', 'owner']).build(),
+      },
+    })
+    .addStep({
+      id: 'confirmation',
+      title: 'Confirmation',
+      description: 'Review and confirm your information',
+      allowSkip: false,
+      formConfig: confirmationForm,
     })
     .configure({
       analytics: {
-        onWorkflowStart: (workflowId: string, context: any) => {
-          console.log('Workflow started:', workflowId, context);
+        onWorkflowStart: (workflowId, context) => {
+          console.log('🚀 Workflow started:', workflowId, context);
         },
-        onStepStart: (stepId: string, timestamp: number, context: any) => {
-          console.log('Step started:', stepId, timestamp, context);
+        onStepComplete: (stepId, duration, data, context) => {
+          console.log('✅ Step completed:', stepId, `${duration}ms`, data, context);
         },
-        onStepComplete: (stepId: string, duration: number, data: any, context: any) => {
-          console.log('Step completed:', stepId, duration, data, context);
-        },
-        onWorkflowComplete: (workflowId: string, duration: number, data: any) => {
-          console.log('Workflow completed:', workflowId, duration, data);
+        onWorkflowComplete: (workflowId, duration, data) => {
+          console.log('🎉 Workflow completed:', workflowId, `${duration}ms`, data);
         },
       },
-    });
+      persistence: {
+        adapter: persistenceAdapter,
+        options: {
+          autoPersist: true,
+          debounceMs: 1000,
+        },
+        userId: 'demo-user',
+      },
+    })
+    .build();
 
   const handleWorkflowComplete = (data: Record<string, any>) => {
     console.log('Workflow completed with data:', data);
@@ -690,6 +691,25 @@ export default function WorkflowTestPage() {
       </p>
 
       <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-sm">
+        {/* Persistence controls */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+          <h3 className="font-semibold text-blue-800 mb-2">🗄️ Persistence Test</h3>
+          <p className="text-blue-700 text-sm mb-3">
+            Vos données sont automatiquement sauvegardées dans localStorage. Actualisez la page pour
+            voir la persistence en action !
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('rilay_playground_workflow_userOnboarding');
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+          >
+            🗑️ Vider localStorage & Recommencer
+          </button>
+        </div>
+
         <Workflow
           workflowConfig={workflowConfig}
           onWorkflowComplete={handleWorkflowComplete}

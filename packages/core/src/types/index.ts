@@ -293,6 +293,11 @@ export interface WorkflowConfig {
   readonly description?: string;
   readonly steps: StepConfig[];
   readonly analytics?: WorkflowAnalytics;
+  readonly persistence?: {
+    adapter: any; // WorkflowPersistenceAdapter (generic to avoid circular deps)
+    options?: any; // PersistenceOptions
+    userId?: string;
+  };
   readonly plugins?: WorkflowPlugin[];
   readonly renderConfig?: WorkflowRenderConfig;
 }

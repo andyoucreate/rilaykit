@@ -8,11 +8,13 @@
  * - useWorkflowSubmission: Handles workflow submission workflow
  * - useWorkflowAnalytics: Manages workflow analytics and tracking
  * - useConditionEvaluation: Evaluates conditional behaviors (from existing code)
+ * - usePersistence: Manages workflow persistence with adapters
  *
  * These hooks enable a cleaner, more maintainable WorkflowProvider by separating concerns.
  */
 
 export * from './useConditionEvaluation';
+export * from './usePersistence';
 export * from './useWorkflowAnalytics';
 export * from './useWorkflowConditions';
 export * from './useWorkflowNavigation';

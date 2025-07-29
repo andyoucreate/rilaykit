@@ -11,6 +11,7 @@ import type {
 } from '@rilaykit/core';
 import { IdGenerator, deepClone, ensureUnique, normalizeToArray, ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
+import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
 
 /**
  * Enhanced step configuration interface for better type safety and simplicity
@@ -117,6 +118,12 @@ export interface StepDefinition {
 interface WorkflowOptions {
   /** Analytics and tracking configuration */
   analytics?: WorkflowAnalytics;
+  /** Persistence configuration */
+  persistence?: {
+    adapter: WorkflowPersistenceAdapter;
+    options?: PersistenceOptions;
+    userId?: string;
+  };
 }
 
 /**
@@ -162,6 +169,11 @@ export class flow {
   private workflowDescription?: string;
   private steps: StepConfig[] = [];
   private analytics?: WorkflowAnalytics;
+  private persistenceConfig?: {
+    adapter: WorkflowPersistenceAdapter;
+    options?: PersistenceOptions;
+    userId?: string;
+  };
   private plugins: WorkflowPlugin[] = [];
   private idGenerator = new IdGenerator();
 
@@ -288,17 +300,14 @@ export class flow {
    * @example
    * ```typescript
    * workflow.configure({
-   *   navigation: {
-   *     allowBackNavigation: true,
-   *     showProgressBar: true
-   *   },
-   *   persistence: {
-   *     saveOnStepComplete: true,
-   *     storageKey: 'my-workflow'
-   *   },
    *   analytics: {
    *     trackStepCompletion: true,
    *     trackFieldInteractions: false
+   *   },
+   *   persistence: {
+   *     adapter: new LocalStorageAdapter(),
+   *     options: { autoPersist: true, debounceMs: 1000 },
+   *     userId: 'user123'
    *   }
    * });
    * ```
@@ -306,6 +315,10 @@ export class flow {
   configure(options: WorkflowOptions): this {
     if (options.analytics) {
       this.analytics = options.analytics;
+    }
+
+    if (options.persistence) {
+      this.persistenceConfig = options.persistence;
     }
 
     return this;
@@ -539,6 +552,9 @@ export class flow {
     );
     cloned.steps = deepClone(this.steps);
     cloned.analytics = this.analytics ? deepClone(this.analytics) : undefined;
+    cloned.persistenceConfig = this.persistenceConfig
+      ? deepClone(this.persistenceConfig)
+      : undefined;
     cloned.plugins = [...this.plugins];
     return cloned;
   }
@@ -656,6 +672,7 @@ export class flow {
       description: this.workflowDescription,
       steps: this.steps,
       analytics: this.analytics,
+      persistence: this.persistenceConfig,
       plugins: this.plugins,
       renderConfig: this.config.getWorkflowRenderConfig(),
     };
@@ -685,6 +702,7 @@ export class flow {
       description: this.workflowDescription,
       steps: this.steps,
       analytics: this.analytics,
+      persistence: this.persistenceConfig,
       plugins: this.plugins.map((plugin) => ({ name: plugin.name, version: plugin.version })),
     };
   }
@@ -711,6 +729,7 @@ export class flow {
     this.workflowDescription = json.workflowDescription;
     this.steps = json.steps;
     this.analytics = json.analytics;
+    this.persistenceConfig = json.persistence;
     this.plugins = json.plugins || [];
     return this;
   }

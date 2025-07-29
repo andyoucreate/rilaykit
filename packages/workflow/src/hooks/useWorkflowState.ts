@@ -9,6 +9,7 @@ export interface WorkflowState {
   visitedSteps: Set<string>;
   isSubmitting: boolean;
   isTransitioning: boolean;
+  isInitializing: boolean;
 }
 
 export type WorkflowAction =
@@ -20,7 +21,8 @@ export type WorkflowAction =
   | { type: 'SET_TRANSITIONING'; isTransitioning: boolean }
   | { type: 'MARK_STEP_VISITED'; stepIndex: number; stepId: string }
   | { type: 'RESET_WORKFLOW' }
-  | { type: 'LOAD_PERSISTED_STATE'; state: Partial<WorkflowState> };
+  | { type: 'LOAD_PERSISTED_STATE'; state: Partial<WorkflowState> }
+  | { type: 'SET_INITIALIZATION_COMPLETE' };
 
 function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
   switch (action.type) {
@@ -85,12 +87,19 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
         visitedSteps: new Set(),
         isSubmitting: false,
         isTransitioning: false,
+        isInitializing: false,
       };
 
     case 'LOAD_PERSISTED_STATE':
       return {
         ...state,
         ...action.state,
+      };
+
+    case 'SET_INITIALIZATION_COMPLETE':
+      return {
+        ...state,
+        isInitializing: false,
       };
 
     default:
@@ -117,6 +126,7 @@ export function useWorkflowState({ defaultValues = {}, persistence }: UseWorkflo
     visitedSteps: new Set(),
     isSubmitting: false,
     isTransitioning: false,
+    isInitializing: true,
   };
 
   const [workflowState, dispatch] = useReducer(workflowReducer, initialState);
@@ -161,14 +171,23 @@ export function useWorkflowState({ defaultValues = {}, persistence }: UseWorkflo
     dispatch({ type: 'RESET_WORKFLOW' });
   }, []);
 
+  const setInitializationComplete = useCallback(() => {
+    dispatch({ type: 'SET_INITIALIZATION_COMPLETE' });
+  }, []);
+
   /**
    * Load persisted state into the current workflow
    */
   const loadPersistedState = useCallback(async () => {
-    if (!persistenceHook) return false;
+    if (!persistenceHook) {
+      // Mark initialization as complete even if no persistence
+      setInitializationComplete();
+      return false;
+    }
 
     try {
       const persistedData = await persistenceHook.loadPersistedData();
+
       if (persistedData) {
         const stateUpdate: Partial<WorkflowState> = {
           currentStepIndex: persistedData.currentStepIndex,
@@ -178,14 +197,17 @@ export function useWorkflowState({ defaultValues = {}, persistence }: UseWorkflo
         };
 
         dispatch({ type: 'LOAD_PERSISTED_STATE', state: stateUpdate });
+        setInitializationComplete();
         return true;
       }
     } catch (error) {
       console.error('Failed to load persisted state:', error);
     }
 
+    // Mark initialization as complete even if loading failed
+    setInitializationComplete();
     return false;
-  }, [persistenceHook]);
+  }, [persistenceHook, setInitializationComplete]);
 
   return {
     workflowState,

@@ -63,6 +63,7 @@ export function usePersistence({
 }: UsePersistenceProps): UsePersistenceReturn {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<WorkflowPersistenceError | null>(null);
+  const [isLoadingPersisted, setIsLoadingPersisted] = useState(false);
 
   // Refs for stable references
   const adapterRef = useRef(adapter);
@@ -172,40 +173,11 @@ export function usePersistence({
   );
 
   /**
-   * Auto-persistence effect
-   */
-  useEffect(() => {
-    if (!optionsRef.current.autoPersist) return;
-
-    // Skip if currently persisting or in transition states
-    if (isPersisting || workflowState.isSubmitting || workflowState.isTransitioning) {
-      return;
-    }
-
-    // Check if we have significant changes
-    if (!hasSignificantChanges(workflowState, persistenceStateRef.current.lastSavedState)) {
-      return;
-    }
-
-    // Mark as having pending changes
-    persistenceStateRef.current.hasPendingChanges = true;
-
-    // Trigger debounced save
-    debouncedSave.current(workflowState);
-  }, [workflowState, isPersisting, hasSignificantChanges]);
-
-  /**
-   * Manual save operation
-   */
-  const persistNow = useCallback(async (): Promise<void> => {
-    await saveWorkflowState(workflowState);
-  }, [saveWorkflowState, workflowState]);
-
-  /**
    * Load persisted data
    */
   const loadPersistedData = useCallback(async (): Promise<PersistedWorkflowData | null> => {
     clearError();
+    setIsLoadingPersisted(true);
 
     try {
       const data = await adapterRef.current.load(storageKey);
@@ -218,6 +190,7 @@ export function usePersistence({
           visitedSteps: new Set(data.visitedSteps),
           isSubmitting: false,
           isTransitioning: false,
+          isInitializing: false,
         };
         persistenceStateRef.current.hasPendingChanges = false;
       }
@@ -225,6 +198,9 @@ export function usePersistence({
     } catch (error) {
       handleError(error as Error, 'Load');
       return null;
+    } finally {
+      // Clear loading flag after a short delay to avoid immediate auto-save
+      setTimeout(() => setIsLoadingPersisted(false), 100);
     }
   }, [storageKey, clearError, handleError]);
 
@@ -257,6 +233,42 @@ export function usePersistence({
       return false;
     }
   }, [storageKey, handleError]);
+
+  /**
+   * Auto-persistence effect
+   */
+  useEffect(() => {
+    if (!optionsRef.current.autoPersist) return;
+
+    // Skip if currently persisting, loading, initializing, or in transition states
+    if (
+      isPersisting ||
+      isLoadingPersisted ||
+      workflowState.isInitializing ||
+      workflowState.isSubmitting ||
+      workflowState.isTransitioning
+    ) {
+      return;
+    }
+
+    // Check if we have significant changes
+    if (!hasSignificantChanges(workflowState, persistenceStateRef.current.lastSavedState)) {
+      return;
+    }
+
+    // Mark as having pending changes
+    persistenceStateRef.current.hasPendingChanges = true;
+
+    // Trigger debounced save
+    debouncedSave.current(workflowState);
+  }, [workflowState, isPersisting, isLoadingPersisted, hasSignificantChanges]);
+
+  /**
+   * Manual save operation
+   */
+  const persistNow = useCallback(async (): Promise<void> => {
+    await saveWorkflowState(workflowState);
+  }, [saveWorkflowState, workflowState]);
 
   return {
     isPersisting,
