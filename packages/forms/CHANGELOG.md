@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 8.0.0
+
+### Major Changes
+
+- Add some features
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@8.0.0
+
 ## 7.0.0
 
 ### Major Changes

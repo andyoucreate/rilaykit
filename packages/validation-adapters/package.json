@@ -1,8 +1,16 @@
 {
   "name": "@rilaykit/validation-adapters",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Validation adapters for popular schema libraries (Zod, Yup, Joi) to integrate with Rilay forms",
-  "keywords": ["rilay", "validation", "zod", "yup", "joi", "schema", "forms"],
+  "keywords": [
+    "rilay",
+    "validation",
+    "zod",
+    "yup",
+    "joi",
+    "schema",
+    "forms"
+  ],
   "license": "MIT",
   "author": "Rilay Team",
   "homepage": "https://docs.rilay.io",
@@ -39,7 +47,9 @@
       "require": "./dist/joi/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup && npm run build:types",
     "build:types": "tsc --project tsconfig.build.json --emitDeclarationOnly --outDir dist",
@@ -55,7 +65,7 @@
     "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "@rilaykit/core": "^7.0.0",
+    "@rilaykit/core": "^8.0.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {},

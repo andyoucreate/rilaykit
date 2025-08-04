@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 8.0.0
+
+### Major Changes
+
+- Add some features
+
 ## 7.0.0
 
 ### Major Changes
