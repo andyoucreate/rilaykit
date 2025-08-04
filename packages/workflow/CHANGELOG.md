@@ -1,5 +1,11 @@
 # @rilaykit/workflow
 
+## 8.1.0
+
+### Minor Changes
+
+- Fix issue with WorkflowBody
+
 ## 8.0.0
 
 ### Major Changes
