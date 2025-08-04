@@ -8,13 +8,13 @@ import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import {
-  type UseWorkflowConditionsReturn,
   useWorkflowAnalytics,
   useWorkflowConditions,
   useWorkflowNavigation,
   useWorkflowState,
   useWorkflowSubmission,
 } from '../hooks';
+import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 
 export interface WorkflowContextValue {
   workflowState: ReturnType<typeof useWorkflowState>['workflowState'];
@@ -23,6 +23,9 @@ export interface WorkflowContextValue {
   context: WorkflowContext;
   formConfig?: FormConfiguration;
   conditionsHelpers: UseWorkflowConditionsReturn;
+
+  // Step metadata
+  currentStepMetadata?: Record<string, any>;
 
   // Navigation actions
   goToStep: (stepIndex: number) => Promise<boolean>;
@@ -241,6 +244,8 @@ export function WorkflowProvider({
       context: workflowContext,
       formConfig,
       conditionsHelpers,
+      // Step metadata
+      currentStepMetadata: currentStep?.metadata,
       // Navigation
       goToStep,
       goNext,

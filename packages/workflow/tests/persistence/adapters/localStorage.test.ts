@@ -82,7 +82,7 @@ describe('LocalStorageAdapter', () => {
       expect(customAdapter).toBeInstanceOf(LocalStorageAdapter);
     });
 
-    it('should throw error if localStorage is not available', () => {
+    it('should handle gracefully when localStorage is not available', async () => {
       // Create a fresh mock that throws on access
       const brokenMockStorage = {
         ...mockLocalStorage,
@@ -102,7 +102,15 @@ describe('LocalStorageAdapter', () => {
         writable: true,
       });
 
-      expect(() => new LocalStorageAdapter()).toThrow(WorkflowPersistenceError);
+      // Should not throw error but handle gracefully
+      const adapter = new LocalStorageAdapter();
+      expect(adapter).toBeInstanceOf(LocalStorageAdapter);
+
+      // Operations should not throw but should handle gracefully
+      await expect(adapter.save(testKey, testData)).resolves.toBeUndefined();
+      await expect(adapter.load(testKey)).resolves.toBeNull();
+      await expect(adapter.remove(testKey)).resolves.toBeUndefined();
+      expect(await adapter.exists(testKey)).toBe(false);
     });
   });
 

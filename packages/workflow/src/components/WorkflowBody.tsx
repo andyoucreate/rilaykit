@@ -1,14 +1,22 @@
 import { FormBody } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
+export interface WorkflowBodyProps {
+  stepId?: string;
+}
+
 /**
  * Renders the main content of the current workflow step.
  * Simple component that renders either the children or FormBody by default.
  */
-export function WorkflowBody() {
+export function WorkflowBody({ stepId }: WorkflowBodyProps) {
   const { currentStep } = useWorkflowContext();
 
   if (!currentStep) {
+    return null;
+  }
+
+  if (stepId && currentStep.id !== stepId) {
     return null;
   }
 

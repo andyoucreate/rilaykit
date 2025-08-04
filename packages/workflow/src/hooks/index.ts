@@ -13,10 +13,11 @@
  * These hooks enable a cleaner, more maintainable WorkflowProvider by separating concerns.
  */
 
-export * from './useConditionEvaluation';
-export * from './usePersistence';
-export * from './useWorkflowAnalytics';
-export * from './useWorkflowConditions';
-export * from './useWorkflowNavigation';
-export * from './useWorkflowState';
-export * from './useWorkflowSubmission';
+export { useConditionEvaluation } from './useConditionEvaluation';
+export { usePersistence } from './usePersistence';
+export { useStepMetadata } from './useStepMetadata';
+export { useWorkflowAnalytics } from './useWorkflowAnalytics';
+export { useWorkflowConditions } from './useWorkflowConditions';
+export { useWorkflowNavigation } from './useWorkflowNavigation';
+export { useWorkflowState } from './useWorkflowState';
+export { useWorkflowSubmission } from './useWorkflowSubmission';

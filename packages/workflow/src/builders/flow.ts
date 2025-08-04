@@ -72,6 +72,31 @@ export interface StepDefinition {
   conditions?: StepConditionalBehavior;
 
   /**
+   * Custom metadata for this step
+   * Allows storing arbitrary information that can be accessed via hooks and context
+   *
+   * This is useful for:
+   * - UI customization (icons, colors, themes)
+   * - Analytics tracking (categories, priorities, custom events)
+   * - Business logic flags (feature flags, permissions, workflow rules)
+   * - Integration data (external IDs, API endpoints, configuration)
+   *
+   * @example
+   * ```typescript
+   * {
+   *   metadata: {
+   *     icon: 'user-circle',
+   *     category: 'personal-info',
+   *     analytics: { trackCompletion: true, priority: 'high' },
+   *     ui: { theme: 'primary', showProgress: true },
+   *     business: { requiresApproval: false, estimatedTime: 120 }
+   *   }
+   * }
+   * ```
+   */
+  metadata?: Record<string, any>;
+
+  /**
    * Callback function that executes after successful validation and before moving to next step
    * Provides clean helper methods for modifying workflow data and pre-filling subsequent steps
    *
@@ -234,6 +259,7 @@ export class flow {
       allowSkip: stepDef.allowSkip || false,
       renderer: stepDef.renderer,
       conditions: stepDef.conditions,
+      metadata: stepDef.metadata,
       onAfterValidation: stepDef.onAfterValidation,
     };
   }

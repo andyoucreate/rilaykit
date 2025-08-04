@@ -277,6 +277,7 @@ export interface StepConfig {
   readonly allowSkip?: boolean;
   readonly renderer?: CustomStepRenderer;
   readonly conditions?: StepConditionalBehavior;
+  readonly metadata?: Record<string, any>;
   readonly onAfterValidation?: (
     stepData: Record<string, any>,
     helper: StepDataHelper,

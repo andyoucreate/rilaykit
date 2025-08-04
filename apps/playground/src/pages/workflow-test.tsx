@@ -44,6 +44,7 @@ const zodSchemas = {
     .min(1, 'Age is required')
     .refine((val) => {
       const num = Number.parseInt(val);
+
       return !Number.isNaN(num) && num >= 18;
     }, 'You must be at least 18 years old'),
   email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
