@@ -360,11 +360,13 @@ export type WorkflowNextButtonRendererProps = WorkflowComponentRendererBaseProps
 
 export type WorkflowPreviousButtonRendererProps = WorkflowComponentRendererBaseProps & {
   canGoPrevious: boolean;
+  isSubmitting: boolean;
   onPrevious: (event?: React.FormEvent) => void;
 };
 
 export type WorkflowSkipButtonRendererProps = WorkflowComponentRendererBaseProps & {
   canSkip: boolean;
+  isSubmitting: boolean;
   onSkip: (event?: React.FormEvent) => void;
 };
 

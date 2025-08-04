@@ -3,14 +3,27 @@ import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useFormContext } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
+export interface WorkflowNextButtonProps
+  extends ComponentRendererBaseProps<WorkflowNextButtonRendererProps> {
+  /**
+   * Override the isSubmitting state from workflow/form context
+   * If provided, this value will be used instead of the computed isSubmitting state
+   */
+  isSubmitting?: boolean;
+}
+
 export function WorkflowNextButton({
   className,
+  isSubmitting: overrideIsSubmitting,
   ...props
-}: ComponentRendererBaseProps<WorkflowNextButtonRendererProps>) {
+}: WorkflowNextButtonProps) {
   const { context, workflowState, workflowConfig, currentStep } = useWorkflowContext();
   const { submit, formState } = useFormContext();
 
-  const canGoNext = !workflowState.isTransitioning && !workflowState.isSubmitting;
+  const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+  const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+
+  const canGoNext = !workflowState.isTransitioning && !finalIsSubmitting;
 
   const handleSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -23,7 +36,7 @@ export function WorkflowNextButton({
   const baseProps: WorkflowNextButtonRendererProps = {
     isLastStep: context.isLastStep,
     canGoNext,
-    isSubmitting: formState.isSubmitting || workflowState.isSubmitting,
+    isSubmitting: finalIsSubmitting,
     onSubmit: handleSubmit,
     className,
     currentStep,

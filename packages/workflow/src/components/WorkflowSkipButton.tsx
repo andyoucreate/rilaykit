@@ -3,19 +3,32 @@ import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useFormContext } from '@rilaykit/forms';
 import { useWorkflowContext } from './WorkflowProvider';
 
+export interface WorkflowSkipButtonProps
+  extends ComponentRendererBaseProps<WorkflowSkipButtonRendererProps> {
+  /**
+   * Override the isSubmitting state from workflow/form context
+   * If provided, this value will be used instead of the computed isSubmitting state
+   */
+  isSubmitting?: boolean;
+}
+
 export function WorkflowSkipButton({
   className,
+  isSubmitting: overrideIsSubmitting,
   ...props
-}: ComponentRendererBaseProps<WorkflowSkipButtonRendererProps>) {
+}: WorkflowSkipButtonProps) {
   const { currentStep, skipStep, workflowState, workflowConfig, context, conditionsHelpers } =
     useWorkflowContext();
   const { formState } = useFormContext();
+
+  const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+  const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
 
   const canSkip =
     (Boolean(currentStep?.allowSkip) ||
       conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) &&
     !workflowState.isTransitioning &&
-    !workflowState.isSubmitting;
+    !finalIsSubmitting;
 
   const handleSkip = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -25,6 +38,7 @@ export function WorkflowSkipButton({
 
   const baseProps: WorkflowSkipButtonRendererProps = {
     canSkip,
+    isSubmitting: finalIsSubmitting,
     onSkip: handleSkip,
     className,
     // Step data

@@ -2,15 +2,24 @@ import type { ComponentRendererBaseProps, FormSubmitButtonRendererProps } from '
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useFormContext } from './FormProvider';
 
+export interface FormSubmitButtonProps
+  extends ComponentRendererBaseProps<FormSubmitButtonRendererProps> {
+  /**
+   * Override the isSubmitting state from form context
+   * If provided, this value will be used instead of the form's isSubmitting state
+   */
+  isSubmitting?: boolean;
+}
+
 export function FormSubmitButton({
   className,
+  isSubmitting: overrideIsSubmitting,
   ...props
-}: ComponentRendererBaseProps<FormSubmitButtonRendererProps>) {
+}: FormSubmitButtonProps) {
   const { formState, submit, formConfig } = useFormContext();
 
   const baseProps: FormSubmitButtonRendererProps = {
-    isSubmitting: formState.isSubmitting,
-
+    isSubmitting: overrideIsSubmitting ?? formState.isSubmitting,
     onSubmit: submit,
     className,
   };
