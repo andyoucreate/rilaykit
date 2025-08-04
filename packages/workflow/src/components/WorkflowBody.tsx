@@ -3,13 +3,14 @@ import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowBodyProps {
   stepId?: string;
+  children?: React.ReactNode;
 }
 
 /**
  * Renders the main content of the current workflow step.
  * Simple component that renders either the children or FormBody by default.
  */
-export function WorkflowBody({ stepId }: WorkflowBodyProps) {
+export function WorkflowBody({ stepId, children }: WorkflowBodyProps) {
   const { currentStep } = useWorkflowContext();
 
   if (!currentStep) {
@@ -31,8 +32,7 @@ export function WorkflowBody({ stepId }: WorkflowBodyProps) {
     return renderer(currentStep);
   }
 
-  // Default rendering for a step with a form
-  return <FormBody />;
+  return children ?? <FormBody />;
 }
 
 export default WorkflowBody;
