@@ -1,0 +1,529 @@
+---
+title: Migration Guide
+description: Migrate from Formik, React Hook Form, and other form libraries to RilayKit with step-by-step examples.
+---
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Migration Guide
+
+Migrating to RilayKit from other form libraries is straightforward. This guide provides step-by-step examples for the most popular form libraries.
+
+## From React Hook Form
+
+React Hook Form users will appreciate RilayKit's similar performance philosophy with enhanced type safety and modularity.
+
+### Before (React Hook Form)
+
+```tsx title="react-hook-form-example.tsx"
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  age: z.number().min(18, 'Must be 18+')
+});
+
+function ReactHookFormExample() {
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(schema)
+  });
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <input {...register('name')} placeholder="Name" />
+      {errors.name && <span>{errors.name.message}</span>}
+      
+      <input {...register('email')} type="email" placeholder="Email" />
+      {errors.email && <span>{errors.email.message}</span>}
+      
+      <input {...register('age', { valueAsNumber: true })} type="number" />
+      {errors.age && <span>{errors.age.message}</span>}
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### After (RilayKit)
+
+<Tabs items={['Components', 'Configuration', 'Form']}>
+  <Tab value="Components">
+    ```tsx title="components.tsx"
+    import { ComponentRenderer } from '@rilaykit/core';
+
+    interface InputProps {
+      label: string;
+      type?: string;
+      placeholder?: string;
+    }
+
+    const Input: ComponentRenderer<InputProps> = ({
+      id, value, onChange, onBlur, error, props
+    }) => (
+      <div>
+        <input
+          id={id}
+          type={props.type || 'text'}
+          placeholder={props.placeholder}
+          value={value || ''}
+          onChange={(e) => onChange?.(e.target.value)}
+          onBlur={onBlur}
+        />
+        {error && <span>{error[0].message}</span>}
+      </div>
+    );
+
+    export { Input };
+    ```
+  </Tab>
+  <Tab value="Configuration">
+    ```tsx title="rilay-config.tsx"
+    import { ril } from '@rilaykit/core';
+    import { zodFieldValidator } from '@rilaykit/validation-adapters/zod';
+    import { z } from 'zod';
+    import { Input } from './components';
+
+    const rilay = ril.create()
+      .addComponent('input', { renderer: Input });
+
+    const userForm = rilay
+      .form('user')
+      .add({
+        id: 'name',
+        type: 'input',
+        props: { placeholder: 'Name' },
+        validation: [zodFieldValidator(z.string().min(1, 'Name is required'))]
+      })
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { type: 'email', placeholder: 'Email' },
+        validation: [zodFieldValidator(z.string().email('Invalid email'))]
+      })
+      .add({
+        id: 'age',
+        type: 'input',
+        props: { type: 'number' },
+        validation: [zodFieldValidator(z.number().min(18, 'Must be 18+'))]
+      });
+
+    export { userForm };
+    ```
+  </Tab>
+  <Tab value="Form">
+    ```tsx title="rilaykit-example.tsx"
+    import { Form, FormField } from '@rilaykit/forms';
+    import { userForm } from './rilay-config';
+
+    function RilayKitExample() {
+      return (
+        <Form formConfig={userForm} onSubmit={console.log}>
+          <FormField fieldId="name" />
+          <FormField fieldId="email" />
+          <FormField fieldId="age" />
+          <button type="submit">Submit</button>
+        </Form>
+      );
+    }
+
+    export default RilayKitExample;
+    ```
+  </Tab>
+</Tabs>
+
+### Key Differences
+
+| Aspect | React Hook Form | RilayKit |
+|--------|----------------|----------|
+| **Registration** | `register()` function | Declarative configuration |
+| **Validation** | Resolver-based | Built-in + adapters |
+| **Type Safety** | Manual typing | Automatic inference |
+| **UI Coupling** | Direct JSX integration | Component registry system |
+| **Reusability** | Limited | High (reusable configurations) |
+
+## From Formik
+
+Formik users will find RilayKit's approach familiar but more structured and type-safe.
+
+### Before (Formik)
+
+```tsx title="formik-example.tsx"
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
+
+const validationSchema = Yup.object({
+  name: Yup.string().required('Name is required'),
+  email: Yup.string().email('Invalid email').required('Email is required'),
+  message: Yup.string().min(10, 'Message too short')
+});
+
+function FormikExample() {
+  return (
+    <Formik
+      initialValues={{ name: '', email: '', message: '' }}
+      validationSchema={validationSchema}
+      onSubmit={console.log}
+    >
+      <Form>
+        <Field name="name" placeholder="Name" />
+        <ErrorMessage name="name" component="div" />
+        
+        <Field name="email" type="email" placeholder="Email" />
+        <ErrorMessage name="email" component="div" />
+        
+        <Field name="message" as="textarea" placeholder="Message" />
+        <ErrorMessage name="message" component="div" />
+        
+        <button type="submit">Submit</button>
+      </Form>
+    </Formik>
+  );
+}
+```
+
+### After (RilayKit)
+
+<Tabs items={['Components', 'Configuration', 'Form']}>
+  <Tab value="Components">
+    ```tsx title="formik-to-rilay-components.tsx"
+    import { ComponentRenderer } from '@rilaykit/core';
+
+    interface InputProps {
+      placeholder?: string;
+      multiline?: boolean;
+    }
+
+    const Input: ComponentRenderer<InputProps> = ({
+      id, value, onChange, onBlur, error, props
+    }) => {
+      const Component = props.multiline ? 'textarea' : 'input';
+      
+      return (
+        <div>
+          <Component
+            id={id}
+            placeholder={props.placeholder}
+            value={value || ''}
+            onChange={(e) => onChange?.(e.target.value)}
+            onBlur={onBlur}
+          />
+          {error && <div>{error[0].message}</div>}
+        </div>
+      );
+    };
+
+    export { Input };
+    ```
+  </Tab>
+  <Tab value="Configuration">
+    ```tsx title="formik-to-rilay-config.tsx"
+    import { ril, required, email, minLength } from '@rilaykit/core';
+    // Or use Yup adapter
+    import { yupFieldValidator } from '@rilaykit/validation-adapters/yup';
+    import * as Yup from 'yup';
+    import { Input } from './formik-to-rilay-components';
+
+    const rilay = ril.create()
+      .addComponent('input', { renderer: Input });
+
+    // Option 1: Using built-in validators
+    const contactFormBuiltIn = rilay
+      .form('contact')
+      .add({
+        id: 'name',
+        type: 'input',
+        props: { placeholder: 'Name' },
+        validation: [required('Name is required')]
+      })
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { placeholder: 'Email' },
+        validation: [required('Email is required'), email('Invalid email')]
+      })
+      .add({
+        id: 'message',
+        type: 'input',
+        props: { placeholder: 'Message', multiline: true },
+        validation: [minLength(10, 'Message too short')]
+      });
+
+    // Option 2: Using Yup adapter (for easier migration)
+    const contactFormYup = rilay
+      .form('contact')
+      .add({
+        id: 'name',
+        type: 'input',
+        props: { placeholder: 'Name' },
+        validation: [yupFieldValidator(Yup.string().required('Name is required'))]
+      })
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { placeholder: 'Email' },
+        validation: [yupFieldValidator(Yup.string().email('Invalid email').required('Email is required'))]
+      })
+      .add({
+        id: 'message',
+        type: 'input',
+        props: { placeholder: 'Message', multiline: true },
+        validation: [yupFieldValidator(Yup.string().min(10, 'Message too short'))]
+      });
+
+    export { contactFormBuiltIn, contactFormYup };
+    ```
+  </Tab>
+  <Tab value="Form">
+    ```tsx title="formik-to-rilay-form.tsx"
+    import { Form, FormField } from '@rilaykit/forms';
+    import { contactFormBuiltIn } from './formik-to-rilay-config';
+
+    function RilayKitExample() {
+      return (
+        <Form 
+          formConfig={contactFormBuiltIn} 
+          onSubmit={console.log}
+          defaultValues={{ name: '', email: '', message: '' }}
+        >
+          <FormField fieldId="name" />
+          <FormField fieldId="email" />
+          <FormField fieldId="message" />
+          <button type="submit">Submit</button>
+        </Form>
+      );
+    }
+
+    export default RilayKitExample;
+    ```
+  </Tab>
+</Tabs>
+
+### Migration Benefits
+
+- **Better Type Safety**: Automatic type inference vs manual typing
+- **Component Reusability**: Register components once, use everywhere
+- **Advanced Features**: Built-in conditional logic, async validation, workflows
+- **Performance**: Optimized re-renders and validation cycles
+
+## From Final Form
+
+Final Form users will appreciate RilayKit's subscription-based updates and performance optimizations.
+
+### Before (Final Form)
+
+```tsx title="final-form-example.tsx"
+import { Form, Field } from 'react-final-form';
+
+const validate = (values) => {
+  const errors = {};
+  if (!values.name) errors.name = 'Required';
+  if (!values.email) errors.email = 'Required';
+  else if (!/\S+@\S+\.\S+/.test(values.email)) errors.email = 'Invalid email';
+  return errors;
+};
+
+function FinalFormExample() {
+  return (
+    <Form
+      onSubmit={console.log}
+      validate={validate}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <Field name="name">
+            {({ input, meta }) => (
+              <div>
+                <input {...input} placeholder="Name" />
+                {meta.touched && meta.error && <span>{meta.error}</span>}
+              </div>
+            )}
+          </Field>
+          
+          <Field name="email">
+            {({ input, meta }) => (
+              <div>
+                <input {...input} type="email" placeholder="Email" />
+                {meta.touched && meta.error && <span>{meta.error}</span>}
+              </div>
+            )}
+          </Field>
+          
+          <button type="submit">Submit</button>
+        </form>
+      )}
+    />
+  );
+}
+```
+
+### After (RilayKit)
+
+```tsx title="final-form-to-rilay.tsx"
+import { ril, required, email } from '@rilaykit/core';
+import { Form, FormField } from '@rilaykit/forms';
+
+const Input = ({ id, value, onChange, onBlur, error, props }) => (
+  <div>
+    <input
+      id={id}
+      type={props.type || 'text'}
+      placeholder={props.placeholder}
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+      onBlur={onBlur}
+    />
+    {error && <span>{error[0].message}</span>}
+  </div>
+);
+
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input });
+
+const userForm = rilay
+  .form('user')
+  .add({
+    id: 'name',
+    type: 'input',
+    props: { placeholder: 'Name' },
+    validation: [required()]
+  })
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { type: 'email', placeholder: 'Email' },
+    validation: [required(), email()]
+  });
+
+function RilayKitExample() {
+  return (
+    <Form formConfig={userForm} onSubmit={console.log}>
+      <FormField fieldId="name" />
+      <FormField fieldId="email" />
+      <button type="submit">Submit</button>
+    </Form>
+  );
+}
+```
+
+## Migration Checklist
+
+### Phase 1: Setup RilayKit
+
+- [ ] Install RilayKit packages
+- [ ] Create component renderers for existing UI components
+- [ ] Set up RilayKit configuration file
+
+### Phase 2: Form Migration
+
+- [ ] Convert validation schemas to RilayKit validators
+- [ ] Rebuild form configurations using fluent API
+- [ ] Replace form components with RilayKit equivalents
+
+### Phase 3: Advanced Features
+
+- [ ] Add conditional logic using `when()` conditions
+- [ ] Implement async validation where needed
+- [ ] Optimize performance with memoization
+
+### Phase 4: Testing & Cleanup
+
+- [ ] Update unit tests for new form structure
+- [ ] Test all validation scenarios
+- [ ] Remove old form library dependencies
+
+## Common Patterns
+
+### Conditional Fields
+
+<Tabs items={['React Hook Form', 'RilayKit']}>
+  <Tab value="React Hook Form">
+    ```tsx
+    const watchedField = watch('accountType');
+    
+    return (
+      <form>
+        <input {...register('accountType')} />
+        {watchedField === 'business' && (
+          <input {...register('companyName')} />
+        )}
+      </form>
+    );
+    ```
+  </Tab>
+  <Tab value="RilayKit">
+    ```tsx
+    const form = rilay
+      .form('account')
+      .add({
+        id: 'accountType',
+        type: 'select',
+        // ... config
+      })
+      .add({
+        id: 'companyName',
+        type: 'input',
+        conditions: {
+          visible: when('accountType').equals('business')
+        }
+      });
+    ```
+  </Tab>
+</Tabs>
+
+### Dynamic Arrays
+
+<Tabs items={['Formik FieldArray', 'RilayKit']}>
+  <Tab value="Formik FieldArray">
+    ```tsx
+    <FieldArray name="emails">
+      {({ push, remove }) => (
+        <div>
+          {values.emails.map((email, index) => (
+            <Field key={index} name={`emails.${index}`} />
+          ))}
+          <button onClick={() => push('')}>Add</button>
+        </div>
+      )}
+    </FieldArray>
+    ```
+  </Tab>
+  <Tab value="RilayKit">
+    ```tsx
+    // Use dynamic form generation
+    const [emails, setEmails] = useState(['']);
+    
+    const dynamicForm = rilay
+      .form('emails')
+      .addFields(emails.map((_, index) => ({
+        id: `email${index}`,
+        type: 'input',
+        // ... config
+      })));
+    ```
+  </Tab>
+</Tabs>
+
+## Performance Comparison
+
+| Library | Bundle Size | Runtime Performance | Type Safety | Learning Curve |
+|---------|-------------|-------------------|-------------|----------------|
+| **RilayKit** | ~15kb (core + forms) | Excellent (selective updates) | Full TypeScript | Medium |
+| React Hook Form | ~25kb | Excellent | Good (with manual setup) | Low |
+| Formik | ~45kb | Good | Limited | Low |
+| Final Form | ~35kb | Good | Limited | Medium |
+
+<Callout type="info">
+Need help with migration? Join our [Discord community](https://discord.gg/rilay) or check out our [professional services](mailto:support@rilay.io) for enterprise migrations.
+</Callout>
+
+## Next Steps
+
+After migrating to RilayKit, explore these advanced features:
+
+- [Multi-step Workflows](/workflow/building-workflows) for complex user journeys
+- [Advanced Validation](/forms/validation) with async validators
+- [Custom Renderers](/core-concepts/renderers) for specialized components
+- [Analytics Integration](/workflow/analytics) for user behavior tracking

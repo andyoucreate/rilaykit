@@ -1,7 +1,10 @@
 {
   "pages": [
     "index",
+    "quickstart",
     "getting-started",
+    "examples",
+    "migration",
     "core-concepts",
     "api",
     "---@rilaykit/forms---",

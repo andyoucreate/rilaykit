@@ -1,16 +1,17 @@
 ---
 title: Installation
-description: How to install Rilaykit packages in your project.
+description: Install RilayKit packages in your React project with step-by-step instructions.
 ---
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
 
-Rilay is modular. You can install only the packages you need. `@rilaykit/core` is always required.
+RilayKit is modular by design. Install only the packages you need. `@rilaykit/core` is always required as the foundation.
 
-## Basic Installation (Forms)
+## Quick Start
 
-For simple forms, install the core and forms packages:
+For most use cases, start with the core and forms packages:
 
-<Tabs items={['pnpm', 'npm', 'yarn']}>
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
     ```bash
     pnpm add @rilaykit/core @rilaykit/forms
@@ -26,13 +27,33 @@ For simple forms, install the core and forms packages:
     yarn add @rilaykit/core @rilaykit/forms
     ```
   </Tab>
+  <Tab value="bun">
+    ```bash
+    bun add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
 </Tabs>
 
-## Full Installation (With Workflows)
+## Package Overview
 
-For multi-step workflows, add the workflow package (commercial license required):
+| Package | License | Description | Use Case |
+|---------|---------|-------------|----------|
+| `@rilaykit/core` | MIT | Core engine, types, validation system | **Required** - Foundation for all RilayKit usage |
+| `@rilaykit/forms` | MIT | Form builder and React components | Single-page forms, basic workflows |
+| `@rilaykit/workflow` | Commercial | Multi-step workflows with advanced features | Complex onboarding, multi-page forms, analytics |
+| `@rilaykit/validation-adapters` | MIT | Zod, Yup, and Joi integrations | When using external validation libraries |
 
-<Tabs items={['pnpm', 'npm', 'yarn']}>
+## Advanced Installation
+
+### Multi-Step Workflows
+
+For complex workflows with step navigation, persistence, and analytics:
+
+<Callout type="info">
+`@rilaykit/workflow` requires a commercial license for production use.
+</Callout>
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
     ```bash
     pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
@@ -48,67 +69,114 @@ For multi-step workflows, add the workflow package (commercial license required)
     yarn add @rilaykit/core @rilaykit/forms @rilaykit/workflow
     ```
   </Tab>
+  <Tab value="bun">
+    ```bash
+    bun add @rilaykit/core @rilaykit/forms @rilaykit/workflow
+    ```
+  </Tab>
 </Tabs>
 
-## Package Overview
+### Validation Adapters
 
-- **`@rilaykit/core`** (MIT): Core engine with configuration system, types, and validation
-- **`@rilaykit/forms`** (MIT): Form builder for single-step forms
-- **`@rilaykit/workflow`** (Commercial): Workflow engine for multi-step forms with advanced features
+If you prefer using established validation libraries:
 
-## Peer Dependencies
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab value="pnpm">
+    ```bash
+    # For Zod users (recommended)
+    pnpm add @rilaykit/validation-adapters zod
+    
+    # For Yup users
+    pnpm add @rilaykit/validation-adapters yup
+    
+    # For Joi users
+    pnpm add @rilaykit/validation-adapters joi
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    # For Zod users (recommended)
+    npm install @rilaykit/validation-adapters zod
+    
+    # For Yup users
+    npm install @rilaykit/validation-adapters yup
+    
+    # For Joi users
+    npm install @rilaykit/validation-adapters joi
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    # For Zod users (recommended)
+    yarn add @rilaykit/validation-adapters zod
+    
+    # For Yup users
+    yarn add @rilaykit/validation-adapters yup
+    
+    # For Joi users
+    yarn add @rilaykit/validation-adapters joi
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    # For Zod users (recommended)
+    bun add @rilaykit/validation-adapters zod
+    
+    # For Yup users
+    bun add @rilaykit/validation-adapters yup
+    
+    # For Joi users
+    bun add @rilaykit/validation-adapters joi
+    ```
+  </Tab>
+</Tabs>
 
-Rilay requires React 18+ and TypeScript 5+:
+## System Requirements
+
+<Callout type="warning">
+RilayKit requires modern React and TypeScript versions for optimal type safety and performance.
+</Callout>
+
+### Required Dependencies
 
 ```json
 {
   "peerDependencies": {
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "devDependencies": {
     "typescript": ">=5.0.0"
   }
 }
 ```
 
-## Validation (Optional)
+### Framework Compatibility
 
-Rilay includes built-in validators, but you can use any validation library:
+RilayKit works with any React-based framework:
 
-<Tabs items={['pnpm', 'npm', 'yarn']}>
-  <Tab value="pnpm">
-    ```bash
-    # Zod (recommandé)
-    pnpm add zod
-    
-    # Ou Yup
-    pnpm add yup
-    
-    # Ou Joi
-    pnpm add joi
-    ```
-  </Tab>
-  <Tab value="npm">
-    ```bash
-    # Zod (recommandé)
-    npm install zod
-    
-    # Ou Yup
-    npm install yup
-    
-    # Ou Joi
-    npm install joi
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    # Zod (recommandé)
-    yarn add zod
-    
-    # Ou Yup
-    yarn add yup
-    
-    # Ou Joi
-    yarn add joi
-    ```
-  </Tab>
-</Tabs> 
+- ✅ **Next.js** (App Router & Pages Router)
+- ✅ **Vite** + React
+- ✅ **Create React App** (CRA)
+- ✅ **Remix**
+- ✅ **Gatsby**
+- ✅ **React Native** (with `@rilaykit/react-native`)
+
+## Verification
+
+Verify your installation by importing the core package:
+
+```tsx title="test-installation.tsx"
+import { ril } from '@rilaykit/core';
+import { Form } from '@rilaykit/forms';
+
+// If this imports without errors, you're ready to go!
+console.log('RilayKit is ready!');
+```
+
+## Next Steps
+
+- **New to RilayKit?** → Start with [Your First Form](/getting-started/your-first-form)
+- **Want to see examples?** → Browse the [Examples Gallery](/examples)
+- **Coming from another library?** → Check our [Migration Guides](/migration)
+- **Enterprise setup?** → Review [Configuration Best Practices](/guides/configuration) 

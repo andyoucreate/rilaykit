@@ -1,14 +1,21 @@
 ---
 title: The `ril` Instance
-description: Understanding the central factory and registry of Rilaykit.
+description: Understanding the central configuration hub of RilayKit - the foundation of type-safe forms.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 
-The `ril` instance is the heart of every Rilaykit application. It serves as a central hub for all your form and workflow configurations. You should create a single, shared `ril` instance for your application and export it from a central file (e.g., `lib/rilay.ts`).
+The `ril` instance is the **heart of every RilayKit application**. It serves as a central configuration hub for all your form and workflow configurations, providing type safety and component reusability across your entire application.
 
-Its primary responsibilities are:
-1.  **To be a Registry:** It holds the central configuration for your components (`addComponent`) and custom renderers (`.configure()`).
-2.  **To be a Factory:** It is used to create `form` and `flow` builders that inherit its configuration.
+<Callout type="info">
+**Best Practice**: Create a single, shared `ril` instance for your application and export it from a central file (e.g., `lib/rilay.ts`).
+</Callout>
+
+## Core Responsibilities
+
+The `ril` instance has two primary roles:
+
+1. **🏗️ Component Registry**: Stores your component configurations and custom renderers
+2. **🏭 Builder Factory**: Creates type-safe `form` and `workflow` builders that inherit its configuration
 
 ## Creating and Configuring
 

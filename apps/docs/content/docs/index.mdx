@@ -1,41 +1,105 @@
 ---
 title: Introduction
-description: Welcome to Rilaykit, a powerful framework for building dynamic forms and workflows in React.
+description: A next-generation React form library focused on type safety, modularity, and developer experience.
 ---
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { FileCode, BotMessageSquare, Settings2 } from 'lucide-react';
+import { FileCode, BotMessageSquare, Settings2, Sparkles } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
 
-# Welcome to Rilaykit
+# Welcome to RilayKit
 
-**Rilaykit** is a powerful and flexible framework for building dynamic, component-based forms and multi-step workflows in React applications. It's designed to be intuitive, extensible, and easy to integrate into any project, giving you full control over your UI while handling the complex state management for you.
+**RilayKit** is a next-generation React form library that combines powerful functionality with exceptional developer experience. Built with TypeScript-first design, it provides type-safe form building through an intuitive fluent API while maintaining complete UI flexibility.
 
-At its core, Rilaykit is built on a "bring your own components" philosophy. It doesn't ship with any UI elements. Instead, it provides a robust engine that you connect to your existing React components, whether they're from a library like Material UI, an internal design system, or styled from scratch.
+<Callout type="info">
+RilayKit follows a **headless architecture** — you bring the components, we handle the complex logic, state management, and validation.
+</Callout>
 
-## Key Packages
+## Why Choose RilayKit?
 
-The Rilaykit ecosystem is split into several packages, allowing you to adopt only the parts you need.
+- **🎯 Type-Safe by Design**: Full TypeScript support with intelligent type inference
+- **🧩 Modular Architecture**: Use only what you need — core, forms, workflows, or validation adapters
+- **⚡ Fluent Builder API**: Intuitive, chainable syntax for building complex forms
+- **🎨 UI Agnostic**: Works with any component library (Material-UI, Chakra, Ant Design, or custom)
+- **🔄 Advanced Workflows**: Multi-step processes with conditional logic and persistence
+- **📊 Built-in Analytics**: Track user behavior and form performance (Premium)
+
+## Quick Example
+
+```tsx
+import { ril } from '@rilaykit/core';
+import { Form, FormField } from '@rilaykit/forms';
+
+// Configure your instance once
+const rilay = ril.create()
+  .addComponent('input', { renderer: YourInputComponent });
+
+// Build forms with fluent API
+const loginForm = rilay
+  .form('login')
+  .add({ id: 'email', type: 'input', validation: [required(), email()] })
+  .add({ id: 'password', type: 'input', validation: [required(), minLength(8)] });
+
+// Render anywhere
+<Form formConfig={loginForm} onSubmit={handleLogin}>
+  <FormField fieldId="email" />
+  <FormField fieldId="password" />
+</Form>
+```
+
+## Architecture Overview
+
+RilayKit's modular design allows you to compose exactly the functionality you need:
 
 <Cards>
   <Card
     icon={<Settings2/>}
     title="@rilaykit/core"
-    description="The core engine. Manages component registration, rendering logic, and validation."
+    description="Type system, component registry, validation engine, and conditional logic. The foundation of everything."
   />
   <Card
     icon={<FileCode/>}
     title="@rilaykit/forms"
-    description="A fluent builder for creating powerful single-step forms."
+    description="Fluent form builder with React hooks and components. Perfect for single-page forms and quick implementations."
   />
   <Card
     icon={<BotMessageSquare/>}
     title="@rilaykit/workflow"
-    description="An engine for building complex multi-step workflows, wizards, and onboarding flows."
+    description="Multi-step workflows with navigation, persistence, and analytics. Ideal for onboarding and complex processes."
+  />
+  <Card
+    icon={<Sparkles/>}
+    title="@rilaykit/validation-adapters"
+    description="Seamless integration with Zod, Yup, and Joi. Use your preferred validation library."
   />
 </Cards>
 
-## Philosophy
+## Core Principles
 
-- **Component-Driven:** Your components are the building blocks. Rilaykit provides the logic, you provide the looks.
-- **Developer Experience:** A fully type-safe API with TypeScript ensures you catch errors early and build with confidence.
-- **Extensible:** Every piece of the UI rendering is customizable through a system of renderers, giving you granular control.
-- **Decoupled:** The core logic is completely separate from the UI, making it easy to integrate with any design system or styling solution. 
+### 🏗️ **Bring Your Own Components**
+RilayKit doesn't include UI components. Instead, it connects to your existing components through a powerful renderer system. This means:
+- Perfect integration with your design system
+- No CSS conflicts or unwanted styling
+- Complete control over accessibility and UX
+
+### 🔧 **Extensible by Design**
+Every aspect of RilayKit can be customized:
+- Custom validators and validation logic
+- Conditional field visibility and behavior
+- Custom renderers for any UI framework
+- Plugin system for extending functionality
+
+### 🛡️ **Type Safety First**
+Built from the ground up with TypeScript:
+- Intelligent autocompletion for your registered components
+- Compile-time validation of form configurations
+- Inferred types from validation schemas
+- Zero runtime type errors
+
+## Getting Started
+
+Ready to build better forms? Start with our [installation guide](/getting-started/installation) or dive into [your first form](/getting-started/your-first-form).
+
+For developers migrating from other solutions, check out our migration guides:
+- [From Formik](/migration/formik)
+- [From React Hook Form](/migration/react-hook-form)
+- [From other libraries](/migration/general) 

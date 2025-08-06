@@ -1,0 +1,274 @@
+---
+title: Quick Start
+description: Get up and running with RilayKit in 5 minutes. Perfect for developers who want to jump straight into code.
+---
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Quick Start
+
+Get a working form in 5 minutes. This guide skips explanations and focuses on getting you productive fast.
+
+## 1. Install
+
+<Tabs items={['pnpm', 'npm', 'yarn']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+</Tabs>
+
+## 2. Create Components
+
+```tsx title="components/Input.tsx"
+import { ComponentRenderer } from '@rilaykit/core';
+
+interface InputProps {
+  label: string;
+  type?: string;
+  placeholder?: string;
+}
+
+export const Input: ComponentRenderer<InputProps> = ({
+  id, value, onChange, onBlur, error, props
+}) => (
+  <div className="mb-4">
+    <label htmlFor={id} className="block text-sm font-medium mb-1">
+      {props.label}
+    </label>
+    <input
+      id={id}
+      type={props.type || 'text'}
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+      onBlur={onBlur}
+      placeholder={props.placeholder}
+      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+    />
+    {error && <p className="text-red-500 text-sm mt-1">{error[0].message}</p>}
+  </div>
+);
+```
+
+## 3. Configure RilayKit
+
+```tsx title="lib/rilay.ts"
+import { ril } from '@rilaykit/core';
+import { Input } from '../components/Input';
+
+export const rilay = ril.create()
+  .addComponent('input', { renderer: Input });
+```
+
+## 4. Build Form
+
+```tsx title="forms/login.ts"
+import { required, email } from '@rilaykit/core';
+import { rilay } from '../lib/rilay';
+
+export const loginForm = rilay
+  .form('login')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email', type: 'email' },
+    validation: [required(), email()]
+  })
+  .add({
+    id: 'password',
+    type: 'input',
+    props: { label: 'Password', type: 'password' },
+    validation: [required()]
+  });
+```
+
+## 5. Render Form
+
+```tsx title="components/LoginForm.tsx"
+import { Form, FormField } from '@rilaykit/forms';
+import { loginForm } from '../forms/login';
+
+export function LoginForm() {
+  const handleSubmit = (data: { email: string; password: string }) => {
+    console.log('Login:', data);
+    // Handle login logic
+  };
+
+  return (
+    <Form formConfig={loginForm} onSubmit={handleSubmit}>
+      <FormField fieldId="email" />
+      <FormField fieldId="password" />
+      <button 
+        type="submit" 
+        className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+      >
+        Sign In
+      </button>
+    </Form>
+  );
+}
+```
+
+## 6. Use Anywhere
+
+```tsx title="pages/login.tsx"
+import { LoginForm } from '../components/LoginForm';
+
+export default function LoginPage() {
+  return (
+    <div className="max-w-md mx-auto mt-8">
+      <h1 className="text-2xl font-bold mb-6">Sign In</h1>
+      <LoginForm />
+    </div>
+  );
+}
+```
+
+## ✅ Done!
+
+You now have a fully functional, validated login form. 
+
+## What's Next?
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🎨 Style It</h3>
+    <p className="text-sm text-gray-600">Integrate with your UI library</p>
+    <a href="/examples" className="text-blue-600 text-sm">View Examples →</a>
+  </div>
+  
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🔄 Add Logic</h3>
+    <p className="text-sm text-gray-600">Conditional fields, async validation</p>
+    <a href="/forms/advanced-forms" className="text-blue-600 text-sm">Learn More →</a>
+  </div>
+  
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">📝 Multi-Step</h3>
+    <p className="text-sm text-gray-600">Complex workflows and wizards</p>
+    <a href="/workflow/building-workflows" className="text-blue-600 text-sm">Explore Workflows →</a>
+  </div>
+  
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🧪 Validate</h3>
+    <p className="text-sm text-gray-600">Zod, Yup, Joi integration</p>
+    <a href="/core-concepts/validation-adapters" className="text-blue-600 text-sm">See Adapters →</a>
+  </div>
+</div>
+
+## Common Patterns
+
+### Multiple Input Types
+
+```tsx
+// Support different input types with one component
+export const rilay = ril.create()
+  .addComponent('input', { renderer: Input })
+  .addComponent('textarea', { 
+    renderer: Input,
+    defaultProps: { multiline: true }
+  })
+  .addComponent('select', { renderer: SelectInput });
+```
+
+### Validation with Zod
+
+```tsx
+import { zodFieldValidator } from '@rilaykit/validation-adapters/zod';
+import { z } from 'zod';
+
+const form = rilay.form('user')
+  .add({
+    id: 'email',
+    type: 'input',
+    validation: [zodFieldValidator(z.string().email())]
+  });
+```
+
+### Conditional Fields
+
+```tsx
+import { when } from '@rilaykit/core';
+
+const form = rilay.form('account')
+  .add({
+    id: 'accountType',
+    type: 'select',
+    props: { options: [{ value: 'business', label: 'Business' }] }
+  })
+  .add({
+    id: 'companyName',
+    type: 'input',
+    conditions: { visible: when('accountType').equals('business') }
+  });
+```
+
+### Custom Validator
+
+```tsx
+const passwordMatch = (confirmPassword: string) => (password: string) => {
+  if (password !== confirmPassword) {
+    throw new Error('Passwords do not match');
+  }
+  return password;
+};
+
+// Usage
+.add({
+  id: 'confirmPassword',
+  type: 'input',
+  validation: [required(), passwordMatch(formData.password)]
+})
+```
+
+<Callout type="info">
+**Pro tip**: Save the examples above as code snippets in your editor for faster development.
+</Callout>
+
+## Templates
+
+Clone ready-to-use templates:
+
+<Tabs items={['Next.js', 'Vite', 'Remix']}>
+  <Tab value="Next.js">
+    ```bash
+    npx create-next-app@latest my-app --typescript
+    cd my-app
+    pnpm add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="Vite">
+    ```bash
+    npm create vite@latest my-app -- --template react-ts
+    cd my-app
+    pnpm add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+  <Tab value="Remix">
+    ```bash
+    npx create-remix@latest my-app --typescript
+    cd my-app
+    pnpm add @rilaykit/core @rilaykit/forms
+    ```
+  </Tab>
+</Tabs>
+
+For complete project templates, visit our [GitHub templates](https://github.com/andyoucreate/rilay-templates).
+
+## Need Help?
+
+- 📖 [Full Tutorial](/getting-started/your-first-form) - Step-by-step with explanations
+- 🎨 [Examples Gallery](/examples) - Real-world examples
+- 📚 [API Reference](/api) - Complete documentation
+- 💬 [Discord Community](https://discord.gg/rilay) - Get help from the community
