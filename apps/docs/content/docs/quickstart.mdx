@@ -217,12 +217,15 @@ const form = rilay.form('account')
 ### Custom Validator
 
 ```tsx
-const passwordMatch = (confirmPassword: string) => (password: string) => {
-  if (password !== confirmPassword) {
-    throw new Error('Passwords do not match');
-  }
-  return password;
-};
+import { custom } from '@rilaykit/core';
+
+const passwordMatch = (confirmPassword: string) => 
+  custom((password: string) => {
+    if (password !== confirmPassword) {
+      throw new Error('Passwords do not match');
+    }
+    return password;
+  });
 
 // Usage
 .add({

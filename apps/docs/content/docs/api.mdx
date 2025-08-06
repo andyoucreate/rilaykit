@@ -224,28 +224,28 @@ const validation = [pattern(/^\d{3}-\d{2}-\d{4}$/, 'Invalid SSN format')];
 
 **Returns**: `Validator`
 
-#### `asyncValidator(fn, options?)`
+#### `async(fn, errorMessage?)`
 
 Creates a custom async validator.
 
 ```tsx
-import { asyncValidator } from '@rilaykit/core';
+import { async } from '@rilaykit/core';
 
-const checkEmail = asyncValidator(
+const checkEmail = async(
   async (email: string) => {
     const response = await fetch(`/api/check-email?email=${email}`);
-    if (!response.ok) throw new Error('Email already exists');
-    return email;
+    const { available } = await response.json();
+    return available; // Return boolean for availability
   },
-  { debounceMs: 500 }
+  'Email already exists'
 );
 ```
 
 **Parameters**:
-- `fn: (value: any) => Promise<any>` - Async validation function
-- `options?: { debounceMs?: number }` - Configuration options
+- `fn: (value: any) => Promise<boolean>` - Async validation function that returns boolean
+- `errorMessage?: string` - Error message when validation fails
 
-**Returns**: `AsyncValidator`
+**Returns**: `FieldValidator`
 
 ### Conditional Logic
 
@@ -279,24 +279,20 @@ when('status').equals('active')
 when('status').notEquals('inactive')
 ```
 
-##### `isTrue()`
+##### `equals(true)` / `equals(false)`
 ```tsx
-when('isVerified').isTrue()
+when('isVerified').equals(true)  // For boolean true
+when('isDisabled').equals(false) // For boolean false
 ```
 
-##### `isFalse()`
+##### `exists()`
 ```tsx
-when('isDisabled').isFalse()
+when('name').exists() // Field has a value (not null/undefined)
 ```
 
-##### `isNotEmpty()`
+##### `notExists()`
 ```tsx
-when('name').isNotEmpty()
-```
-
-##### `isEmpty()`
-```tsx
-when('optionalField').isEmpty()
+when('optionalField').notExists() // Field is null/undefined
 ```
 
 ##### `contains(value)`
@@ -680,16 +676,16 @@ function CustomNavigation() {
 ### Zod Adapter
 
 ```tsx
-import { zodFieldValidator, zodFormValidator } from '@rilaykit/validation-adapters/zod';
+import { createZodValidator, createZodFormValidator } from '@rilaykit/validation-adapters/zod';
 import { z } from 'zod';
 
 // Field-level validation
 const validation = [
-  zodFieldValidator(z.string().email('Invalid email'))
+  createZodValidator(z.string().email('Invalid email'))
 ];
 
 // Form-level validation
-const formValidation = zodFormValidator(z.object({
+const formValidation = createZodFormValidator(z.object({
   email: z.string().email(),
   password: z.string().min(8)
 }));
@@ -698,16 +694,16 @@ const formValidation = zodFormValidator(z.object({
 ### Yup Adapter
 
 ```tsx
-import { yupFieldValidator, yupFormValidator } from '@rilaykit/validation-adapters/yup';
+import { createYupValidator, createYupFormValidator } from '@rilaykit/validation-adapters/yup';
 import * as yup from 'yup';
 
 // Field-level validation
 const validation = [
-  yupFieldValidator(yup.string().email('Invalid email'))
+  createYupValidator(yup.string().email('Invalid email'))
 ];
 
 // Form-level validation
-const formValidation = yupFormValidator(yup.object({
+const formValidation = createYupFormValidator(yup.object({
   email: yup.string().email().required(),
   password: yup.string().min(8).required()
 }));
@@ -716,16 +712,16 @@ const formValidation = yupFormValidator(yup.object({
 ### Joi Adapter
 
 ```tsx
-import { joiFieldValidator, joiFormValidator } from '@rilaykit/validation-adapters/joi';
+import { createJoiValidator, createJoiFormValidator } from '@rilaykit/validation-adapters/joi';
 import Joi from 'joi';
 
 // Field-level validation
 const validation = [
-  joiFieldValidator(Joi.string().email().message('Invalid email'))
+  createJoiValidator(Joi.string().email().message('Invalid email'))
 ];
 
 // Form-level validation
-const formValidation = joiFormValidator(Joi.object({
+const formValidation = createJoiFormValidator(Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required()
 }));

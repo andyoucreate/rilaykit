@@ -166,7 +166,7 @@ export const contactForm = rilay
       minLength(10, 'Message must be at least 10 characters')
     ],
     conditions: {
-      visible: when('email').isNotEmpty() // Only show after email is entered
+      visible: when('email').exists() // Only show after email is entered
     }
   });
 ```

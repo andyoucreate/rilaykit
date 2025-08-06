@@ -26,7 +26,7 @@ RilayKit follows a **headless architecture** — you bring the components, we ha
 ## Quick Example
 
 ```tsx
-import { ril } from '@rilaykit/core';
+import { ril, required, email, minLength } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 
 // Configure your instance once
@@ -69,7 +69,7 @@ RilayKit's modular design allows you to compose exactly the functionality you ne
   <Card
     icon={<Sparkles/>}
     title="@rilaykit/validation-adapters"
-    description="Seamless integration with Zod, Yup, and Joi. Use your preferred validation library."
+    description="Seamless integration with Zod, Yup, and Joi validation libraries. Reuse your existing schemas."
   />
 </Cards>
 

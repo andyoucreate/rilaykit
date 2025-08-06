@@ -93,7 +93,7 @@ Advanced validation and conditional fields:
 import { ril, required, email, minLength, when } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 import { z } from 'zod';
-import { zodFieldValidator } from '@rilaykit/validation-adapters/zod';
+import { createZodValidator } from '@rilaykit/validation-adapters/zod';
 
 const rilay = ril.create()
   .addComponent('input', { renderer: Input })
@@ -113,7 +113,7 @@ const registrationForm = rilay
     props: { label: 'Password', type: 'password' },
     validation: [
       required(),
-      zodFieldValidator(z.string().min(8, 'Password must be at least 8 characters'))
+      createZodValidator(z.string().min(8, 'Password must be at least 8 characters'))
     ]
   })
   .add({
@@ -418,22 +418,18 @@ export function DynamicForm() {
 Real-time validation with API calls:
 
 ```tsx title="AsyncValidationForm.tsx"
-import { ril, required, asyncValidator } from '@rilaykit/core';
+import { ril, required, async } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 
 // Custom async validator
-const checkEmailAvailability = asyncValidator(
+const checkEmailAvailability = async(
   async (email: string) => {
     const response = await fetch(`/api/check-email?email=${email}`);
     const { available } = await response.json();
     
-    if (!available) {
-      throw new Error('This email is already taken');
-    }
-    
-    return email;
+    return available; // Return true if available, false if taken
   },
-  { debounceMs: 500 } // Wait 500ms after user stops typing
+  'This email is already taken'
 );
 
 const rilay = ril.create()
