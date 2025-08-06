@@ -249,18 +249,26 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
       );
 
     case 'contains':
-      return (
-        typeof fieldValue === 'string' &&
-        typeof condition.value === 'string' &&
-        fieldValue.includes(condition.value)
-      );
+      // Support for string contains
+      if (typeof fieldValue === 'string' && typeof condition.value === 'string') {
+        return fieldValue.includes(condition.value);
+      }
+      // Support for array contains
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.includes(condition.value);
+      }
+      return false;
 
     case 'notContains':
-      return (
-        typeof fieldValue === 'string' &&
-        typeof condition.value === 'string' &&
-        !fieldValue.includes(condition.value)
-      );
+      // Support for string notContains
+      if (typeof fieldValue === 'string' && typeof condition.value === 'string') {
+        return !fieldValue.includes(condition.value);
+      }
+      // Support for array notContains
+      if (Array.isArray(fieldValue)) {
+        return !fieldValue.includes(condition.value);
+      }
+      return false;
 
     case 'in':
       return Array.isArray(condition.value) && condition.value.includes(fieldValue);

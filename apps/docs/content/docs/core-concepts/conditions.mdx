@@ -75,10 +75,17 @@ when('phone').matches(/^\d{3}-\d{3}-\d{4}$/)
 ### Array Operations
 
 ```typescript
-// Status is one of active, pending, or approved
+// Check if array contains a specific value
+when('selectedProducts').contains('provident')
+when('userRoles').contains('admin')
+
+// Check if array doesn't contain a specific value
+when('excludedItems').notContains('premium')
+
+// Check if a single value is in a list of options
 when('status').in(['active', 'pending', 'approved'])
 
-// Role is not admin or super-admin
+// Check if a single value is not in a list of options
 when('role').notIn(['admin', 'super-admin'])
 ```
 

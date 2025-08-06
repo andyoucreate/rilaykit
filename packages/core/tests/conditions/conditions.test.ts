@@ -29,10 +29,24 @@ describe('Condition System', () => {
       expect(evaluateCondition(condition, { age: 65 })).toBe(false);
     });
 
-    test('contains condition', () => {
+    test('contains condition for strings', () => {
       const condition = when('name').contains('John').build();
       expect(evaluateCondition(condition, { name: 'John Doe' })).toBe(true);
       expect(evaluateCondition(condition, { name: 'Jane Smith' })).toBe(false);
+    });
+
+    test('contains condition for arrays', () => {
+      const condition = when('products').contains('provident').build();
+      expect(evaluateCondition(condition, { products: ['health', 'provident'] })).toBe(true);
+      expect(evaluateCondition(condition, { products: ['health', 'auto'] })).toBe(false);
+      expect(evaluateCondition(condition, { products: [] })).toBe(false);
+    });
+
+    test('notContains condition for arrays', () => {
+      const condition = when('products').notContains('provident').build();
+      expect(evaluateCondition(condition, { products: ['health', 'auto'] })).toBe(true);
+      expect(evaluateCondition(condition, { products: ['health', 'provident'] })).toBe(false);
+      expect(evaluateCondition(condition, { products: [] })).toBe(true);
     });
 
     test('in condition', () => {
