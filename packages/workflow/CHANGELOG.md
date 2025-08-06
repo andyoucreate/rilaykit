@@ -1,5 +1,13 @@
 # @rilaykit/workflow
 
+## 8.1.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@8.1.0
+  - @rilaykit/forms@8.0.1
+
 ## 8.1.0
 
 ### Minor Changes

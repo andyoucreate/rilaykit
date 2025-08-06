@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 8.1.0
+
+### Minor Changes
+
+- Add array support for conditions
+
 ## 8.0.0
 
 ### Major Changes
