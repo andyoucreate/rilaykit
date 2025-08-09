@@ -9,11 +9,11 @@ export default defineConfig({
   },
   format: ['cjs', 'esm'],
   dts: false,
-  sourcemap: true,
+  sourcemap: false,
   clean: true,
   external: ['react', 'react-dom', '@rilaykit/core', 'zod', 'yup', 'joi'],
   treeshake: true,
   splitting: false,
-  minify: false, // Keep readable for debugging
+  minify: true,
   target: 'es2020'
 });

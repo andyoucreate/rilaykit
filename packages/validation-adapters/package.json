@@ -17,6 +17,7 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -49,16 +50,19 @@
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
   },
-  "dependencies": {
-    "joi": "^17.11.0",
-    "yup": "^1.4.0",
-    "zod": "^3.22.0"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@rilaykit/core": "^8.0.0",
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "zod": "^3.22.0",
+    "yup": "^1.4.0",
+    "joi": "^17.11.0"
   },
-  "peerDependenciesMeta": {},
+  "peerDependenciesMeta": {
+    "zod": { "optional": true },
+    "yup": { "optional": true },
+    "joi": { "optional": true }
+  },
   "devDependencies": {
     "@rilaykit/core": "workspace:*",
     "@types/react": "^18.2.0",
@@ -67,7 +71,9 @@
     "tsup": "^8.0.0",
     "vitest": "^1.0.0",
     "rimraf": "^5.0.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "yup": "^1.4.0",
+    "joi": "^17.11.0"
   },
   "publishConfig": {
     "access": "public"
