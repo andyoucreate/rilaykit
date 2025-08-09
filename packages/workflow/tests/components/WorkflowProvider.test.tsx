@@ -1,5 +1,5 @@
 import { ril } from '@rilaykit/core';
-import { createForm, useFormContext } from '@rilaykit/forms';
+import { form, useFormContext } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,12 +52,14 @@ describe('WorkflowProvider', () => {
         skipButtonRenderer: TestButtonRenderer,
       });
 
-    const personalInfoForm = createForm(config, 'personal-info')
+    const personalInfoForm = form
+      .create<any>(config, 'personal-info')
       .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
       .add({ id: 'lastName', type: 'text', props: { label: 'Last Name' } })
       .build();
 
-    const preferencesForm = createForm(config, 'preferences')
+    const preferencesForm = form
+      .create<any>(config, 'preferences')
       .add({ id: 'theme', type: 'text', props: { label: 'Theme' } })
       .build();
 

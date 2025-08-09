@@ -1,13 +1,16 @@
-import type {
-  ConditionalBehavior,
-  FieldValidationConfig,
-  FormConfiguration,
-  FormFieldConfig,
-  FormFieldRow,
-  FormValidationConfig,
-  FormValidator,
+import {
+  type ConditionalBehavior,
+  type FieldValidationConfig,
+  type FormConfiguration,
+  type FormFieldConfig,
+  type FormFieldRow,
+  type FormValidationConfig,
+  type FormValidator,
+  IdGenerator,
+  deepClone,
+  ensureUnique,
+  type ril,
 } from '@rilaykit/core';
-import { IdGenerator, deepClone, ensureUnique, ril } from '@rilaykit/core';
 
 /**
  * Configuration for a form field with type safety
@@ -689,7 +692,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * - Render configuration for customization
    * - Form-level validation configuration
    */
-  build(): FormConfiguration {
+  build(): FormConfiguration<C> {
     const errors = this.validate();
     if (errors.length > 0) {
       throw new Error(`Form validation failed: ${errors.join(', ')}`);
@@ -699,7 +702,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       id: this.formId,
       rows: [...this.rows],
       allFields: this.getFields(),
-      config: this.config as ril,
+      config: this.config,
       renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
     };
@@ -795,63 +798,3 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     };
   }
 }
-
-/**
- * Factory function to create a form builder directly
- *
- * This is a convenience function that provides an alternative to using
- * the class constructor or static create method. It's particularly useful
- * for functional programming styles or when you prefer function calls
- * over class instantiation.
- *
- * @template C - Component configuration map
- * @param config - The ril configuration instance
- * @param formId - Optional form identifier
- * @returns A new form builder instance
- *
- * @example
- * ```typescript
- * const builder = createForm(rilConfig, 'contact-form')
- *   .add({ type: 'text', props: { label: 'Name' } })
- *   .add({ type: 'email', props: { label: 'Email' } });
- * ```
- */
-export function createForm<C extends Record<string, any>>(
-  config: ril<C>,
-  formId?: string
-): form<C> {
-  return form.create<C>(config, formId);
-}
-
-/**
- * Module augmentation to add createForm method to ril instances
- *
- * This declaration extends the ril interface to include the createForm
- * method, allowing for a more integrated API experience.
- */
-declare module '@rilaykit/core' {
-  interface ril<C extends Record<string, any> = Record<string, never>> {
-    /**
-     * Creates a new form builder using this ril configuration
-     *
-     * @param formId - Optional form identifier
-     * @returns A new form builder instance
-     *
-     * @example
-     * ```typescript
-     * const builder = rilConfig.createForm('my-form');
-     * ```
-     */
-    form(formId?: string): form<C>;
-  }
-}
-
-/**
- * Extend ril prototype with the createForm method
- *
- * This implementation adds the createForm method to all ril instances,
- * maintaining type safety and providing a convenient API for form creation.
- */
-(ril as any).prototype.form = function (formId?: string) {
-  return form.create(this, formId);
-};

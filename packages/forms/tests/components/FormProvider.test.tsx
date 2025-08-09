@@ -3,7 +3,7 @@ import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm } from '../../src/builders/form';
+import { form } from '../../src/builders/form';
 import { FormProvider, useFormContext } from '../../src/components/FormProvider';
 
 // Mock components
@@ -50,7 +50,8 @@ describe('FormProvider', () => {
         submitButtonRenderer: TestSubmitButtonRenderer,
       });
 
-    formConfig = createForm(config, 'test-form')
+    formConfig = form
+      .create<any>(config, 'test-form')
       .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
       .add({ id: 'lastName', type: 'text', props: { label: 'Last Name' } })
       .add({ id: 'email', type: 'email', props: { label: 'Email' } })
@@ -263,7 +264,8 @@ describe('FormProvider', () => {
         .fn()
         .mockReturnValue({ isValid: false, errors: [{ message: 'Invalid' }] });
 
-      const formConfigWithValidation = createForm(config, 'test-form')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form')
         .add({
           id: 'firstName',
           type: 'text',
@@ -349,7 +351,8 @@ describe('FormProvider', () => {
           ) as Promise<ValidationResult>
       );
 
-      const formConfigWithValidation = createForm(config, 'test-form')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form')
         .add({
           id: 'firstName',
           type: 'text',
@@ -468,7 +471,8 @@ describe('FormProvider', () => {
         errors: [{ code: 'INVALID', message: 'Invalid value' }],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -518,7 +522,8 @@ describe('FormProvider', () => {
         errors: [],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'firstName',
           type: 'text',
@@ -646,7 +651,8 @@ describe('FormProvider', () => {
         errors: [{ code: 'REQUIRED', message: 'Required field' }],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -733,7 +739,8 @@ describe('FormProvider', () => {
     it('should handle validation errors gracefully', async () => {
       const mockValidator = vi.fn().mockRejectedValue(new Error('Validation error'));
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',

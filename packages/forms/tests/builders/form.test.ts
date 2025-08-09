@@ -2,7 +2,7 @@
 import { email, minLength, required, ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm, form } from '../../src/builders/form';
+import { form } from '../../src/builders/form';
 
 describe('Form Builder', () => {
   let rilConfig: any;
@@ -70,11 +70,6 @@ describe('Form Builder', () => {
       expect(builder).toBeInstanceOf(form);
     });
 
-    it('should create form builder with createForm function', () => {
-      const builder = createForm(rilConfig, 'test-form');
-      expect(builder).toBeInstanceOf(form);
-    });
-
     it('should generate random ID when not provided', () => {
       const builder1 = form.create(rilConfig);
       const builder2 = form.create(rilConfig);
@@ -92,16 +87,6 @@ describe('Form Builder', () => {
       const config = builder.build();
 
       expect(config.id).toBe('custom-form-id');
-    });
-
-    it('should extend ril prototype with form method', () => {
-      expect(typeof rilConfig.form).toBe('function');
-
-      const builder = rilConfig.form('prototype-form');
-      expect(builder).toBeInstanceOf(form);
-
-      const config = builder.build();
-      expect(config.id).toBe('prototype-form');
     });
   });
 

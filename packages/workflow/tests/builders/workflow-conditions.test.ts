@@ -1,6 +1,6 @@
-import { ril } from '@rilaykit/core';
-import { when } from '@rilaykit/core/src/conditions';
+import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { flow } from '../../src/builders/flow';
 
 describe('Workflow Conditions', () => {

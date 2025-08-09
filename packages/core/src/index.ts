@@ -4,7 +4,7 @@ export * from './types';
 export * from './components/ComponentRendererWrapper';
 
 // Export configuration
-export { ril } from './config/ril';
+export { ril, type RilayInstance } from './config/ril';
 
 // Export shared utilities
 export * from './utils/builderHelpers';

@@ -4,7 +4,7 @@ import { form } from '../builders/form';
 import { FormProvider } from './FormProvider';
 
 export interface FormProps {
-  formConfig: FormConfiguration | form;
+  formConfig: FormConfiguration<any> | form<any>;
   defaultValues?: Record<string, any>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
   onFieldChange?: (fieldId: string, value: any, formData: Record<string, any>) => void;

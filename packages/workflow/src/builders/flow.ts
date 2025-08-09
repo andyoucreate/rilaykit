@@ -9,7 +9,7 @@ import type {
   WorkflowContext,
   WorkflowPlugin,
 } from '@rilaykit/core';
-import { IdGenerator, deepClone, ensureUnique, normalizeToArray, ril } from '@rilaykit/core';
+import { IdGenerator, deepClone, ensureUnique, normalizeToArray, type ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
 
@@ -45,7 +45,7 @@ export interface StepDefinition {
    * Form configuration for the step
    * Can be either a built FormConfiguration or a form builder instance
    */
-  formConfig: FormConfiguration | form;
+  formConfig: FormConfiguration<any> | form<any>;
 
   /**
    * Whether users can skip this step
@@ -188,7 +188,7 @@ interface WorkflowOptions {
  * @class flow
  */
 export class flow {
-  private config: ril;
+  private config: ril<any>;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -210,7 +210,7 @@ export class flow {
    * @param workflowName - Display name for the workflow
    * @param description - Optional description of the workflow purpose
    */
-  constructor(config: ril, workflowId: string, workflowName: string, description?: string) {
+  constructor(config: ril<any>, workflowId: string, workflowName: string, description?: string) {
     this.config = config;
     this.workflowId = workflowId;
     this.workflowName = workflowName;
@@ -234,7 +234,12 @@ export class flow {
    * const workflow = flow.create(rilConfig, 'checkout', 'Checkout Process');
    * ```
    */
-  static create(config: ril, workflowId: string, workflowName: string, description?: string): flow {
+  static create(
+    config: ril<any>,
+    workflowId: string,
+    workflowName: string,
+    description?: string
+  ): flow {
     return new flow(config, workflowId, workflowName, description);
   }
 
@@ -760,72 +765,3 @@ export class flow {
     return this;
   }
 }
-
-/**
- * Factory function to create a workflow builder directly
- *
- * This is a convenience function that provides an alternative to using
- * the class constructor or static create method. It's particularly useful
- * for functional programming styles or when you prefer function calls
- * over class instantiation.
- *
- * @param config - The ril configuration instance
- * @param workflowId - Unique identifier for the workflow
- * @param workflowName - Display name for the workflow
- * @param description - Optional description of the workflow purpose
- * @returns A new flow builder instance
- *
- * @example
- * ```typescript
- * const workflow = createFlow(rilConfig, 'onboarding', 'User Onboarding');
- * ```
- */
-export function createFlow(
-  config: ril,
-  workflowId: string,
-  workflowName: string,
-  description?: string
-): flow {
-  return flow.create(config, workflowId, workflowName, description);
-}
-
-/**
- * Module augmentation to add createFlow method to ril instances
- *
- * This declaration extends the ril interface to include the createFlow
- * method, allowing for a more integrated API experience where workflows
- * can be created directly from ril configuration instances.
- */
-declare module '@rilaykit/core' {
-  interface ril {
-    /**
-     * Creates a new workflow builder using this ril configuration
-     *
-     * @param workflowId - Unique identifier for the workflow
-     * @param workflowName - Display name for the workflow
-     * @param description - Optional description of the workflow purpose
-     * @returns A new flow builder instance
-     *
-     * @example
-     * ```typescript
-     * const workflow = rilConfig.createFlow('checkout', 'Checkout Process');
-     * ```
-     */
-    flow(workflowId: string, workflowName: string, description?: string): flow;
-  }
-}
-
-/**
- * Extend ril prototype with the createFlow method
- *
- * This implementation adds the createFlow method to all ril instances,
- * maintaining type safety and providing a convenient API for workflow creation
- * that integrates seamlessly with the existing ril configuration system.
- */
-(ril as any).prototype.flow = function (
-  workflowId: string,
-  workflowName: string,
-  description?: string
-) {
-  return flow.create(this, workflowId, workflowName, description);
-};

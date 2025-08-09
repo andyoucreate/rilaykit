@@ -3,7 +3,7 @@ import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFlow, flow } from '../../src/builders/flow';
+import { flow } from '../../src/builders/flow';
 
 describe('Flow Builder', () => {
   let rilConfig: any;
@@ -50,11 +50,6 @@ describe('Flow Builder', () => {
       expect(builder).toBeInstanceOf(flow);
     });
 
-    it('should create flow builder with createFlow function', () => {
-      const builder = createFlow(rilConfig as any, 'test-workflow', 'Test Workflow');
-      expect(builder).toBeInstanceOf(flow);
-    });
-
     it('should create with all parameters including description', () => {
       const builder = flow
         .create(rilConfig as any, 'test-id', 'Test Name', 'Test Description')
@@ -75,20 +70,6 @@ describe('Flow Builder', () => {
       expect(config.id).toBe('test-id');
       expect(config.name).toBe('Test Name');
       expect(config.description).toBeUndefined();
-    });
-
-    it('should extend ril prototype with flow method', () => {
-      expect(typeof (rilConfig as any).flow).toBe('function');
-
-      const builder = (rilConfig as any).flow('prototype-workflow', 'Prototype Workflow');
-      expect(builder).toBeInstanceOf(flow);
-
-      // Add a step before building to satisfy validation
-      builder.addStep({ title: 'Test Step', formConfig: sampleForm });
-
-      const config = builder.build();
-      expect(config.id).toBe('prototype-workflow');
-      expect(config.name).toBe('Prototype Workflow');
     });
   });
 

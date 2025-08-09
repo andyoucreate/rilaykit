@@ -3,7 +3,15 @@
   "version": "8.1.1",
   "description": "Commercial workflow and multi-step form utilities for RilayKit - License required for all use",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "files": ["dist"],
   "scripts": {
     "build": "tsup",
@@ -37,11 +45,11 @@
     "react-dom": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "^5.3.0"
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.8.3"
   },
   "publishConfig": {
     "access": "public"

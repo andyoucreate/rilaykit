@@ -1,6 +1,6 @@
 import type { ComponentRenderProps, ComponentRenderer } from '@rilaykit/core';
 import { ril, when } from '@rilaykit/core';
-import { Form, FormField } from '@rilaykit/forms';
+import { Form, FormField, form } from '@rilaykit/forms';
 
 // Define component prop interfaces
 interface TextInputProps {
@@ -49,9 +49,9 @@ export default function FormTestPage() {
       defaultProps: { label: 'Default Email', placeholder: 'Enter email...' },
     });
 
-  // This should have autocompletion
-  const testForm = factory
-    .form('test-form')
+  // Build the form using createForm API
+  const testForm = form
+    .create(factory, 'test-form')
     .add({
       id: 'userEmail',
       type: 'text',
@@ -70,9 +70,10 @@ export default function FormTestPage() {
         required: true,
       },
       conditions: {
-        visible: when('userEmail').equals('karl@karl.fr'),
+        visible: when('userEmail').equals('karl@karl.fr').build(),
       },
-    });
+    })
+    .build();
 
   return (
     <div className="max-w-2xl mx-auto p-8">
@@ -102,9 +103,7 @@ export default function FormTestPage() {
 
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <h2 className="text-lg font-semibold text-yellow-800 mb-2">🔧 Debug Info</h2>
-        <pre className="text-sm text-yellow-700">
-          {`Form stats: ${JSON.stringify(testForm.getStats(), null, 2)}`}
-        </pre>
+        <pre className="text-sm text-yellow-700">{`Form stats: ${JSON.stringify(testForm, null, 2)}`}</pre>
       </div>
     </div>
   );

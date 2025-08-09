@@ -2,7 +2,7 @@ import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createForm } from '../../src/builders/form';
+import { form } from '../../src/builders/form';
 import { FormField } from '../../src/components/FormField';
 import { FormProvider } from '../../src/components/FormProvider';
 
@@ -85,7 +85,8 @@ describe('FormField', () => {
         submitButtonRenderer: TestSubmitButtonRenderer,
       });
 
-    formConfig = createForm(config, 'test-form')
+    formConfig = form
+      .create<any>(config, 'test-form')
       .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
       .add({ id: 'lastName', type: 'text', props: { label: 'Last Name' } })
       .add({ id: 'email', type: 'email', props: { label: 'Email' } })
@@ -201,7 +202,8 @@ describe('FormField', () => {
         errors: [{ code: 'REQUIRED', message: 'This field is required' }],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -230,7 +232,8 @@ describe('FormField', () => {
 
     it('should clear errors when field becomes valid', async () => {
       // Simplified test - just verify the field renders and can be changed
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -260,7 +263,8 @@ describe('FormField', () => {
         errors: [],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -293,7 +297,8 @@ describe('FormField', () => {
         errors: [],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -346,7 +351,8 @@ describe('FormField', () => {
         errors: [{ code: 'INVALID', message: 'Invalid value' }],
       });
 
-      const formConfigWithValidation = createForm(config, 'test-form-validation')
+      const formConfigWithValidation = form
+        .create<any>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -458,7 +464,8 @@ describe('FormField', () => {
           submitButtonRenderer: TestSubmitButtonRenderer,
         });
 
-      const formConfigWithSpy = createForm(configWithSpy, 'test-form')
+      const formConfigWithSpy = form
+        .create<any>(configWithSpy, 'test-form')
         .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
         .build();
 
@@ -502,7 +509,8 @@ describe('FormField', () => {
           submitButtonRenderer: TestSubmitButtonRenderer,
         });
 
-      const formConfigWithError = createForm(configWithError, 'test-form')
+      const formConfigWithError = form
+        .create<any>(configWithError, 'test-form')
         .add({ id: 'errorField', type: 'error', props: { label: 'Error Field' } })
         .build();
 

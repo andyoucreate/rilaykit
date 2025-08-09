@@ -28,6 +28,8 @@ import {
   WorkflowPreviousButton,
   WorkflowSkipButton,
   WorkflowStepper,
+  flow,
+  form,
   useWorkflowContext,
 } from '@rilaykit/workflow';
 import type React from 'react';
@@ -399,8 +401,8 @@ export default function WorkflowTestPage() {
   });
 
   // Build form configurations for each step
-  const personalInfoForm = factory
-    .form()
+  const personalInfoForm = form
+    .create(factory, 'personal-info')
     .add(
       {
         id: 'firstName',
@@ -449,8 +451,8 @@ export default function WorkflowTestPage() {
       },
     });
 
-  const preferencesForm = factory
-    .form()
+  const preferencesForm = form
+    .create(factory, 'preferences')
     .add({
       id: 'role',
       type: 'select',
@@ -487,8 +489,8 @@ export default function WorkflowTestPage() {
       },
     });
 
-  const companyDetailsForm = factory
-    .form()
+  const companyDetailsForm = form
+    .create(factory, 'company-details')
     .add({
       id: 'companyName',
       type: 'text',
@@ -516,7 +518,7 @@ export default function WorkflowTestPage() {
       },
     });
 
-  const confirmationForm = factory.form().add({
+  const confirmationForm = form.create(factory, 'confirmation').add({
     id: 'feedback',
     type: 'textarea',
     props: {
@@ -560,8 +562,9 @@ export default function WorkflowTestPage() {
   };
 
   // Build workflow configuration
-  const workflowConfig = factory
-    .flow(
+  const workflowConfig = flow
+    .create(
+      factory,
       'user-onboarding',
       'User Onboarding Workflow',
       'A multi-step workflow to onboard new users with API integration'
