@@ -18,6 +18,7 @@ import {
   ril,
   when,
 } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { createZodValidator } from '@rilaykit/validation-adapters';
 import {
   LocalStorageAdapter,
@@ -29,7 +30,6 @@ import {
   WorkflowSkipButton,
   WorkflowStepper,
   flow,
-  form,
   useWorkflowContext,
 } from '@rilaykit/workflow';
 import type React from 'react';

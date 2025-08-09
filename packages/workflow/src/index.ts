@@ -21,14 +21,5 @@ export * from './persistence';
 export { RilayLicenseManager } from './licensing/RilayLicenseManager';
 export type { LicensePayload, LicensePlan, LicenseResult } from './licensing/types';
 
-// Plugins
-
-// Re-export types and utilities
-export type * from '@rilaykit/core';
-
-export * from '@rilaykit/core';
-
-export { form } from '@rilaykit/forms';
-
 // Component types
 export type { WorkflowContextValue } from './components/WorkflowProvider';
