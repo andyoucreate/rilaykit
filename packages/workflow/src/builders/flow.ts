@@ -166,6 +166,11 @@ interface WorkflowOptions {
  * - Comprehensive statistics and analytics
  * - Type-safe configuration management
  *
+ * DX Notes:
+ * - Recommended: use the explicit factory `flow.create(rilConfig, id, name)`; we do not augment ril with `.flow()`.
+ * - Steps accept either a built `FormConfiguration` or a `form` builder; builders are built internally.
+ * - Use `when('path')...build()` for step-level conditions in `StepConditionalBehavior`.
+ *
  * @example
  * ```typescript
  * const workflow = flow.create(rilConfig, 'user-onboarding', 'User Onboarding')
@@ -222,6 +227,8 @@ export class flow {
    *
    * This is the preferred way to create workflow builders as it provides
    * better type inference and follows the factory pattern.
+   *
+   * DX Note: Prefer using this factory over `new flow(...)` for clarity and consistency.
    *
    * @param config - The ril configuration instance
    * @param workflowId - Unique identifier for the workflow

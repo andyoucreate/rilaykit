@@ -45,30 +45,46 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
 };
 
 /**
- * Form builder class for creating type-safe form configurations
+ * Form builder for creating type-safe form configurations
  *
- * This class provides a fluent API for building forms with automatic validation,
- * type safety, and flexible layout options. It manages field registration,
- * row organization, and form configuration generation.
+ * DX Notes (How to create a form):
+ * - Recommended: use the static factory
  *
- * @template C - Component configuration map defining available component types
+ *   const rilConfig = ril
+ *     .create()
+ *     .addComponent('text', { name: 'Text', renderer: TextInput })
+ *     .addComponent('email', { name: 'Email', renderer: EmailInput });
  *
- * @example
- * ```typescript
- * // Create a form builder with typed components
- * const formBuilder = form.create(rilConfig, 'user-registration')
- *   .add({ type: 'text', props: { label: 'Name' } })
- *   .add(
- *     { type: 'email', props: { label: 'Email' } },
- *     { type: 'password', props: { label: 'Password' } }
- *   )
- *   .build();
- * ```
+ *   const myForm = form
+ *     .create(rilConfig, 'contact-form')
+ *     .add({ id: 'firstName', type: 'text', props: { label: 'First name' } })
+ *     .add(
+ *       { id: 'email', type: 'email', props: { label: 'Email' } },
+ *       { id: 'role', type: 'text', props: { label: 'Role' } }
+ *     )
+ *     .build();
  *
- * @remarks
- * - Supports up to 3 fields per row for optimal layout
- * - Automatically generates unique IDs for fields and rows
- * - Maintains type safety throughout the building process
+ * - Or instantiate directly:
+ *
+ *   const myForm = new form(rilConfig, 'contact-form')
+ *     .add({ id: 'firstName', type: 'text' })
+ *     .build();
+ *
+ * Why we do not augment ril with .form():
+ * - Keep the API explicit and bundler-friendly (no prototype/module augmentation)
+ * - Better discoverability and IntelliSense via the builder class
+ *
+ * Typing & autocomplete:
+ * - Types flow from your ril configuration: once components are registered,
+ *   the `type` and `props` of `.add({ ... })` are fully typed.
+ *
+ * Adding fields:
+ * - Variadic: .add(fieldA, fieldB) => same row (max 3 per row)
+ * - Array:    .add([fieldA, fieldB]) => explicit single row
+ * - >3 fields (variadic) => split across multiple rows automatically
+ *
+ * Output of .build(): FormConfiguration<C>
+ * - id, rows, allFields, renderConfig (from ril), optional validation
  */
 export class form<C extends Record<string, any> = Record<string, never>> {
   /** The ril configuration instance containing component definitions */
@@ -99,17 +115,18 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
-   * Static factory method to create a new form builder
+   * Static factory to create a new form builder
    *
-   * @template Cm - Component configuration map
-   * @param config - The ril configuration instance
-   * @param formId - Optional form identifier
-   * @returns A new form builder instance
+   * Usage (recommended):
    *
-   * @example
-   * ```typescript
-   * const builder = form.create(rilConfig, 'registration-form');
-   * ```
+   * const myForm = form
+   *   .create(rilConfig, 'my-form')
+   *   .add({ id: 'email', type: 'email', props: { label: 'Email' } })
+   *   .build();
+   *
+   * Why prefer this over `new form(...)`?
+   * - Clearer intent and better discoverability
+   * - Consistent with other builder APIs
    */
   static create<Cm extends Record<string, any> = Record<string, never>>(
     config: ril<Cm>,
