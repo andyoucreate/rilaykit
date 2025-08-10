@@ -4,6 +4,7 @@ import type {
   FormRowRendererProps,
 } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
+import React, { useMemo } from 'react';
 import { FormField } from './FormField';
 import { useFormContext } from './FormProvider';
 
@@ -11,19 +12,24 @@ export interface FormRowProps extends ComponentRendererBaseProps<FormRowRenderer
   row: FormFieldRow;
 }
 
-export function FormRow({ row, className, ...props }: FormRowProps) {
+export const FormRow = React.memo(function FormRow({ row, className, ...props }: FormRowProps) {
   const { formConfig } = useFormContext();
 
-  // Create FormField components for each field in the row (default children)
-  const defaultFieldComponents = row.fields.map((field) => (
-    <FormField key={field.id} fieldId={field.id} />
-  ));
+  // Memoize FormField components for each field in the row (default children)
+  const defaultFieldComponents = useMemo(
+    () => row.fields.map((field) => <FormField key={field.id} fieldId={field.id} />),
+    [row.fields]
+  );
 
-  const baseProps: FormRowRendererProps = {
-    row,
-    children: defaultFieldComponents,
-    className,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: FormRowRendererProps = useMemo(
+    () => ({
+      row,
+      children: defaultFieldComponents,
+      className,
+    }),
+    [row, defaultFieldComponents, className]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -35,6 +41,6 @@ export function FormRow({ row, className, ...props }: FormRowProps) {
       {defaultFieldComponents}
     </ComponentRendererWrapper>
   );
-}
+});
 
 export default FormRow;

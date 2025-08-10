@@ -1,6 +1,7 @@
 import type { ComponentRendererBaseProps, WorkflowSkipButtonRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useFormContext } from '@rilaykit/forms';
+import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowSkipButtonProps
@@ -12,7 +13,7 @@ export interface WorkflowSkipButtonProps
   isSubmitting?: boolean;
 }
 
-export function WorkflowSkipButton({
+export const WorkflowSkipButton = React.memo(function WorkflowSkipButton({
   className,
   isSubmitting: overrideIsSubmitting,
   ...props
@@ -21,32 +22,64 @@ export function WorkflowSkipButton({
     useWorkflowContext();
   const { formState } = useFormContext();
 
-  const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
-  const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+  // Memoize computed state to avoid recalculation
+  const computedState = useMemo(() => {
+    const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+    const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+    const canSkip =
+      (Boolean(currentStep?.allowSkip) ||
+        conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) &&
+      !workflowState.isTransitioning &&
+      !finalIsSubmitting;
 
-  const canSkip =
-    (Boolean(currentStep?.allowSkip) ||
-      conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) &&
-    !workflowState.isTransitioning &&
-    !finalIsSubmitting;
+    return {
+      finalIsSubmitting,
+      canSkip,
+    };
+  }, [
+    formState.isSubmitting,
+    workflowState.isSubmitting,
+    workflowState.isTransitioning,
+    workflowState.currentStepIndex,
+    currentStep?.allowSkip,
+    conditionsHelpers.isStepSkippable,
+    overrideIsSubmitting,
+  ]);
 
-  const handleSkip = async (event?: React.FormEvent) => {
-    event?.preventDefault();
-    if (!canSkip) return;
-    await skipStep();
-  };
+  // Memoize skip handler to avoid recreation
+  const handleSkip = useCallback(
+    async (event?: React.FormEvent) => {
+      event?.preventDefault();
+      if (!computedState.canSkip) return;
+      await skipStep();
+    },
+    [computedState.canSkip, skipStep]
+  );
 
-  const baseProps: WorkflowSkipButtonRendererProps = {
-    canSkip,
-    isSubmitting: finalIsSubmitting,
-    onSkip: handleSkip,
-    className,
-    // Step data
-    currentStep,
-    stepData: formState.values || {},
-    allData: context.allData,
-    context,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: WorkflowSkipButtonRendererProps = useMemo(
+    () => ({
+      canSkip: computedState.canSkip,
+      isSubmitting: computedState.finalIsSubmitting,
+      onSkip: handleSkip,
+      className,
+      // Step data
+      currentStep,
+      stepData: formState.values || {},
+      allData: context.allData,
+      context,
+    }),
+    [
+      computedState.canSkip,
+      computedState.finalIsSubmitting,
+      handleSkip,
+      className,
+      currentStep,
+      formState.values,
+      context.allData,
+      context,
+    ]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -56,6 +89,6 @@ export function WorkflowSkipButton({
       {...props}
     />
   );
-}
+});
 
 export default WorkflowSkipButton;

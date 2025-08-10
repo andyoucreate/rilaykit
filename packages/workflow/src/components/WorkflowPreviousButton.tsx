@@ -4,6 +4,7 @@ import type {
 } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import { useFormContext } from '@rilaykit/forms';
+import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowPreviousButtonProps
@@ -15,7 +16,7 @@ export interface WorkflowPreviousButtonProps
   isSubmitting?: boolean;
 }
 
-export function WorkflowPreviousButton({
+export const WorkflowPreviousButton = React.memo(function WorkflowPreviousButton({
   className,
   isSubmitting: overrideIsSubmitting,
   ...props
@@ -23,29 +24,59 @@ export function WorkflowPreviousButton({
   const { context, goPrevious, workflowState, workflowConfig, currentStep } = useWorkflowContext();
   const { formState } = useFormContext();
 
-  const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
-  const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+  // Memoize computed state to avoid recalculation
+  const computedState = useMemo(() => {
+    const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+    const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+    const canGoPrevious =
+      context.currentStepIndex > 0 && !workflowState.isTransitioning && !finalIsSubmitting;
 
-  const canGoPrevious =
-    context.currentStepIndex > 0 && !workflowState.isTransitioning && !finalIsSubmitting;
+    return {
+      finalIsSubmitting,
+      canGoPrevious,
+    };
+  }, [
+    formState.isSubmitting,
+    workflowState.isSubmitting,
+    workflowState.isTransitioning,
+    context.currentStepIndex,
+    overrideIsSubmitting,
+  ]);
 
-  const handlePrevious = async (event?: React.FormEvent) => {
-    event?.preventDefault();
-    if (!canGoPrevious) return;
-    await goPrevious();
-  };
+  // Memoize previous handler to avoid recreation
+  const handlePrevious = useCallback(
+    async (event?: React.FormEvent) => {
+      event?.preventDefault();
+      if (!computedState.canGoPrevious) return;
+      await goPrevious();
+    },
+    [computedState.canGoPrevious, goPrevious]
+  );
 
-  const baseProps: WorkflowPreviousButtonRendererProps = {
-    canGoPrevious,
-    isSubmitting: finalIsSubmitting,
-    onPrevious: handlePrevious,
-    className,
-    // Step data
-    currentStep,
-    stepData: formState.values || {},
-    allData: context.allData,
-    context,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: WorkflowPreviousButtonRendererProps = useMemo(
+    () => ({
+      canGoPrevious: computedState.canGoPrevious,
+      isSubmitting: computedState.finalIsSubmitting,
+      onPrevious: handlePrevious,
+      className,
+      // Step data
+      currentStep,
+      stepData: formState.values || {},
+      allData: context.allData,
+      context,
+    }),
+    [
+      computedState.canGoPrevious,
+      computedState.finalIsSubmitting,
+      handlePrevious,
+      className,
+      currentStep,
+      formState.values,
+      context.allData,
+      context,
+    ]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -55,6 +86,6 @@ export function WorkflowPreviousButton({
       {...props}
     />
   );
-}
+});
 
 export default WorkflowPreviousButton;

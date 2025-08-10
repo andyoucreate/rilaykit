@@ -1,5 +1,6 @@
 import type { ComponentRendererBaseProps, FormSubmitButtonRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
+import React, { useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 
 export interface FormSubmitButtonProps
@@ -11,18 +12,22 @@ export interface FormSubmitButtonProps
   isSubmitting?: boolean;
 }
 
-export function FormSubmitButton({
+export const FormSubmitButton = React.memo(function FormSubmitButton({
   className,
   isSubmitting: overrideIsSubmitting,
   ...props
 }: FormSubmitButtonProps) {
   const { formState, submit, formConfig } = useFormContext();
 
-  const baseProps: FormSubmitButtonRendererProps = {
-    isSubmitting: overrideIsSubmitting ?? formState.isSubmitting,
-    onSubmit: submit,
-    className,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: FormSubmitButtonRendererProps = useMemo(
+    () => ({
+      isSubmitting: overrideIsSubmitting ?? formState.isSubmitting,
+      onSubmit: submit,
+      className,
+    }),
+    [overrideIsSubmitting, formState.isSubmitting, submit, className]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -32,6 +37,6 @@ export function FormSubmitButton({
       {...props}
     />
   );
-}
+});
 
 export default FormSubmitButton;

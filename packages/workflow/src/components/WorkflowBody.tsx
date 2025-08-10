@@ -1,4 +1,5 @@
 import { FormBody } from '@rilaykit/forms';
+import React from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowBodyProps {
@@ -10,7 +11,10 @@ export interface WorkflowBodyProps {
  * Renders the main content of the current workflow step.
  * Simple component that renders either the children or FormBody by default.
  */
-export function WorkflowBody({ stepId, children }: WorkflowBodyProps) {
+export const WorkflowBody = React.memo(function WorkflowBody({
+  stepId,
+  children,
+}: WorkflowBodyProps) {
   const { currentStep } = useWorkflowContext();
 
   if (!currentStep) {
@@ -33,6 +37,6 @@ export function WorkflowBody({ stepId, children }: WorkflowBodyProps) {
   }
 
   return children ?? <FormBody />;
-}
+});
 
 export default WorkflowBody;

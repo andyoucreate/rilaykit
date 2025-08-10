@@ -1,10 +1,10 @@
 import type { ComponentRendererBaseProps, FormBodyRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 import FormRow from './FormRow';
 
-export function FormBody({
+export const FormBody = React.memo(function FormBody({
   className,
   ...props
 }: ComponentRendererBaseProps<FormBodyRendererProps>) {
@@ -16,11 +16,15 @@ export function FormBody({
     [formConfig.rows]
   );
 
-  const baseProps: FormBodyRendererProps = {
-    formConfig,
-    children: defaultRenderedRows,
-    className,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: FormBodyRendererProps = useMemo(
+    () => ({
+      formConfig,
+      children: defaultRenderedRows,
+      className,
+    }),
+    [formConfig, defaultRenderedRows, className]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -32,6 +36,6 @@ export function FormBody({
       {defaultRenderedRows}
     </ComponentRendererWrapper>
   );
-}
+});
 
 export default FormBody;

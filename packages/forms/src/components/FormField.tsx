@@ -1,5 +1,5 @@
 import type { ComponentRenderProps } from '@rilaykit/core';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useFormContext } from './FormProvider';
 
 export interface FormFieldProps {
@@ -7,11 +7,10 @@ export interface FormFieldProps {
   disabled?: boolean;
   customProps?: Record<string, any>;
   className?: string;
-  /** Force field to be visible even if conditions say otherwise (for debugging) */
   forceVisible?: boolean;
 }
 
-export function FormField({
+export const FormField = React.memo(function FormField({
   fieldId,
   disabled = false,
   customProps = {},
@@ -33,42 +32,71 @@ export function FormField({
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }
 
-  // Simple field state access
-  const value = formState.values[fieldId];
-  const errors = formState.errors[fieldId] || [];
-  const validationState = formState.validationState[fieldId] || 'idle';
-  const isTouched = formState.touched[fieldId] || false;
-  const isValidating = validationState === 'validating';
+  // Memoize field state to avoid recalculation
+  const fieldState = useMemo(
+    () => ({
+      value: formState.values[fieldId],
+      errors: formState.errors[fieldId] || [],
+      validationState: formState.validationState[fieldId] || 'idle',
+      isTouched: formState.touched[fieldId] || false,
+    }),
+    [
+      formState.values[fieldId],
+      formState.errors[fieldId],
+      formState.validationState[fieldId],
+      formState.touched[fieldId],
+    ]
+  );
 
-  // Simple condition checks
-  const isVisible = forceVisible || conditionsHelpers.isFieldVisible(fieldId);
-  const isFieldDisabled = disabled || conditionsHelpers.isFieldDisabled(fieldId);
-  const isFieldRequired = conditionsHelpers.isFieldRequired(fieldId);
-  const isFieldReadonly = conditionsHelpers.isFieldReadonly(fieldId);
+  const isValidating = fieldState.validationState === 'validating';
+
+  // Memoize condition checks to avoid recalculation
+  const fieldConditions = useMemo(
+    () => ({
+      isVisible: forceVisible || conditionsHelpers.isFieldVisible(fieldId),
+      isFieldDisabled: disabled || conditionsHelpers.isFieldDisabled(fieldId),
+      isFieldRequired: conditionsHelpers.isFieldRequired(fieldId),
+      isFieldReadonly: conditionsHelpers.isFieldReadonly(fieldId),
+    }),
+    [
+      forceVisible,
+      conditionsHelpers.isFieldVisible(fieldId),
+      disabled,
+      conditionsHelpers.isFieldDisabled(fieldId),
+      conditionsHelpers.isFieldRequired(fieldId),
+      conditionsHelpers.isFieldReadonly(fieldId),
+    ]
+  );
 
   // Hide field if not visible
-  if (!isVisible) {
+  if (!fieldConditions.isVisible) {
     return null;
   }
 
-  // Simple change handler
+  // Stable change handler with optimized dependencies
   const handleChange = useCallback(
     async (newValue: any) => {
       // Update value
       setValue(fieldId, newValue);
 
       // Validate immediately if configured OR if field is already touched
-      if (fieldConfig.validation?.validateOnChange || isTouched) {
+      if (fieldConfig.validation?.validateOnChange || fieldState.isTouched) {
         await validateField(fieldId, newValue);
       }
     },
-    [fieldId, setValue, validateField, fieldConfig.validation?.validateOnChange, isTouched]
+    [
+      fieldId,
+      setValue,
+      validateField,
+      fieldConfig.validation?.validateOnChange,
+      fieldState.isTouched,
+    ]
   );
 
-  // Simple blur handler
+  // Stable blur handler with optimized dependencies
   const handleBlur = useCallback(async () => {
     // Marquer comme touched au premier blur
-    if (!isTouched) {
+    if (!fieldState.isTouched) {
       setFieldTouched(fieldId);
     }
 
@@ -76,62 +104,105 @@ export function FormField({
     if (fieldConfig.validation?.validateOnBlur !== false) {
       await validateField(fieldId);
     }
-  }, [fieldId, isTouched, setFieldTouched, validateField, fieldConfig.validation?.validateOnBlur]);
+  }, [
+    fieldId,
+    fieldState.isTouched,
+    setFieldTouched,
+    validateField,
+    fieldConfig.validation?.validateOnBlur,
+  ]);
 
-  // Merge props once
-  const mergedProps = {
-    ...(componentConfig.defaultProps ?? {}),
-    ...fieldConfig.props,
-    ...customProps,
-    disabled: isFieldDisabled,
-    required: isFieldRequired,
-    readOnly: isFieldReadonly,
-  };
+  // Memoize merged props to avoid recalculation on every render
+  const mergedProps = useMemo(
+    () => ({
+      ...(componentConfig.defaultProps ?? {}),
+      ...fieldConfig.props,
+      ...customProps,
+      disabled: fieldConditions.isFieldDisabled,
+      required: fieldConditions.isFieldRequired,
+      readOnly: fieldConditions.isFieldReadonly,
+    }),
+    [
+      componentConfig.defaultProps,
+      fieldConfig.props,
+      customProps,
+      fieldConditions.isFieldDisabled,
+      fieldConditions.isFieldRequired,
+      fieldConditions.isFieldReadonly,
+    ]
+  );
 
-  // Render props
-  const renderProps: ComponentRenderProps = {
-    id: fieldId,
-    props: mergedProps,
-    value,
-    onChange: handleChange,
-    onBlur: handleBlur,
-    disabled: isFieldDisabled,
-    error: errors,
-    isValidating,
-    touched: isTouched,
-  };
+  // Memoize render props to avoid recreating object
+  const renderProps: ComponentRenderProps = useMemo(
+    () => ({
+      id: fieldId,
+      props: mergedProps,
+      value: fieldState.value,
+      onChange: handleChange,
+      onBlur: handleBlur,
+      disabled: fieldConditions.isFieldDisabled,
+      error: fieldState.errors,
+      isValidating,
+      touched: fieldState.isTouched,
+    }),
+    [
+      fieldId,
+      mergedProps,
+      fieldState.value,
+      handleChange,
+      handleBlur,
+      fieldConditions.isFieldDisabled,
+      fieldState.errors,
+      isValidating,
+      fieldState.isTouched,
+    ]
+  );
 
-  // Render component
-  const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
-  const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
+  // Memoize component rendering to avoid unnecessary recalculation
+  const renderedComponent = useMemo(
+    () => componentConfig.renderer(renderProps as ComponentRenderProps<never>),
+    [componentConfig.renderer, renderProps]
+  );
 
-  // Use field renderer if configured and component allows it
-  const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
-  const content =
-    fieldRenderer && shouldUseFieldRenderer
+  // Memoize field renderer logic
+  const content = useMemo(() => {
+    const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
+    const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
+
+    return fieldRenderer && shouldUseFieldRenderer
       ? fieldRenderer({
           children: renderedComponent,
           id: fieldId,
           ...mergedProps,
-          error: errors,
+          error: fieldState.errors,
           isValidating,
-          touched: isTouched,
+          touched: fieldState.isTouched,
         })
       : renderedComponent;
+  }, [
+    formConfig.renderConfig?.fieldRenderer,
+    componentConfig.useFieldRenderer,
+    renderedComponent,
+    fieldId,
+    mergedProps,
+    fieldState.errors,
+    isValidating,
+    fieldState.isTouched,
+  ]);
 
   return (
     <div
       className={className}
       data-field-id={fieldId}
       data-field-type={componentConfig.type}
-      data-field-visible={isVisible}
-      data-field-disabled={isFieldDisabled}
-      data-field-required={isFieldRequired}
-      data-field-readonly={isFieldReadonly}
+      data-field-visible={fieldConditions.isVisible}
+      data-field-disabled={fieldConditions.isFieldDisabled}
+      data-field-required={fieldConditions.isFieldRequired}
+      data-field-readonly={fieldConditions.isFieldReadonly}
     >
       {content}
     </div>
   );
-}
+});
 
-export default React.memo(FormField);
+export default FormField;

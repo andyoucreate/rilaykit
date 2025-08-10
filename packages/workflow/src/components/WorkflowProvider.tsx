@@ -6,7 +6,7 @@ import type {
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import {
   useWorkflowAnalytics,
   useWorkflowConditions,
@@ -62,7 +62,6 @@ export interface WorkflowProviderProps {
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
   className?: string;
-  // Note: persistence is now configured via workflowConfig.persistence from flow builder
 }
 
 export function WorkflowProvider({
@@ -73,6 +72,14 @@ export function WorkflowProvider({
   onWorkflowComplete,
   className,
 }: WorkflowProviderProps) {
+  // Stable refs for callbacks to avoid recreating dependencies
+  const onStepChangeRef = useRef(onStepChange);
+  const onWorkflowCompleteRef = useRef(onWorkflowComplete);
+
+  // Update refs when props change
+  onStepChangeRef.current = onStepChange;
+  onWorkflowCompleteRef.current = onWorkflowComplete;
+
   // 1. Initialize workflow state management with persistence from config
   const {
     workflowState,
@@ -106,12 +113,17 @@ export function WorkflowProvider({
     }
   }, []);
 
-  // Extract persistence utilities
-  const isPersisting = persistence?.isPersisting ?? false;
-  const persistenceError = persistence?.persistenceError ?? null;
-  const persistNow = persistence?.persistNow;
+  // Extract persistence utilities - memoize to avoid recreating objects
+  const persistenceInfo = useMemo(
+    () => ({
+      isPersisting: persistence?.isPersisting ?? false,
+      persistenceError: persistence?.persistenceError ?? null,
+      persistNow: persistence?.persistNow,
+    }),
+    [persistence?.isPersisting, persistence?.persistenceError, persistence?.persistNow]
+  );
 
-  // 3. Create workflow context for conditions and callbacks
+  // 3. Create workflow context for conditions and callbacks - memoize expensive object creation
   const workflowContext = useMemo(
     (): WorkflowContext => ({
       workflowId: workflowConfig.id,
@@ -133,13 +145,14 @@ export function WorkflowProvider({
     ]
   );
 
-  // 3. Get current step info
+  // 3. Get current step info - memoize step lookup
   const currentStep = useMemo(
     () => workflowConfig.steps[workflowState.currentStepIndex],
     [workflowConfig.steps, workflowState.currentStepIndex]
   );
 
-  const formConfig = useMemo(() => currentStep?.formConfig, [currentStep]);
+  // Memoize formConfig to avoid recalculation
+  const formConfig = useMemo(() => currentStep?.formConfig, [currentStep?.formConfig]);
 
   // 4. Initialize analytics tracking
   const { analyticsStartTime } = useWorkflowAnalytics({
@@ -155,7 +168,7 @@ export function WorkflowProvider({
     currentStep,
   });
 
-  // 6. Initialize navigation
+  // 6. Initialize navigation with stable callback refs
   const {
     goToStep,
     goNext,
@@ -174,7 +187,7 @@ export function WorkflowProvider({
     setTransitioning,
     markStepVisited,
     setStepData,
-    onStepChange,
+    onStepChange: onStepChangeRef.current,
   });
 
   // 7. Ensure we start on the first visible step
@@ -200,17 +213,17 @@ export function WorkflowProvider({
     markStepVisited,
   ]);
 
-  // 8. Initialize submission
+  // 8. Initialize submission with stable callback ref
   const { submitWorkflow, isSubmitting, canSubmit } = useWorkflowSubmission({
     workflowConfig,
     workflowState,
     workflowContext,
     setSubmitting,
-    onWorkflowComplete,
+    onWorkflowComplete: onWorkflowCompleteRef.current,
     analyticsStartTime,
   });
 
-  // 9. Create field value setter for form integration
+  // 9. Create field value setter for form integration - memoize with stable dependencies
   const setValue = useCallback(
     (fieldId: string, value: any) => {
       setFieldValue(fieldId, value, currentStep?.id || '');
@@ -218,7 +231,7 @@ export function WorkflowProvider({
     [setFieldValue, currentStep?.id]
   );
 
-  // 10. Create step data setter
+  // 10. Create step data setter - memoize with stable dependencies
   const handleSetStepData = useCallback(
     (data: Record<string, any>) => {
       setStepData(data, currentStep?.id || '');
@@ -226,7 +239,7 @@ export function WorkflowProvider({
     [setStepData, currentStep?.id]
   );
 
-  // 11. Create form submission handler
+  // 11. Create form submission handler - memoize with stable dependencies
   const handleSubmit = useCallback(async () => {
     if (workflowContext.isLastStep) {
       await submitWorkflow();
@@ -235,7 +248,49 @@ export function WorkflowProvider({
     }
   }, [workflowContext.isLastStep, submitWorkflow, goNext]);
 
-  // 12. Memoize context value to prevent unnecessary re-renders
+  // 12. Memoize context value to prevent unnecessary re-renders - split into smaller chunks
+  const navigationMethods = useMemo(
+    () => ({
+      goToStep,
+      goNext,
+      goPrevious,
+      skipStep,
+      canGoToStep,
+      canGoNext,
+      canGoPrevious,
+      canSkipCurrentStep,
+    }),
+    [
+      goToStep,
+      goNext,
+      goPrevious,
+      skipStep,
+      canGoToStep,
+      canGoNext,
+      canGoPrevious,
+      canSkipCurrentStep,
+    ]
+  );
+
+  const dataMethods = useMemo(
+    () => ({
+      setValue,
+      setStepData: handleSetStepData,
+      resetWorkflow,
+    }),
+    [setValue, handleSetStepData, resetWorkflow]
+  );
+
+  const submissionMethods = useMemo(
+    () => ({
+      submitWorkflow,
+      isSubmitting,
+      canSubmit,
+    }),
+    [submitWorkflow, isSubmitting, canSubmit]
+  );
+
+  // Final context value with better memoization
   const contextValue: WorkflowContextValue = useMemo(
     () => ({
       workflowState,
@@ -247,26 +302,15 @@ export function WorkflowProvider({
       // Step metadata
       currentStepMetadata: currentStep?.metadata,
       // Navigation
-      goToStep,
-      goNext,
-      goPrevious,
-      skipStep,
-      canGoToStep,
-      canGoNext,
-      canGoPrevious,
-      canSkipCurrentStep,
+      ...navigationMethods,
       // Data
-      setValue,
-      setStepData: handleSetStepData,
-      resetWorkflow,
+      ...dataMethods,
       // Submission
-      submitWorkflow,
-      isSubmitting,
-      canSubmit,
+      ...submissionMethods,
       // Persistence
-      persistNow,
-      isPersisting,
-      persistenceError,
+      persistNow: persistenceInfo.persistNow,
+      isPersisting: persistenceInfo.isPersisting,
+      persistenceError: persistenceInfo.persistenceError,
     }),
     [
       workflowState,
@@ -275,32 +319,31 @@ export function WorkflowProvider({
       workflowContext,
       formConfig,
       conditionsHelpers,
-      goToStep,
-      goNext,
-      goPrevious,
-      skipStep,
-      canGoToStep,
-      canGoNext,
-      canGoPrevious,
-      canSkipCurrentStep,
-      setValue,
-      handleSetStepData,
-      resetWorkflow,
-      submitWorkflow,
-      isSubmitting,
-      canSubmit,
-      persistNow,
-      isPersisting,
-      persistenceError,
+      navigationMethods,
+      dataMethods,
+      submissionMethods,
+      persistenceInfo,
     ]
+  );
+
+  // Memoize FormProvider defaultValues to avoid recalculation
+  const formProviderDefaultValues = useMemo(
+    () => workflowState?.allData[currentStep?.id] || {},
+    [workflowState?.allData, currentStep?.id]
+  );
+
+  // Use a stable key instead of dynamic one to avoid unnecessary remounts
+  const formProviderKey = useMemo(
+    () => workflowState.isInitializing.toString(),
+    [workflowState.isInitializing]
   );
 
   return (
     <WorkflowReactContext.Provider value={contextValue}>
       <FormProvider
-        key={workflowState.isInitializing.toString()}
+        key={formProviderKey}
         formConfig={formConfig}
-        defaultValues={workflowState?.allData[currentStep?.id] || {}}
+        defaultValues={formProviderDefaultValues}
         onFieldChange={setValue}
         data-workflow-id={workflowConfig.id}
         className={className}

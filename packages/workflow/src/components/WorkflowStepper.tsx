@@ -1,6 +1,6 @@
 import type { ComponentRendererBaseProps, WorkflowStepperRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
-import { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface WorkflowStepperProps
@@ -8,10 +8,15 @@ export interface WorkflowStepperProps
   onStepClick?: (stepIndex: number) => void;
 }
 
-export function WorkflowStepper({ onStepClick, className, ...props }: WorkflowStepperProps) {
+export const WorkflowStepper = React.memo(function WorkflowStepper({
+  onStepClick,
+  className,
+  ...props
+}: WorkflowStepperProps) {
   const { workflowConfig, workflowState, goToStep, conditionsHelpers } = useWorkflowContext();
 
   // Filter visible steps and create mapping between visible and original indices
+  // Memoize this expensive calculation to avoid recalculation on every render
   const { visibleSteps, visibleToOriginalIndexMap, originalToVisibleIndexMap } = useMemo(() => {
     const visible: typeof workflowConfig.steps = [];
     const visibleToOriginal = new Map<number, number>();
@@ -33,30 +38,39 @@ export function WorkflowStepper({ onStepClick, className, ...props }: WorkflowSt
     };
   }, [workflowConfig.steps, conditionsHelpers]);
 
-  // Handle step click with index mapping
-  const handleStepClick = (visibleStepIndex: number) => {
-    const originalStepIndex = visibleToOriginalIndexMap.get(visibleStepIndex);
-    if (originalStepIndex === undefined) return;
+  // Memoize step click handler to avoid recreation
+  const handleStepClick = useCallback(
+    (visibleStepIndex: number) => {
+      const originalStepIndex = visibleToOriginalIndexMap.get(visibleStepIndex);
+      if (originalStepIndex === undefined) return;
 
-    if (onStepClick) {
-      onStepClick(originalStepIndex);
-    } else {
-      // Default behavior: navigate to step
-      goToStep(originalStepIndex);
-    }
-  };
+      if (onStepClick) {
+        onStepClick(originalStepIndex);
+      } else {
+        // Default behavior: navigate to step
+        goToStep(originalStepIndex);
+      }
+    },
+    [visibleToOriginalIndexMap, onStepClick, goToStep]
+  );
 
-  // Calculate current step index in visible steps context
-  const currentVisibleStepIndex =
-    originalToVisibleIndexMap.get(workflowState.currentStepIndex) ?? -1;
+  // Calculate current step index in visible steps context - memoize to avoid recalculation
+  const currentVisibleStepIndex = useMemo(
+    () => originalToVisibleIndexMap.get(workflowState.currentStepIndex) ?? -1,
+    [originalToVisibleIndexMap, workflowState.currentStepIndex]
+  );
 
-  const baseProps: WorkflowStepperRendererProps = {
-    steps: visibleSteps,
-    currentStepIndex: currentVisibleStepIndex,
-    visitedSteps: workflowState.visitedSteps,
-    onStepClick: handleStepClick,
-    className,
-  };
+  // Memoize base props to avoid recreating object
+  const baseProps: WorkflowStepperRendererProps = useMemo(
+    () => ({
+      steps: visibleSteps,
+      currentStepIndex: currentVisibleStepIndex,
+      visitedSteps: workflowState.visitedSteps,
+      onStepClick: handleStepClick,
+      className,
+    }),
+    [visibleSteps, currentVisibleStepIndex, workflowState.visitedSteps, handleStepClick, className]
+  );
 
   return (
     <ComponentRendererWrapper
@@ -66,6 +80,6 @@ export function WorkflowStepper({ onStepClick, className, ...props }: WorkflowSt
       {...props}
     />
   );
-}
+});
 
 export default WorkflowStepper;
