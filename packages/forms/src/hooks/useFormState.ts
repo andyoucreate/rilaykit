@@ -87,7 +87,7 @@ export function useFormState({ defaultValues = {}, onFieldChange }: UseFormState
 
   const [formState, dispatch] = useReducer(formReducer, initialState);
 
-  // Use ref pour éviter les re-créations de callbacks
+  // Use ref to avoid callback re-creations
   const onFieldChangeRef = useRef(onFieldChange);
   onFieldChangeRef.current = onFieldChange;
 
@@ -127,7 +127,7 @@ export function useFormState({ defaultValues = {}, onFieldChange }: UseFormState
     dispatch({ type: 'RESET', values });
   }, []);
 
-  // Helper pour calculer la validité (quand nécessaire)
+  // Helper to calculate validity (when needed)
   const isFormValid = useCallback(() => {
     const hasErrors = Object.values(formState.errors).some((errors) => errors.length > 0);
     const hasInvalidFields = Object.values(formState.validationState).some(

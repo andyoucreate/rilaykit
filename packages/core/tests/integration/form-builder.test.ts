@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ril } from '../../src/index';
 
-// Mock React pour éviter les erreurs
+// Mock React to avoid errors
 vi.mock('react', () => ({
   createElement: vi.fn((type, props, ...children) => ({ type, props, children })),
 }));

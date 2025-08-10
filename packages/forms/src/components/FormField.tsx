@@ -57,7 +57,7 @@ export function FormField({
       // Update value
       setValue(fieldId, newValue);
 
-      // Validate immediately si configuré OU si le champ est déjà touched
+      // Validate immediately if configured OR if field is already touched
       if (fieldConfig.validation?.validateOnChange || isTouched) {
         await validateField(fieldId, newValue);
       }

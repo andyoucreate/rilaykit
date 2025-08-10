@@ -2,7 +2,7 @@ import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '..
 import { ensureUnique } from '../utils/builderHelpers';
 
 /**
- * Hiérarchie d'erreurs structurées pour Rilay
+ * Structured error hierarchy for Rilay
  */
 export class RilayError extends Error {
   constructor(
@@ -66,8 +66,8 @@ export interface AsyncValidationResult {
 }
 
 /**
- * Interface publique pour les instances Rilay
- * Expose uniquement les méthodes nécessaires à l'API publique
+ * Public interface for Rilay instances
+ * Exposes only the methods necessary for the public API
  */
 export interface RilayInstance<C> {
   // Configuration methods
@@ -140,7 +140,7 @@ export class ril<C> implements RilayInstance<C> {
    *
    * @example
    * ```typescript
-   * // Component avec validation par défaut
+   * // Component with default validation
    * const factory = ril.create()
    *   .addComponent('email', {
    *     name: 'Email Input',

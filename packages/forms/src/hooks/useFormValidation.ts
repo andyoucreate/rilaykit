@@ -53,7 +53,7 @@ export function useFormValidation({
 
       const valueToValidate = value !== undefined ? value : formState.values[fieldId];
 
-      // Créer le contexte de validation
+      // Create validation context
       const context = createValidationContext({
         fieldId,
         formId: formConfig.id,
