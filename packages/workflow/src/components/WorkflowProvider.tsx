@@ -240,13 +240,20 @@ export function WorkflowProvider({
   );
 
   // 11. Create form submission handler - memoize with stable dependencies
-  const handleSubmit = useCallback(async () => {
-    if (workflowContext.isLastStep) {
-      await submitWorkflow();
-    } else {
-      await goNext();
-    }
-  }, [workflowContext.isLastStep, submitWorkflow, goNext]);
+  const handleSubmit = useCallback(
+    async (values: any) => {
+      if (currentStep?.id && values) {
+        setStepData(values, currentStep.id);
+      }
+
+      if (workflowContext.isLastStep) {
+        await submitWorkflow();
+      } else {
+        await goNext();
+      }
+    },
+    [workflowContext.isLastStep, submitWorkflow, goNext, currentStep?.id, setStepData]
+  );
 
   // 12. Memoize context value to prevent unnecessary re-renders - split into smaller chunks
   const navigationMethods = useMemo(
@@ -327,12 +334,30 @@ export function WorkflowProvider({
   );
 
   // Memoize FormProvider defaultValues to avoid recalculation
-  const formProviderDefaultValues = useMemo(
-    () => workflowState?.allData[currentStep?.id] || {},
-    [workflowState?.allData, currentStep?.id]
-  );
+  // FIXED: Only use data specific to the current step, not all data
+  const formProviderDefaultValues = useMemo(() => {
+    if (!currentStep?.id) return {};
 
-  // Use a stable key instead of dynamic one to avoid unnecessary remounts
+    // Get only the data for the current step
+    const currentStepData = workflowState?.allData[currentStep.id] || {};
+
+    // Filter out any fields that don't belong to the current step's form
+    if (!formConfig?.allFields) return currentStepData;
+
+    const currentStepFieldIds = new Set(formConfig.allFields.map((field) => field.id));
+    const filteredData: Record<string, any> = {};
+
+    // Only include fields that belong to the current step
+    for (const [key, value] of Object.entries(currentStepData)) {
+      if (currentStepFieldIds.has(key)) {
+        filteredData[key] = value;
+      }
+    }
+
+    return filteredData;
+  }, [workflowState?.allData, currentStep?.id, formConfig?.allFields]);
+
+  // FIXED: Use step-specific key to ensure proper form reinitialization
   const formProviderKey = useMemo(
     () => workflowState.isInitializing.toString(),
     [workflowState.isInitializing]

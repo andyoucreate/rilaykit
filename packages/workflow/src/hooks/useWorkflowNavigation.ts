@@ -75,7 +75,10 @@ export function useWorkflowNavigation({
         const nextStepIndex = workflowState.currentStepIndex + 1;
         if (nextStepIndex < workflowConfig.steps.length) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
+          // FIXED: Only get existing data for the next step, don't propagate current step data
           const existingData = workflowState.allData[nextStepId] || {};
+
+          // FIXED: Only merge the specified fields, not all current step data
           const mergedData = { ...existingData, ...fields };
           setStepData(mergedData, nextStepId);
         }

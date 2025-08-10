@@ -21,7 +21,6 @@ import {
 import { form } from '@rilaykit/forms';
 import { createZodValidator } from '@rilaykit/validation-adapters';
 import {
-  LocalStorageAdapter,
   RilayLicenseManager,
   Workflow,
   WorkflowBody,
@@ -393,13 +392,6 @@ export default function WorkflowTestPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [workflowData, setWorkflowData] = useState<Record<string, any>>({});
 
-  // 🗄️ Configure persistence with localStorage
-  const persistenceAdapter = new LocalStorageAdapter({
-    keyPrefix: 'rilay_playground_workflow_',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    compress: false, // Disable compression for easier debugging
-  });
-
   // Build form configurations for each step
   const personalInfoForm = form
     .create(factory, 'personal-info')
@@ -586,7 +578,7 @@ export default function WorkflowTestPage() {
             console.log('✅ Company info fetched:', companyInfo);
 
             // 🎯 Pré-remplir l'étape suivante avec les données de l'entreprise
-            helper.setNextStepFields({
+            helper.setStepFields('company-details', {
               companyName: companyInfo.name,
               companyAddress: companyInfo.address,
               industry: companyInfo.industry,
@@ -632,14 +624,6 @@ export default function WorkflowTestPage() {
         onWorkflowComplete: (workflowId, duration, data) => {
           console.log('🎉 Workflow completed:', workflowId, `${duration}ms`, data);
         },
-      },
-      persistence: {
-        adapter: persistenceAdapter,
-        options: {
-          autoPersist: true,
-          debounceMs: 1000,
-        },
-        userId: 'demo-user',
       },
     })
     .build();

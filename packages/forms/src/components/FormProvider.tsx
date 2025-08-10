@@ -119,6 +119,8 @@ export function FormProvider({
     // Only reset if this is a completely new form
     if (prevFormId.current === null || formConfig.id !== prevFormId.current) {
       prevFormId.current = formConfig.id;
+
+      console.log('resetting form', defaultValues);
       reset(defaultValues);
     }
   }, [formConfig.id, reset]);
