@@ -41,7 +41,10 @@
     "version-packages": "changeset version",
     "analyze-size": "node scripts/analyze-size.js",
     "analyze-size:report": "node scripts/analyze-size.js --report",
-    "size": "pnpm build && pnpm analyze-size"
+    "size": "pnpm build && pnpm analyze-size",
+    "benchmark": "node scripts/performance-benchmark.js",
+    "benchmark:monitoring": "node scripts/performance-benchmark.js",
+    "test:performance": "pnpm benchmark && pnpm test"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

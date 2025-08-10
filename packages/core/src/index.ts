@@ -13,5 +13,9 @@ export * from './utils/componentHelpers';
 // Export validation system
 export * from './validation';
 
+// Export monitoring system
+export * from './monitoring';
+export * from './monitoring/adapters';
+
 // Export condition system
 export * from './conditions';

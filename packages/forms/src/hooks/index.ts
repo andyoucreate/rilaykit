@@ -16,3 +16,6 @@ export * from './useFormConditions';
 export * from './useFormState';
 export * from './useFormSubmission';
 export * from './useFormValidation';
+
+export { useFormMonitoring } from './useFormMonitoring';
+export type { UseFormMonitoringProps, UseFormMonitoringReturn } from './useFormMonitoring';
