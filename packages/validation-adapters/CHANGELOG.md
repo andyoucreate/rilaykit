@@ -1,5 +1,16 @@
 # @rilaykit/validation-adapters
 
+## 5.0.0
+
+### Major Changes
+
+- Refactor & optimization
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@9.0.0
+
 ## 4.0.0
 
 ### Major Changes

@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/core",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "description": "Core types, configurations, and utilities for the RilayKit form library",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -12,7 +12,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -24,7 +26,13 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "forms", "typescript", "validation", "builder-pattern"],
+  "keywords": [
+    "react",
+    "forms",
+    "typescript",
+    "validation",
+    "builder-pattern"
+  ],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.io",

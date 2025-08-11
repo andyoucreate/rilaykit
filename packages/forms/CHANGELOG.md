@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 9.0.0
+
+### Major Changes
+
+- Refactor & optimization
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@9.0.0
+
 ## 8.0.1
 
 ### Patch Changes

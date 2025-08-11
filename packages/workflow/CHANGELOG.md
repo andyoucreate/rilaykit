@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 9.0.0
+
+### Major Changes
+
+- Refactor & optimization
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@9.0.0
+  - @rilaykit/forms@9.0.0
+
 ## 8.1.1
 
 ### Patch Changes
