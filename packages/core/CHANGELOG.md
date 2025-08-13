@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 9.0.1
+
+### Patch Changes
+
+- Fix issue with isLastStep and isFirstStep
+
 ## 9.0.0
 
 ### Major Changes

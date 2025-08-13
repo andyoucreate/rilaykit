@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/validation-adapters",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Validation adapters for popular schema libraries (Zod, Yup, Joi) to integrate with Rilay forms",
   "keywords": [
     "rilay",

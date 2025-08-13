@@ -1,5 +1,15 @@
 # @rilaykit/workflow
 
+## 9.0.1
+
+### Patch Changes
+
+- Fix issue with isLastStep and isFirstStep
+
+- Updated dependencies []:
+  - @rilaykit/core@9.0.1
+  - @rilaykit/forms@9.0.1
+
 ## 9.0.0
 
 ### Major Changes

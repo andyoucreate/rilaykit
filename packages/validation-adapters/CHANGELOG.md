@@ -1,5 +1,11 @@
 # @rilaykit/validation-adapters
 
+## 5.0.1
+
+### Patch Changes
+
+- Fix issue with isLastStep and isFirstStep
+
 ## 5.0.0
 
 ### Major Changes
