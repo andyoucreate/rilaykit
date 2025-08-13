@@ -124,15 +124,14 @@ export function WorkflowProvider({
   );
 
   // 3. Create workflow context for conditions and callbacks - memoize expensive object creation
-  const workflowContext = useMemo(
-    (): WorkflowContext => ({
+  // Note: This will be updated after conditionsHelpers is available
+  const baseWorkflowContext = useMemo(
+    (): Omit<WorkflowContext, 'isFirstStep' | 'isLastStep'> => ({
       workflowId: workflowConfig.id,
       currentStepIndex: workflowState.currentStepIndex,
       totalSteps: workflowConfig.steps.length,
       allData: workflowState.allData,
       stepData: workflowState.stepData,
-      isFirstStep: workflowState.currentStepIndex === 0,
-      isLastStep: workflowState.currentStepIndex === workflowConfig.steps.length - 1,
       visitedSteps: workflowState.visitedSteps,
     }),
     [
@@ -154,21 +153,53 @@ export function WorkflowProvider({
   // Memoize formConfig to avoid recalculation
   const formConfig = useMemo(() => currentStep?.formConfig, [currentStep?.formConfig]);
 
-  // 4. Initialize analytics tracking
-  const { analyticsStartTime } = useWorkflowAnalytics({
-    workflowConfig,
-    workflowState,
-    workflowContext,
-  });
-
-  // 5. Initialize conditional logic for steps and fields
+  // 4. Initialize conditional logic for steps and fields
   const conditionsHelpers = useWorkflowConditions({
     workflowConfig,
     workflowState,
     currentStep,
   });
 
-  // 6. Initialize navigation with stable callback refs
+  // 5. Calculate correct isFirstStep and isLastStep based on visible steps
+  const workflowContext = useMemo((): WorkflowContext => {
+    // Find first visible step
+    let firstVisibleStepIndex = -1;
+    for (let i = 0; i < workflowConfig.steps.length; i++) {
+      if (conditionsHelpers.isStepVisible(i)) {
+        firstVisibleStepIndex = i;
+        break;
+      }
+    }
+
+    // Find last visible step
+    let lastVisibleStepIndex = -1;
+    for (let i = workflowConfig.steps.length - 1; i >= 0; i--) {
+      if (conditionsHelpers.isStepVisible(i)) {
+        lastVisibleStepIndex = i;
+        break;
+      }
+    }
+
+    return {
+      ...baseWorkflowContext,
+      isFirstStep: workflowState.currentStepIndex === firstVisibleStepIndex,
+      isLastStep: workflowState.currentStepIndex === lastVisibleStepIndex,
+    };
+  }, [
+    baseWorkflowContext,
+    workflowState.currentStepIndex,
+    conditionsHelpers,
+    workflowConfig.steps.length,
+  ]);
+
+  // 6. Initialize analytics tracking
+  const { analyticsStartTime } = useWorkflowAnalytics({
+    workflowConfig,
+    workflowState,
+    workflowContext,
+  });
+
+  // 7. Initialize navigation with stable callback refs
   const {
     goToStep,
     goNext,
@@ -190,7 +221,7 @@ export function WorkflowProvider({
     onStepChange: onStepChangeRef.current,
   });
 
-  // 7. Ensure we start on the first visible step
+  // 8. Ensure we start on the first visible step
   useEffect(() => {
     // Only run this check on initial mount or when conditions change
     const currentStepIsVisible = conditionsHelpers.isStepVisible(workflowState.currentStepIndex);
@@ -213,7 +244,7 @@ export function WorkflowProvider({
     markStepVisited,
   ]);
 
-  // 8. Initialize submission with stable callback ref
+  // 9. Initialize submission with stable callback ref
   const { submitWorkflow, isSubmitting, canSubmit } = useWorkflowSubmission({
     workflowConfig,
     workflowState,
@@ -223,7 +254,7 @@ export function WorkflowProvider({
     analyticsStartTime,
   });
 
-  // 9. Create field value setter for form integration - memoize with stable dependencies
+  // 10. Create field value setter for form integration - memoize with stable dependencies
   const setValue = useCallback(
     (fieldId: string, value: any) => {
       setFieldValue(fieldId, value, currentStep?.id || '');
@@ -231,7 +262,7 @@ export function WorkflowProvider({
     [setFieldValue, currentStep?.id]
   );
 
-  // 10. Create step data setter - memoize with stable dependencies
+  // 11. Create step data setter - memoize with stable dependencies
   const handleSetStepData = useCallback(
     (data: Record<string, any>) => {
       setStepData(data, currentStep?.id || '');
@@ -239,7 +270,7 @@ export function WorkflowProvider({
     [setStepData, currentStep?.id]
   );
 
-  // 11. Create form submission handler - memoize with stable dependencies
+  // 12. Create form submission handler - memoize with stable dependencies
   const handleSubmit = useCallback(
     async (values: any) => {
       if (currentStep?.id && values) {
@@ -255,7 +286,7 @@ export function WorkflowProvider({
     [workflowContext.isLastStep, submitWorkflow, goNext, currentStep?.id, setStepData]
   );
 
-  // 12. Memoize context value to prevent unnecessary re-renders - split into smaller chunks
+  // 13. Memoize context value to prevent unnecessary re-renders - split into smaller chunks
   const navigationMethods = useMemo(
     () => ({
       goToStep,
