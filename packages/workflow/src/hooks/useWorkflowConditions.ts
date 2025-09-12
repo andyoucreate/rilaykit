@@ -1,5 +1,6 @@
 import type { ConditionalBehavior, StepConfig, WorkflowConfig } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
+import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import {
   type ConditionEvaluationResult,
   useConditionEvaluation,
@@ -65,11 +66,9 @@ export function useWorkflowConditions({
   currentStep,
 }: UseWorkflowConditionsProps): UseWorkflowConditionsReturn {
   // Create combined data context for condition evaluation
+  // FIXED: Use the new utility to properly flatten nested data for condition evaluation
   const conditionData = useMemo(
-    () => ({
-      ...workflowState.allData,
-      ...workflowState.stepData,
-    }),
+    () => combineWorkflowDataForConditions(workflowState.allData, workflowState.stepData),
     [workflowState.allData, workflowState.stepData]
   );
 

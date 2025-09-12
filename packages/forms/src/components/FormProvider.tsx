@@ -120,7 +120,6 @@ export function FormProvider({
     if (prevFormId.current === null || formConfig.id !== prevFormId.current) {
       prevFormId.current = formConfig.id;
 
-      console.log('resetting form', defaultValues);
       reset(defaultValues);
     }
   }, [formConfig.id, reset]);

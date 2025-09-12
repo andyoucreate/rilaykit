@@ -59,6 +59,7 @@ export interface WorkflowProviderProps {
   children: React.ReactNode;
   workflowConfig: WorkflowConfig;
   defaultValues?: Record<string, any>;
+  defaultStep?: string; // ID of the step to start on
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
   className?: string;
@@ -68,6 +69,7 @@ export function WorkflowProvider({
   children,
   workflowConfig,
   defaultValues = {},
+  defaultStep,
   onStepChange,
   onWorkflowComplete,
   className,
@@ -79,6 +81,19 @@ export function WorkflowProvider({
   // Update refs when props change
   onStepChangeRef.current = onStepChange;
   onWorkflowCompleteRef.current = onWorkflowComplete;
+
+  // Calculate default step index from defaultStep ID
+  const defaultStepIndex = useMemo(() => {
+    if (!defaultStep) return 0;
+
+    const stepIndex = workflowConfig.steps.findIndex((step) => step.id === defaultStep);
+    if (stepIndex === -1) {
+      console.warn(`Default step with ID "${defaultStep}" not found. Starting at step 0.`);
+      return 0;
+    }
+
+    return stepIndex;
+  }, [defaultStep, workflowConfig.steps]);
 
   // 1. Initialize workflow state management with persistence from config
   const {
@@ -94,6 +109,7 @@ export function WorkflowProvider({
     persistence,
   } = useWorkflowState({
     defaultValues,
+    defaultStepIndex,
     persistence: workflowConfig.persistence
       ? {
           workflowId: workflowConfig.id,
@@ -365,20 +381,21 @@ export function WorkflowProvider({
   );
 
   // Memoize FormProvider defaultValues to avoid recalculation
-  // FIXED: Only use data specific to the current step, not all data
+  // FIXED: Include all workflow data for conditions to work, but filter for form fields
   const formProviderDefaultValues = useMemo(() => {
     if (!currentStep?.id) return {};
 
-    // Get only the data for the current step
+    // Get data for the current step
     const currentStepData = workflowState?.allData[currentStep.id] || {};
 
-    // Filter out any fields that don't belong to the current step's form
+    // For conditions to work properly, we need access to ALL workflow data
+    // but we only pass the current step's form fields as defaultValues
     if (!formConfig?.allFields) return currentStepData;
 
     const currentStepFieldIds = new Set(formConfig.allFields.map((field) => field.id));
     const filteredData: Record<string, any> = {};
 
-    // Only include fields that belong to the current step
+    // Only include fields that belong to the current step's form
     for (const [key, value] of Object.entries(currentStepData)) {
       if (currentStepFieldIds.has(key)) {
         filteredData[key] = value;

@@ -109,6 +109,7 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
 
 export interface UseWorkflowStateProps {
   defaultValues?: Record<string, any>;
+  defaultStepIndex?: number; // Index of the step to start on
   persistence?: {
     workflowId: string;
     adapter?: WorkflowPersistenceAdapter;
@@ -118,9 +119,13 @@ export interface UseWorkflowStateProps {
   };
 }
 
-export function useWorkflowState({ defaultValues = {}, persistence }: UseWorkflowStateProps) {
+export function useWorkflowState({
+  defaultValues = {},
+  defaultStepIndex,
+  persistence,
+}: UseWorkflowStateProps) {
   const initialState: WorkflowState = {
-    currentStepIndex: 0,
+    currentStepIndex: defaultStepIndex ?? 0,
     allData: defaultValues,
     stepData: {},
     visitedSteps: new Set(),

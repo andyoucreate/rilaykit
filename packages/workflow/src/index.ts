@@ -23,3 +23,6 @@ export type { LicensePayload, LicensePlan, LicenseResult } from './licensing/typ
 
 // Component types
 export type { WorkflowContextValue } from './components/WorkflowProvider';
+
+// Utility functions
+export { combineWorkflowDataForConditions, flattenObject } from './utils/dataFlattening';
