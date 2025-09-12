@@ -1,5 +1,16 @@
 # @rilaykit/validation-adapters
 
+## 6.0.0
+
+### Major Changes
+
+- Fix some bugs, add defaultStep value in Workflow
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@10.0.0
+
 ## 5.0.1
 
 ### Patch Changes

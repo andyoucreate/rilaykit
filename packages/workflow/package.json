@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/workflow",
-  "version": "9.0.1",
+  "version": "10.0.0",
   "description": "Commercial workflow and multi-step form utilities for RilayKit - License required for all use",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
