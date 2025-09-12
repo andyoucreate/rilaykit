@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback, useMemo, useReducer } from 'react';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
 import { usePersistence } from './usePersistence';
 
@@ -110,6 +110,7 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
 export interface UseWorkflowStateProps {
   defaultValues?: Record<string, any>;
   defaultStepIndex?: number; // Index of the step to start on
+  workflowSteps?: Array<{ id: string }>; // Steps array to properly initialize visitedSteps
   persistence?: {
     workflowId: string;
     adapter?: WorkflowPersistenceAdapter;
@@ -122,13 +123,30 @@ export interface UseWorkflowStateProps {
 export function useWorkflowState({
   defaultValues = {},
   defaultStepIndex,
+  workflowSteps,
   persistence,
 }: UseWorkflowStateProps) {
+  // Calculate initial visitedSteps based on defaultStepIndex
+  const initialVisitedSteps = useMemo(() => {
+    const visited = new Set<string>();
+
+    // If starting at a specific step, mark all previous steps as visited
+    if (defaultStepIndex && defaultStepIndex > 0 && workflowSteps) {
+      for (let i = 0; i < defaultStepIndex; i++) {
+        if (workflowSteps[i]) {
+          visited.add(workflowSteps[i].id);
+        }
+      }
+    }
+
+    return visited;
+  }, [defaultStepIndex, workflowSteps]);
+
   const initialState: WorkflowState = {
     currentStepIndex: defaultStepIndex ?? 0,
     allData: defaultValues,
     stepData: {},
-    visitedSteps: new Set(),
+    visitedSteps: initialVisitedSteps,
     isSubmitting: false,
     isTransitioning: false,
     isInitializing: true,

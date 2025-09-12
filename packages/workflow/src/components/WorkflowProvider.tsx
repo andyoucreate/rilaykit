@@ -110,6 +110,7 @@ export function WorkflowProvider({
   } = useWorkflowState({
     defaultValues,
     defaultStepIndex,
+    workflowSteps: workflowConfig.steps,
     persistence: workflowConfig.persistence
       ? {
           workflowId: workflowConfig.id,
@@ -237,9 +238,15 @@ export function WorkflowProvider({
     onStepChange: onStepChangeRef.current,
   });
 
-  // 8. Ensure we start on the first visible step
+  // 8. Ensure we start on the first visible step (only during initialization)
+  // Use a ref to track if we've already done the initial step check
+  const hasInitializedStepRef = useRef(false);
+
   useEffect(() => {
-    // Only run this check on initial mount or when conditions change
+    // FIXED: Only run this check once during mount, not on every condition change
+    // This prevents the workflow from jumping back to step 0 when conditions change during navigation
+    if (hasInitializedStepRef.current) return;
+
     const currentStepIsVisible = conditionsHelpers.isStepVisible(workflowState.currentStepIndex);
 
     if (!currentStepIsVisible) {
@@ -250,6 +257,51 @@ export function WorkflowProvider({
           markStepVisited(i, workflowConfig.steps[i].id);
           break;
         }
+      }
+    }
+
+    // Mark that we've done the initial check
+    hasInitializedStepRef.current = true;
+  }, [
+    // Remove conditionsHelpers from dependencies to prevent re-running on condition changes
+    workflowState.currentStepIndex,
+    workflowConfig.steps,
+    setCurrentStep,
+    markStepVisited,
+  ]);
+
+  // 8b. Handle case where current step becomes hidden during navigation
+  useEffect(() => {
+    // Skip if we're still initializing
+    if (!hasInitializedStepRef.current) return;
+
+    const currentStepIsVisible = conditionsHelpers.isStepVisible(workflowState.currentStepIndex);
+
+    // If current step becomes hidden during navigation, find next visible step
+    if (!currentStepIsVisible) {
+      // First try to find next visible step
+      let nextVisibleStep = null;
+      for (let i = workflowState.currentStepIndex + 1; i < workflowConfig.steps.length; i++) {
+        if (conditionsHelpers.isStepVisible(i)) {
+          nextVisibleStep = i;
+          break;
+        }
+      }
+
+      // If no next visible step, try to find previous visible step
+      if (nextVisibleStep === null) {
+        for (let i = workflowState.currentStepIndex - 1; i >= 0; i--) {
+          if (conditionsHelpers.isStepVisible(i)) {
+            nextVisibleStep = i;
+            break;
+          }
+        }
+      }
+
+      // Navigate to the found visible step
+      if (nextVisibleStep !== null) {
+        setCurrentStep(nextVisibleStep);
+        markStepVisited(nextVisibleStep, workflowConfig.steps[nextVisibleStep].id);
       }
     }
   }, [
