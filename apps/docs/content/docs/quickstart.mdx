@@ -163,7 +163,7 @@ You now have a fully functional, validated login form.
   <div className="p-4 border rounded-lg">
     <h3 className="font-semibold mb-2">🧪 Validate</h3>
     <p className="text-sm text-gray-600">Zod, Yup, Joi integration</p>
-    <a href="/core-concepts/validation-adapters" className="text-blue-600 text-sm">See Adapters →</a>
+    <a href="/core-concepts/validation" className="text-blue-600 text-sm">See Validation →</a>
   </div>
 </div>
 
@@ -185,8 +185,7 @@ export const rilay = ril.create()
 ### Validation with Zod
 
 ```tsx
-import { zodFieldValidator } from '@rilaykit/validation-adapters/zod';
-import { z } from 'zod';
+import { z } from 'zod'; // Zod now supports Standard Schema natively
 
 const form = rilay.form('user')
   .add({

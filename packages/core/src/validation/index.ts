@@ -1,47 +1,53 @@
 /**
- * @fileoverview Validation system exports
+ * @fileoverview Unified Standard Schema validation system
  *
- * This module provides a comprehensive validation system for Rilay forms and workflows.
- * It includes type-safe validators, adapters for popular validation libraries,
- * and utilities for managing validation state.
+ * This module provides a clean, unified validation system based entirely on Standard Schema.
+ * It includes built-in validators, utilities, and seamless integration with external
+ * Standard Schema compatible libraries like Zod, Yup, and Joi.
  *
  * @example
  * ```typescript
- * import { createZodAdapter, createFieldValidator } from '@rilaykit/core';
+ * import { required, email } from '@rilaykit/core';
+ * import { z } from 'zod';
  *
- * const zodAdapter = createZodAdapter();
- * const emailValidator = zodAdapter.createFieldValidator(z.string().email());
+ * // All validation uses the same unified API
+ * const form = rilay.form('user')
+ *   .add({
+ *     id: 'email',
+ *     type: 'input',
+ *     validation: {
+ *       validate: [required(), z.string().email()] // Mix RilayKit + external libs!
+ *     }
+ *   });
  * ```
  */
 
 // Core validation types (re-exported from types)
 export type {
   FieldValidationConfig,
-  FieldValidator,
   FormValidationConfig,
-  FormValidator,
-  ValidationAdapter,
+  InferInput,
+  InferOutput,
+  StandardSchema,
   ValidationContext,
   ValidationError,
   ValidationResult,
-  ValidationSchema,
 } from '../types';
 
-// Validation utilities
+// Essential validation utilities
 export {
-  combineValidationResults,
+  createErrorResult,
+  createSuccessResult,
   createValidationContext,
   createValidationResult,
-  runValidators,
-  runValidatorsAsync,
 } from './utils';
 
-// Built-in validators
+// Built-in validators (Standard Schema implementations)
 export {
   async,
+  combine,
   custom,
   email,
-  matchField,
   max,
   maxLength,
   min,
@@ -50,5 +56,23 @@ export {
   pattern,
   required,
   url,
-  validateWhen,
 } from './validators';
+
+// Unified validation system (main API)
+export {
+  hasUnifiedValidation,
+  validateFormWithUnifiedConfig,
+  validateWithUnifiedConfig,
+} from './unified-utils';
+
+// Advanced utilities (for edge cases)
+export {
+  combineSchemas,
+  createStandardValidator,
+  getSchemaInfo,
+  hasSchemaTypes,
+  isStandardSchema,
+  isValidationRule,
+  normalizeValidationRules,
+  validateWithStandardSchema,
+} from './unified-utils';

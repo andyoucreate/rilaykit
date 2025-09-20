@@ -6,7 +6,6 @@
     "renderers",
     "validation",
     "conditions",
-    "typescript-support",
-    "validation-adapters"
+    "typescript-support"
   ]
 }

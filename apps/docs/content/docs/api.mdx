@@ -671,60 +671,77 @@ function CustomNavigation() {
 }
 ```
 
-## @rilaykit/validation-adapters
+## Standard Schema Validation
 
-### Zod Adapter
+RilayKit now supports [Standard Schema](https://standardschema.dev) for universal validation library integration. Any validation library that implements the Standard Schema interface works seamlessly.
+
+### Using Zod (Standard Schema v3.24.0+)
 
 ```tsx
-import { createZodValidator, createZodFormValidator } from '@rilaykit/validation-adapters/zod';
 import { z } from 'zod';
 
-// Field-level validation
-const validation = [
-  createZodValidator(z.string().email('Invalid email'))
-];
-
-// Form-level validation
-const formValidation = createZodFormValidator(z.object({
+// Zod automatically implements Standard Schema interface
+const emailSchema = z.string().email('Invalid email');
+const userSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)
-}));
+});
+
+// Use directly in field validation
+const form = rilay.form('user')
+  .add({
+    id: 'email',
+    type: 'input',
+    validation: {
+      schema: emailSchema // Standard Schema compatible
+    }
+  });
 ```
 
-### Yup Adapter
+### Using Yup (Standard Schema v1.7.0+) 
 
 ```tsx
-import { createYupValidator, createYupFormValidator } from '@rilaykit/validation-adapters/yup';
 import * as yup from 'yup';
 
-// Field-level validation
-const validation = [
-  createYupValidator(yup.string().email('Invalid email'))
-];
-
-// Form-level validation
-const formValidation = createYupFormValidator(yup.object({
+// Yup now implements Standard Schema interface
+const emailSchema = yup.string().email('Invalid email');
+const userSchema = yup.object({
   email: yup.string().email().required(),
   password: yup.string().min(8).required()
-}));
+});
+
+// Use directly in validation
+const form = rilay.form('user')
+  .add({
+    id: 'email', 
+    type: 'input',
+    validation: {
+      schema: emailSchema // Standard Schema compatible
+    }
+  });
 ```
 
-### Joi Adapter
+### Using Joi (Standard Schema v18.0.0+)
 
 ```tsx
-import { createJoiValidator, createJoiFormValidator } from '@rilaykit/validation-adapters/joi';
 import Joi from 'joi';
 
-// Field-level validation
-const validation = [
-  createJoiValidator(Joi.string().email().message('Invalid email'))
-];
-
-// Form-level validation
-const formValidation = createJoiFormValidator(Joi.object({
+// Joi implements Standard Schema interface
+const emailSchema = Joi.string().email().message('Invalid email');
+const userSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required()
-}));
+});
+
+// Use directly in validation
+const form = rilay.form('user')
+  .add({
+    id: 'email',
+    type: 'input', 
+    validation: {
+      schema: emailSchema // Standard Schema compatible
+    }
+  });
 ```
 
 ## Types

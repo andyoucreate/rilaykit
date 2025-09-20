@@ -1,5 +1,10 @@
 import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
-import { createValidationContext, runValidatorsAsync } from '@rilaykit/core';
+import {
+  createValidationContext,
+  hasUnifiedValidation,
+  validateFormWithUnifiedConfig,
+  validateWithUnifiedConfig,
+} from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import type { UseFormConditionsReturn } from './useFormConditions';
 import type { FormState } from './useFormState';
@@ -56,8 +61,8 @@ export function useFormValidation({
         return createSuccessResult();
       }
 
-      // Skip si pas de validators
-      if (!fieldConfig.validation?.validators?.length) {
+      // Skip si pas de validation configurée
+      if (!fieldConfig.validation || !hasUnifiedValidation(fieldConfig.validation)) {
         setErrorRef.current(fieldId, []);
         setFieldValidationStateRef.current(fieldId, 'valid');
         return createSuccessResult();
@@ -75,9 +80,9 @@ export function useFormValidation({
       setFieldValidationStateRef.current(fieldId, 'validating');
 
       try {
-        // Run validators
-        const result = await runValidatorsAsync(
-          fieldConfig.validation.validators,
+        // Run unified validation (Standard Schema only)
+        const result = await validateWithUnifiedConfig(
+          fieldConfig.validation,
           valueToValidate,
           context
         );
@@ -130,11 +135,11 @@ export function useFormValidation({
 
   // Optimized form validation with stable dependencies
   const validateForm = useCallback(async (): Promise<ValidationResult> => {
-    // Get visible fields with validators
+    // Get visible fields with validation
     const fieldsToValidate = formConfigRef.current.allFields.filter((field) => {
       const isVisible = conditionsHelpersRef.current.isFieldVisible(field.id);
-      const hasValidators = field.validation?.validators && field.validation.validators.length > 0;
-      return isVisible && hasValidators;
+      const hasValidation = field.validation && hasUnifiedValidation(field.validation);
+      return isVisible && hasValidation;
     });
 
     // Clear errors for invisible fields
@@ -154,7 +159,10 @@ export function useFormValidation({
 
     // Form-level validation (si configuré)
     let formResult = createSuccessResult();
-    if (formConfigRef.current.validation?.validators?.length) {
+    if (
+      formConfigRef.current.validation &&
+      hasUnifiedValidation(formConfigRef.current.validation)
+    ) {
       const visibleFormData = Object.keys(formState.values).reduce(
         (acc, fieldId) => {
           if (conditionsHelpersRef.current.isFieldVisible(fieldId)) {
@@ -171,8 +179,9 @@ export function useFormValidation({
       });
 
       try {
-        formResult = await runValidatorsAsync(
-          formConfigRef.current.validation.validators,
+        // Run unified form validation (Standard Schema only)
+        formResult = await validateFormWithUnifiedConfig(
+          formConfigRef.current.validation,
           visibleFormData,
           context
         );

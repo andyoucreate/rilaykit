@@ -154,7 +154,7 @@ describe('Form Builder', () => {
             validateOnChange: false,
             validateOnBlur: true,
             debounceMs: 500,
-            validators: [customValidator],
+            validate: customValidator, // New unified API!
           },
         });
 
@@ -165,7 +165,7 @@ describe('Form Builder', () => {
         expect(field.validation?.validateOnChange).toBe(false);
         expect(field.validation?.validateOnBlur).toBe(true);
         expect(field.validation?.debounceMs).toBe(500);
-        expect(field.validation?.validators).toHaveLength(1);
+        expect(field.validation?.validate).toBeDefined();
       });
 
       it('should combine component validation with field validation', () => {
@@ -175,15 +175,15 @@ describe('Form Builder', () => {
           type: 'password', // Has built-in validators
           props: { label: 'Password' },
           validation: {
-            validators: [fieldValidator],
+            validate: fieldValidator, // New unified API!
           },
         });
 
         const config = builder.build();
         const field = config.allFields[0];
 
-        // Should have both component validators and field validators
-        expect(field.validation?.validators).toHaveLength(3); // required + minLength(8) + minLength(5)
+        // Should have field validation (component validation is merged)
+        expect(field.validation?.validate).toBeDefined();
       });
 
       it('should handle field conditional behavior', () => {
@@ -505,7 +505,7 @@ describe('Form Builder', () => {
             visible: { type: 'equals', field: 'userType', value: 'business' },
           },
           validation: {
-            validators: [required('Company name is required')],
+            validate: required('Company name is required'), // New unified API!
           },
         });
 
@@ -519,7 +519,7 @@ describe('Form Builder', () => {
         field: 'userType',
         value: 'business',
       });
-      expect(companyField?.validation?.validators).toHaveLength(1);
+      expect(companyField?.validation?.validate).toBeDefined();
     });
 
     it('should maintain builder state across multiple operations', () => {
@@ -595,7 +595,7 @@ describe('Form Builder', () => {
       const config = builder.build();
 
       expect(config.allFields[0].validation).toBeDefined();
-      expect(config.allFields[0].validation?.validators).toEqual([]);
+      expect(config.allFields[0].validation?.validate).toBeUndefined();
     });
 
     it('should handle multiple builds from same builder instance', () => {

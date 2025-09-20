@@ -1,354 +1,339 @@
 /**
- * @fileoverview Built-in validators
- *
- * This module provides a comprehensive set of built-in validators for common
- * validation scenarios. These validators follow the FieldValidator interface
- * and can be used standalone or combined with other validators.
+ * Built-in validators implementing Standard Schema interface
+ * All RilayKit validators now implement Standard Schema for consistency
  */
 
-import type { FieldValidator, ValidationContext, ValidationResult } from '../types';
-import { createErrorResult, createSuccessResult } from './utils';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+
+// =================================================================
+// STANDARD SCHEMA VALIDATORS - RILAY BUILT-INS
+// =================================================================
 
 /**
- * Validates that a value is not empty, null, or undefined
- *
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const nameValidator = required('Name is required');
- * ```
+ * Required field validator - Standard Schema implementation
  */
-export function required(message = 'This field is required'): FieldValidator {
-  return (value: any): ReturnType<FieldValidator> => {
-    if (
-      value === null ||
-      value === undefined ||
-      value === '' ||
-      (Array.isArray(value) && value.length === 0)
-    ) {
-      return createErrorResult(message, 'REQUIRED');
-    }
-    return createSuccessResult();
+export function required(message = 'This field is required'): StandardSchemaV1<any> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        const isEmpty =
+          value === '' ||
+          value == null ||
+          (Array.isArray(value) && value.length === 0) ||
+          (typeof value === 'object' && Object.keys(value as any).length === 0);
+
+        return isEmpty ? { issues: [{ message, path: undefined }] } : { value };
+      },
+    },
   };
 }
 
 /**
- * Validates minimum string length
- *
- * @param min - Minimum length required
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const passwordValidator = minLength(8, 'Password must be at least 8 characters');
- * ```
+ * Email validation - Standard Schema implementation
  */
-export function minLength(min: number, message?: string): FieldValidator<string> {
-  return (value: string): ReturnType<FieldValidator> => {
-    if (!value || value.length < min) {
-      return createErrorResult(
-        message || `Must be at least ${min} characters long`,
-        'MIN_LENGTH',
-        `length.${min}`
-      );
-    }
-    return createSuccessResult();
+export function email(message = 'Please enter a valid email address'): StandardSchemaV1<string> {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') {
+          return { issues: [{ message: 'Email must be a string' }] };
+        }
+
+        return emailRegex.test(value) ? { value } : { issues: [{ message }] };
+      },
+      types: {
+        input: '' as string,
+        output: '' as string,
+      },
+    },
   };
 }
 
 /**
- * Validates maximum string length
- *
- * @param max - Maximum length allowed
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const bioValidator = maxLength(500, 'Bio must be under 500 characters');
- * ```
+ * URL validation - Standard Schema implementation
  */
-export function maxLength(max: number, message?: string): FieldValidator<string> {
-  return (value: string): ReturnType<FieldValidator> => {
-    if (value && value.length > max) {
-      return createErrorResult(
-        message || `Must be no more than ${max} characters long`,
-        'MAX_LENGTH',
-        `length.${max}`
-      );
-    }
-    return createSuccessResult();
+export function url(message = 'Please enter a valid URL'): StandardSchemaV1<string> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') {
+          return { issues: [{ message: 'URL must be a string' }] };
+        }
+
+        try {
+          new URL(value);
+          return { value };
+        } catch {
+          return { issues: [{ message }] };
+        }
+      },
+      types: {
+        input: '' as string,
+        output: '' as string,
+      },
+    },
   };
 }
 
 /**
- * Validates that a string matches a regular expression pattern
- *
- * @param regex - The regular expression pattern
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const phoneValidator = pattern(/^\d{3}-\d{3}-\d{4}$/, 'Invalid phone format');
- * ```
+ * Minimum length validation - Standard Schema implementation
  */
-export function pattern(regex: RegExp, message?: string): FieldValidator<string> {
-  return (value: string): ReturnType<FieldValidator> => {
-    if (value && !regex.test(value)) {
-      return createErrorResult(
-        message || 'Invalid format',
-        'PATTERN_MISMATCH',
-        `pattern.${regex.source}`
-      );
-    }
-    return createSuccessResult();
+export function minLength(min: number, message?: string): StandardSchemaV1<string> {
+  const defaultMessage = `Must be at least ${min} characters long`;
+
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') {
+          return { issues: [{ message: 'Value must be a string' }] };
+        }
+
+        return value.length >= min
+          ? { value }
+          : { issues: [{ message: message || defaultMessage }] };
+      },
+      types: {
+        input: '' as string,
+        output: '' as string,
+      },
+    },
   };
 }
 
 /**
- * Email validation using a comprehensive regex pattern
- *
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const emailValidator = email('Please enter a valid email address');
- * ```
+ * Maximum length validation - Standard Schema implementation
  */
-export function email(message = 'Please enter a valid email address'): FieldValidator<string> {
-  const emailRegex =
-    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+export function maxLength(max: number, message?: string): StandardSchemaV1<string> {
+  const defaultMessage = `Must be no more than ${max} characters long`;
 
-  return (value: string): ReturnType<FieldValidator> => {
-    if (value && !emailRegex.test(value)) {
-      return createErrorResult(message, 'INVALID_EMAIL');
-    }
-    return createSuccessResult();
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') {
+          return { issues: [{ message: 'Value must be a string' }] };
+        }
+
+        return value.length <= max
+          ? { value }
+          : { issues: [{ message: message || defaultMessage }] };
+      },
+      types: {
+        input: '' as string,
+        output: '' as string,
+      },
+    },
   };
 }
 
 /**
- * URL validation using a comprehensive regex pattern
- *
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const websiteValidator = url('Please enter a valid URL');
- * ```
+ * Pattern validation - Standard Schema implementation
  */
-export function url(message = 'Please enter a valid URL'): FieldValidator<string> {
-  const urlRegex =
-    /^https?:\/\/(?:[-\w.])+(?:\:[0-9]+)?(?:\/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?)?$/;
+export function pattern(
+  regex: RegExp,
+  message = 'Value does not match required pattern'
+): StandardSchemaV1<string> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        if (typeof value !== 'string') {
+          return { issues: [{ message: 'Value must be a string' }] };
+        }
 
-  return (value: string): ReturnType<FieldValidator> => {
-    if (value && !urlRegex.test(value)) {
-      return createErrorResult(message, 'INVALID_URL');
-    }
-    return createSuccessResult();
+        return regex.test(value) ? { value } : { issues: [{ message }] };
+      },
+      types: {
+        input: '' as string,
+        output: '' as string,
+      },
+    },
   };
 }
 
 /**
- * Validates that a value is a valid number
- *
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const ageValidator = number('Age must be a valid number');
- * ```
+ * Number validation - Standard Schema implementation
  */
-export function number(message = 'Must be a valid number'): FieldValidator<string | number> {
-  return (value: string | number): ReturnType<FieldValidator> => {
-    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
-    if (Number.isNaN(numValue) || !Number.isFinite(numValue)) {
-      return createErrorResult(message, 'INVALID_NUMBER');
-    }
-    return createSuccessResult();
+export function number(message = 'Must be a valid number'): StandardSchemaV1<number> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        const num = typeof value === 'string' ? Number(value) : value;
+
+        if (typeof num !== 'number' || Number.isNaN(num)) {
+          return { issues: [{ message }] };
+        }
+
+        return { value: num };
+      },
+      types: {
+        input: 0 as number,
+        output: 0 as number,
+      },
+    },
   };
 }
 
 /**
- * Validates minimum numeric value
- *
- * @param minValue - Minimum value allowed
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const ageValidator = min(18, 'Must be at least 18 years old');
- * ```
+ * Minimum value validation - Standard Schema implementation
  */
-export function min(minValue: number, message?: string): FieldValidator<string | number> {
-  return (value: string | number): ReturnType<FieldValidator> => {
-    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
-    if (!Number.isNaN(numValue) && numValue < minValue) {
-      return createErrorResult(
-        message || `Must be at least ${minValue}`,
-        'MIN_VALUE',
-        `min.${minValue}`
-      );
-    }
-    return createSuccessResult();
+export function min(minValue: number, message?: string): StandardSchemaV1<number> {
+  const defaultMessage = `Must be at least ${minValue}`;
+
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        const num = typeof value === 'string' ? Number(value) : value;
+
+        if (typeof num !== 'number' || Number.isNaN(num)) {
+          return { issues: [{ message: 'Value must be a number' }] };
+        }
+
+        return num >= minValue
+          ? { value: num }
+          : { issues: [{ message: message || defaultMessage }] };
+      },
+      types: {
+        input: 0 as number,
+        output: 0 as number,
+      },
+    },
   };
 }
 
 /**
- * Validates maximum numeric value
- *
- * @param maxValue - Maximum value allowed
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const scoreValidator = max(100, 'Score cannot exceed 100');
- * ```
+ * Maximum value validation - Standard Schema implementation
  */
-export function max(maxValue: number, message?: string): FieldValidator<string | number> {
-  return (value: string | number): ReturnType<FieldValidator> => {
-    const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
-    if (!Number.isNaN(numValue) && numValue > maxValue) {
-      return createErrorResult(
-        message || `Must be no more than ${maxValue}`,
-        'MAX_VALUE',
-        `max.${maxValue}`
-      );
-    }
-    return createSuccessResult();
+export function max(maxValue: number, message?: string): StandardSchemaV1<number> {
+  const defaultMessage = `Must be no more than ${maxValue}`;
+
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        const num = typeof value === 'string' ? Number(value) : value;
+
+        if (typeof num !== 'number' || Number.isNaN(num)) {
+          return { issues: [{ message: 'Value must be a number' }] };
+        }
+
+        return num <= maxValue
+          ? { value: num }
+          : { issues: [{ message: message || defaultMessage }] };
+      },
+      types: {
+        input: 0 as number,
+        output: 0 as number,
+      },
+    },
   };
 }
 
 /**
- * Creates a custom validator from a validation function
- *
- * @param validateFn - Custom validation function
- * @param message - Error message for failed validation
- * @param code - Optional error code
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const evenNumberValidator = custom(
- *   (value) => Number(value) % 2 === 0,
- *   'Number must be even',
- *   'NOT_EVEN'
- * );
- * ```
+ * Custom validator - Standard Schema implementation
  */
 export function custom<T>(
-  validateFn: (value: T, context: ValidationContext) => boolean,
-  message: string,
-  code?: string
-): FieldValidator<T> {
-  return (value: T, context: ValidationContext): ReturnType<FieldValidator> => {
-    if (!validateFn(value, context)) {
-      return createErrorResult(message, code || 'CUSTOM_VALIDATION_FAILED');
-    }
-    return createSuccessResult();
+  fn: (value: T) => boolean,
+  message = 'Validation failed'
+): StandardSchemaV1<T> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: (value: unknown) => {
+        try {
+          const isValid = fn(value as T);
+          return isValid ? { value: value as T } : { issues: [{ message }] };
+        } catch (error) {
+          return {
+            issues: [
+              {
+                message: error instanceof Error ? error.message : message,
+              },
+            ],
+          };
+        }
+      },
+    },
   };
 }
 
 /**
- * Creates a validator that checks if a value matches another field's value
- *
- * @param targetFieldId - ID of the field to match against
- * @param message - Custom error message (optional)
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const confirmPasswordValidator = matchField('password', 'Passwords must match');
- * ```
- */
-export function matchField(targetFieldId: string, message?: string): FieldValidator {
-  return (value: any, context: ValidationContext): ReturnType<FieldValidator> => {
-    const targetValue = context.allFormData?.[targetFieldId];
-    if (value !== targetValue) {
-      return createErrorResult(
-        message || 'Fields must match',
-        'FIELD_MISMATCH',
-        `match.${targetFieldId}`
-      );
-    }
-    return createSuccessResult();
-  };
-}
-
-/**
- * Creates a validator that only validates when a condition is met
- *
- * @param condition - Function that determines if validation should run
- * @param validator - The validator to run conditionally
- * @returns A FieldValidator function
- *
- * @example
- * ```typescript
- * const conditionalValidator = validateWhen(
- *   (value, context) => context.allFormData?.userType === 'premium',
- *   required('Premium users must provide this field')
- * );
- * ```
- */
-export function validateWhen<T>(
-  condition: (value: T, context: ValidationContext) => boolean,
-  validator: FieldValidator<T>
-): FieldValidator<T> {
-  return (value: T, context: ValidationContext): ReturnType<FieldValidator> => {
-    if (!condition(value, context)) {
-      return createSuccessResult();
-    }
-    return validator(value, context);
-  };
-}
-
-/**
- * Creates an async custom validator from a validation function
- *
- * @param validateFn - Async custom validation function that returns a Promise<boolean>
- * @param message - Error message for failed validation
- * @param code - Optional error code
- * @returns A FieldValidator function that returns a Promise
- *
- * @example
- * ```typescript
- * const checkEmailUnique = customAsync(
- *   async (email) => {
- *     const response = await fetch(`/api/check-email?email=${email}`);
- *     const data = await response.json();
- *     return data.isUnique;
- *   },
- *   'Email address is already taken',
- *   'EMAIL_NOT_UNIQUE'
- * );
- * ```
+ * Async validator - Standard Schema implementation
  */
 export function async<T>(
-  validateFn: (value: T, context: ValidationContext) => Promise<boolean>,
-  message: string,
-  code?: string
-): FieldValidator<T> {
-  return async (value: T, context: ValidationContext): Promise<ValidationResult> => {
-    try {
-      const isValid = await validateFn(value, context);
-      if (!isValid) {
-        return createErrorResult(message, code || 'ASYNC_VALIDATION_FAILED');
-      }
-      return createSuccessResult();
-    } catch (error) {
-      return createErrorResult(
-        error instanceof Error ? error.message : 'Async validation error',
-        'ASYNC_ERROR'
-      );
-    }
+  fn: (value: T) => Promise<boolean>,
+  message = 'Async validation failed'
+): StandardSchemaV1<T> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: async (value: unknown) => {
+        try {
+          const isValid = await fn(value as T);
+          return isValid ? { value: value as T } : { issues: [{ message }] };
+        } catch (error) {
+          return {
+            issues: [
+              {
+                message: error instanceof Error ? error.message : message,
+              },
+            ],
+          };
+        }
+      },
+    },
+  };
+}
+
+/**
+ * Utility to combine multiple Standard Schema validators
+ * This creates a new Standard Schema that runs all validations
+ */
+export function combine<T>(...schemas: StandardSchemaV1<T>[]): StandardSchemaV1<T> {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'rilaykit',
+      validate: async (value: unknown) => {
+        const allIssues: StandardSchemaV1.Issue[] = [];
+        let finalValue = value;
+
+        for (const schema of schemas) {
+          let result = schema['~standard'].validate(value);
+
+          // Handle async validation
+          if (result instanceof Promise) {
+            result = await result;
+          }
+
+          if (result.issues) {
+            allIssues.push(...result.issues);
+          } else {
+            finalValue = result.value;
+          }
+        }
+
+        return allIssues.length > 0 ? { issues: allIssues } : { value: finalValue as T };
+      },
+    },
   };
 }

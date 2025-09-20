@@ -19,7 +19,6 @@ import {
   when,
 } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { createZodValidator } from '@rilaykit/validation-adapters';
 import {
   RilayLicenseManager,
   Workflow,
@@ -76,22 +75,6 @@ const zodSchemas = {
   industry: z.string().optional(),
   feedback: z.string().optional(),
 };
-
-// 🎯 Créer les validateurs Zod
-const zodValidators = {
-  firstName: createZodValidator(zodSchemas.firstName),
-  lastName: createZodValidator(zodSchemas.lastName),
-  age: createZodValidator(zodSchemas.age),
-  email: createZodValidator(zodSchemas.email),
-  siren: createZodValidator(zodSchemas.siren),
-  role: createZodValidator(zodSchemas.role, { parseMode: 'async' }), // Mode async pour le refine asynchrone
-  experience: createZodValidator(zodSchemas.experience),
-  companyName: createZodValidator(zodSchemas.companyName),
-  companyAddress: createZodValidator(zodSchemas.companyAddress),
-  industry: createZodValidator(zodSchemas.industry),
-  feedback: createZodValidator(zodSchemas.feedback),
-};
-
 // Component interfaces
 interface TextInputProps {
   label: string;
@@ -347,7 +330,7 @@ const factory = ril
     renderer: EmailInput as ComponentRenderer<EmailInputProps>,
     defaultProps: { placeholder: 'Enter email...' },
     validation: {
-      validators: [zodValidators.email],
+      validate: zodSchemas.email, // Unified Standard Schema API!
     },
   })
   .addComponent('select', {
@@ -401,7 +384,7 @@ export default function WorkflowTestPage() {
         type: 'text',
         props: { label: 'First Name' },
         validation: {
-          validators: [zodValidators.firstName],
+          validate: zodSchemas.firstName, // Unified Standard Schema API!
         },
         conditions: {
           visible: when('email').equals('karl@karl.fr').or(when('age').equals('18')),
@@ -412,7 +395,7 @@ export default function WorkflowTestPage() {
         type: 'text',
         props: { label: 'Last Name' },
         validation: {
-          validators: [zodValidators.lastName],
+          validate: zodSchemas.lastName, // Unified Standard Schema API!
         },
       }
     )
@@ -421,7 +404,7 @@ export default function WorkflowTestPage() {
       type: 'text',
       props: { label: 'Age' },
       validation: {
-        validators: [zodValidators.age],
+        validate: zodSchemas.age, // Unified Standard Schema API!
       },
     })
     .add({
@@ -430,7 +413,7 @@ export default function WorkflowTestPage() {
       props: { label: 'Email Address' },
       validation: {
         // Additional field-level validation combines with component validation
-        validators: [zodValidators.email],
+        validate: zodSchemas.email, // Unified Standard Schema API!
         validateOnBlur: true,
       },
     })
@@ -439,7 +422,7 @@ export default function WorkflowTestPage() {
       type: 'text',
       props: { label: 'SIREN (French company number)', placeholder: 'Ex: 123456789' },
       validation: {
-        validators: [zodValidators.siren],
+        validate: zodSchemas.siren, // Unified Standard Schema API!
       },
     });
 
@@ -459,7 +442,7 @@ export default function WorkflowTestPage() {
         ],
       },
       validation: {
-        validators: [zodValidators.role],
+        validate: zodSchemas.role, // Unified Standard Schema API!
         validateOnBlur: true,
       },
     })
@@ -476,7 +459,7 @@ export default function WorkflowTestPage() {
         ],
       },
       validation: {
-        validators: [zodValidators.experience],
+        validate: zodSchemas.experience, // Unified Standard Schema API!
         validateOnBlur: true,
       },
     });

@@ -5,7 +5,6 @@ import {
   type FormFieldConfig,
   type FormFieldRow,
   type FormValidationConfig,
-  type FormValidator,
   IdGenerator,
   deepClone,
   ensureUnique,
@@ -174,11 +173,23 @@ export class form<C extends Record<string, any> = Record<string, never>> {
           fieldConfig.validation?.validateOnBlur ?? component.validation?.validateOnBlur,
         debounceMs: fieldConfig.validation?.debounceMs ?? component.validation?.debounceMs,
 
-        // Combine validators: component validators first, then field validators
-        validators: [
-          ...(component.validation?.validators || []),
-          ...(fieldConfig.validation?.validators || []),
-        ],
+        // Combine validation rules: merge component and field validation
+        validate: (() => {
+          const componentValidation = component.validation?.validate;
+          const fieldValidation = fieldConfig.validation?.validate;
+
+          // If only one has validation, use it
+          if (!componentValidation) return fieldValidation;
+          if (!fieldValidation) return componentValidation;
+
+          // If both have validation, combine them into array
+          const componentArray = Array.isArray(componentValidation)
+            ? componentValidation
+            : [componentValidation];
+          const fieldArray = Array.isArray(fieldValidation) ? fieldValidation : [fieldValidation];
+
+          return [...componentArray, ...fieldArray];
+        })(),
       };
     }
 
@@ -544,18 +555,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ]);
    * ```
    */
-  addValidators(validators: FormValidator[]): this {
-    if (!this.formValidation) {
-      this.formValidation = { validators: [] };
-    }
-
-    this.formValidation = {
-      ...this.formValidation,
-      validators: [...(this.formValidation.validators || []), ...validators],
-    };
-
-    return this;
-  }
+  // addValidators method removed - use setValidation with 'validate' property
 
   /**
    * Adds validation to a specific field by ID
@@ -576,16 +576,20 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * });
    * ```
    */
-  addFieldValidation(fieldId: string, validationConfig: FieldValidationConfig): this {
+  /** @deprecated Use updateField with new validation.validate property instead */
+  addFieldValidation(fieldId: string, validationConfig: any): this {
+    console.warn(
+      'addFieldValidation is deprecated. Use updateField with validation.validate property instead.'
+    );
     const field = this.findField(fieldId);
     if (!field) {
       throw new Error(`Field with ID "${fieldId}" not found`);
     }
 
-    const updatedValidation: FieldValidationConfig = {
+    // For legacy support, just update with new config (ignoring validators merge)
+    const updatedValidation = {
       ...field.validation,
       ...validationConfig,
-      validators: [...(field.validation?.validators || []), ...(validationConfig.validators || [])],
     };
 
     return this.updateField(fieldId, { validation: updatedValidation });

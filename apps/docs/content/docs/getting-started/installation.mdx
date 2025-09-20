@@ -41,7 +41,7 @@ For most use cases, start with the core and forms packages:
 | `@rilaykit/core` | MIT | Core engine, types, validation system | **Required** - Foundation for all RilayKit usage |
 | `@rilaykit/forms` | MIT | Form builder and React components | Single-page forms, basic workflows |
 | `@rilaykit/workflow` | Commercial | Multi-step workflows with advanced features | Complex onboarding, multi-page forms, analytics |
-| `@rilaykit/validation-adapters` | MIT | Zod, Yup, and Joi integrations | When using external validation libraries |
+| `@rilaykit/validation-adapters` | MIT | ~~Zod, Yup, and Joi integrations~~ **[DEPRECATED]** Use Standard Schema instead | When using external validation libraries |
 
 ## Advanced Installation
 
@@ -83,50 +83,50 @@ If you prefer using established validation libraries:
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
     ```bash
-    # For Zod users (recommended)
-    pnpm add @rilaykit/validation-adapters zod
+    # For Zod users (recommended) - now with Standard Schema
+    pnpm add zod
     
-    # For Yup users
-    pnpm add @rilaykit/validation-adapters yup
+    # For Yup users - now with Standard Schema  
+    pnpm add yup
     
-    # For Joi users
-    pnpm add @rilaykit/validation-adapters joi
+    # For Joi users - now with Standard Schema
+    pnpm add joi
     ```
   </Tab>
   <Tab value="npm">
     ```bash
-    # For Zod users (recommended)
-    npm install @rilaykit/validation-adapters zod
+    # For Zod users (recommended) - now with Standard Schema
+    npm install zod
     
-    # For Yup users
-    npm install @rilaykit/validation-adapters yup
+    # For Yup users - now with Standard Schema
+    npm install yup
     
-    # For Joi users
-    npm install @rilaykit/validation-adapters joi
+    # For Joi users - now with Standard Schema  
+    npm install joi
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    # For Zod users (recommended)
-    yarn add @rilaykit/validation-adapters zod
+    # For Zod users (recommended) - now with Standard Schema
+    yarn add zod
     
-    # For Yup users
-    yarn add @rilaykit/validation-adapters yup
+    # For Yup users - now with Standard Schema
+    yarn add yup
     
-    # For Joi users
-    yarn add @rilaykit/validation-adapters joi
+    # For Joi users - now with Standard Schema
+    yarn add joi
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    # For Zod users (recommended)
-    bun add @rilaykit/validation-adapters zod
+    # For Zod users (recommended) - now with Standard Schema
+    bun add zod
     
-    # For Yup users
-    bun add @rilaykit/validation-adapters yup
+    # For Yup users - now with Standard Schema
+    bun add yup
     
-    # For Joi users
-    bun add @rilaykit/validation-adapters joi
+    # For Joi users - now with Standard Schema
+    bun add joi
     ```
   </Tab>
 </Tabs>

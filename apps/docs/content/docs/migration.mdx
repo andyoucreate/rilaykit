@@ -83,7 +83,7 @@ function ReactHookFormExample() {
   <Tab value="Configuration">
     ```tsx title="rilay-config.tsx"
     import { ril } from '@rilaykit/core';
-    import { zodFieldValidator } from '@rilaykit/validation-adapters/zod';
+    // Zod now supports Standard Schema natively
     import { z } from 'zod';
     import { Input } from './components';
 
@@ -222,8 +222,7 @@ function FormikExample() {
   <Tab value="Configuration">
     ```tsx title="formik-to-rilay-config.tsx"
     import { ril, required, email, minLength } from '@rilaykit/core';
-    // Or use Yup adapter
-    import { yupFieldValidator } from '@rilaykit/validation-adapters/yup';
+    // Or use Yup - now with Standard Schema support
     import * as Yup from 'yup';
     import { Input } from './formik-to-rilay-components';
 

@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type React from 'react';
 import type { ConditionConfig } from '../conditions';
 import type { ril } from '../config/ril';
@@ -26,6 +27,7 @@ export interface ValidationError {
 export interface ValidationResult {
   readonly isValid: boolean;
   readonly errors: ValidationError[];
+  readonly value?: any;
 }
 
 export interface ValidationContext {
@@ -38,46 +40,66 @@ export interface ValidationContext {
   readonly workflowData?: Record<string, any>;
 }
 
-// 2.2. Validator Function Types
+// 2.2. Legacy Validator Function Types (kept for internal use only)
+/** @internal - Use Standard Schema instead */
 export type FieldValidator<T = any> = (
   value: T,
   context: ValidationContext
 ) => ValidationResult | Promise<ValidationResult>;
 
+/** @internal - Use Standard Schema instead */
 export type FormValidator<T = Record<string, any>> = (
   formData: T,
   context: ValidationContext
 ) => ValidationResult | Promise<ValidationResult>;
 
-// 2.3. Validation Schema Types (for adapters like Zod)
-export type ValidationSchema<T = any> = {
-  parse: (value: T) => T;
-  safeParse: (value: T) => { success: boolean; data?: T; error?: any };
-};
+// 2.3. Standard Schema Support
+export type StandardSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output>;
 
-// 2.4. Validation Adapter Interface
-export interface ValidationAdapter<TSchema = any> {
-  readonly name: string;
-  readonly version?: string;
-  createFieldValidator<T>(schema: TSchema): FieldValidator<T>;
-  createFormValidator<T>(schema: TSchema): FormValidator<T>;
-}
+// Helper types for Standard Schema
+export type InferInput<T> = T extends StandardSchema<infer I, any> ? I : unknown;
+export type InferOutput<T> = T extends StandardSchema<any, infer O> ? O : unknown;
 
-// 2.5. Validation Configuration
-export interface FieldValidationConfig {
-  readonly validators?: FieldValidator[];
-  readonly schema?: ValidationSchema;
+// 2.6. Unified Validation Configuration (Standard Schema only)
+export interface FieldValidationConfig<T = any> {
+  /**
+   * Validation rules using Standard Schema interface
+   * Accepts: single schema, array of schemas, or any Standard Schema compatible validation
+   *
+   * @example Single schema
+   * validate: z.string().email()
+   *
+   * @example Built-in validators
+   * validate: required()
+   *
+   * @example Multiple validations
+   * validate: [required(), email()]
+   *
+   * @example Mixed schemas + validators
+   * validate: [z.string(), required(), customValidator()]
+   */
+  readonly validate?: StandardSchema<T> | StandardSchema<T>[];
   readonly validateOnChange?: boolean;
   readonly validateOnBlur?: boolean;
   readonly debounceMs?: number;
 }
 
-export interface FormValidationConfig {
-  readonly validators?: FormValidator[];
-  readonly schema?: ValidationSchema;
+export interface FormValidationConfig<T extends Record<string, any> = Record<string, any>> {
+  /**
+   * Form-level validation using Standard Schema interface
+   *
+   * @example Object schema
+   * validate: z.object({ email: z.string().email(), name: z.string() })
+   *
+   * @example Custom form validator
+   * validate: customFormValidator()
+   */
+  readonly validate?: StandardSchema<T> | StandardSchema<T>[];
   readonly validateOnSubmit?: boolean;
   readonly validateOnStepChange?: boolean;
 }
+
+// Legacy types completely removed - use unified Standard Schema API
 
 // =================================================================
 // 3. COMPONENT SYSTEM
