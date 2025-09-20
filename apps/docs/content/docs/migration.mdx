@@ -222,58 +222,90 @@ function FormikExample() {
   <Tab value="Configuration">
     ```tsx title="formik-to-rilay-config.tsx"
     import { ril, required, email, minLength } from '@rilaykit/core';
-    // Or use Yup - now with Standard Schema support
-    import * as Yup from 'yup';
+    import * as yup from 'yup';
+    import { z } from 'zod';
     import { Input } from './formik-to-rilay-components';
 
     const rilay = ril.create()
       .addComponent('input', { renderer: Input });
 
-    // Option 1: Using built-in validators
+    // Option 1: Using RilayKit built-in validators
     const contactFormBuiltIn = rilay
       .form('contact')
       .add({
         id: 'name',
         type: 'input',
         props: { placeholder: 'Name' },
-        validation: [required('Name is required')]
+        validation: { validate: required('Name is required') }
       })
       .add({
         id: 'email',
         type: 'input',
         props: { placeholder: 'Email' },
-        validation: [required('Email is required'), email('Invalid email')]
+        validation: { validate: [required('Email is required'), email('Invalid email')] }
       })
       .add({
         id: 'message',
         type: 'input',
         props: { placeholder: 'Message', multiline: true },
-        validation: [minLength(10, 'Message too short')]
+        validation: { validate: minLength(10, 'Message too short') }
       });
 
-    // Option 2: Using Yup adapter (for easier migration)
+    // Option 2: Using Zod directly (no adapters needed!)
+    const contactFormZod = rilay
+      .form('contact')
+      .add({
+        id: 'name',
+        type: 'input',
+        props: { placeholder: 'Name' },
+        validation: { validate: z.string().min(1, 'Name is required') }
+      })
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { placeholder: 'Email' },
+        validation: { validate: z.string().email('Invalid email') }
+      })
+      .add({
+        id: 'message',
+        type: 'input',
+        props: { placeholder: 'Message', multiline: true },
+        validation: { validate: z.string().min(10, 'Message too short') }
+      });
+
+    // Option 3: Using Yup directly (no adapters needed!)  
     const contactFormYup = rilay
       .form('contact')
       .add({
         id: 'name',
         type: 'input',
         props: { placeholder: 'Name' },
-        validation: [yupFieldValidator(Yup.string().required('Name is required'))]
+        validation: { validate: yup.string().required('Name is required') }
       })
       .add({
         id: 'email',
         type: 'input',
         props: { placeholder: 'Email' },
-        validation: [yupFieldValidator(Yup.string().email('Invalid email').required('Email is required'))]
-      })
-      .add({
-        id: 'message',
-        type: 'input',
-        props: { placeholder: 'Message', multiline: true },
-        validation: [yupFieldValidator(Yup.string().min(10, 'Message too short'))]
+        validation: { validate: yup.string().email('Invalid email').required() }
       });
 
-    export { contactFormBuiltIn, contactFormYup };
+    // Option 4: Mix different libraries!
+    const contactFormMixed = rilay
+      .form('contact')
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { placeholder: 'Email' },
+        validation: { 
+          validate: [
+            required('Email is required'),        // RilayKit
+            z.string().email('Invalid format'),   // Zod
+            yup.string().max(100, 'Too long'),    // Yup
+          ]
+        }
+      });
+
+    export { contactFormBuiltIn, contactFormZod, contactFormYup, contactFormMixed };
     ```
   </Tab>
   <Tab value="Form">

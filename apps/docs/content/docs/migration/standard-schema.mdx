@@ -1,0 +1,296 @@
+---
+title: Migrating to Standard Schema
+description: Learn how to migrate from validation-adapters to the new Standard Schema system.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+RilayKit has migrated from custom validation adapters to [Standard Schema](https://standardschema.dev), providing universal validation library support without adapters.
+
+## What Changed
+
+### Old System (Removed)
+- `@rilaykit/validation-adapters` package with separate adapters for each library
+- Confusing API with both `validators` and `schema` properties  
+- Custom adapter code for each validation library
+
+### New System (Standard Schema)
+- Universal `validate` property that works with any Standard Schema library
+- Direct usage of Zod, Yup, Joi, and other compatible libraries
+- No adapters needed - libraries work natively
+- Unified, intuitive API
+
+## Migration Guide
+
+### Package Changes
+
+<Tabs items={['Remove Old', 'Add New']}>
+  <Tab value="Remove Old">
+    ```bash
+    # Remove the old validation-adapters package
+    npm uninstall @rilaykit/validation-adapters
+    # or
+    pnpm remove @rilaykit/validation-adapters
+    # or
+    yarn remove @rilaykit/validation-adapters
+    ```
+  </Tab>
+  <Tab value="Add New">
+    ```bash
+    # Add validation libraries directly (no adapters needed!)
+    npm install zod yup joi
+    # or
+    pnpm add zod yup joi
+    # or
+    yarn add zod yup joi
+    
+    # Pick any Standard Schema compatible library
+    npm install valibot arktype # etc.
+    ```
+  </Tab>
+</Tabs>
+
+### API Changes
+
+The main change is using the `validate` property instead of `validators` + `schema`:
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```tsx
+    // ❌ Old confusing API
+    import { createZodValidator } from '@rilaykit/validation-adapters';
+    import { required } from '@rilaykit/core';
+    import { z } from 'zod';
+
+    const emailValidator = createZodValidator(z.string().email());
+
+    const form = rilay.form('user')
+      .add({
+        id: 'email',
+        type: 'input',
+        validation: {
+          validators: [required()],     // One way
+          schema: z.string().email(),   // Another way - confusing!
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="After">
+    ```tsx
+    // ✅ New unified API
+    import { required } from '@rilaykit/core';
+    import { z } from 'zod';
+
+    const form = rilay.form('user')
+      .add({
+        id: 'email',
+        type: 'input',
+        validation: {
+          validate: [required(), z.string().email()], // One unified way!
+        },
+      });
+    ```
+  </Tab>
+</Tabs>
+
+### Step-by-Step Migration
+
+#### 1. Update Imports
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```tsx
+    // Remove these imports
+    import { 
+      createZodValidator,
+      createZodFormValidator,
+    } from '@rilaykit/validation-adapters/zod';
+    
+    import { 
+      createYupValidator,
+      createYupFormValidator,
+    } from '@rilaykit/validation-adapters/yup';
+    ```
+  </Tab>
+  <Tab value="After">
+    ```tsx
+    // Use validation libraries directly
+    import { z } from 'zod';
+    import * as yup from 'yup';
+    import Joi from 'joi';
+    
+    // RilayKit built-ins still available
+    import { required, email, minLength } from '@rilaykit/core';
+    ```
+  </Tab>
+</Tabs>
+
+#### 2. Update Field Validation
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```tsx
+    // ❌ Old adapter-based approach
+    const emailValidator = createZodValidator(z.string().email());
+    
+    .add({
+      id: 'email',
+      type: 'input',
+      validation: {
+        validators: [required(), emailValidator],
+      },
+    })
+    ```
+  </Tab>
+  <Tab value="After">
+    ```tsx
+    // ✅ Direct Standard Schema usage
+    .add({
+      id: 'email',
+      type: 'input',
+      validation: {
+        validate: [required(), z.string().email()],
+      },
+    })
+    ```
+  </Tab>
+</Tabs>
+
+#### 3. Update Form Validation
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```tsx
+    // ❌ Old form validator approach
+    const formValidator = createZodFormValidator(z.object({
+      email: z.string().email(),
+      password: z.string().min(8),
+    }));
+    
+    .setValidation({
+      validators: [formValidator],
+    })
+    ```
+  </Tab>
+  <Tab value="After">
+    ```tsx
+    // ✅ Direct object schema usage
+    const userSchema = z.object({
+      email: z.string().email(),
+      password: z.string().min(8),
+    });
+    
+    .setValidation({
+      validate: userSchema,
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Advanced Migration Examples
+
+### Complex Form with Cross-Field Validation
+
+<Tabs items={['Before', 'After']}>
+  <Tab value="Before">
+    ```tsx
+    import { createZodFormValidator } from '@rilaykit/validation-adapters';
+    
+    const userSchema = z.object({
+      password: z.string().min(8),
+      confirmPassword: z.string(),
+    }).refine(data => data.password === data.confirmPassword, {
+      message: "Passwords don't match",
+      path: ['confirmPassword'],
+    });
+    
+    const formValidator = createZodFormValidator(userSchema);
+    
+    const form = rilay.form('user')
+      .add({ id: 'password', type: 'password' })
+      .add({ id: 'confirmPassword', type: 'password' })
+      .setValidation({
+        validators: [formValidator],
+      });
+    ```
+  </Tab>
+  <Tab value="After">
+    ```tsx
+    import { z } from 'zod';
+    
+    const userSchema = z.object({
+      password: z.string().min(8),
+      confirmPassword: z.string(),
+    }).refine(data => data.password === data.confirmPassword, {
+      message: "Passwords don't match",
+      path: ['confirmPassword'],
+    });
+    
+    const form = rilay.form('user')
+      .add({ id: 'password', type: 'password' })
+      .add({ id: 'confirmPassword', type: 'password' })
+      .setValidation({
+        validate: userSchema, // Direct usage!
+      });
+    ```
+  </Tab>
+</Tabs>
+
+### Mixed Library Usage
+
+```tsx
+import { z } from 'zod';
+import * as yup from 'yup';
+import Joi from 'joi';
+import { required, email } from '@rilaykit/core';
+
+const advancedForm = rilay
+  .form('advanced')
+  .add({
+    id: 'email',
+    type: 'input',
+    validation: {
+      validate: [
+        required('Email is required'),           // RilayKit
+        z.string().email('Invalid format'),      // Zod
+        yup.string().max(100, 'Too long'),       // Yup
+        Joi.string().min(5, 'Too short'),        // Joi
+      ]
+    }
+  })
+  .add({
+    id: 'phone',
+    type: 'input',
+    validation: {
+      validate: z.string().regex(/^\+?[\d\s-()]+$/, 'Invalid phone format'),
+    }
+  });
+```
+
+## Benefits of Standard Schema
+
+<Callout type="info">
+**Why we migrated**: Standard Schema provides better performance, universal compatibility, and a cleaner API. It's supported by major validation libraries and ecosystem tools like tRPC, TanStack Form, and Hono.
+</Callout>
+
+### Performance Improvements
+- **No adapter overhead**: Direct validation execution
+- **Smaller bundle size**: No adapter packages needed
+- **Better tree-shaking**: Only include what you use
+
+### Developer Experience
+- **One API to learn**: Single `validate` property
+- **No adapter maintenance**: Libraries work directly
+- **Universal compatibility**: Same API across all libraries
+- **Future-proof**: New libraries work automatically if they support Standard Schema
+
+### Ecosystem Alignment
+- **tRPC**: Accepts Standard Schema for API validation
+- **TanStack Form**: Uses Standard Schema for form validation  
+- **Hono**: Middleware supports Standard Schema
+- **And many more**: See [standardschema.dev](https://standardschema.dev) for the full list
+
+## Need Help?
+
+If you're having trouble migrating, check out our [examples](/examples) or reach out on our GitHub discussions.

@@ -93,7 +93,8 @@ Advanced validation and conditional fields:
 import { ril, required, email, minLength, when } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 import { z } from 'zod';
-// Zod now supports Standard Schema natively
+import { z } from 'zod'; // Standard Schema compatible
+import { required } from '@rilaykit/core';
 
 const rilay = ril.create()
   .addComponent('input', { renderer: Input })

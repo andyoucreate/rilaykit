@@ -671,78 +671,79 @@ function CustomNavigation() {
 }
 ```
 
-## Standard Schema Validation
+## Universal Validation with Standard Schema
 
-RilayKit now supports [Standard Schema](https://standardschema.dev) for universal validation library integration. Any validation library that implements the Standard Schema interface works seamlessly.
+RilayKit provides universal validation through [Standard Schema](https://standardschema.dev), supporting any compatible validation library directly without adapters.
 
-### Using Zod (Standard Schema v3.24.0+)
+### Unified Validation API
+
+All validation uses the same simple `validate` property:
 
 ```tsx
 import { z } from 'zod';
-
-// Zod automatically implements Standard Schema interface
-const emailSchema = z.string().email('Invalid email');
-const userSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8)
-});
-
-// Use directly in field validation
-const form = rilay.form('user')
-  .add({
-    id: 'email',
-    type: 'input',
-    validation: {
-      schema: emailSchema // Standard Schema compatible
-    }
-  });
-```
-
-### Using Yup (Standard Schema v1.7.0+) 
-
-```tsx
 import * as yup from 'yup';
-
-// Yup now implements Standard Schema interface
-const emailSchema = yup.string().email('Invalid email');
-const userSchema = yup.object({
-  email: yup.string().email().required(),
-  password: yup.string().min(8).required()
-});
-
-// Use directly in validation
-const form = rilay.form('user')
-  .add({
-    id: 'email', 
-    type: 'input',
-    validation: {
-      schema: emailSchema // Standard Schema compatible
-    }
-  });
-```
-
-### Using Joi (Standard Schema v18.0.0+)
-
-```tsx
 import Joi from 'joi';
+import { required, email } from '@rilaykit/core';
 
-// Joi implements Standard Schema interface
-const emailSchema = Joi.string().email().message('Invalid email');
-const userSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().min(8).required()
-});
-
-// Use directly in validation
+// Single validator
 const form = rilay.form('user')
   .add({
     id: 'email',
-    type: 'input', 
+    type: 'input',
     validation: {
-      schema: emailSchema // Standard Schema compatible
+      validate: z.string().email() // Direct Zod usage
     }
   });
+
+// Multiple validators  
+const advancedForm = rilay.form('advanced')
+  .add({
+    id: 'email',
+    type: 'input',
+    validation: {
+      validate: [
+        required('Email required'),           // RilayKit built-in
+        z.string().email('Invalid format'),   // Zod
+        yup.string().max(100, 'Too long'),    // Yup
+      ]
+    }
+  });
+
+// Form-level validation
+const userFormSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+const secureForm = rilay.form('secure')
+  .add({ id: 'email', type: 'input' })
+  .add({ id: 'password', type: 'password' })
+  .add({ id: 'confirmPassword', type: 'password' })
+  .setValidation({
+    validate: userFormSchema // Object schema for cross-field validation
+  });
 ```
+
+### Supported Libraries
+
+| Library | Import | Example |
+|---------|--------|---------|
+| **Zod** | `import { z } from 'zod'` | `z.string().email()` |
+| **Yup** | `import * as yup from 'yup'` | `yup.string().email().required()` |
+| **Joi** | `import Joi from 'joi'` | `Joi.string().email().required()` |
+| **RilayKit** | `import { required, email } from '@rilaykit/core'` | `[required(), email()]` |
+
+### Key Benefits
+
+- **🎯 One API**: Single `validate` property for everything
+- **🔗 Universal**: Works with any Standard Schema library
+- **⚡ Fast**: No adapter overhead
+- **🧩 Composable**: Mix different validation libraries
+- **🔮 Future-proof**: Aligned with ecosystem standards
 
 ## Types
 
