@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 11.0.0
+
+### Major Changes
+
+- Big refactor
+
 ## 10.0.0
 
 ### Major Changes
