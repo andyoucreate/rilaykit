@@ -158,18 +158,15 @@ export const FormField = React.memo(function FormField({
     ]
   );
 
-  // Memoize component rendering to avoid unnecessary recalculation
-  const renderedComponent = useMemo(
-    () => componentConfig.renderer(renderProps as ComponentRenderProps<never>),
-    [componentConfig.renderer, renderProps]
-  );
+  // Render component directly - don't use useMemo to allow hooks in renderers
+  const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
 
-  // Memoize field renderer logic
-  const content = useMemo(() => {
-    const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
-    const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
+  // Render field wrapper - don't use useMemo to allow hooks in renderers
+  const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
+  const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
 
-    return fieldRenderer && shouldUseFieldRenderer
+  const content =
+    fieldRenderer && shouldUseFieldRenderer
       ? fieldRenderer({
           children: renderedComponent,
           id: fieldId,
@@ -179,16 +176,6 @@ export const FormField = React.memo(function FormField({
           touched: fieldState.isTouched,
         })
       : renderedComponent;
-  }, [
-    formConfig.renderConfig?.fieldRenderer,
-    componentConfig.useFieldRenderer,
-    renderedComponent,
-    fieldId,
-    mergedProps,
-    fieldState.errors,
-    isValidating,
-    fieldState.isTouched,
-  ]);
 
   return (
     <div
