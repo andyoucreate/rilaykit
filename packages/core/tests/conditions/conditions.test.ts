@@ -108,6 +108,72 @@ describe('Condition System', () => {
 
       expect(evaluateCondition(condition, data)).toBe(false);
     });
+
+    test('step and field with identical names (persons.coveredPersons)', () => {
+      // Common workflow pattern: step "persons" with field "coveredPersons"
+      const condition = when('persons.coveredPersons').contains('spouse').build();
+      const data = {
+        persons: {
+          coveredPersons: ['spouse', 'children'],
+        },
+      };
+
+      expect(evaluateCondition(condition, data)).toBe(true);
+    });
+
+    test('step and field with exact same name (coveredPersons.coveredPersons)', () => {
+      // Edge case: step "coveredPersons" with field "coveredPersons"
+      // This is the problematic scenario mentioned by the user
+      const condition = when('coveredPersons.coveredPersons').contains('spouse').build();
+      const data = {
+        coveredPersons: {
+          coveredPersons: ['spouse', 'children'],
+        },
+      };
+
+      expect(evaluateCondition(condition, data)).toBe(true);
+      expect(
+        evaluateCondition(condition, { coveredPersons: { coveredPersons: ['children'] } })
+      ).toBe(false);
+    });
+
+    test('multiple levels of identical naming', () => {
+      // Test the exact scenario from QuotePricingFlow
+      const sirenCondition = when('siren.siren.value').equals('949140511').build();
+      const sirenData = {
+        siren: {
+          siren: {
+            value: '949140511',
+            label: 'Lily SARL (75001)',
+          },
+        },
+      };
+      expect(evaluateCondition(sirenCondition, sirenData)).toBe(true);
+
+      const legalFormCondition = when('legalForm.legalForm').equals('sarl').build();
+      const legalFormData = {
+        legalForm: {
+          legalForm: 'sarl',
+        },
+      };
+      expect(evaluateCondition(legalFormCondition, legalFormData)).toBe(true);
+    });
+
+    test('identical naming with flattened data (combined structure)', () => {
+      // This tests the scenario where both nested and flattened keys exist
+      // (as created by combineWorkflowDataForConditions)
+      const condition = when('coveredPersons.coveredPersons').contains('spouse').build();
+      const data = {
+        // Both nested structure (original)
+        coveredPersons: {
+          coveredPersons: ['spouse', 'children'],
+        },
+        // AND flattened structure (for conditions)
+        'coveredPersons.coveredPersons': ['spouse', 'children'],
+      };
+
+      expect(evaluateCondition(condition, data)).toBe(true);
+    });
   });
 
   describe('Builder Pattern', () => {

@@ -60,16 +60,30 @@ export const WorkflowStepper = React.memo(function WorkflowStepper({
     [originalToVisibleIndexMap, workflowState.currentStepIndex]
   );
 
+  // Filter visitedSteps to only include currently visible steps
+  const filteredVisitedSteps = useMemo(() => {
+    const visibleStepIds = new Set(visibleSteps.map((step) => step.id));
+    const filtered = new Set<string>();
+
+    for (const stepId of workflowState.visitedSteps) {
+      if (visibleStepIds.has(stepId)) {
+        filtered.add(stepId);
+      }
+    }
+
+    return filtered;
+  }, [visibleSteps, workflowState.visitedSteps]);
+
   // Memoize base props to avoid recreating object
   const baseProps: WorkflowStepperRendererProps = useMemo(
     () => ({
       steps: visibleSteps,
       currentStepIndex: currentVisibleStepIndex,
-      visitedSteps: workflowState.visitedSteps,
+      visitedSteps: filteredVisitedSteps,
       onStepClick: handleStepClick,
       className,
     }),
-    [visibleSteps, currentVisibleStepIndex, workflowState.visitedSteps, handleStepClick, className]
+    [visibleSteps, currentVisibleStepIndex, filteredVisitedSteps, handleStepClick, className]
   );
 
   return (

@@ -179,6 +179,84 @@ describe('dataFlattening utilities', () => {
       // Original nested structure is also preserved
       expect(result.products.requestedProducts).toEqual(['provident']);
     });
+
+    it('should handle step and field with identical names (coveredPersons.coveredPersons)', () => {
+      // Bug: When a step ID and its field ID have the same name,
+      // conditions like when('coveredPersons.coveredPersons') fail
+      const allData = {
+        products: {
+          requestedProducts: ['health'],
+        },
+        persons: {
+          coveredPersons: ['spouse', 'children'],
+        },
+      };
+
+      const stepData = {};
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // Should be able to access the nested field with dot notation
+      expect(result['persons.coveredPersons']).toEqual(['spouse', 'children']);
+      expect(result['products.requestedProducts']).toEqual(['health']);
+
+      // Original nested structure should be preserved
+      expect(result.persons.coveredPersons).toEqual(['spouse', 'children']);
+    });
+
+    it('should handle step and field with the exact same name (edge case)', () => {
+      // Edge case: Step name = "coveredPersons", Field name = "coveredPersons"
+      // This creates a structure like { coveredPersons: { coveredPersons: [...] } }
+      const allData = {
+        coveredPersons: {
+          coveredPersons: ['spouse', 'children'],
+        },
+      };
+
+      const stepData = {};
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // Should be able to access via the flattened path
+      expect(result['coveredPersons.coveredPersons']).toEqual(['spouse', 'children']);
+
+      // The nested structure should also be accessible
+      expect(result.coveredPersons).toBeDefined();
+      expect(result.coveredPersons.coveredPersons).toEqual(['spouse', 'children']);
+    });
+
+    it('should handle multiple levels of identical naming', () => {
+      // Complex case with multiple steps having same-named fields
+      const allData = {
+        siren: {
+          siren: '123456789',
+        },
+        legalForm: {
+          legalForm: 'sarl',
+        },
+        activity: {
+          activity: {
+            value: 'tech',
+            label: 'Technology',
+          },
+        },
+      };
+
+      const stepData = {};
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // All flattened paths should be accessible
+      expect(result['siren.siren']).toBe('123456789');
+      expect(result['legalForm.legalForm']).toBe('sarl');
+      expect(result['activity.activity.value']).toBe('tech');
+      expect(result['activity.activity.label']).toBe('Technology');
+
+      // Nested structures should also work
+      expect(result.siren.siren).toBe('123456789');
+      expect(result.legalForm.legalForm).toBe('sarl');
+      expect(result.activity.activity.value).toBe('tech');
+    });
   });
 
   describe('extractStepData', () => {
