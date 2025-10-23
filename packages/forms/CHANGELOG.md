@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 11.2.0
+
+### Minor Changes
+
+- Fix bug
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@11.2.0
+
 ## 11.1.0
 
 ### Minor Changes
