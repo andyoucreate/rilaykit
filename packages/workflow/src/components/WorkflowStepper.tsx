@@ -13,7 +13,8 @@ export const WorkflowStepper = React.memo(function WorkflowStepper({
   className,
   ...props
 }: WorkflowStepperProps) {
-  const { workflowConfig, workflowState, goToStep, conditionsHelpers } = useWorkflowContext();
+  const { workflowConfig, workflowState, context, goToStep, conditionsHelpers } =
+    useWorkflowContext();
 
   // Filter visible steps and create mapping between visible and original indices
   // Memoize this expensive calculation to avoid recalculation on every render
@@ -60,30 +61,17 @@ export const WorkflowStepper = React.memo(function WorkflowStepper({
     [originalToVisibleIndexMap, workflowState.currentStepIndex]
   );
 
-  // Filter visitedSteps to only include currently visible steps
-  const filteredVisitedSteps = useMemo(() => {
-    const visibleStepIds = new Set(visibleSteps.map((step) => step.id));
-    const filtered = new Set<string>();
-
-    for (const stepId of workflowState.visitedSteps) {
-      if (visibleStepIds.has(stepId)) {
-        filtered.add(stepId);
-      }
-    }
-
-    return filtered;
-  }, [visibleSteps, workflowState.visitedSteps]);
-
   // Memoize base props to avoid recreating object
+  // Use visibleVisitedSteps from context (already filtered)
   const baseProps: WorkflowStepperRendererProps = useMemo(
     () => ({
       steps: visibleSteps,
       currentStepIndex: currentVisibleStepIndex,
-      visitedSteps: filteredVisitedSteps,
+      visitedSteps: context.visibleVisitedSteps,
       onStepClick: handleStepClick,
       className,
     }),
-    [visibleSteps, currentVisibleStepIndex, filteredVisitedSteps, handleStepClick, className]
+    [visibleSteps, currentVisibleStepIndex, context.visibleVisitedSteps, handleStepClick, className]
   );
 
   return (

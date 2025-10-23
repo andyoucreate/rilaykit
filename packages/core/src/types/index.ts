@@ -252,6 +252,7 @@ export interface WorkflowContext {
   readonly isFirstStep: boolean;
   readonly isLastStep: boolean;
   readonly visitedSteps: Set<string>;
+  readonly visibleVisitedSteps: Set<string>;
 }
 
 export interface StepDataHelper {

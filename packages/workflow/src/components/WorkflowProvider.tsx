@@ -143,7 +143,7 @@ export function WorkflowProvider({
   // 3. Create workflow context for conditions and callbacks - memoize expensive object creation
   // Note: This will be updated after conditionsHelpers is available
   const baseWorkflowContext = useMemo(
-    (): Omit<WorkflowContext, 'isFirstStep' | 'isLastStep'> => ({
+    (): Omit<WorkflowContext, 'isFirstStep' | 'isLastStep' | 'visibleVisitedSteps'> => ({
       workflowId: workflowConfig.id,
       currentStepIndex: workflowState.currentStepIndex,
       totalSteps: workflowConfig.steps.length,
@@ -177,7 +177,7 @@ export function WorkflowProvider({
     currentStep,
   });
 
-  // 5. Calculate correct isFirstStep and isLastStep based on visible steps
+  // 5. Calculate correct isFirstStep, isLastStep, and visibleVisitedSteps based on visible steps
   const workflowContext = useMemo((): WorkflowContext => {
     // Find first visible step
     let firstVisibleStepIndex = -1;
@@ -197,16 +197,27 @@ export function WorkflowProvider({
       }
     }
 
+    // Calculate visibleVisitedSteps by filtering visitedSteps to only include visible step IDs
+    const visibleVisitedSteps = new Set<string>();
+    for (let i = 0; i < workflowConfig.steps.length; i++) {
+      const step = workflowConfig.steps[i];
+      if (conditionsHelpers.isStepVisible(i) && workflowState.visitedSteps.has(step.id)) {
+        visibleVisitedSteps.add(step.id);
+      }
+    }
+
     return {
       ...baseWorkflowContext,
       isFirstStep: workflowState.currentStepIndex === firstVisibleStepIndex,
       isLastStep: workflowState.currentStepIndex === lastVisibleStepIndex,
+      visibleVisitedSteps,
     };
   }, [
     baseWorkflowContext,
     workflowState.currentStepIndex,
+    workflowState.visitedSteps,
     conditionsHelpers,
-    workflowConfig.steps.length,
+    workflowConfig.steps,
   ]);
 
   // 6. Initialize analytics tracking
