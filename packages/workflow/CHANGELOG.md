@@ -1,5 +1,19 @@
 # @rilaykit/workflow
 
+## 12.1.0
+
+### Minor Changes
+
+- Fix bug
+
+- Fix bug
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@11.1.0
+  - @rilaykit/forms@11.1.0
+
 ## 12.0.0
 
 ### Major Changes

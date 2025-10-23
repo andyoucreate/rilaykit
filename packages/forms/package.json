@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/forms",
-  "version": "11.0.0",
+  "version": "11.1.0",
   "description": "Form building utilities and components for RilayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
