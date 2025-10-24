@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 12.0.0
+
+### Major Changes
+
+- Add new passedSteps
+
 ## 11.2.0
 
 ### Minor Changes

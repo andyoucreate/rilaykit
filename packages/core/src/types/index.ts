@@ -253,6 +253,7 @@ export interface WorkflowContext {
   readonly isLastStep: boolean;
   readonly visitedSteps: Set<string>;
   readonly visibleVisitedSteps: Set<string>;
+  readonly passedSteps: Set<string>;
 }
 
 export interface StepDataHelper {

@@ -1,5 +1,17 @@
 # @rilaykit/workflow
 
+## 13.0.0
+
+### Major Changes
+
+- Add new passedSteps
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@12.0.0
+  - @rilaykit/forms@11.2.1
+
 ## 12.2.0
 
 ### Minor Changes
