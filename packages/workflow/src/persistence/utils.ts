@@ -23,6 +23,7 @@ export function workflowStateToPersisted(
     allData: { ...state.allData },
     stepData: { ...state.stepData },
     visitedSteps: Array.from(state.visitedSteps),
+    passedSteps: Array.from(state.passedSteps),
     lastSaved: Date.now(),
     metadata,
   };
@@ -37,6 +38,7 @@ export function persistedToWorkflowState(data: PersistedWorkflowData): Partial<W
     allData: { ...data.allData },
     stepData: { ...data.stepData },
     visitedSteps: new Set(data.visitedSteps),
+    passedSteps: new Set(data.passedSteps || []),
     isSubmitting: false,
     isTransitioning: false,
   };
@@ -126,10 +128,11 @@ export function mergePersistedState(
       };
 
     case 'current':
-      // Keep current state, but merge visited steps
+      // Keep current state, but merge visited and passed steps
       return {
         ...currentState,
         visitedSteps: new Set([...currentState.visitedSteps, ...persistedState.visitedSteps!]),
+        passedSteps: new Set([...currentState.passedSteps, ...(persistedState.passedSteps || [])]),
       };
 
     case 'merge':
@@ -145,6 +148,7 @@ export function mergePersistedState(
           ...currentState.stepData,
         },
         visitedSteps: new Set([...persistedState.visitedSteps!, ...currentState.visitedSteps]),
+        passedSteps: new Set([...(persistedState.passedSteps || []), ...currentState.passedSteps]),
         isSubmitting: currentState.isSubmitting,
         isTransitioning: currentState.isTransitioning,
       };

@@ -20,8 +20,10 @@ describe('Persistence Utils', () => {
     allData: { step1: { name: 'John' }, step2: { email: 'john@test.com' } },
     stepData: { age: 25 },
     visitedSteps: new Set(['step1', 'step2']),
+    passedSteps: new Set(['step1']),
     isSubmitting: false,
     isTransitioning: true,
+    isInitializing: false,
   };
 
   const mockPersistedData: PersistedWorkflowData = {

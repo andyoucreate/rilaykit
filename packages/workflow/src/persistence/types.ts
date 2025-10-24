@@ -27,6 +27,8 @@ export interface PersistedWorkflowData {
   stepData: Record<string, any>;
   /** Set of visited step IDs */
   visitedSteps: string[];
+  /** Set of passed/validated step IDs */
+  passedSteps?: string[];
   /** When this data was last saved */
   lastSaved: number;
   /** Optional metadata for custom persistence needs */

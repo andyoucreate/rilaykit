@@ -11,6 +11,7 @@ export interface UseWorkflowNavigationProps {
   setCurrentStep: (stepIndex: number) => void;
   setTransitioning: (isTransitioning: boolean) => void;
   markStepVisited: (stepIndex: number, stepId: string) => void;
+  markStepPassed: (stepId: string) => void;
   setStepData: (data: Record<string, any>, stepId: string) => void;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
 }
@@ -34,6 +35,7 @@ export function useWorkflowNavigation({
   setCurrentStep,
   setTransitioning,
   markStepVisited,
+  markStepPassed,
   setStepData,
   onStepChange,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
@@ -182,6 +184,9 @@ export function useWorkflowNavigation({
       }
     }
 
+    // Mark current step as passed (validated)
+    markStepPassed(currentStep.id);
+
     // Find the next visible step
     const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
 
@@ -200,6 +205,7 @@ export function useWorkflowNavigation({
     workflowState.currentStepIndex,
     findNextVisibleStep,
     goToStep,
+    markStepPassed,
   ]);
 
   // Navigate to previous step

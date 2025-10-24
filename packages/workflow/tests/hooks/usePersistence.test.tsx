@@ -65,8 +65,10 @@ describe('usePersistence', () => {
       allData: { step1: { name: 'John' } },
       stepData: { email: 'john@test.com' },
       visitedSteps: new Set(['step1']),
+      passedSteps: new Set([]),
       isSubmitting: false,
       isTransitioning: false,
+      isInitializing: false,
     };
   });
 

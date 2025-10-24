@@ -1,5 +1,17 @@
 # @rilaykit/core
 
+## 12.1.0
+
+### Minor Changes
+
+- Add three separate step tracking lists to WorkflowContext
+
+  - `visitedSteps`: All steps where user has arrived (complete history including invisible ones)
+  - `visibleVisitedSteps`: Visited steps filtered to only show currently visible steps
+  - `passedSteps`: Steps that user has validated/completed by navigating forward
+
+  This fix addresses the bug where visitedSteps contained steps that were no longer visible due to conditions, causing incorrect counts like "17/15 steps" in steppers.
+
 ## 12.0.0
 
 ### Major Changes

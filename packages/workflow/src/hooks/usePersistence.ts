@@ -188,6 +188,7 @@ export function usePersistence({
           allData: data.allData,
           stepData: data.stepData,
           visitedSteps: new Set(data.visitedSteps),
+          passedSteps: new Set(data.passedSteps || []),
           isSubmitting: false,
           isTransitioning: false,
           isInitializing: false,

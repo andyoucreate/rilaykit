@@ -104,6 +104,7 @@ export function WorkflowProvider({
     setSubmitting,
     setTransitioning,
     markStepVisited,
+    markStepPassed,
     resetWorkflow,
     loadPersistedState,
     persistence,
@@ -206,26 +207,18 @@ export function WorkflowProvider({
       }
     }
 
-    // Calculate passedSteps: visited steps that come BEFORE the current step
-    const passedSteps = new Set<string>();
-    for (let i = 0; i < workflowState.currentStepIndex; i++) {
-      const step = workflowConfig.steps[i];
-      if (workflowState.visitedSteps.has(step.id)) {
-        passedSteps.add(step.id);
-      }
-    }
-
     return {
       ...baseWorkflowContext,
       isFirstStep: workflowState.currentStepIndex === firstVisibleStepIndex,
       isLastStep: workflowState.currentStepIndex === lastVisibleStepIndex,
       visibleVisitedSteps,
-      passedSteps,
+      passedSteps: workflowState.passedSteps,
     };
   }, [
     baseWorkflowContext,
     workflowState.currentStepIndex,
     workflowState.visitedSteps,
+    workflowState.passedSteps,
     conditionsHelpers,
     workflowConfig.steps,
   ]);
@@ -255,6 +248,7 @@ export function WorkflowProvider({
     setCurrentStep,
     setTransitioning,
     markStepVisited,
+    markStepPassed,
     setStepData,
     onStepChange: onStepChangeRef.current,
   });

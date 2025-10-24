@@ -7,6 +7,7 @@ export interface WorkflowState {
   allData: Record<string, any>;
   stepData: Record<string, any>;
   visitedSteps: Set<string>;
+  passedSteps: Set<string>;
   isSubmitting: boolean;
   isTransitioning: boolean;
   isInitializing: boolean;
@@ -20,6 +21,7 @@ export type WorkflowAction =
   | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
   | { type: 'SET_TRANSITIONING'; isTransitioning: boolean }
   | { type: 'MARK_STEP_VISITED'; stepIndex: number; stepId: string }
+  | { type: 'MARK_STEP_PASSED'; stepId: string }
   | { type: 'RESET_WORKFLOW' }
   | { type: 'LOAD_PERSISTED_STATE'; state: Partial<WorkflowState> }
   | { type: 'SET_INITIALIZATION_COMPLETE' };
@@ -79,12 +81,19 @@ function workflowReducer(state: WorkflowState, action: WorkflowAction): Workflow
         visitedSteps: new Set([...state.visitedSteps, action.stepId]),
       };
 
+    case 'MARK_STEP_PASSED':
+      return {
+        ...state,
+        passedSteps: new Set([...state.passedSteps, action.stepId]),
+      };
+
     case 'RESET_WORKFLOW':
       return {
         currentStepIndex: 0,
         allData: {},
         stepData: {},
         visitedSteps: new Set(),
+        passedSteps: new Set(),
         isSubmitting: false,
         isTransitioning: false,
         isInitializing: false,
@@ -142,11 +151,28 @@ export function useWorkflowState({
     return visited;
   }, [defaultStepIndex, workflowSteps]);
 
+  // Calculate initial passedSteps based on defaultStepIndex
+  const initialPassedSteps = useMemo(() => {
+    const passed = new Set<string>();
+
+    // If starting at a specific step, mark all previous steps as passed
+    if (defaultStepIndex && defaultStepIndex > 0 && workflowSteps) {
+      for (let i = 0; i < defaultStepIndex; i++) {
+        if (workflowSteps[i]) {
+          passed.add(workflowSteps[i].id);
+        }
+      }
+    }
+
+    return passed;
+  }, [defaultStepIndex, workflowSteps]);
+
   const initialState: WorkflowState = {
     currentStepIndex: defaultStepIndex ?? 0,
     allData: defaultValues,
     stepData: {},
     visitedSteps: initialVisitedSteps,
+    passedSteps: initialPassedSteps,
     isSubmitting: false,
     isTransitioning: false,
     isInitializing: true,
@@ -190,6 +216,10 @@ export function useWorkflowState({
     dispatch({ type: 'MARK_STEP_VISITED', stepIndex, stepId });
   }, []);
 
+  const markStepPassed = useCallback((stepId: string) => {
+    dispatch({ type: 'MARK_STEP_PASSED', stepId });
+  }, []);
+
   const resetWorkflow = useCallback(() => {
     dispatch({ type: 'RESET_WORKFLOW' });
   }, []);
@@ -217,6 +247,7 @@ export function useWorkflowState({
           allData: persistedData.allData,
           stepData: persistedData.stepData,
           visitedSteps: new Set(persistedData.visitedSteps),
+          passedSteps: new Set(persistedData.passedSteps || []),
         };
 
         dispatch({ type: 'LOAD_PERSISTED_STATE', state: stateUpdate });
@@ -240,6 +271,7 @@ export function useWorkflowState({
     setSubmitting,
     setTransitioning,
     markStepVisited,
+    markStepPassed,
     resetWorkflow,
     loadPersistedState,
     // Persistence utilities
