@@ -62,12 +62,8 @@ export const FormField = React.memo(function FormField({
     [forceVisible, fieldId, disabled, conditionsHelpers, formState.values]
   );
 
-  // Hide field if not visible
-  if (!fieldConditions.isVisible) {
-    return null;
-  }
-
   // Stable change handler with optimized dependencies
+  // MUST be called before early return to follow React Hooks rules
   const handleChange = useCallback(
     async (newValue: any) => {
       // Update value
@@ -88,6 +84,7 @@ export const FormField = React.memo(function FormField({
   );
 
   // Stable blur handler with optimized dependencies
+  // MUST be called before early return to follow React Hooks rules
   const handleBlur = useCallback(async () => {
     // Marquer comme touched au premier blur
     if (!fieldState.isTouched) {
@@ -107,6 +104,7 @@ export const FormField = React.memo(function FormField({
   ]);
 
   // Memoize merged props to avoid recalculation on every render
+  // MUST be called before early return to follow React Hooks rules
   const mergedProps = useMemo(
     () => ({
       ...(componentConfig.defaultProps ?? {}),
@@ -127,6 +125,7 @@ export const FormField = React.memo(function FormField({
   );
 
   // Memoize render props to avoid recreating object
+  // MUST be called before early return to follow React Hooks rules
   const renderProps: ComponentRenderProps = useMemo(
     () => ({
       id: fieldId,
@@ -151,6 +150,11 @@ export const FormField = React.memo(function FormField({
       fieldState.isTouched,
     ]
   );
+
+  // Hide field if not visible - early return AFTER all hooks
+  if (!fieldConditions.isVisible) {
+    return null;
+  }
 
   // Render component directly - don't use useMemo to allow hooks in renderers
   const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);

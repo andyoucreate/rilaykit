@@ -1,5 +1,12 @@
 # @rilaykit/workflow
 
+## 13.1.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/forms@13.0.0
+
 ## 13.1.1
 
 ### Patch Changes
