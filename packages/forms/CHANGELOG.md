@@ -1,5 +1,11 @@
 # @rilaykit/forms
 
+## 12.0.0
+
+### Major Changes
+
+- Fix bug
+
 ## 11.2.2
 
 ### Patch Changes

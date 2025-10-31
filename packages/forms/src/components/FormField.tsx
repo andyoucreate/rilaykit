@@ -51,6 +51,7 @@ export const FormField = React.memo(function FormField({
   const isValidating = fieldState.validationState === 'validating';
 
   // Memoize condition checks to avoid recalculation
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We need to memoize the field conditions to avoid recalculation on every render
   const fieldConditions = useMemo(
     () => ({
       isVisible: forceVisible || conditionsHelpers.isFieldVisible(fieldId),
@@ -58,14 +59,7 @@ export const FormField = React.memo(function FormField({
       isFieldRequired: conditionsHelpers.isFieldRequired(fieldId),
       isFieldReadonly: conditionsHelpers.isFieldReadonly(fieldId),
     }),
-    [
-      forceVisible,
-      conditionsHelpers.isFieldVisible(fieldId),
-      disabled,
-      conditionsHelpers.isFieldDisabled(fieldId),
-      conditionsHelpers.isFieldRequired(fieldId),
-      conditionsHelpers.isFieldReadonly(fieldId),
-    ]
+    [forceVisible, fieldId, disabled, conditionsHelpers, formState.values]
   );
 
   // Hide field if not visible
