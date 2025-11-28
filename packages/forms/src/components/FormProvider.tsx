@@ -52,6 +52,7 @@ export function FormProvider({
   // Initialize form state management with custom hook
   const {
     formState,
+    valuesRef,
     setValue,
     setFieldTouched,
     reset,
@@ -107,7 +108,7 @@ export function FormProvider({
 
   // Initialize form submission with custom hook
   const { submit } = useFormSubmission({
-    formState,
+    valuesRef,
     onSubmit,
     validateForm,
     setSubmitting,

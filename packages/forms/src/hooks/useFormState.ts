@@ -91,14 +91,22 @@ export function useFormState({ defaultValues = {}, onFieldChange }: UseFormState
   const onFieldChangeRef = useRef(onFieldChange);
   onFieldChangeRef.current = onFieldChange;
 
+  // CRITICAL: Use ref to store current values for immediate access
+  // This ensures submit() always reads the latest values, even when called
+  // synchronously after setValue() before React re-renders
+  const valuesRef = useRef(defaultValues);
+  valuesRef.current = formState.values;
+
   // Actions simples et directes
-  const setValue = useCallback(
-    (fieldId: string, value: any) => {
-      dispatch({ type: 'SET_VALUE', fieldId, value });
-      onFieldChangeRef.current?.(fieldId, value, { ...formState.values, [fieldId]: value });
-    },
-    [formState.values]
-  );
+  const setValue = useCallback((fieldId: string, value: any) => {
+    // Update ref immediately for synchronous access
+    const newValues = { ...valuesRef.current, [fieldId]: value };
+    valuesRef.current = newValues;
+
+    // Dispatch to update React state
+    dispatch({ type: 'SET_VALUE', fieldId, value });
+    onFieldChangeRef.current?.(fieldId, value, newValues);
+  }, []);
 
   const setFieldTouched = useCallback((fieldId: string) => {
     dispatch({ type: 'SET_FIELD_TOUCHED', fieldId });
@@ -124,7 +132,10 @@ export function useFormState({ defaultValues = {}, onFieldChange }: UseFormState
   }, []);
 
   const reset = useCallback((values?: Record<string, any>) => {
-    dispatch({ type: 'RESET', values });
+    const resetValues = values || {};
+    // Update ref immediately
+    valuesRef.current = resetValues;
+    dispatch({ type: 'RESET', values: resetValues });
   }, []);
 
   // Helper to calculate validity (when needed)
@@ -138,6 +149,7 @@ export function useFormState({ defaultValues = {}, onFieldChange }: UseFormState
 
   return {
     formState,
+    valuesRef, // Expose ref for synchronous access by submit()
     setValue,
     setFieldTouched,
     setError,

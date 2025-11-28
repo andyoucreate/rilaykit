@@ -13,12 +13,18 @@ export interface FormRowProps extends ComponentRendererBaseProps<FormRowRenderer
 }
 
 export const FormRow = React.memo(function FormRow({ row, className, ...props }: FormRowProps) {
-  const { formConfig } = useFormContext();
+  const { formConfig, conditionsHelpers } = useFormContext();
 
-  // Memoize FormField components for each field in the row (default children)
+  // Filter visible fields BEFORE creating components to avoid empty wrapper divs
+  const visibleFields = useMemo(
+    () => row.fields.filter((field) => conditionsHelpers.isFieldVisible(field.id)),
+    [row.fields, conditionsHelpers]
+  );
+
+  // Memoize FormField components only for visible fields
   const defaultFieldComponents = useMemo(
-    () => row.fields.map((field) => <FormField key={field.id} fieldId={field.id} />),
-    [row.fields]
+    () => visibleFields.map((field) => <FormField key={field.id} fieldId={field.id} />),
+    [visibleFields]
   );
 
   // Memoize base props to avoid recreating object
@@ -30,6 +36,11 @@ export const FormRow = React.memo(function FormRow({ row, className, ...props }:
     }),
     [row, defaultFieldComponents, className]
   );
+
+  // Early return AFTER all hooks - prevents empty wrapper div and CSS gaps
+  if (visibleFields.length === 0) {
+    return null;
+  }
 
   return (
     <ComponentRendererWrapper

@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@rilaykit/builder": "workspace:*",
     "@rilaykit/core": "workspace:*",
     "@rilaykit/forms": "workspace:*",
     "@rilaykit/workflow": "workspace:*",

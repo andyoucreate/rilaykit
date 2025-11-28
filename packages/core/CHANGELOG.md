@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 13.0.0
+
+### Major Changes
+
+- Fix bug
+
 ## 12.1.0
 
 ### Minor Changes

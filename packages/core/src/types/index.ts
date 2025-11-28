@@ -136,6 +136,116 @@ export interface ComponentRenderProps<TProps = any> {
   [key: string]: any;
 }
 
+/**
+ * Property editor definition for builder property panel
+ * Generic and extensible to support any custom editor type
+ */
+export interface PropertyEditorDefinition<TValue = any> {
+  /** Property key in component props */
+  readonly key: string;
+  /** Display label in property panel */
+  readonly label: string;
+  /**
+   * Editor type - can be any string to support custom editors
+   * Built-in types: 'text', 'number', 'boolean', 'select', 'multiselect', 'color', 'textarea', 'json'
+   * Custom types: 'phone', 'currency', 'location', 'rating', 'file-upload', etc.
+   */
+  readonly editorType: string;
+  /** Optional description/help text */
+  readonly helpText?: string;
+  /** Default value for this property */
+  readonly defaultValue?: TValue;
+  /** Options for select/multiselect editors */
+  readonly options?: Array<{ label: string; value: any; [key: string]: any }>;
+  /** Validation function for the property value */
+  readonly validate?: (value: TValue) => boolean | string | Promise<boolean | string>;
+  /** Group/section for organizing properties */
+  readonly group?: string;
+  /** Whether this property is required */
+  readonly required?: boolean;
+  /** Placeholder text for input fields */
+  readonly placeholder?: string;
+  /** Custom editor component for advanced use cases */
+  readonly customEditor?: React.ComponentType<PropertyEditorProps<TValue>>;
+  /** Additional configuration specific to the editor type */
+  readonly editorConfig?: Record<string, any>;
+  /** Dependencies - other properties that affect this one */
+  readonly dependencies?: string[];
+  /** Conditional rendering based on other property values */
+  readonly visible?: (props: Record<string, any>) => boolean;
+  /** Transform value before saving */
+  readonly transform?: (value: TValue) => any;
+  /** Parse value when loading */
+  readonly parse?: (value: any) => TValue;
+}
+
+/**
+ * Props passed to custom property editors
+ */
+export interface PropertyEditorProps<TValue = any> {
+  /** Current property value */
+  readonly value: TValue;
+  /** Callback to update the value */
+  readonly onChange: (value: TValue) => void;
+  /** Property definition */
+  readonly definition: PropertyEditorDefinition<TValue>;
+  /** All current property values (for dependencies) */
+  readonly allValues: Record<string, any>;
+  /** Whether the field is disabled */
+  readonly disabled?: boolean;
+  /** Validation errors */
+  readonly errors?: string[];
+}
+
+/**
+ * Builder metadata for visual editing capabilities
+ * This is optional and only used by @rilaykit/builder
+ * Fully generic to support any component type and configuration
+ */
+export interface ComponentBuilderMetadata<TProps = any> {
+  /** Category for grouping in component palette (e.g., 'Input', 'Layout', 'Advanced') */
+  readonly category?: string;
+  /** Icon identifier (e.g., 'text', 'email', 'calendar') */
+  readonly icon?: string;
+  /** Whether this component should be hidden from the builder palette */
+  readonly hidden?: boolean;
+  /** Preview component or description for the palette */
+  readonly preview?: React.ReactNode;
+  /** Editable properties configuration for property panel */
+  readonly editableProps?: PropertyEditorDefinition[];
+  /** Tags for search and filtering */
+  readonly tags?: string[];
+  /**
+   * Custom field schema for advanced type systems
+   * Allows defining complex field types with their own validation and structure
+   */
+  readonly fieldSchema?: FieldSchemaDefinition<TProps>;
+}
+
+/**
+ * Field schema definition for complex field types
+ * Supports defining custom field types with validation, defaults, and metadata
+ */
+export interface FieldSchemaDefinition<TProps = any> {
+  /** Field type identifier (e.g., 'location', 'phone', 'currency') */
+  readonly type: string;
+  /** Schema validation (Zod, Yup, or any Standard Schema) */
+  readonly schema?: any;
+  /** Default configuration for this field type */
+  readonly defaultConfig?: Partial<TProps>;
+  /** Sub-fields for complex types (e.g., Location has address, city, country) */
+  readonly subFields?: Array<{
+    key: string;
+    label: string;
+    type: string;
+    required?: boolean;
+  }>;
+  /** Custom serialization for complex data structures */
+  readonly serialize?: (value: any) => any;
+  /** Custom deserialization for complex data structures */
+  readonly deserialize?: (value: any) => any;
+}
+
 export interface ComponentConfig<TProps = any> {
   readonly id: string;
   readonly type: string;
@@ -145,6 +255,8 @@ export interface ComponentConfig<TProps = any> {
   readonly defaultProps?: Partial<TProps>;
   readonly useFieldRenderer?: boolean;
   readonly validation?: FieldValidationConfig;
+  /** Optional builder metadata for visual editing (only used by @rilaykit/builder) */
+  readonly builder?: ComponentBuilderMetadata;
 }
 
 // =================================================================

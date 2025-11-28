@@ -1,17 +1,16 @@
 import type { ValidationResult } from '@rilaykit/core';
 import type React from 'react';
 import { useCallback, useRef } from 'react';
-import type { FormState } from './useFormState';
 
 export interface UseFormSubmissionProps {
-  formState: FormState;
+  valuesRef: React.MutableRefObject<Record<string, any>>;
   onSubmit?: (data: Record<string, any>) => void | Promise<void>;
   validateForm: () => Promise<ValidationResult>;
   setSubmitting: (isSubmitting: boolean) => void;
 }
 
 export function useFormSubmission({
-  formState,
+  valuesRef,
   onSubmit,
   validateForm,
   setSubmitting,
@@ -39,7 +38,10 @@ export function useFormSubmission({
           return true;
         }
 
-        await onSubmitRef.current(formState.values);
+        // CRITICAL FIX: Read from valuesRef.current to get the most recent values
+        // This ensures that even if submit() is called synchronously after setValue(),
+        // we always submit the latest values, not stale closure values
+        await onSubmitRef.current(valuesRef.current);
         return true;
       } catch (error) {
         // Log any unexpected errors from onSubmit
@@ -49,7 +51,7 @@ export function useFormSubmission({
         setSubmitting(false);
       }
     },
-    [formState.values, validateForm, setSubmitting]
+    [valuesRef, validateForm, setSubmitting]
   );
 
   return {

@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { useFormSubmission } from '../../src/hooks/useFormSubmission';
 
@@ -18,14 +19,15 @@ describe('useFormSubmission', () => {
       isValid: false,
     };
 
-    const { result } = renderHook(() =>
-      useFormSubmission({
-        formState,
+    const { result } = renderHook(() => {
+      const valuesRef = useRef(formState.values);
+      return useFormSubmission({
+        valuesRef,
         onSubmit: mockOnSubmit,
         validateForm: mockValidateForm,
         setSubmitting: mockSetSubmitting,
-      })
-    );
+      });
+    });
 
     let submissionResult: boolean;
     await act(async () => {
@@ -54,14 +56,15 @@ describe('useFormSubmission', () => {
       isValid: true,
     };
 
-    const { result } = renderHook(() =>
-      useFormSubmission({
-        formState,
+    const { result } = renderHook(() => {
+      const valuesRef = useRef(formState.values);
+      return useFormSubmission({
+        valuesRef,
         onSubmit: mockOnSubmit,
         validateForm: mockValidateForm,
         setSubmitting: mockSetSubmitting,
-      })
-    );
+      });
+    });
 
     let submissionResult: boolean;
     await act(async () => {
@@ -89,14 +92,15 @@ describe('useFormSubmission', () => {
       isValid: true,
     };
 
-    const { result } = renderHook(() =>
-      useFormSubmission({
-        formState,
+    const { result } = renderHook(() => {
+      const valuesRef = useRef(formState.values);
+      return useFormSubmission({
+        valuesRef,
         onSubmit: undefined,
         validateForm: mockValidateForm,
         setSubmitting: mockSetSubmitting,
-      })
-    );
+      });
+    });
 
     let submissionResult: boolean;
     await act(async () => {
@@ -125,14 +129,15 @@ describe('useFormSubmission', () => {
       isValid: true,
     };
 
-    const { result } = renderHook(() =>
-      useFormSubmission({
-        formState,
+    const { result } = renderHook(() => {
+      const valuesRef = useRef(formState.values);
+      return useFormSubmission({
+        valuesRef,
         onSubmit: mockOnSubmit,
         validateForm: mockValidateForm,
         setSubmitting: mockSetSubmitting,
-      })
-    );
+      });
+    });
 
     let submissionResult: boolean;
     await act(async () => {

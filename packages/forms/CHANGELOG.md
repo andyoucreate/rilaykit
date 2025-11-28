@@ -1,5 +1,16 @@
 # @rilaykit/forms
 
+## 14.0.0
+
+### Major Changes
+
+- Fix bug
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/core@13.0.0
+
 ## 13.0.0
 
 ### Major Changes

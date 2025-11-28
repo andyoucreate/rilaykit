@@ -17,6 +17,10 @@ export default function Home() {
         <Link href="/workflow-test" className="btn-secondary inline-block text-decoration-none">
           🔀 Test Workflow
         </Link>
+
+        <Link href="/builder-test" className="btn-primary inline-block text-decoration-none">
+          🏗️ Test Visual Builder
+        </Link>
       </div>
 
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
@@ -33,6 +37,13 @@ export default function Home() {
           <li className="flex items-center">
             <span className="w-2 h-2 bg-purple-500 rounded-full mr-3" />
             <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/workflow</code>
+          </li>
+          <li className="flex items-center">
+            <span className="w-2 h-2 bg-orange-500 rounded-full mr-3" />
+            <code className="bg-gray-100 px-2 py-1 rounded text-sm">@rilaykit/builder</code>
+            <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
+              NEW
+            </span>
           </li>
         </ul>
       </div>
