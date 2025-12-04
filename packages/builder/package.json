@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/builder",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Visual builder for forms and workflows in RilayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

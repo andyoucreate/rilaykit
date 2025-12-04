@@ -21,15 +21,24 @@ export const WorkflowPreviousButton = React.memo(function WorkflowPreviousButton
   isSubmitting: overrideIsSubmitting,
   ...props
 }: WorkflowPreviousButtonProps) {
-  const { context, goPrevious, workflowState, workflowConfig, currentStep } = useWorkflowContext();
+  const {
+    context,
+    goPrevious,
+    workflowState,
+    workflowConfig,
+    currentStep,
+    canGoPrevious: canGoPreviousFromContext,
+  } = useWorkflowContext();
   const { formState } = useFormContext();
 
   // Memoize computed state to avoid recalculation
   const computedState = useMemo(() => {
     const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
     const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
+    // Use canGoPrevious from context which properly checks for visible previous steps
+    // This handles cases where previous steps have conditions that make them invisible
     const canGoPrevious =
-      context.currentStepIndex > 0 && !workflowState.isTransitioning && !finalIsSubmitting;
+      canGoPreviousFromContext() && !workflowState.isTransitioning && !finalIsSubmitting;
 
     return {
       finalIsSubmitting,
@@ -39,7 +48,7 @@ export const WorkflowPreviousButton = React.memo(function WorkflowPreviousButton
     formState.isSubmitting,
     workflowState.isSubmitting,
     workflowState.isTransitioning,
-    context.currentStepIndex,
+    canGoPreviousFromContext,
     overrideIsSubmitting,
   ]);
 

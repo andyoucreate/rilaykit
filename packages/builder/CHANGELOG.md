@@ -1,5 +1,12 @@
 # @rilaykit/builder
 
+## 2.0.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @rilaykit/workflow@14.0.0
+
 ## 2.0.0
 
 ### Major Changes
