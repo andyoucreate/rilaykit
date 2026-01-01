@@ -3,8 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
-import { FormRow } from '../../src/components/FormRow';
 import { FormProvider } from '../../src/components/FormProvider';
+import { FormRow } from '../../src/components/FormRow';
 
 let config: ril<Record<string, any>>;
 
@@ -236,10 +236,10 @@ describe('FormRow - Conditional Visibility', () => {
     // No fields should be rendered
     expect(screen.queryByTestId('field1')).not.toBeInTheDocument();
     expect(screen.queryByTestId('field2')).not.toBeInTheDocument();
-    
+
     // FormRow returns null, so no row wrapper should be rendered
     expect(screen.queryByTestId('default-row')).not.toBeInTheDocument();
-    
+
     // But the marker should still be there
     expect(screen.getByTestId('marker')).toBeInTheDocument();
   });
@@ -280,10 +280,7 @@ describe('FormRow - Conditional Visibility', () => {
       .build();
 
     render(
-      <FormProvider
-        formConfig={formConfig}
-        defaultValues={{ toggle1: false, toggle2: false }}
-      >
+      <FormProvider formConfig={formConfig} defaultValues={{ toggle1: false, toggle2: false }}>
         <FormRow row={formConfig.rows[0]} />
         <FormRow row={formConfig.rows[1]} />
         <FormRow row={formConfig.rows[2]} />
@@ -396,4 +393,3 @@ describe('FormRow - Conditional Visibility', () => {
     expect(screen.queryByTestId('field1')).not.toBeInTheDocument();
   });
 });
-

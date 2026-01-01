@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ConditionDependencyGraph, when } from '../../src/conditions';
 
 describe('ConditionDependencyGraph', () => {
@@ -11,7 +11,7 @@ describe('ConditionDependencyGraph', () => {
   describe('addField', () => {
     it('should add a field without conditions', () => {
       graph.addField('field1', undefined);
-      
+
       expect(graph.size).toBe(1);
       expect(graph.getDependencies('field1')).toEqual([]);
     });
@@ -20,7 +20,7 @@ describe('ConditionDependencyGraph', () => {
       graph.addField('dependentField', {
         visible: when('triggerField').equals('show'),
       });
-      
+
       expect(graph.getDependencies('dependentField')).toEqual(['triggerField']);
     });
 
@@ -30,7 +30,7 @@ describe('ConditionDependencyGraph', () => {
         disabled: when('trigger2').equals(true),
         required: when('trigger3').exists(),
       });
-      
+
       const deps = graph.getDependencies('complexField');
       expect(deps).toHaveLength(3);
       expect(deps).toContain('trigger1');
@@ -42,7 +42,7 @@ describe('ConditionDependencyGraph', () => {
       graph.addField('nestedField', {
         visible: when('field1').equals('a').and(when('field2').equals('b')),
       });
-      
+
       const deps = graph.getDependencies('nestedField');
       expect(deps).toHaveLength(2);
       expect(deps).toContain('field1');
@@ -54,7 +54,7 @@ describe('ConditionDependencyGraph', () => {
         visible: when('sameField').equals('a'),
         disabled: when('sameField').equals('b'),
       });
-      
+
       const deps = graph.getDependencies('dedupField');
       expect(deps).toEqual(['sameField']);
     });
@@ -75,7 +75,7 @@ describe('ConditionDependencyGraph', () => {
 
     it('should return all fields affected by a change', () => {
       const affected = graph.getAffectedFields('trigger');
-      
+
       expect(affected).toHaveLength(2);
       expect(affected).toContain('field1');
       expect(affected).toContain('field2');
@@ -88,7 +88,7 @@ describe('ConditionDependencyGraph', () => {
 
     it('should only return fields depending on specific path', () => {
       const affected = graph.getAffectedFields('otherTrigger');
-      
+
       expect(affected).toHaveLength(1);
       expect(affected).toContain('field3');
     });
@@ -103,7 +103,7 @@ describe('ConditionDependencyGraph', () => {
 
     it('should return all fields affected by multiple changes', () => {
       const affected = graph.getAffectedFieldsMultiple(['path1', 'path2']);
-      
+
       expect(affected).toHaveLength(3);
       expect(affected).toContain('field1');
       expect(affected).toContain('field2');
@@ -113,7 +113,7 @@ describe('ConditionDependencyGraph', () => {
     it('should deduplicate results', () => {
       // path1 affects both field1 and field3
       const affected = graph.getAffectedFieldsMultiple(['path1']);
-      
+
       expect(affected).toHaveLength(2);
       expect(affected).toContain('field1');
       expect(affected).toContain('field3');
@@ -124,22 +124,22 @@ describe('ConditionDependencyGraph', () => {
     it('should remove a field from the graph', () => {
       graph.addField('field1', { visible: when('trigger').exists() });
       graph.addField('field2', { visible: when('trigger').exists() });
-      
+
       expect(graph.size).toBe(2);
-      
+
       graph.removeField('field1');
-      
+
       expect(graph.size).toBe(1);
       expect(graph.getDependencies('field1')).toEqual([]);
     });
 
     it('should update reverse dependencies when removing', () => {
       graph.addField('field1', { visible: when('trigger').exists() });
-      
+
       expect(graph.getAffectedFields('trigger')).toContain('field1');
-      
+
       graph.removeField('field1');
-      
+
       expect(graph.getAffectedFields('trigger')).toEqual([]);
     });
 
@@ -170,7 +170,7 @@ describe('ConditionDependencyGraph', () => {
       graph.addField('field1', undefined);
       graph.addField('field2', { visible: when('x').exists() });
       graph.addField('field3', undefined);
-      
+
       const fields = graph.getAllFields();
       expect(fields).toHaveLength(3);
       expect(fields).toContain('field1');
@@ -184,7 +184,7 @@ describe('ConditionDependencyGraph', () => {
       graph.addField('field1', { visible: when('path1').exists() });
       graph.addField('field2', { visible: when('path2').exists() });
       graph.addField('field3', { visible: when('path1').equals('a') });
-      
+
       const paths = graph.getAllDependencyPaths();
       expect(paths).toHaveLength(2);
       expect(paths).toContain('path1');
@@ -196,11 +196,11 @@ describe('ConditionDependencyGraph', () => {
     it('should clear all data', () => {
       graph.addField('field1', { visible: when('trigger').exists() });
       graph.addField('field2', { visible: when('trigger').exists() });
-      
+
       expect(graph.size).toBe(2);
-      
+
       graph.clear();
-      
+
       expect(graph.size).toBe(0);
       expect(graph.getAllFields()).toEqual([]);
       expect(graph.getAllDependencyPaths()).toEqual([]);
@@ -211,9 +211,9 @@ describe('ConditionDependencyGraph', () => {
     it('should return debug representation', () => {
       graph.addField('field1', { visible: when('trigger').exists() });
       graph.addField('field2', { visible: when('trigger').equals('a') });
-      
+
       const debug = graph.toDebugObject();
-      
+
       expect(debug.fields.field1).toEqual(['trigger']);
       expect(debug.fields.field2).toEqual(['trigger']);
       expect(debug.reverseDeps.trigger).toContain('field1');
@@ -229,7 +229,7 @@ describe('ConditionDependencyGraph', () => {
       graph.addField('field2', {
         visible: when('step2.nested.value').exists(),
       });
-      
+
       expect(graph.getAffectedFields('step1.field1')).toContain('field1');
       expect(graph.getAffectedFields('step2.nested.value')).toContain('field2');
       expect(graph.getAffectedFields('step1')).toEqual([]); // Exact match only
@@ -247,10 +247,10 @@ describe('ConditionDependencyGraph', () => {
       for (let i = 5; i < 10; i++) {
         graph.addField(`independent${i}`, undefined);
       }
-      
+
       const affectedByType = graph.getAffectedFields('type');
       expect(affectedByType).toHaveLength(5);
-      
+
       for (let i = 0; i < 5; i++) {
         expect(affectedByType).toContain(`typeDependent${i}`);
       }
@@ -261,13 +261,12 @@ describe('ConditionDependencyGraph', () => {
       // field2 depends on field1 (but graph doesn't know about value cascading)
       graph.addField('field1', { visible: when('trigger1').exists() });
       graph.addField('field2', { visible: when('field1').equals('active') });
-      
+
       // When trigger1 changes, only field1 is directly affected
       expect(graph.getAffectedFields('trigger1')).toEqual(['field1']);
-      
+
       // When field1 changes, field2 is affected
       expect(graph.getAffectedFields('field1')).toEqual(['field2']);
     });
   });
 });
-

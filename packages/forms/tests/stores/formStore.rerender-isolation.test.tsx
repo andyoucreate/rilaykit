@@ -1,18 +1,19 @@
 import { act, render, screen } from '@testing-library/react';
-import React, { memo, useRef } from 'react';
-import { describe, expect, it, beforeEach } from 'vitest';
+import type React from 'react';
+import { memo, useRef } from 'react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  createFormStore,
+  type FormStore,
   FormStoreContext,
-  useFieldValue,
+  createFormStore,
+  useFieldConditions,
   useFieldErrors,
   useFieldTouched,
-  useFieldConditions,
-  useFormSubmitting,
-  useFormValid,
+  useFieldValue,
   useFormDirty,
   useFormSubmitState,
-  type FormStore,
+  useFormSubmitting,
+  useFormValid,
 } from '../../src/stores/formStore';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
@@ -301,8 +302,8 @@ describe('FormStore Re-render Isolation', () => {
 
       const Fields = memo(() => (
         <>
-          {Array.from({ length: 10 }, (_, i) => (
-            <FieldComponent key={i} index={i} renderCounts={renderCounts} />
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+            <FieldComponent key={`field-${i}`} index={i} renderCounts={renderCounts} />
           ))}
         </>
       ));
@@ -384,9 +385,10 @@ describe('FormStore Re-render Isolation', () => {
       const renders: number[] = [];
 
       const SubmitButton = memo(() => {
-        const { isSubmitting, isValid, isDirty } = useFormSubmitState();
+        const { isSubmitting, isValid } = useFormSubmitState();
         renders.push(Date.now());
         return (
+          // biome-ignore lint/a11y/useButtonType: test component
           <button disabled={isSubmitting || !isValid}>
             {isSubmitting ? 'Submitting...' : 'Submit'}
           </button>
@@ -417,4 +419,3 @@ describe('FormStore Re-render Isolation', () => {
     });
   });
 });
-

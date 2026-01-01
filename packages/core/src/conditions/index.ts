@@ -320,19 +320,19 @@ export { ConditionDependencyGraph } from './ConditionDependencyGraph';
 
 /**
  * Extracts all field paths that a condition depends on.
- * 
+ *
  * This is useful for building a dependency graph that knows which
  * conditions need to be re-evaluated when a specific field changes.
- * 
+ *
  * @param condition - The condition to extract dependencies from
  * @returns An array of unique field paths
- * 
+ *
  * @example
  * ```ts
  * const condition = when('field1').equals('value').and(when('field2').exists());
  * const deps = extractConditionDependencies(condition.build());
  * // deps = ['field1', 'field2']
- * 
+ *
  * const nestedCondition = when('step1.field1').equals('value');
  * const nestedDeps = extractConditionDependencies(nestedCondition.build());
  * // nestedDeps = ['step1.field1']
@@ -346,8 +346,7 @@ export function extractConditionDependencies(
   }
 
   // Convert ConditionBuilder to ConditionConfig if needed
-  const config: ConditionConfig = 
-    'build' in condition ? condition.build() : condition;
+  const config: ConditionConfig = 'build' in condition ? condition.build() : condition;
 
   const dependencies = new Set<string>();
 
@@ -372,7 +371,7 @@ export function extractConditionDependencies(
 
 /**
  * Extracts dependencies from multiple conditions (e.g., visible, disabled, required).
- * 
+ *
  * @param behaviors - Object containing condition configurations
  * @returns An array of unique field paths from all conditions
  */

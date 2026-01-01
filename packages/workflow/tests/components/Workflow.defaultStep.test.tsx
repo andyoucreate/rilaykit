@@ -10,8 +10,9 @@ describe('Workflow Component - DefaultStep', () => {
   // Mock components
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}

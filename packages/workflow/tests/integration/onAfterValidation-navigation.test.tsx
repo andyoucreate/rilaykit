@@ -10,7 +10,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
   // Mock components
   const MockRadio = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <span>{props.label}</span>
       <div>
         {props.options.map((option: any) => (
           <label key={option.value}>
@@ -31,8 +31,9 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
 
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}
@@ -94,6 +95,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
         rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
         bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
         nextButtonRenderer: ({ onClick }: any) => (
+          // biome-ignore lint/a11y/useButtonType: test component
           <button onClick={onClick} data-testid="next-button">
             Next
           </button>

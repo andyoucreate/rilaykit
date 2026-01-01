@@ -49,6 +49,7 @@ describe('Workflow Zustand Store Integration', () => {
           onClick,
           isSubmitting,
         }: { onClick: () => void; isSubmitting: boolean }) => (
+          // biome-ignore lint/a11y/useButtonType: test component
           <button onClick={onClick} data-testid="next" disabled={isSubmitting}>
             {isSubmitting ? 'Loading...' : 'Next'}
           </button>
@@ -57,6 +58,7 @@ describe('Workflow Zustand Store Integration', () => {
           onPrevious,
           canGoPrevious,
         }: { onPrevious: () => void; canGoPrevious: boolean }) => (
+          // biome-ignore lint/a11y/useButtonType: test component
           <button onClick={onPrevious} data-testid="prev" disabled={!canGoPrevious}>
             Previous
           </button>
@@ -148,6 +150,7 @@ describe('Workflow Zustand Store Integration', () => {
         return (
           <div>
             <div data-testid="step">{stepIndex}</div>
+            {/* biome-ignore lint/a11y/useButtonType: test component */}
             <button data-testid="next" onClick={() => goNext()}>
               Next
             </button>
@@ -201,6 +204,7 @@ describe('Workflow Zustand Store Integration', () => {
         return (
           <div>
             <div data-testid="transitioning">{isTransitioning ? 'yes' : 'no'}</div>
+            {/* biome-ignore lint/a11y/useButtonType: test component */}
             <button data-testid="next" onClick={() => goNext()}>
               Next
             </button>
@@ -337,7 +341,7 @@ describe('Workflow Zustand Store Integration', () => {
         return <div data-testid="workflow2">Workflow 2</div>;
       };
 
-      const { rerender } = render(
+      render(
         <>
           <WorkflowProvider workflowConfig={workflow1Config}>
             <Workflow1Child />

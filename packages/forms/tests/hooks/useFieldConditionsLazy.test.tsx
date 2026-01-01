@@ -34,7 +34,9 @@ function createTestConfig() {
 }
 
 // Create wrapper with form provider
-function createWrapper(formConfig: ReturnType<typeof form.create>['build'] extends () => infer R ? R : never) {
+function createWrapper(
+  formConfig: ReturnType<typeof form.create>['build'] extends () => infer R ? R : never
+) {
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <FormProvider formConfig={formConfig}>{children}</FormProvider>
   );
@@ -195,14 +197,8 @@ describe('useConditionEvaluator', () => {
       result.current.store.getState()._setValue('trigger', 'a');
     });
 
-    const field1Conditions = result.current.evaluator(
-      'field1',
-      formConfig.allFields[1].conditions
-    );
-    const field2Conditions = result.current.evaluator(
-      'field2',
-      formConfig.allFields[2].conditions
-    );
+    const field1Conditions = result.current.evaluator('field1', formConfig.allFields[1].conditions);
+    const field2Conditions = result.current.evaluator('field2', formConfig.allFields[2].conditions);
 
     expect(field1Conditions.visible).toBe(true);
     expect(field2Conditions.visible).toBe(false);
@@ -221,8 +217,8 @@ describe('useConditionEvaluator', () => {
       })
       .build();
 
-    let callCount = 0;
-    const originalEvaluate = vi.fn();
+    const _callCount = 0;
+    const _originalEvaluate = vi.fn();
 
     const { result } = renderHook(
       () => {
@@ -249,10 +245,9 @@ describe('useFieldConditionsWithRefresh', () => {
       .add({ id: 'field1', type: 'text', props: {} })
       .build();
 
-    const { result } = renderHook(
-      () => useFieldConditionsWithRefresh('field1', undefined),
-      { wrapper: createWrapper(formConfig) }
-    );
+    const { result } = renderHook(() => useFieldConditionsWithRefresh('field1', undefined), {
+      wrapper: createWrapper(formConfig),
+    });
 
     expect(result.current.conditions).toEqual({
       visible: true,
@@ -301,4 +296,3 @@ describe('useFieldConditionsWithRefresh', () => {
     expect(refreshedConditions.visible).toBe(true);
   });
 });
-

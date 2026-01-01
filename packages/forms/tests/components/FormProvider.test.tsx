@@ -13,7 +13,10 @@ const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
   React.createElement('div', { 'data-testid': 'form-renderer' }, children);
 const TestRowRenderer = ({ children }: { children: React.ReactNode }) =>
   React.createElement('div', { 'data-testid': 'row-renderer' }, children);
-const TestSubmitButtonRenderer = ({ onSubmit, isSubmitting }: { onSubmit: () => void; isSubmitting: boolean }) =>
+const TestSubmitButtonRenderer = ({
+  onSubmit,
+  isSubmitting,
+}: { onSubmit: () => void; isSubmitting: boolean }) =>
   React.createElement(
     'div',
     {
@@ -51,7 +54,7 @@ describe('FormProvider', () => {
       });
 
     formConfig = form
-      .create<{firstName: string; lastName: string; email: string}>(config, 'test-form')
+      .create<{ firstName: string; lastName: string; email: string }>(config, 'test-form')
       .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
       .add({ id: 'lastName', type: 'text', props: { label: 'Last Name' } })
       .add({ id: 'email', type: 'email', props: { label: 'Email' } })
@@ -278,7 +281,7 @@ describe('FormProvider', () => {
       });
 
       const formConfigWithValidation = form
-        .create<{email: string}>(config, 'test-form-validation')
+        .create<{ email: string }>(config, 'test-form-validation')
         .add({
           id: 'email',
           type: 'email',
@@ -293,11 +296,7 @@ describe('FormProvider', () => {
         return (
           <div>
             <div data-testid="errors">{JSON.stringify(store.getState().errors)}</div>
-            <button
-              type="button"
-              onClick={() => validateField('email')}
-              data-testid="validate"
-            >
+            <button type="button" onClick={() => validateField('email')} data-testid="validate">
               Validate
             </button>
           </div>
@@ -327,7 +326,7 @@ describe('FormProvider', () => {
       });
 
       const formConfigWithValidation = form
-        .create<{firstName: string; lastName: string}>(config, 'test-form-validation')
+        .create<{ firstName: string; lastName: string }>(config, 'test-form-validation')
         .add({
           id: 'firstName',
           type: 'text',

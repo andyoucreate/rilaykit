@@ -6,20 +6,28 @@ import type {
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   useWorkflowAnalytics,
   useWorkflowConditions,
   useWorkflowNavigation,
   useWorkflowSubmission,
 } from '../hooks';
-import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import { usePersistence } from '../hooks/usePersistence';
+import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import {
-  WorkflowStoreContext,
-  createWorkflowStore,
   type WorkflowStore,
+  WorkflowStoreContext,
   type WorkflowStoreState,
+  createWorkflowStore,
 } from '../stores';
 
 // =================================================================
@@ -284,7 +292,10 @@ export function WorkflowProvider({
 
   // Create workflow context for conditions and callbacks
   const baseWorkflowContext = useMemo(
-    (): Omit<WorkflowContext, 'isFirstStep' | 'isLastStep' | 'visibleVisitedSteps' | 'passedSteps'> => ({
+    (): Omit<
+      WorkflowContext,
+      'isFirstStep' | 'isLastStep' | 'visibleVisitedSteps' | 'passedSteps'
+    > => ({
       workflowId: workflowConfig.id,
       currentStepIndex: workflowState.currentStepIndex,
       totalSteps: workflowConfig.steps.length,
@@ -508,7 +519,16 @@ export function WorkflowProvider({
       canGoPrevious,
       canSkipCurrentStep,
     }),
-    [goToStep, goNext, goPrevious, skipStep, canGoToStep, canGoNext, canGoPrevious, canSkipCurrentStep]
+    [
+      goToStep,
+      goNext,
+      goPrevious,
+      skipStep,
+      canGoToStep,
+      canGoNext,
+      canGoPrevious,
+      canSkipCurrentStep,
+    ]
   );
 
   const dataMethods = useMemo(
@@ -563,7 +583,10 @@ export function WorkflowProvider({
   const formProviderDefaultValues = useMemo(() => {
     if (!currentStep?.id) return {};
 
-    const currentStepData = (workflowState?.allData[currentStep.id] || {}) as Record<string, unknown>;
+    const currentStepData = (workflowState?.allData[currentStep.id] || {}) as Record<
+      string,
+      unknown
+    >;
 
     if (!formConfig?.allFields) return currentStepData;
 

@@ -1,5 +1,6 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
-import React, { memo, useRef } from 'react';
+import type React from 'react';
+import { memo, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type CreateWorkflowStoreOptions,
@@ -298,4 +299,3 @@ describe('Workflow Selector Hooks - Edge Cases', () => {
     expect(screen.getByTestId('data')).toHaveTextContent('0');
   });
 });
-

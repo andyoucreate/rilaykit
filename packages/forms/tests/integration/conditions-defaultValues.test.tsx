@@ -8,8 +8,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
   // Mock components
   const MockSelect = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <select
+        id={id}
         value={Array.isArray(value) ? value[0] || '' : value || ''}
         onChange={(e) => onChange?.(props.multiple ? [e.target.value] : e.target.value)}
         data-testid={`select-${id}`}
@@ -26,8 +27,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}
@@ -167,7 +169,7 @@ describe('Form - Field Conditions with DefaultValues', () => {
       expect(screen.queryByTestId('field-personalInfo')).not.toBeInTheDocument();
     });
 
-    const selectElement = screen.getByTestId('select-userType');
+    const _selectElement = screen.getByTestId('select-userType');
     // The select might have a default option selected, we just check that conditional fields are hidden
     // expect(selectElement).toHaveValue(''); // Empty value - this might vary depending on implementation
   });

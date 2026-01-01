@@ -1,7 +1,7 @@
 import type { ConditionConfig, ConditionalBehavior, FieldConditions } from '@rilaykit/core';
 import { type ConditionBuilder, evaluateCondition } from '@rilaykit/core';
 import { useMemo, useRef } from 'react';
-import { useFormStoreApi, useFieldConditions as useFieldConditionsFromStore } from '../stores';
+import { useFieldConditions as useFieldConditionsFromStore, useFormStoreApi } from '../stores';
 
 /**
  * Cache entry for lazy condition evaluation
@@ -82,7 +82,7 @@ export interface UseFieldConditionsLazyOptions {
    * The field's conditional behavior configuration
    */
   conditions?: ConditionalBehavior;
-  
+
   /**
    * Whether to skip evaluation (e.g., if field has no conditions)
    */
@@ -91,22 +91,22 @@ export interface UseFieldConditionsLazyOptions {
 
 /**
  * Lazy condition evaluation hook with caching
- * 
+ *
  * This hook:
  * 1. Only evaluates conditions when called
  * 2. Caches the result based on form values hash
  * 3. Returns cached result if values haven't changed
- * 
+ *
  * @param fieldId - The field ID
  * @param options - Configuration options
  * @returns The evaluated field conditions
- * 
+ *
  * @example
  * ```tsx
  * const conditions = useFieldConditionsLazy('myField', {
  *   conditions: fieldConfig.conditions
  * });
- * 
+ *
  * if (!conditions.visible) return null;
  * ```
  */
@@ -116,54 +116,54 @@ export function useFieldConditionsLazy(
 ): FieldConditions {
   const { conditions, skip = false } = options;
   const store = useFormStoreApi();
-  
+
   // Use the store's conditions as primary source (for sync with provider)
   const storeConditions = useFieldConditionsFromStore(fieldId);
-  
+
   // Cache for lazy evaluation
   const cacheRef = useRef<ConditionCacheEntry | null>(null);
-  
+
   // If skip is true or no conditions, use store conditions or defaults
   if (skip || !conditions) {
     return storeConditions;
   }
-  
+
   // Get current form values
   const formValues = store.getState().values;
   const valuesHash = createValuesHash(formValues);
-  
+
   // Check cache
   if (cacheRef.current?.valuesHash === valuesHash) {
     return cacheRef.current.result;
   }
-  
+
   // Evaluate conditions
   const result = evaluateFieldConditions(conditions, formValues);
-  
+
   // Update cache
   cacheRef.current = {
     result,
     valuesHash,
   };
-  
+
   return result;
 }
 
 /**
  * Hook to create a lazy condition evaluator function
- * 
+ *
  * This is useful when you need to evaluate conditions for multiple fields
  * on-demand, without triggering re-renders.
- * 
+ *
  * @returns A function that evaluates conditions for a given field
  */
 export function useConditionEvaluator() {
   const store = useFormStoreApi();
-  
+
   // Cache for all fields
   const cacheRef = useRef<Map<string, ConditionCacheEntry>>(new Map());
   const lastValuesHashRef = useRef<string>('');
-  
+
   return useMemo(() => {
     return function evaluateForField(
       fieldId: string,
@@ -172,26 +172,26 @@ export function useConditionEvaluator() {
       if (!conditions) {
         return DEFAULT_CONDITIONS;
       }
-      
+
       const formValues = store.getState().values;
       const valuesHash = createValuesHash(formValues);
-      
+
       // Clear cache if form values changed
       if (lastValuesHashRef.current !== valuesHash) {
         cacheRef.current.clear();
         lastValuesHashRef.current = valuesHash;
       }
-      
+
       // Check cache
       const cached = cacheRef.current.get(fieldId);
       if (cached) {
         return cached.result;
       }
-      
+
       // Evaluate and cache
       const result = evaluateFieldConditions(conditions, formValues);
       cacheRef.current.set(fieldId, { result, valuesHash });
-      
+
       return result;
     };
   }, [store]);
@@ -209,7 +209,7 @@ export function useFieldConditionsWithRefresh(
 } {
   const store = useFormStoreApi();
   const storeConditions = useFieldConditionsFromStore(fieldId);
-  
+
   const refresh = useMemo(() => {
     return () => {
       if (!conditions) {
@@ -219,10 +219,9 @@ export function useFieldConditionsWithRefresh(
       return evaluateFieldConditions(conditions, formValues);
     };
   }, [store, conditions, storeConditions]);
-  
+
   return {
     conditions: storeConditions,
     refresh,
   };
 }
-

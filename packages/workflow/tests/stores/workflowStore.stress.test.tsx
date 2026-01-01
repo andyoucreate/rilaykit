@@ -2,14 +2,14 @@ import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  createWorkflowStore,
   WorkflowStoreContext,
+  createWorkflowStore,
   useCurrentStepIndex,
+  usePassedSteps,
+  useVisitedSteps,
   useWorkflowAllData,
   useWorkflowSubmitting,
   useWorkflowTransitioning,
-  useVisitedSteps,
-  usePassedSteps,
 } from '../../src/stores/workflowStore';
 
 function createWrapper() {
@@ -365,13 +365,17 @@ describe('WorkflowStore Stress Tests', () => {
       act(() => {
         for (let step = 0; step < 10; step++) {
           for (let field = 0; field < 50; field++) {
-            store.getState()._setFieldValue(`field${field}`, `step${step}-value${field}`, `step${step}`);
+            store
+              .getState()
+              ._setFieldValue(`field${field}`, `step${step}-value${field}`, `step${step}`);
           }
         }
       });
 
       expect(Object.keys(store.getState().allData).length).toBe(10);
-      expect(Object.keys(store.getState().allData.step0 as Record<string, unknown>).length).toBe(50);
+      expect(Object.keys(store.getState().allData.step0 as Record<string, unknown>).length).toBe(
+        50
+      );
     });
   });
 
@@ -379,7 +383,9 @@ describe('WorkflowStore Stress Tests', () => {
     it('should handle loading large persisted state', () => {
       const { store } = createWrapper();
 
-      const largePersistedState: Partial<typeof store extends { getState: () => infer S } ? S : never> = {
+      const largePersistedState: Partial<
+        typeof store extends { getState: () => infer S } ? S : never
+      > = {
         currentStepIndex: 5,
         allData: Object.fromEntries(
           Array.from({ length: 50 }, (_, i) => [

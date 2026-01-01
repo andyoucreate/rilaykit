@@ -1,9 +1,12 @@
+import type { ConditionalBehavior } from '@rilaykit/core';
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { useFieldConditionsLazy, useConditionEvaluator } from '../../src/hooks/useFieldConditionsLazy';
-import { createFormStore, FormStoreContext } from '../../src/stores/formStore';
-import type { ConditionalBehavior } from '@rilaykit/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  useConditionEvaluator,
+  useFieldConditionsLazy,
+} from '../../src/hooks/useFieldConditionsLazy';
+import { FormStoreContext, createFormStore } from '../../src/stores/formStore';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);
@@ -279,9 +282,12 @@ describe('useFieldConditionsLazy Comprehensive Tests', () => {
         },
       };
 
-      const { result, rerender } = renderHook(() => useFieldConditionsLazy('field1', { conditions }), {
-        wrapper: Wrapper,
-      });
+      const { result, rerender } = renderHook(
+        () => useFieldConditionsLazy('field1', { conditions }),
+        {
+          wrapper: Wrapper,
+        }
+      );
 
       expect(result.current.visible).toBe(true);
 
@@ -303,9 +309,12 @@ describe('useFieldConditionsLazy Comprehensive Tests', () => {
         },
       };
 
-      const { result, rerender } = renderHook(() => useFieldConditionsLazy('field1', { conditions }), {
-        wrapper: Wrapper,
-      });
+      const { result, rerender } = renderHook(
+        () => useFieldConditionsLazy('field1', { conditions }),
+        {
+          wrapper: Wrapper,
+        }
+      );
 
       expect(result.current.visible).toBe(true);
 

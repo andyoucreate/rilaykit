@@ -1,5 +1,24 @@
 # @rilaykit/core
 
+## 15.0.0
+
+### Major Changes
+
+- Implement Zustand-based state management for forms and workflows
+
+  **BREAKING CHANGES:**
+
+  - Forms now use Zustand store for state management instead of React Context
+  - Workflows now use Zustand store for state management
+  - New hooks for accessing store state: `useFormStore`, `useWorkflowStore`
+  - Improved performance with fine-grained subscriptions and selector-based re-renders
+  - Better isolation of component re-renders
+
+  **Migration:**
+
+  - Replace direct context access with new Zustand-based hooks
+  - Update custom components that rely on form/workflow context internals
+
 ## 13.0.0
 
 ### Major Changes

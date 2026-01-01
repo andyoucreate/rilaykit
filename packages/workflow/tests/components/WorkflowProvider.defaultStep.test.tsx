@@ -10,8 +10,9 @@ describe('WorkflowProvider - DefaultStep', () => {
   // Mock components
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}
@@ -222,7 +223,7 @@ describe('WorkflowProvider - DefaultStep', () => {
     };
 
     const ConditionalStepChecker = () => {
-      const { currentStep, conditionsHelpers, workflowConfig } = useWorkflowContext();
+      const { currentStep, conditionsHelpers } = useWorkflowContext();
 
       return (
         <div data-testid="conditional-step-info">

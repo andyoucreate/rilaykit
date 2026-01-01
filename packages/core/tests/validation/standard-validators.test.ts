@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  url,
   async,
   combine,
   custom,
@@ -11,7 +12,6 @@ import {
   number,
   pattern,
   required,
-  url,
   validateWithStandardSchema,
 } from '../../src/validation';
 

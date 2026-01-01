@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type ConditionConfig,
   extractAllDependencies,
   extractConditionDependencies,
   when,
-  type ConditionConfig,
 } from '../../src/conditions';
 
 describe('extractConditionDependencies', () => {
@@ -11,35 +11,35 @@ describe('extractConditionDependencies', () => {
     it('should extract field from simple equals condition', () => {
       const condition = when('field1').equals('value');
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toEqual(['field1']);
     });
 
     it('should extract field from exists condition', () => {
       const condition = when('myField').exists();
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toEqual(['myField']);
     });
 
     it('should extract field from notEquals condition', () => {
       const condition = when('status').notEquals('inactive');
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toEqual(['status']);
     });
 
     it('should extract nested field path', () => {
       const condition = when('step1.field1').equals('value');
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toEqual(['step1.field1']);
     });
 
     it('should extract deeply nested field path', () => {
       const condition = when('data.user.profile.name').contains('John');
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toEqual(['data.user.profile.name']);
     });
   });
@@ -48,7 +48,7 @@ describe('extractConditionDependencies', () => {
     it('should extract fields from AND condition', () => {
       const condition = when('field1').equals('a').and(when('field2').equals('b'));
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toHaveLength(2);
       expect(deps).toContain('field1');
       expect(deps).toContain('field2');
@@ -60,7 +60,7 @@ describe('extractConditionDependencies', () => {
         .and(when('field2').equals('b'))
         .and(when('field3').exists());
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toHaveLength(3);
       expect(deps).toContain('field1');
       expect(deps).toContain('field2');
@@ -72,7 +72,7 @@ describe('extractConditionDependencies', () => {
     it('should extract fields from OR condition', () => {
       const condition = when('status').equals('active').or(when('role').equals('admin'));
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toHaveLength(2);
       expect(deps).toContain('status');
       expect(deps).toContain('role');
@@ -86,7 +86,7 @@ describe('extractConditionDependencies', () => {
         .and(when('field2').equals('b'))
         .or(when('field3').exists());
       const deps = extractConditionDependencies(condition);
-      
+
       expect(deps).toHaveLength(3);
       expect(deps).toContain('field1');
       expect(deps).toContain('field2');
@@ -96,11 +96,9 @@ describe('extractConditionDependencies', () => {
 
   describe('Duplicate fields', () => {
     it('should deduplicate field references', () => {
-      const condition = when('field1')
-        .equals('a')
-        .and(when('field1').notEquals('b'));
+      const condition = when('field1').equals('a').and(when('field1').notEquals('b'));
       const deps = extractConditionDependencies(condition);
-      
+
       // Should only have one reference to field1
       expect(deps).toEqual(['field1']);
     });
@@ -124,7 +122,7 @@ describe('extractConditionDependencies', () => {
         value: 'test',
       };
       const deps = extractConditionDependencies(config);
-      
+
       expect(deps).toEqual(['directField']);
     });
 
@@ -139,7 +137,7 @@ describe('extractConditionDependencies', () => {
         ],
       };
       const deps = extractConditionDependencies(config);
-      
+
       expect(deps).toHaveLength(2);
       expect(deps).toContain('nested1');
       expect(deps).toContain('nested2');
@@ -154,9 +152,9 @@ describe('extractAllDependencies', () => {
       disabled: when('locked').equals(true),
       required: when('mandatory').exists(),
     };
-    
+
     const deps = extractAllDependencies(behaviors);
-    
+
     expect(deps).toHaveLength(3);
     expect(deps).toContain('showField');
     expect(deps).toContain('locked');
@@ -168,9 +166,9 @@ describe('extractAllDependencies', () => {
       visible: when('status').equals('active'),
       disabled: when('status').equals('readonly'),
     };
-    
+
     const deps = extractAllDependencies(behaviors);
-    
+
     expect(deps).toEqual(['status']);
   });
 
@@ -180,9 +178,9 @@ describe('extractAllDependencies', () => {
       disabled: undefined,
       required: null,
     };
-    
+
     const deps = extractAllDependencies(behaviors);
-    
+
     expect(deps).toEqual(['field1']);
   });
 
@@ -191,10 +189,9 @@ describe('extractAllDependencies', () => {
       visible: undefined,
       disabled: undefined,
     };
-    
+
     const deps = extractAllDependencies(behaviors);
-    
+
     expect(deps).toEqual([]);
   });
 });
-

@@ -3,20 +3,20 @@ import { extractConditionDependencies } from './index';
 
 /**
  * A graph that tracks which fields depend on which other fields for condition evaluation.
- * 
+ *
  * This enables efficient re-evaluation of conditions when values change:
  * instead of re-evaluating ALL conditions when ANY value changes,
  * we only re-evaluate conditions that depend on the changed value.
- * 
+ *
  * @example
  * ```ts
  * const graph = new ConditionDependencyGraph();
- * 
+ *
  * // Add field with its conditions
  * graph.addField('dependentField', {
  *   visible: when('triggerField').equals('show')
  * });
- * 
+ *
  * // When 'triggerField' changes, get affected fields
  * const affected = graph.getAffectedFields('triggerField');
  * // affected = ['dependentField']
@@ -37,7 +37,7 @@ export class ConditionDependencyGraph {
 
   /**
    * Adds a field with its conditional behavior to the graph.
-   * 
+   *
    * @param fieldId - The ID of the field
    * @param conditions - The field's conditional behavior (visible, disabled, required, readonly)
    */
@@ -85,12 +85,12 @@ export class ConditionDependencyGraph {
 
   /**
    * Removes a field from the graph.
-   * 
+   *
    * @param fieldId - The ID of the field to remove
    */
   removeField(fieldId: string): void {
     const dependencies = this.fieldDependencies.get(fieldId);
-    
+
     if (dependencies) {
       // Remove from reverse index
       for (const dep of dependencies) {
@@ -109,10 +109,10 @@ export class ConditionDependencyGraph {
 
   /**
    * Gets all field IDs that have conditions depending on a specific field path.
-   * 
+   *
    * When a value at `changedPath` changes, these are the fields whose
    * conditions need to be re-evaluated.
-   * 
+   *
    * @param changedPath - The field path that changed
    * @returns Array of field IDs that depend on this path
    */
@@ -123,13 +123,13 @@ export class ConditionDependencyGraph {
 
   /**
    * Gets all field IDs affected by changes to multiple paths.
-   * 
+   *
    * @param changedPaths - Array of field paths that changed
    * @returns Array of unique field IDs that depend on any of these paths
    */
   getAffectedFieldsMultiple(changedPaths: string[]): string[] {
     const affected = new Set<string>();
-    
+
     for (const path of changedPaths) {
       const deps = this.reverseDependencies.get(path);
       if (deps) {
@@ -144,7 +144,7 @@ export class ConditionDependencyGraph {
 
   /**
    * Gets the dependencies for a specific field.
-   * 
+   *
    * @param fieldId - The ID of the field
    * @returns Array of field paths this field depends on
    */
@@ -155,7 +155,7 @@ export class ConditionDependencyGraph {
 
   /**
    * Checks if a field has any dependencies.
-   * 
+   *
    * @param fieldId - The ID of the field
    * @returns True if the field has conditional dependencies
    */
@@ -166,7 +166,7 @@ export class ConditionDependencyGraph {
 
   /**
    * Gets all fields in the graph.
-   * 
+   *
    * @returns Array of all field IDs
    */
   getAllFields(): string[] {
@@ -175,7 +175,7 @@ export class ConditionDependencyGraph {
 
   /**
    * Gets all unique dependency paths in the graph.
-   * 
+   *
    * @returns Array of all field paths that are dependencies
    */
   getAllDependencyPaths(): string[] {
@@ -219,4 +219,3 @@ export class ConditionDependencyGraph {
     return { fields, reverseDeps };
   }
 }
-

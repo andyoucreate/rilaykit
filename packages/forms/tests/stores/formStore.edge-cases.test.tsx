@@ -23,21 +23,21 @@ function createWrapper(initialValues: Record<string, unknown> = {}) {
 describe('FormStore Edge Cases', () => {
   describe('Null and Undefined Values', () => {
     it('should handle null values correctly', () => {
-      const { Wrapper, store } = createWrapper({ field1: null });
+      const { Wrapper } = createWrapper({ field1: null });
       const { result } = renderHook(() => useFieldValue('field1'), { wrapper: Wrapper });
 
       expect(result.current).toBeNull();
     });
 
     it('should handle undefined values correctly', () => {
-      const { Wrapper, store } = createWrapper({ field1: undefined });
+      const { Wrapper } = createWrapper({ field1: undefined });
       const { result } = renderHook(() => useFieldValue('field1'), { wrapper: Wrapper });
 
       expect(result.current).toBeUndefined();
     });
 
     it('should handle setting null as a value', () => {
-      const { Wrapper, store } = createWrapper({ field1: 'initial' });
+      const { store } = createWrapper({ field1: 'initial' });
 
       act(() => {
         store.getState()._setValue('field1', null);
@@ -47,7 +47,7 @@ describe('FormStore Edge Cases', () => {
     });
 
     it('should handle setting undefined as a value', () => {
-      const { Wrapper, store } = createWrapper({ field1: 'initial' });
+      const { store } = createWrapper({ field1: 'initial' });
 
       act(() => {
         store.getState()._setValue('field1', undefined);
@@ -57,7 +57,7 @@ describe('FormStore Edge Cases', () => {
     });
 
     it('should handle empty string vs null distinction', () => {
-      const { Wrapper, store } = createWrapper({});
+      const { store } = createWrapper({});
 
       act(() => {
         store.getState()._setValue('field1', '');

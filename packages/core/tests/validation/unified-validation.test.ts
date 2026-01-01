@@ -87,7 +87,7 @@ describe('Unified Validation System', () => {
           vendor: 'mock',
           validate: (value: unknown) => {
             const data = value as any;
-            if (data && data.email && data.name) {
+            if (data?.email && data.name) {
               return { value: data };
             }
             return { issues: [{ message: 'Missing required fields' }] };

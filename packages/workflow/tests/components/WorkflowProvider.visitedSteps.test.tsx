@@ -10,8 +10,9 @@ describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
   // Mock components
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}
@@ -30,7 +31,7 @@ describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
         <div data-testid="visited-steps-list">
           {Array.from(workflowState.visitedSteps).sort().join(',')}
         </div>
-        {workflowConfig.steps.map((step, index) => (
+        {workflowConfig.steps.map((step, _index) => (
           <div key={step.id} data-testid={`step-${step.id}-visited`}>
             {workflowState.visitedSteps.has(step.id) ? 'visited' : 'not-visited'}
           </div>

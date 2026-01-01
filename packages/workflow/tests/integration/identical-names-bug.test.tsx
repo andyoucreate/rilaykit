@@ -17,8 +17,9 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
   // Mock components
   const MockProducts = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label || id}</label>
+      <label htmlFor={id}>{props.label || id}</label>
       <select
+        id={id}
         value={Array.isArray(value) ? value[0] || '' : value || ''}
         onChange={(e) => {
           const newValue = props.multiple ? [e.target.value] : e.target.value;
@@ -38,8 +39,9 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
 
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label || id}</label>
+      <label htmlFor={id}>{props.label || id}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}

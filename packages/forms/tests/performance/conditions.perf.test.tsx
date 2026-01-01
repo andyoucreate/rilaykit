@@ -167,7 +167,7 @@ describe('Conditions Performance', () => {
   });
 
   it('should demonstrate re-render isolation with Zustand selectors', async () => {
-    const config = createTestConfig();
+    const _config = createTestConfig();
     const renderCounts: Record<string, number> = {};
 
     // Create a tracking component
@@ -257,4 +257,3 @@ describe('Zustand Store Performance', () => {
     expect(updateTime).toBeLessThan(100);
   });
 });
-

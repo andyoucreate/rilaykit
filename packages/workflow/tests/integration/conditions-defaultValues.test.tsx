@@ -10,8 +10,9 @@ describe('Workflow - Conditions with DefaultValues', () => {
   // Mock components
   const MockSelect = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <select
+        id={id}
         value={Array.isArray(value) ? value[0] || '' : value || ''}
         onChange={(e) => onChange?.(props.multiple ? [e.target.value] : e.target.value)}
         data-testid={`select-${id}`}
@@ -28,8 +29,9 @@ describe('Workflow - Conditions with DefaultValues', () => {
 
   const MockInput = ({ id, value, onChange, props }: any) => (
     <div data-testid={`field-${id}`}>
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="text"
         value={value || ''}
         onChange={(e) => onChange?.(e.target.value)}
