@@ -1,7 +1,7 @@
 {
   "name": "@rilaykit/core",
-  "version": "15.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
   "description": "Core types, configurations, and utilities for the RilayKit form library",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -2,7 +2,7 @@
 
 This monorepo uses **Semantic Versioning 2.0.0** for all packages with synchronized versions.
 
-## Current Version: `15.0.0`
+## Current Version: `0.1.0`
 
 ---
 
@@ -55,9 +55,9 @@ All packages in the monorepo share the **same version**:
 
 ```json
 {
-  "@rilaykit/core": "15.0.0",
-  "@rilaykit/forms": "15.0.0",
-  "@rilaykit/workflow": "15.0.0"
+  "@rilaykit/core": "0.1.0",
+  "@rilaykit/forms": "0.1.0",
+  "@rilaykit/workflow": "0.1.0"
 }
 ```
 
@@ -316,7 +316,7 @@ git commit -m "feat!: redesign Form component API"
 # 4. Version and publish
 pnpm changeset:version
 git add .
-git commit -m "chore: release v15.0.0"
+git commit -m "chore: release v0.1.0"
 pnpm release
 ```
 
@@ -326,10 +326,10 @@ pnpm release
 
 | Version | Status | Milestone |
 |---------|--------|-----------|
-| 15.0.0 | Current | Zustand-based state management |
-| 15.1.0 | Planned | Enhanced condition system |
-| 15.2.0 | Planned | Performance optimizations |
-| 16.0.0 | Future | React 19 full support, API improvements |
+| 0.1.0 | Current | First stable release with Zustand-based state management |
+| 0.2.0 | Planned | Enhanced condition system |
+| 0.3.0 | Planned | Performance optimizations |
+| 1.0.0 | Future | Production-ready with full documentation |
 
 ---
 
