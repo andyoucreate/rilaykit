@@ -1,5 +1,15 @@
 # @rilaykit/core
 
+## 0.1.1
+
+### Patch Changes
+
+- Maintenance release
+
+  - Set 0.1.0 as first stable release baseline
+  - Deprecate all previous experimental versions
+  - Clean up release configuration
+
 ## 0.1.0
 
 ### First Stable Release
