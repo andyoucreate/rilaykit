@@ -667,3 +667,9 @@ export interface EnhancedFormAnalytics {
   readonly onFieldChange?: (fieldId: string, metrics: ComponentPerformanceMetrics) => void;
   readonly monitoring?: MonitoringConfig;
 }
+
+// =================================================================
+// 8. UNIFIED CONTEXT TYPES (V2)
+// =================================================================
+
+export * from './context';

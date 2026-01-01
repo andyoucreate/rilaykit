@@ -310,3 +310,85 @@ function getFieldValue(data: Record<string, any>, fieldPath: string): any {
 }
 
 export type { ConditionBuilder as Condition };
+
+// Re-export ConditionDependencyGraph
+export { ConditionDependencyGraph } from './ConditionDependencyGraph';
+
+// =================================================================
+// DEPENDENCY EXTRACTION
+// =================================================================
+
+/**
+ * Extracts all field paths that a condition depends on.
+ * 
+ * This is useful for building a dependency graph that knows which
+ * conditions need to be re-evaluated when a specific field changes.
+ * 
+ * @param condition - The condition to extract dependencies from
+ * @returns An array of unique field paths
+ * 
+ * @example
+ * ```ts
+ * const condition = when('field1').equals('value').and(when('field2').exists());
+ * const deps = extractConditionDependencies(condition.build());
+ * // deps = ['field1', 'field2']
+ * 
+ * const nestedCondition = when('step1.field1').equals('value');
+ * const nestedDeps = extractConditionDependencies(nestedCondition.build());
+ * // nestedDeps = ['step1.field1']
+ * ```
+ */
+export function extractConditionDependencies(
+  condition: ConditionConfig | ConditionBuilder | undefined | null
+): string[] {
+  if (!condition) {
+    return [];
+  }
+
+  // Convert ConditionBuilder to ConditionConfig if needed
+  const config: ConditionConfig = 
+    'build' in condition ? condition.build() : condition;
+
+  const dependencies = new Set<string>();
+
+  function extractFromConfig(cfg: ConditionConfig): void {
+    // Add the field from this condition (if not empty)
+    if (cfg.field && cfg.field.trim() !== '') {
+      dependencies.add(cfg.field);
+    }
+
+    // Recursively extract from nested conditions
+    if (cfg.conditions && cfg.conditions.length > 0) {
+      for (const nestedCondition of cfg.conditions) {
+        extractFromConfig(nestedCondition);
+      }
+    }
+  }
+
+  extractFromConfig(config);
+
+  return Array.from(dependencies);
+}
+
+/**
+ * Extracts dependencies from multiple conditions (e.g., visible, disabled, required).
+ * 
+ * @param behaviors - Object containing condition configurations
+ * @returns An array of unique field paths from all conditions
+ */
+export function extractAllDependencies(
+  behaviors: Record<string, ConditionConfig | ConditionBuilder | undefined | null>
+): string[] {
+  const allDependencies = new Set<string>();
+
+  for (const condition of Object.values(behaviors)) {
+    if (condition) {
+      const deps = extractConditionDependencies(condition);
+      for (const dep of deps) {
+        allDependencies.add(dep);
+      }
+    }
+  }
+
+  return Array.from(allDependencies);
+}

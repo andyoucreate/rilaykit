@@ -14,6 +14,9 @@ export { WorkflowStepper } from './components/WorkflowStepper';
 // Hooks
 export * from './hooks';
 
+// Stores (Zustand)
+export * from './stores';
+
 // Persistence system
 export * from './persistence';
 

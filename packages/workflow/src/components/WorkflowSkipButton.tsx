@@ -1,6 +1,6 @@
 import type { ComponentRendererBaseProps, WorkflowSkipButtonRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
-import { useFormContext } from '@rilaykit/forms';
+import { useFormSubmitting, useFormValues } from '@rilaykit/forms';
 import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
@@ -20,11 +20,12 @@ export const WorkflowSkipButton = React.memo(function WorkflowSkipButton({
 }: WorkflowSkipButtonProps) {
   const { currentStep, skipStep, workflowState, workflowConfig, context, conditionsHelpers } =
     useWorkflowContext();
-  const { formState } = useFormContext();
+  const formIsSubmitting = useFormSubmitting();
+  const formValues = useFormValues();
 
   // Memoize computed state to avoid recalculation
   const computedState = useMemo(() => {
-    const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+    const computedIsSubmitting = formIsSubmitting || workflowState.isSubmitting;
     const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
     const canSkip =
       (Boolean(currentStep?.allowSkip) ||
@@ -37,7 +38,7 @@ export const WorkflowSkipButton = React.memo(function WorkflowSkipButton({
       canSkip,
     };
   }, [
-    formState.isSubmitting,
+    formIsSubmitting,
     workflowState.isSubmitting,
     workflowState.isTransitioning,
     workflowState.currentStepIndex,
@@ -65,7 +66,7 @@ export const WorkflowSkipButton = React.memo(function WorkflowSkipButton({
       className,
       // Step data
       currentStep,
-      stepData: formState.values || {},
+      stepData: formValues as Record<string, unknown>,
       allData: context.allData,
       context,
     }),
@@ -75,7 +76,7 @@ export const WorkflowSkipButton = React.memo(function WorkflowSkipButton({
       handleSkip,
       className,
       currentStep,
-      formState.values,
+      formValues,
       context.allData,
       context,
     ]

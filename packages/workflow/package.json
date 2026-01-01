@@ -47,7 +47,8 @@
   "dependencies": {
     "@noble/ed25519": "^1.7.1",
     "@rilaykit/core": "workspace:*",
-    "@rilaykit/forms": "workspace:*"
+    "@rilaykit/forms": "workspace:*",
+    "zustand": "^5.0.5"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

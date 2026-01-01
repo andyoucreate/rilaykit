@@ -6,78 +6,68 @@ import {
   validateWithUnifiedConfig,
 } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
+import type { FormStore } from '../stores';
 import type { UseFormConditionsReturn } from './useFormConditions';
-import type { FormState } from './useFormState';
 
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
   return { isValid: true, errors: [] };
 }
 
-export interface UseFormValidationProps {
+export interface UseFormValidationWithStoreProps {
   formConfig: FormConfiguration;
-  formState: FormState;
+  store: FormStore;
   conditionsHelpers: Omit<UseFormConditionsReturn, 'fieldConditions'>;
-  setFieldValidationState: (
-    fieldId: string,
-    state: 'idle' | 'validating' | 'valid' | 'invalid'
-  ) => void;
-  setError: (fieldId: string, errors: any[]) => void;
 }
 
-export function useFormValidation({
+export function useFormValidationWithStore({
   formConfig,
-  formState,
+  store,
   conditionsHelpers,
-  setFieldValidationState,
-  setError,
-}: UseFormValidationProps) {
+}: UseFormValidationWithStoreProps) {
   // Use refs for stable references to avoid recreating callbacks
   const formConfigRef = useRef(formConfig);
   const conditionsHelpersRef = useRef(conditionsHelpers);
-  const setFieldValidationStateRef = useRef(setFieldValidationState);
-  const setErrorRef = useRef(setError);
 
   // Update refs when props change
   formConfigRef.current = formConfig;
   conditionsHelpersRef.current = conditionsHelpers;
-  setFieldValidationStateRef.current = setFieldValidationState;
-  setErrorRef.current = setError;
 
   // Optimized field validation with stable dependencies
   const validateField = useCallback(
-    async (fieldId: string, value?: any): Promise<ValidationResult> => {
+    async (fieldId: string, value?: unknown): Promise<ValidationResult> => {
       const fieldConfig = formConfigRef.current.allFields.find((field) => field.id === fieldId);
+      const state = store.getState();
 
-      // Skip si le champ n'existe pas
+      // Skip if field doesn't exist
       if (!fieldConfig) {
         return createSuccessResult();
       }
 
-      // Skip si le champ est invisible (clear errors)
+      // Skip if field is invisible (clear errors)
       if (!conditionsHelpersRef.current.isFieldVisible(fieldId)) {
-        setErrorRef.current(fieldId, []);
-        setFieldValidationStateRef.current(fieldId, 'valid');
+        state._setErrors(fieldId, []);
+        state._setValidationState(fieldId, 'valid');
         return createSuccessResult();
       }
 
-      // Skip si pas de validation configurée
+      // Skip if no validation configured
       if (!fieldConfig.validation || !hasUnifiedValidation(fieldConfig.validation)) {
-        setErrorRef.current(fieldId, []);
-        setFieldValidationStateRef.current(fieldId, 'valid');
+        state._setErrors(fieldId, []);
+        state._setValidationState(fieldId, 'valid');
         return createSuccessResult();
       }
 
-      const valueToValidate = value !== undefined ? value : formState.values[fieldId];
+      const valueToValidate = value !== undefined ? value : state.values[fieldId];
 
       // Create validation context
       const context = createValidationContext({
         fieldId,
         formId: formConfigRef.current.id,
-        allFormData: { ...formState.values, [fieldId]: valueToValidate },
+        allFormData: { ...state.values, [fieldId]: valueToValidate },
       });
 
-      setFieldValidationStateRef.current(fieldId, 'validating');
+      state._setValidationState(fieldId, 'validating');
 
       try {
         // Run unified validation (Standard Schema only)
@@ -87,7 +77,7 @@ export function useFormValidation({
           context
         );
 
-        // Check si required par condition
+        // Check if conditionally required
         const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(fieldId);
         const isEmpty =
           valueToValidate === undefined || valueToValidate === null || valueToValidate === '';
@@ -105,15 +95,15 @@ export function useFormValidation({
                 ...result.errors,
               ],
             };
-            setErrorRef.current(fieldId, enhancedResult.errors);
-            setFieldValidationStateRef.current(fieldId, 'invalid');
+            state._setErrors(fieldId, enhancedResult.errors);
+            state._setValidationState(fieldId, 'invalid');
             return enhancedResult;
           }
         }
 
         // Set results
-        setErrorRef.current(fieldId, result.errors);
-        setFieldValidationStateRef.current(fieldId, result.isValid ? 'valid' : 'invalid');
+        state._setErrors(fieldId, result.errors);
+        state._setValidationState(fieldId, result.isValid ? 'valid' : 'invalid');
         return result;
       } catch (error) {
         const errorResult = {
@@ -125,16 +115,18 @@ export function useFormValidation({
             },
           ],
         };
-        setErrorRef.current(fieldId, errorResult.errors);
-        setFieldValidationStateRef.current(fieldId, 'invalid');
+        state._setErrors(fieldId, errorResult.errors);
+        state._setValidationState(fieldId, 'invalid');
         return errorResult;
       }
     },
-    [formState.values] // Only depend on form values, use refs for other dependencies
+    [store]
   );
 
   // Optimized form validation with stable dependencies
   const validateForm = useCallback(async (): Promise<ValidationResult> => {
+    const state = store.getState();
+
     // Get visible fields with validation
     const fieldsToValidate = formConfigRef.current.allFields.filter((field) => {
       const isVisible = conditionsHelpersRef.current.isFieldVisible(field.id);
@@ -147,8 +139,8 @@ export function useFormValidation({
       (field) => !conditionsHelpersRef.current.isFieldVisible(field.id)
     );
     for (const field of invisibleFields) {
-      setErrorRef.current(field.id, []);
-      setFieldValidationStateRef.current(field.id, 'valid');
+      state._setErrors(field.id, []);
+      state._setValidationState(field.id, 'valid');
     }
 
     // Validate visible fields
@@ -157,20 +149,20 @@ export function useFormValidation({
     );
     const hasFieldErrors = fieldResults.some((result) => !result.isValid);
 
-    // Form-level validation (si configuré)
+    // Form-level validation (if configured)
     let formResult = createSuccessResult();
     if (
       formConfigRef.current.validation &&
       hasUnifiedValidation(formConfigRef.current.validation)
     ) {
-      const visibleFormData = Object.keys(formState.values).reduce(
+      const visibleFormData = Object.keys(state.values).reduce(
         (acc, fieldId) => {
           if (conditionsHelpersRef.current.isFieldVisible(fieldId)) {
-            acc[fieldId] = formState.values[fieldId];
+            acc[fieldId] = state.values[fieldId];
           }
           return acc;
         },
-        {} as Record<string, any>
+        {} as Record<string, unknown>
       );
 
       const context = createValidationContext({
@@ -202,10 +194,11 @@ export function useFormValidation({
       isValid: !hasFieldErrors && formResult.isValid,
       errors: [...fieldResults.flatMap((result) => result.errors), ...formResult.errors],
     };
-  }, [formState.values, validateField]); // Reduced dependencies using refs
+  }, [store, validateField]);
 
   return {
     validateField,
     validateForm,
   };
 }
+

@@ -1,21 +1,28 @@
 /**
  * @fileoverview Custom hooks for form management
  *
- * This module exports custom hooks that encapsulate specific aspects of form behavior:
- * - useFormState: Manages form state with reducer pattern
- * - useFormValidation: Handles all validation logic
- * - useFormSubmission: Manages form submission workflow
+ * GRANULAR HOOKS (recommended - minimal re-renders):
+ * - useFieldValue: Get field value with granular subscription
+ * - useFieldState: Get complete field state
+ * - useFieldActions: Get stable action references for a field
+ * - useFieldConditions: Get field conditions
+ * - useFormSubmitting: Get form submitting state
+ * - useFormValid: Get form validity
+ *
+ * UTILITY HOOKS:
  * - useConditionEvaluation: Evaluates conditional behaviors
  * - useFormConditions: Specialized hook for form conditional logic
- *
- * These hooks enable a cleaner, more maintainable FormProvider by separating concerns.
  */
 
+// Condition evaluation
 export * from './useConditionEvaluation';
+export * from './useFieldConditionsLazy';
 export * from './useFormConditions';
-export * from './useFormState';
-export * from './useFormSubmission';
-export * from './useFormValidation';
 
+// Zustand-based hooks
+export * from './useFormSubmissionWithStore';
+export * from './useFormValidationWithStore';
+
+// Monitoring
 export { useFormMonitoring } from './useFormMonitoring';
 export type { UseFormMonitoringProps, UseFormMonitoringReturn } from './useFormMonitoring';

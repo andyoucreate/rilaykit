@@ -1,42 +1,52 @@
-import type { FormConfiguration, ValidationError, ValidationResult } from '@rilaykit/core';
+import type { FieldConditions, FormConfiguration, ValidationResult } from '@rilaykit/core';
 import type React from 'react';
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
-import {
-  type ConditionEvaluationResult,
-  type FormState,
-  type UseFormConditionsReturn,
-  useFormConditions,
-  useFormState,
-  useFormSubmission,
-  useFormValidation,
-} from '../hooks';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
+import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
+import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
+import { FormStoreContext, createFormStore } from '../stores';
 
-export interface FormContextValue {
-  formState: FormState;
+// =================================================================
+// FORM CONFIG CONTEXT
+// =================================================================
+
+export interface FormConfigContextValue {
   formConfig: FormConfiguration;
-  fieldConditions: Record<string, ConditionEvaluationResult>;
   conditionsHelpers: Omit<UseFormConditionsReturn, 'fieldConditions'>;
-  setValue: (fieldId: string, value: any) => void;
-  setFieldTouched: (fieldId: string, touched?: boolean) => void;
-  validateField: (fieldId: string, value?: any) => Promise<ValidationResult>;
+  validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
-  isFormValid: () => boolean;
-  reset: (values?: Record<string, any>) => void;
   submit: (event?: React.FormEvent) => Promise<boolean>;
-  setError: (fieldId: string, errors: ValidationError[]) => void;
-  clearError: (fieldId: string) => void;
 }
 
-const FormContext = createContext<FormContextValue | null>(null);
+const FormConfigContext = createContext<FormConfigContextValue | null>(null);
+
+/**
+ * Access form configuration and validation methods
+ */
+export function useFormConfigContext(): FormConfigContextValue {
+  const context = useContext(FormConfigContext);
+  if (!context) {
+    throw new Error('useFormConfigContext must be used within a FormProvider');
+  }
+  return context;
+}
+
+// =================================================================
+// FORM PROVIDER PROPS
+// =================================================================
 
 export interface FormProviderProps {
   children: React.ReactNode;
   formConfig: FormConfiguration;
-  defaultValues?: Record<string, any>;
-  onSubmit?: (data: Record<string, any>) => void | Promise<void>;
-  onFieldChange?: (fieldId: string, value: any, formData: Record<string, any>) => void;
+  defaultValues?: Record<string, unknown>;
+  onSubmit?: (data: Record<string, unknown>) => void | Promise<void>;
+  onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
   className?: string;
 }
+
+// =================================================================
+// FORM PROVIDER IMPLEMENTATION
+// =================================================================
 
 export function FormProvider({
   children,
@@ -46,22 +56,53 @@ export function FormProvider({
   onFieldChange,
   className,
 }: FormProviderProps) {
-  // Use refs to track previous values for change detection
-  const prevFormId = useRef(formConfig.id);
+  // Create store once - stable across renders
+  const [store] = useState(() => createFormStore(defaultValues));
 
-  // Initialize form state management with custom hook
-  const {
-    formState,
-    valuesRef,
-    setValue,
-    setFieldTouched,
-    reset,
-    setError,
-    clearError,
-    setFieldValidationState,
-    setSubmitting,
-    isFormValid,
-  } = useFormState({ defaultValues, onFieldChange });
+  // Track form ID changes
+  const prevFormIdRef = useRef(formConfig.id);
+
+  // Stable refs for callbacks
+  const onFieldChangeRef = useRef(onFieldChange);
+  onFieldChangeRef.current = onFieldChange;
+
+  // Subscribe to value changes for onFieldChange callback
+  useEffect(() => {
+    if (!onFieldChangeRef.current) return;
+
+    const unsubscribe = store.subscribe(
+      (state) => state.values,
+      (values, prevValues) => {
+        // Find which field changed
+        for (const fieldId of Object.keys(values)) {
+          if (values[fieldId] !== prevValues[fieldId]) {
+            onFieldChangeRef.current?.(fieldId, values[fieldId], values as Record<string, unknown>);
+          }
+        }
+      }
+    );
+
+    return unsubscribe;
+  }, [store]);
+
+  // Reset when form ID changes
+  useEffect(() => {
+    if (prevFormIdRef.current !== formConfig.id) {
+      prevFormIdRef.current = formConfig.id;
+      store.getState()._reset(defaultValues);
+    }
+  }, [formConfig.id, store, defaultValues]);
+
+  // Subscribe to form values for reactive conditions evaluation
+  const [formValues, setFormValues] = useState(() => store.getState().values);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe(
+      (state) => state.values,
+      (values) => setFormValues(values)
+    );
+    return unsubscribe;
+  }, [store]);
 
   // Evaluate conditions using specialized hook
   const {
@@ -74,10 +115,23 @@ export function FormProvider({
     isFieldReadonly,
   } = useFormConditions({
     formConfig,
-    formValues: formState.values,
+    formValues,
   });
 
-  // Group condition helpers for easy access
+  // Sync conditions to store whenever they change
+  useEffect(() => {
+    for (const [fieldId, condition] of Object.entries(fieldConditions)) {
+      const conditions: FieldConditions = {
+        visible: condition.visible,
+        disabled: condition.disabled,
+        required: condition.required,
+        readonly: condition.readonly,
+      };
+      store.getState()._setFieldConditions(fieldId, conditions);
+    }
+  }, [fieldConditions, store]);
+
+  // Memoize condition helpers
   const conditionsHelpers = useMemo(
     () => ({
       hasConditionalFields,
@@ -97,84 +151,39 @@ export function FormProvider({
     ]
   );
 
-  // Initialize form validation with custom hook
-  const { validateField, validateForm } = useFormValidation({
+  // Initialize validation with store
+  const { validateField, validateForm } = useFormValidationWithStore({
     formConfig,
-    formState,
+    store,
     conditionsHelpers,
-    setFieldValidationState,
-    setError,
   });
 
-  // Initialize form submission with custom hook
-  const { submit } = useFormSubmission({
-    valuesRef,
+  // Initialize submission with store
+  const { submit } = useFormSubmissionWithStore({
+    store,
     onSubmit,
     validateForm,
-    setSubmitting,
   });
 
-  // Simple: Only reset on component mount or when form ID changes (new form)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    // Only reset if this is a completely new form
-    if (prevFormId.current === null || formConfig.id !== prevFormId.current) {
-      prevFormId.current = formConfig.id;
-
-      reset(defaultValues);
-    }
-  }, [formConfig.id, reset]);
-
-  // Memoize formConfig reference to avoid unnecessary recalculations
-  const memoizedFormConfig = useMemo(() => formConfig, [formConfig]);
-
-  // Memoize context value to prevent unnecessary re-renders
-  const contextValue: FormContextValue = useMemo(
+  // Memoize form config context
+  const formConfigContextValue = useMemo(
     () => ({
-      formState,
-      formConfig: memoizedFormConfig,
-      fieldConditions,
+      formConfig,
       conditionsHelpers,
-      setValue,
-      setFieldTouched,
       validateField,
       validateForm,
-      isFormValid,
-      reset,
       submit,
-      setError,
-      clearError,
     }),
-    [
-      formState,
-      memoizedFormConfig,
-      fieldConditions,
-      conditionsHelpers,
-      setValue,
-      setFieldTouched,
-      validateField,
-      validateForm,
-      isFormValid,
-      reset,
-      submit,
-      setError,
-      clearError,
-    ]
+    [formConfig, conditionsHelpers, validateField, validateForm, submit]
   );
 
   return (
-    <FormContext.Provider value={contextValue}>
-      <form onSubmit={submit} className={className} noValidate>
-        {children}
-      </form>
-    </FormContext.Provider>
+    <FormStoreContext.Provider value={store}>
+      <FormConfigContext.Provider value={formConfigContextValue}>
+        <form onSubmit={submit} className={className} noValidate>
+          {children}
+        </form>
+      </FormConfigContext.Provider>
+    </FormStoreContext.Provider>
   );
-}
-
-export function useFormContext(): FormContextValue {
-  const context = useContext(FormContext);
-  if (!context) {
-    throw new Error('useFormContext must be used within a FormProvider');
-  }
-  return context;
 }

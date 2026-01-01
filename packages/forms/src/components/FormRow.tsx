@@ -6,14 +6,14 @@ import type {
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import React, { useMemo } from 'react';
 import { FormField } from './FormField';
-import { useFormContext } from './FormProvider';
+import { useFormConfigContext } from './FormProvider';
 
 export interface FormRowProps extends ComponentRendererBaseProps<FormRowRendererProps> {
   row: FormFieldRow;
 }
 
 export const FormRow = React.memo(function FormRow({ row, className, ...props }: FormRowProps) {
-  const { formConfig, conditionsHelpers } = useFormContext();
+  const { formConfig, conditionsHelpers } = useFormConfigContext();
 
   // Filter visible fields BEFORE creating components to avoid empty wrapper divs
   const visibleFields = useMemo(

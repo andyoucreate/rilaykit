@@ -1,14 +1,14 @@
 import type { ComponentRendererBaseProps, FormBodyRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import React, { useMemo } from 'react';
-import { useFormContext } from './FormProvider';
+import { useFormConfigContext } from './FormProvider';
 import FormRow from './FormRow';
 
 export const FormBody = React.memo(function FormBody({
   className,
   ...props
 }: ComponentRendererBaseProps<FormBodyRendererProps>) {
-  const { formConfig } = useFormContext();
+  const { formConfig } = useFormConfigContext();
 
   // Render all rows using FormRow component (default children)
   const defaultRenderedRows = useMemo<React.ReactNode>(

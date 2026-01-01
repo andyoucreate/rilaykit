@@ -13,9 +13,7 @@
       "require": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -27,12 +25,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "forms",
-    "form-builder",
-    "typescript"
-  ],
+  "keywords": ["react", "forms", "form-builder", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.io",
@@ -44,7 +37,8 @@
     "url": "https://github.com/andyoucreate/rilay/issues"
   },
   "dependencies": {
-    "@rilaykit/core": "workspace:*"
+    "@rilaykit/core": "workspace:*",
+    "zustand": "^5.0.5"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

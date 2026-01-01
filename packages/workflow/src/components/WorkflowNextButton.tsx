@@ -1,6 +1,6 @@
 import type { ComponentRendererBaseProps, WorkflowNextButtonRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
-import { useFormContext } from '@rilaykit/forms';
+import { useFormConfigContext, useFormSubmitting, useFormValues } from '@rilaykit/forms';
 import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
@@ -19,11 +19,13 @@ export const WorkflowNextButton = React.memo(function WorkflowNextButton({
   ...props
 }: WorkflowNextButtonProps) {
   const { context, workflowState, workflowConfig, currentStep } = useWorkflowContext();
-  const { submit, formState } = useFormContext();
+  const { submit } = useFormConfigContext();
+  const formIsSubmitting = useFormSubmitting();
+  const formValues = useFormValues();
 
   // Memoize computed state to avoid recalculation
   const computedState = useMemo(() => {
-    const computedIsSubmitting = formState.isSubmitting || workflowState.isSubmitting;
+    const computedIsSubmitting = formIsSubmitting || workflowState.isSubmitting;
     const finalIsSubmitting = overrideIsSubmitting ?? computedIsSubmitting;
     const canGoNext = !workflowState.isTransitioning && !finalIsSubmitting;
 
@@ -32,7 +34,7 @@ export const WorkflowNextButton = React.memo(function WorkflowNextButton({
       canGoNext,
     };
   }, [
-    formState.isSubmitting,
+    formIsSubmitting,
     workflowState.isSubmitting,
     workflowState.isTransitioning,
     overrideIsSubmitting,
@@ -59,7 +61,7 @@ export const WorkflowNextButton = React.memo(function WorkflowNextButton({
       onSubmit: handleSubmit,
       className,
       currentStep,
-      stepData: formState.values || {},
+      stepData: formValues as Record<string, unknown>,
       allData: context.allData,
       context,
     }),
@@ -70,7 +72,7 @@ export const WorkflowNextButton = React.memo(function WorkflowNextButton({
       handleSubmit,
       className,
       currentStep,
-      formState.values,
+      formValues,
       context.allData,
       context,
     ]

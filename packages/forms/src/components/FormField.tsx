@@ -1,11 +1,12 @@
 import type { ComponentRenderProps } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
-import { useFormContext } from './FormProvider';
+import { useFieldActions, useFieldConditions, useFieldState, useFieldValue } from '../stores';
+import { useFormConfigContext } from './FormProvider';
 
 export interface FormFieldProps {
   fieldId: string;
   disabled?: boolean;
-  customProps?: Record<string, any>;
+  customProps?: Record<string, unknown>;
   className?: string;
   forceVisible?: boolean;
 }
@@ -17,8 +18,14 @@ export const FormField = React.memo(function FormField({
   className,
   forceVisible = false,
 }: FormFieldProps) {
-  const { formState, formConfig, setValue, setFieldTouched, validateField, conditionsHelpers } =
-    useFormContext();
+  // Get form config (stable reference)
+  const { formConfig, validateField, conditionsHelpers } = useFormConfigContext();
+
+  // Granular selectors - only re-render when THIS field changes
+  const value = useFieldValue(fieldId);
+  const fieldState = useFieldState(fieldId);
+  const conditions = useFieldConditions(fieldId);
+  const { setValue, setTouched } = useFieldActions(fieldId);
 
   // Get field config - early return if not found
   const fieldConfig = formConfig.allFields.find((field) => field.id === fieldId);
@@ -32,134 +39,104 @@ export const FormField = React.memo(function FormField({
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }
 
-  // Memoize field state to avoid recalculation
-  const fieldState = useMemo(
-    () => ({
-      value: formState.values[fieldId],
-      errors: formState.errors[fieldId] || [],
-      validationState: formState.validationState[fieldId] || 'idle',
-      isTouched: formState.touched[fieldId] || false,
-    }),
-    [
-      formState.values[fieldId],
-      formState.errors[fieldId],
-      formState.validationState[fieldId],
-      formState.touched[fieldId],
-    ]
-  );
-
   const isValidating = fieldState.validationState === 'validating';
 
-  // Memoize condition checks to avoid recalculation
-  // biome-ignore lint/correctness/useExhaustiveDependencies: We need to memoize the field conditions to avoid recalculation on every render
-  const fieldConditions = useMemo(
+  // Compute effective conditions
+  const effectiveConditions = useMemo(
     () => ({
-      isVisible: forceVisible || conditionsHelpers.isFieldVisible(fieldId),
-      isFieldDisabled: disabled || conditionsHelpers.isFieldDisabled(fieldId),
-      isFieldRequired: conditionsHelpers.isFieldRequired(fieldId),
-      isFieldReadonly: conditionsHelpers.isFieldReadonly(fieldId),
+      isVisible: forceVisible || conditions.visible,
+      isFieldDisabled: disabled || conditions.disabled,
+      isFieldRequired: conditions.required || conditionsHelpers.isFieldRequired(fieldId),
+      isFieldReadonly: conditions.readonly,
     }),
-    [forceVisible, fieldId, disabled, conditionsHelpers, formState.values]
+    [forceVisible, disabled, conditions, conditionsHelpers, fieldId]
   );
 
-  // Stable change handler with optimized dependencies
-  // MUST be called before early return to follow React Hooks rules
+  // Stable change handler
   const handleChange = useCallback(
-    async (newValue: any) => {
-      // Update value
-      setValue(fieldId, newValue);
+    async (newValue: unknown) => {
+      setValue(newValue);
 
       // Validate immediately if configured OR if field is already touched
-      if (fieldConfig.validation?.validateOnChange || fieldState.isTouched) {
+      if (fieldConfig.validation?.validateOnChange || fieldState.touched) {
         await validateField(fieldId, newValue);
       }
     },
-    [
-      fieldId,
-      setValue,
-      validateField,
-      fieldConfig.validation?.validateOnChange,
-      fieldState.isTouched,
-    ]
+    [fieldId, setValue, validateField, fieldConfig.validation?.validateOnChange, fieldState.touched]
   );
 
-  // Stable blur handler with optimized dependencies
-  // MUST be called before early return to follow React Hooks rules
+  // Stable blur handler
   const handleBlur = useCallback(async () => {
-    // Marquer comme touched au premier blur
-    if (!fieldState.isTouched) {
-      setFieldTouched(fieldId);
+    if (!fieldState.touched) {
+      setTouched();
     }
 
-    // Valider sur blur si configuré (par défaut si pas de validateOnChange)
     if (fieldConfig.validation?.validateOnBlur !== false) {
       await validateField(fieldId);
     }
   }, [
     fieldId,
-    fieldState.isTouched,
-    setFieldTouched,
+    fieldState.touched,
+    setTouched,
     validateField,
     fieldConfig.validation?.validateOnBlur,
   ]);
 
-  // Memoize merged props to avoid recalculation on every render
-  // MUST be called before early return to follow React Hooks rules
+  // Memoize merged props
   const mergedProps = useMemo(
     () => ({
       ...(componentConfig.defaultProps ?? {}),
       ...fieldConfig.props,
       ...customProps,
-      disabled: fieldConditions.isFieldDisabled,
-      required: fieldConditions.isFieldRequired,
-      readOnly: fieldConditions.isFieldReadonly,
+      disabled: effectiveConditions.isFieldDisabled,
+      required: effectiveConditions.isFieldRequired,
+      readOnly: effectiveConditions.isFieldReadonly,
     }),
     [
       componentConfig.defaultProps,
       fieldConfig.props,
       customProps,
-      fieldConditions.isFieldDisabled,
-      fieldConditions.isFieldRequired,
-      fieldConditions.isFieldReadonly,
+      effectiveConditions.isFieldDisabled,
+      effectiveConditions.isFieldRequired,
+      effectiveConditions.isFieldReadonly,
     ]
   );
 
-  // Memoize render props to avoid recreating object
-  // MUST be called before early return to follow React Hooks rules
+  // Memoize render props
   const renderProps: ComponentRenderProps = useMemo(
     () => ({
       id: fieldId,
       props: mergedProps,
-      value: fieldState.value,
+      value,
       onChange: handleChange,
       onBlur: handleBlur,
-      disabled: fieldConditions.isFieldDisabled,
+      disabled: effectiveConditions.isFieldDisabled,
       error: fieldState.errors,
       isValidating,
-      touched: fieldState.isTouched,
+      touched: fieldState.touched,
     }),
     [
       fieldId,
       mergedProps,
-      fieldState.value,
+      value,
       handleChange,
       handleBlur,
-      fieldConditions.isFieldDisabled,
+      effectiveConditions.isFieldDisabled,
       fieldState.errors,
       isValidating,
-      fieldState.isTouched,
+      fieldState.touched,
     ]
   );
 
-  // Hide field if not visible - early return AFTER all hooks
-  if (!fieldConditions.isVisible) {
+  // Hide field if not visible
+  if (!effectiveConditions.isVisible) {
     return null;
   }
 
-  // Render component directly - don't use useMemo to allow hooks in renderers
+  // Render component
   const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
 
-  // Render field wrapper - don't use useMemo to allow hooks in renderers
+  // Render field wrapper
   const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
   const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
 
@@ -171,7 +148,7 @@ export const FormField = React.memo(function FormField({
           ...mergedProps,
           error: fieldState.errors,
           isValidating,
-          touched: fieldState.isTouched,
+          touched: fieldState.touched,
         })
       : renderedComponent;
 
@@ -180,10 +157,10 @@ export const FormField = React.memo(function FormField({
       className={className}
       data-field-id={fieldId}
       data-field-type={componentConfig.type}
-      data-field-visible={fieldConditions.isVisible}
-      data-field-disabled={fieldConditions.isFieldDisabled}
-      data-field-required={fieldConditions.isFieldRequired}
-      data-field-readonly={fieldConditions.isFieldReadonly}
+      data-field-visible={effectiveConditions.isVisible}
+      data-field-disabled={effectiveConditions.isFieldDisabled}
+      data-field-required={effectiveConditions.isFieldRequired}
+      data-field-readonly={effectiveConditions.isFieldReadonly}
     >
       {content}
     </div>
