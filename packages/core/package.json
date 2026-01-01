@@ -1,6 +1,7 @@
 {
   "name": "@rilaykit/core",
   "version": "13.0.0",
+  "private": true,
   "description": "Core types, configurations, and utilities for the RilayKit form library",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -51,9 +52,6 @@
     "@types/react": "^18.3.23",
     "react": "^18.3.1",
     "typescript": "^5.8.3"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"

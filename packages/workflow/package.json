@@ -1,6 +1,7 @@
 {
   "name": "@rilaykit/workflow",
   "version": "14.0.0",
+  "private": true,
   "description": "Commercial workflow and multi-step form utilities for RilayKit - License required for all use",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -58,8 +59,5 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.8.3"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }
