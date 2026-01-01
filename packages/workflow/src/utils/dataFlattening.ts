@@ -61,19 +61,27 @@ export function combineWorkflowDataForConditions(
   allData: Record<string, any>,
   stepData: Record<string, any>
 ): Record<string, any> {
-  // First, combine the data with stepData taking precedence
+  // Flatten allData FIRST to preserve nested paths like "legalForm.legalForm"
+  // This is critical when step ID matches field ID (e.g., step "legalForm" with field "legalForm")
+  const flattenedAllData = flattenObject(allData);
+
+  // Flatten stepData for dot-notation access to current step values
+  const flattenedStepData = flattenObject(stepData);
+
+  // Combine nested structures (stepData takes precedence for nested keys)
   const combined = {
     ...allData,
     ...stepData,
   };
 
-  // Then flatten the combined data to make it compatible with dot-notation conditions
-  const flattened = flattenObject(combined);
-
-  // Also include the original nested structure for backward compatibility
+  // Build result with correct priority for flattened keys:
+  // 1. flattenedAllData first (provides paths like "legalForm.legalForm")
+  // 2. flattenedStepData can override for truly updated values
+  // This ensures when("stepId.fieldId") works even when stepId === fieldId
   return {
     ...combined,
-    ...flattened,
+    ...flattenedAllData,
+    ...flattenedStepData,
   };
 }
 

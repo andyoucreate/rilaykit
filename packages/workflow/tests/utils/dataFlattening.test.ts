@@ -257,6 +257,31 @@ describe('dataFlattening utilities', () => {
       expect(result.legalForm.legalForm).toBe('sarl');
       expect(result.activity.activity.value).toBe('tech');
     });
+
+    it('should handle stepData with same key as step ID (the legalForm bug)', () => {
+      // Scenario: On step "legalForm" with field "legalForm"
+      // stepData has the same key as the step ID in allData
+      const allData = {
+        legalForm: {
+          legalForm: 'sarl',
+          otherField: 'value',
+        },
+      };
+
+      // stepData contains the current step's form values (flat)
+      // This happens when the step ID is "legalForm" and the form field is also "legalForm"
+      const stepData = {
+        legalForm: 'sarl',
+        otherField: 'value',
+      };
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // The flattened path MUST exist for conditions to work
+      // This is the key fix: when("legalForm.legalForm").equals("sarl") must work
+      expect(result['legalForm.legalForm']).toBe('sarl');
+      expect(result['legalForm.otherField']).toBe('value');
+    });
   });
 
   describe('extractStepData', () => {
