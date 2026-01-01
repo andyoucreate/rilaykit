@@ -15,15 +15,6 @@ const TestStepperRenderer = () =>
 const TestButtonRenderer = ({ children, ...props }: any) =>
   React.createElement('div', { ...props, role: 'button' }, children);
 
-// Mock license manager
-vi.mock('../../src/licensing/RilayLicenseManager', () => ({
-  RilayLicenseManager: {
-    logLicenseStatus: vi.fn(),
-    setLicenseKey: vi.fn(),
-    isLicensed: vi.fn(() => true),
-  },
-}));
-
 describe('WorkflowProvider', () => {
   let config: any;
   let workflowConfig: any;

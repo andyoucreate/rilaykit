@@ -216,9 +216,6 @@ importers:
 
   packages/workflow:
     dependencies:
-      '@noble/ed25519':
-        specifier: ^1.7.1
-        version: 1.7.5
       '@rilaykit/core':
         specifier: workspace:*
         version: link:../core
@@ -226,7 +223,7 @@ importers:
         specifier: workspace:*
         version: link:../forms
       zustand:
-        specifier: ^5.0.5
+        specifier: ^5.0.9
         version: 5.0.9(@types/react@18.3.23)(react@18.3.1)
     devDependencies:
       '@types/react':
@@ -1328,10 +1325,6 @@ packages:
     requiresBuild: true
     dev: false
     optional: true
-
-  /@noble/ed25519@1.7.5:
-    resolution: {integrity: sha512-xuS0nwRMQBvSxDa7UxMb61xTiH3MxTgUfhyPUALVIe0FlOAz4sjELwyDRyUvqeEYfRSG9qNjFIycqLZppg4RSA==}
-    dev: false
 
   /@nodelib/fs.scandir@2.1.5:
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}

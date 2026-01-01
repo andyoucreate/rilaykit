@@ -1,11 +1,10 @@
 {
-  "name": "@rilaykit/workflow (Premium)",
+  "name": "@rilaykit/workflow",
   "pages": [
     "building-workflows",
     "navigation-and-rendering",
     "use-workflow-hook",
     "advanced-workflows",
-    "licensing",
     "complete-workflow"
   ]
 }

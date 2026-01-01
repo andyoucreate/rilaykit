@@ -20,10 +20,6 @@ export * from './stores';
 // Persistence system
 export * from './persistence';
 
-// Licensing
-export { RilayLicenseManager } from './licensing/RilayLicenseManager';
-export type { LicensePayload, LicensePlan, LicenseResult } from './licensing/types';
-
 // Component types
 export type { WorkflowContextValue } from './components/WorkflowProvider';
 

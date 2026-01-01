@@ -20,7 +20,6 @@ import {
 } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  RilayLicenseManager,
   Workflow,
   WorkflowBody,
   WorkflowNextButton,
@@ -314,8 +313,6 @@ const workflowSkipButtonRenderer: WorkflowSkipButtonRenderer = (
     {!props.canSkip && ' 🚫'}
   </button>
 );
-
-RilayLicenseManager.setLicenseKey(process.env.NEXT_PUBLIC_RILAY_LICENSE_KEY!);
 
 // Create and configure ril
 const factory = ril

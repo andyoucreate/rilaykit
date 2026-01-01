@@ -136,11 +136,7 @@ Create your RIL instance with components and custom renderers:
 
 ```tsx title="lib/rilay-config.tsx"
 import { ril, email, required, min, minLength, async } from '@rilaykit/core';
-import { RilayLicenseManager } from '@rilaykit/workflow';
 import { TextInput, SelectInput, workflowStepperRenderer } from './WorkflowComponents';
-
-// Set your license key for workflow features
-RilayLicenseManager.setLicenseKey(process.env.RILAY_LICENSE_KEY!);
 
 export const factory = ril
   .create()
