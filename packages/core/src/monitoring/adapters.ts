@@ -170,8 +170,10 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
         }
 
         // Wait before retrying (exponential backoff)
+        // Note: Using Math.pow instead of ** operator for SWC compatibility
         if (attempt < this.retryAttempts) {
-          await this.delay(2 ** attempt * 1000);
+          // biome-ignore lint/style/useExponentiationOperator: SWC compatibility
+          await this.delay(Math.pow(2, attempt) * 1000);
         }
       }
     }
