@@ -1,5 +1,15 @@
 # @rilaykit/workflow
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix className passthrough in Form component
+
+- Updated dependencies []:
+  - @rilaykit/core@0.1.2
+  - @rilaykit/forms@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

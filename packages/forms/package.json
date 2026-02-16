@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/forms",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "description": "Form building utilities and components for RilayKit",
   "main": "dist/index.js",
@@ -13,7 +13,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -25,7 +27,12 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "forms", "form-builder", "typescript"],
+  "keywords": [
+    "react",
+    "forms",
+    "form-builder",
+    "typescript"
+  ],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.io",

@@ -1,5 +1,11 @@
 # @rilaykit/core
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix className passthrough in Form component
+
 ## 0.1.1
 
 ### Patch Changes
