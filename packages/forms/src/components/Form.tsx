@@ -12,7 +12,14 @@ export interface FormProps {
   children: React.ReactNode;
 }
 
-export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, children }: FormProps) {
+export function Form({
+  formConfig,
+  defaultValues,
+  onSubmit,
+  onFieldChange,
+  className,
+  children,
+}: FormProps) {
   // Auto-build if it's a form builder
   const resolvedFormConfig = useMemo(() => {
     if (formConfig instanceof form) {
@@ -27,6 +34,7 @@ export function Form({ formConfig, defaultValues, onSubmit, onFieldChange, child
       defaultValues={defaultValues}
       onSubmit={onSubmit}
       onFieldChange={onFieldChange}
+      className={className}
     >
       {children}
     </FormProvider>
