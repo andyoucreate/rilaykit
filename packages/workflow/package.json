@@ -13,9 +13,7 @@
       "require": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -27,13 +25,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "workflow",
-    "multi-step",
-    "forms",
-    "typescript"
-  ],
+  "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://rilay.io",

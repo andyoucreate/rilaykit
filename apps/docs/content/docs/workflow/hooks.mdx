@@ -1,0 +1,280 @@
+---
+title: Workflow Hooks
+description: Zustand-powered hooks for granular workflow state access and optimal performance.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+Like forms, RilayKit workflows use Zustand stores under the hood, exposing granular selector hooks so your components only re-render when the specific state slice they depend on changes. Instead of subscribing to the entire workflow state, you pick the minimal data you need.
+
+All hooks documented on this page are imported from `@rilaykit/workflow`.
+
+```tsx
+import {
+  useWorkflowContext,
+  useCurrentStepIndex,
+  useWorkflowActions,
+  // ...
+} from '@rilaykit/workflow';
+```
+
+## Context Hook
+
+`useWorkflowContext()` returns the full workflow context object. It is the most convenient hook for top-level orchestration components, but because it subscribes to the entire state, it will re-render on every state change.
+
+```tsx
+import { useWorkflowContext } from '@rilaykit/workflow';
+
+function WorkflowOrchestrator() {
+  const workflow = useWorkflowContext();
+
+  return (
+    <div>
+      <p>Step {workflow.workflowState.currentStepIndex + 1} of {workflow.context.totalSteps}</p>
+      <button onClick={() => workflow.goNext()}>Next</button>
+    </div>
+  );
+}
+```
+
+<Callout>
+Prefer the granular hooks described below for leaf components. Reserve `useWorkflowContext()` for top-level layouts that already depend on many state slices.
+</Callout>
+
+### Return type
+
+The hook returns an object with the following shape:
+
+```ts
+interface WorkflowContextValue {
+  workflowState: {
+    currentStepIndex: number;
+    allData: Record<string, unknown>;
+    stepData: Record<string, unknown>;
+    visitedSteps: Set<string>;
+    passedSteps: Set<string>;
+    isSubmitting: boolean;
+    isTransitioning: boolean;
+    isInitializing: boolean;
+  };
+  workflowConfig: WorkflowConfig;
+  currentStep: StepConfig;
+  context: WorkflowContext;
+  formConfig?: FormConfiguration;
+  conditionsHelpers: UseWorkflowConditionsReturn;
+  currentStepMetadata?: Record<string, unknown>;
+
+  // Navigation
+  goToStep(stepIndex: number): Promise<boolean>;
+  goNext(): Promise<boolean>;
+  goPrevious(): Promise<boolean>;
+  skipStep(): Promise<boolean>;
+  canGoToStep(stepIndex: number): boolean;
+  canGoNext(): boolean;
+  canGoPrevious(): boolean;
+  canSkipCurrentStep(): boolean;
+
+  // Data
+  setValue(fieldId: string, value: unknown): void;
+  setStepData(data: Record<string, unknown>): void;
+  resetWorkflow(): void;
+
+  // Submission
+  submitWorkflow(): Promise<void>;
+  isSubmitting: boolean;
+  canSubmit: boolean;
+
+  // Persistence
+  persistNow?: () => Promise<void>;
+  isPersisting?: boolean;
+  persistenceError?: Error | null;
+}
+```
+
+## Granular State Hooks
+
+These hooks subscribe to a single slice of the workflow store. A component using `useCurrentStepIndex()` will only re-render when the step index changes, not when field data or submission state updates.
+
+| Hook | Returns | Re-renders when |
+|------|---------|-----------------|
+| `useCurrentStepIndex()` | `number` | Step changes |
+| `useWorkflowTransitioning()` | `boolean` | Transition state changes |
+| `useWorkflowInitializing()` | `boolean` | Init state changes |
+| `useWorkflowSubmitting()` | `boolean` | Submit state changes |
+| `useWorkflowAllData()` | `Record<string, unknown>` | Any data changes |
+| `useWorkflowStepData()` | `Record<string, unknown>` | Current step data changes |
+| `useStepDataById(stepId)` | `Record<string, unknown> \| undefined` | Specific step data changes |
+| `useVisitedSteps()` | `Set<string>` | Visited steps change |
+| `usePassedSteps()` | `Set<string>` | Passed steps change |
+| `useIsStepVisited(stepId)` | `boolean` | Step visit state changes |
+| `useIsStepPassed(stepId)` | `boolean` | Step pass state changes |
+| `useWorkflowNavigationState()` | `{ currentStepIndex, isTransitioning, isSubmitting }` | Navigation state changes |
+| `useWorkflowSubmitState()` | `{ isSubmitting, isTransitioning, isInitializing }` | Submit-related state changes |
+
+### Usage examples
+
+```tsx
+import {
+  useCurrentStepIndex,
+  useWorkflowTransitioning,
+  useWorkflowSubmitting,
+  useIsStepPassed,
+} from '@rilaykit/workflow';
+
+function StepIndicator({ stepId, stepIndex }: { stepId: string; stepIndex: number }) {
+  const currentIndex = useCurrentStepIndex();
+  const isPassed = useIsStepPassed(stepId);
+
+  const isCurrent = currentIndex === stepIndex;
+
+  return (
+    <div className={isCurrent ? 'step-active' : isPassed ? 'step-passed' : 'step-pending'}>
+      Step {stepIndex + 1}
+    </div>
+  );
+}
+
+function SubmitButton() {
+  const isSubmitting = useWorkflowSubmitting();
+  const isTransitioning = useWorkflowTransitioning();
+
+  return (
+    <button disabled={isSubmitting || isTransitioning}>
+      {isSubmitting ? 'Submitting...' : 'Submit'}
+    </button>
+  );
+}
+```
+
+## Action Hook
+
+`useWorkflowActions()` returns an object containing all store mutation functions. It does not subscribe to any state, so the component calling it will not re-render when the store changes.
+
+```ts
+import { useWorkflowActions } from '@rilaykit/workflow';
+
+const actions = useWorkflowActions();
+```
+
+Available actions:
+
+- `actions.setCurrentStep(index)` -- Set the active step by index.
+- `actions.setStepData(data, stepId)` -- Replace the data for a given step.
+- `actions.setAllData(data)` -- Replace the entire workflow data object.
+- `actions.setFieldValue(fieldId, value, stepId)` -- Set a single field value in a specific step.
+- `actions.setSubmitting(bool)` -- Toggle the submitting flag.
+- `actions.setTransitioning(bool)` -- Toggle the transitioning flag.
+- `actions.setInitializing(bool)` -- Toggle the initializing flag.
+- `actions.markStepVisited(stepId)` -- Mark a step as visited.
+- `actions.markStepPassed(stepId)` -- Mark a step as passed.
+- `actions.reset()` -- Reset the entire workflow store to its initial state.
+- `actions.loadPersistedState(state)` -- Hydrate the store from a previously persisted state.
+
+```tsx
+import { useWorkflowActions } from '@rilaykit/workflow';
+
+function AdminResetButton() {
+  const { reset } = useWorkflowActions();
+
+  return <button onClick={reset}>Reset Workflow</button>;
+}
+```
+
+<Callout title="Low-level API">
+`useWorkflowActions()` exposes the raw Zustand store mutations. For most navigation and data operations, prefer the higher-level methods from `useWorkflowContext()` (such as `goNext()` or `setValue()`), which handle validation, transitions, and side effects automatically.
+</Callout>
+
+## Step Metadata Hook
+
+`useStepMetadata()` provides convenient accessors for step-level metadata defined in your workflow configuration. This is useful for conditional rendering based on arbitrary metadata you attach to steps.
+
+```ts
+import { useStepMetadata } from '@rilaykit/workflow';
+
+const metadata = useStepMetadata();
+```
+
+Available properties and methods:
+
+- `metadata.current` -- The metadata object for the current step.
+- `metadata.getByStepId(stepId)` -- Get metadata for a step by its ID.
+- `metadata.getByStepIndex(index)` -- Get metadata for a step by its index.
+- `metadata.hasCurrentKey(key)` -- Check if the current step's metadata contains a key.
+- `metadata.getCurrentValue<T>(key, defaultValue?)` -- Get a typed value from the current step's metadata, with an optional default.
+- `metadata.getAllStepsMetadata()` -- Get metadata for all steps.
+- `metadata.findStepsByMetadata(predicate)` -- Find steps whose metadata matches a predicate function.
+
+```tsx
+import { useStepMetadata } from '@rilaykit/workflow';
+
+function StepLayout({ children }: { children: React.ReactNode }) {
+  const metadata = useStepMetadata();
+
+  const showSidebar = metadata.getCurrentValue<boolean>('showSidebar', false);
+  const helpText = metadata.getCurrentValue<string>('helpText');
+
+  return (
+    <div className="step-layout">
+      <main>{children}</main>
+      {showSidebar && (
+        <aside>
+          {helpText && <p>{helpText}</p>}
+        </aside>
+      )}
+    </div>
+  );
+}
+```
+
+## Condition Hooks
+
+`useWorkflowConditions()` evaluates step and field conditions defined in your workflow configuration. It returns visibility, skip, and field-level condition results for the entire workflow.
+
+```ts
+import { useWorkflowConditions } from '@rilaykit/workflow';
+
+const conditions = useWorkflowConditions({
+  workflowConfig,
+  workflowState,
+  currentStep,
+});
+```
+
+### Return value
+
+- `stepConditions` -- `{ visible: boolean; skippable: boolean }` for the current step.
+- `fieldConditions` -- `Record<string, ConditionEvaluationResult>` with condition results for each field.
+- `allStepConditions` -- `Record<number, StepConditionResult>` with condition results keyed by step index.
+
+### Helper methods
+
+- `isStepVisible(index)` -- Whether a step should be rendered.
+- `isStepSkippable(index)` -- Whether a step can be skipped.
+- `isFieldVisible(fieldId)` -- Whether a field should be rendered.
+- `isFieldDisabled(fieldId)` -- Whether a field should be disabled.
+- `isFieldRequired(fieldId)` -- Whether a field is required.
+- `isFieldReadonly(fieldId)` -- Whether a field is read-only.
+
+```tsx
+import { useWorkflowContext } from '@rilaykit/workflow';
+
+function ConditionalField({ fieldId, children }: { fieldId: string; children: React.ReactNode }) {
+  const { conditionsHelpers } = useWorkflowContext();
+
+  if (!conditionsHelpers.isFieldVisible(fieldId)) {
+    return null;
+  }
+
+  return <div data-readonly={conditionsHelpers.isFieldReadonly(fieldId)}>{children}</div>;
+}
+```
+
+<Callout>
+When using `useWorkflowContext()`, the condition helpers are already available via `conditionsHelpers`. You only need to call `useWorkflowConditions()` directly when building components outside of the standard workflow provider tree.
+</Callout>
+
+## Best Practices
+
+- **Use granular hooks for leaf components.** A step indicator only needs `useCurrentStepIndex()` and `useIsStepPassed()`. Subscribing to the full context would cause unnecessary re-renders every time any data changes.
+- **Use `useWorkflowContext()` for top-level orchestration.** If a component already depends on navigation, data, and submission state, there is no benefit in splitting across multiple granular hooks.
+- **Use `useWorkflowActions()` for programmatic state changes.** Since it does not subscribe to state, components that only dispatch actions (like a reset button) will never re-render due to store changes.
+- **Use `useStepMetadata()` for conditional rendering.** Attaching metadata to steps (e.g., `showSidebar`, `requiresAuth`) and reading it through this hook keeps your rendering logic declarative and decoupled from step indices.

@@ -7,21 +7,28 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 # Examples Gallery
 
-This gallery showcases RilayKit's flexibility across different UI libraries, frameworks, and use cases. Each example is complete and ready to copy-paste into your project.
+A collection of production-ready examples demonstrating RilayKit's flexibility across UI libraries, frameworks, and use cases. Each example is complete and ready to copy-paste into your project.
 
-## Basic Examples
+## Simple Contact Form
 
-### Simple Contact Form
-
-A basic contact form demonstrating core concepts:
+A basic contact form using built-in validators with the `validation: { validate: [...] }` format.
 
 ```tsx title="ContactForm.tsx"
-import { ril } from '@rilaykit/core';
+import { ril, required, email, minLength } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
-import { required, email, minLength } from '@rilaykit/core';
+import type { ComponentRenderer } from '@rilaykit/core';
 
-// Your custom input component
-const Input = ({ id, value, onChange, onBlur, error, ...props }) => (
+// Define a simple input component
+interface InputProps {
+  label: string;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
+const Input: ComponentRenderer<InputProps> = ({
+  id, value, onChange, onBlur, error, props, disabled,
+}) => (
   <div className="mb-4">
     <label htmlFor={id} className="block text-sm font-medium text-gray-700">
       {props.label} {props.required && <span className="text-red-500">*</span>}
@@ -32,8 +39,9 @@ const Input = ({ id, value, onChange, onBlur, error, ...props }) => (
       value={value || ''}
       onChange={(e) => onChange?.(e.target.value)}
       onBlur={onBlur}
-      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+      disabled={disabled}
       placeholder={props.placeholder}
+      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
     />
     {error && <p className="mt-1 text-sm text-red-600">{error[0].message}</p>}
   </div>
@@ -50,24 +58,24 @@ const contactForm = rilay
     id: 'name',
     type: 'input',
     props: { label: 'Full Name', required: true },
-    validation: [required(), minLength(2)]
+    validation: { validate: [required(), minLength(2)] },
   })
   .add({
     id: 'email',
     type: 'input',
     props: { label: 'Email', type: 'email', required: true },
-    validation: [required(), email()]
+    validation: { validate: [required(), email()] },
   })
   .add({
     id: 'message',
     type: 'input',
     props: { label: 'Message', required: true },
-    validation: [required(), minLength(10)]
+    validation: { validate: [required(), minLength(10)] },
   });
 
 export function ContactForm() {
-  const handleSubmit = (data) => {
-    alert(`Thank you ${data.name}! Message sent.`);
+  const handleSubmit = (data: { name: string; email: string; message: string }) => {
+    console.log('Contact form submitted:', data);
   };
 
   return (
@@ -76,7 +84,10 @@ export function ContactForm() {
         <FormField fieldId="name" />
         <FormField fieldId="email" />
         <FormField fieldId="message" />
-        <button type="submit" className="w-full bg-blue-500 text-white py-2 px-4 rounded">
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+        >
           Send Message
         </button>
       </Form>
@@ -85,16 +96,14 @@ export function ContactForm() {
 }
 ```
 
-### User Registration with Validation
+## Registration with Conditional Fields
 
-Advanced validation and conditional fields:
+Using `when()` for conditional visibility and Zod as a direct Standard Schema validator -- no adapter needed.
 
 ```tsx title="RegistrationForm.tsx"
-import { ril, required, email, minLength, when } from '@rilaykit/core';
+import { ril, required, email, when } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 import { z } from 'zod';
-import { z } from 'zod'; // Standard Schema compatible
-import { required } from '@rilaykit/core';
 
 const rilay = ril.create()
   .addComponent('input', { renderer: Input })
@@ -106,51 +115,74 @@ const registrationForm = rilay
     id: 'email',
     type: 'input',
     props: { label: 'Email', type: 'email' },
-    validation: [required(), email()]
+    validation: {
+      validate: [required(), email()],
+      validateOnBlur: true,
+    },
   })
   .add({
     id: 'password',
     type: 'input',
     props: { label: 'Password', type: 'password' },
-    validation: [
-      required(),
-      createZodValidator(z.string().min(8, 'Password must be at least 8 characters'))
-    ]
+    validation: {
+      validate: [z.string().min(8, 'Password must be at least 8 characters')],
+      validateOnChange: true,
+    },
   })
   .add({
     id: 'accountType',
     type: 'select',
-    props: { 
+    props: {
       label: 'Account Type',
       options: [
         { value: 'personal', label: 'Personal' },
-        { value: 'business', label: 'Business' }
-      ]
+        { value: 'business', label: 'Business' },
+      ],
     },
-    validation: [required()]
+    validation: { validate: [required()] },
   })
   .add({
     id: 'companyName',
     type: 'input',
     props: { label: 'Company Name' },
-    validation: [
-      when('accountType').equals('business').then(required())
-    ],
+    validation: { validate: [required('Company name is required')] },
     conditions: {
-      visible: when('accountType').equals('business')
-    }
+      visible: when('accountType').equals('business'),
+    },
   });
+
+export function RegistrationForm() {
+  const handleSubmit = (data: Record<string, unknown>) => {
+    console.log('Registration submitted:', data);
+  };
+
+  return (
+    <Form formConfig={registrationForm} onSubmit={handleSubmit}>
+      <FormField fieldId="email" />
+      <FormField fieldId="password" />
+      <FormField fieldId="accountType" />
+      <FormField fieldId="companyName" />
+      <button type="submit" className="w-full bg-blue-600 text-white py-2 px-4 rounded">
+        Create Account
+      </button>
+    </Form>
+  );
+}
 ```
 
-## UI Library Integrations
+<Callout type="info">
+When a field is hidden via `conditions.visible`, its validation is automatically skipped. The `companyName` field above is only validated when `accountType` is `"business"`.
+</Callout>
 
-### Material-UI Example
+## Material-UI Integration
+
+Integrate RilayKit with Material-UI by creating typed component renderers.
 
 <Tabs items={['Component', 'Configuration', 'Usage']}>
   <Tab value="Component">
     ```tsx title="MaterialInput.tsx"
     import { TextField } from '@mui/material';
-    import { ComponentRenderer } from '@rilaykit/core';
+    import type { ComponentRenderer } from '@rilaykit/core';
 
     interface MaterialInputProps {
       label: string;
@@ -165,7 +197,8 @@ const registrationForm = rilay
       onChange,
       onBlur,
       error,
-      props
+      props,
+      disabled,
     }) => (
       <TextField
         id={id}
@@ -178,58 +211,62 @@ const registrationForm = rilay
         onBlur={onBlur}
         error={!!error}
         helperText={error?.[0]?.message}
+        disabled={disabled}
         fullWidth
         margin="normal"
       />
     );
 
-    export default MaterialInput;
+    export { MaterialInput, type MaterialInputProps };
     ```
   </Tab>
   <Tab value="Configuration">
-    ```tsx title="muiRilay.ts"
+    ```tsx title="lib/mui-rilay.ts"
     import { ril } from '@rilaykit/core';
-    import MaterialInput from './MaterialInput';
-    import MaterialSelect from './MaterialSelect';
+    import { MaterialInput } from '@/components/MaterialInput';
+    import { MaterialSelect } from '@/components/MaterialSelect';
 
     export const muiRilay = ril.create()
-      .addComponent('input', { 
+      .addComponent('input', {
         renderer: MaterialInput,
-        defaultProps: { variant: 'outlined' }
+        defaultProps: { variant: 'outlined' },
       })
-      .addComponent('select', { 
+      .addComponent('select', {
         renderer: MaterialSelect,
-        defaultProps: { variant: 'outlined' }
+        defaultProps: { variant: 'outlined' },
       })
-      .addComponent('textarea', { 
+      .addComponent('textarea', {
         renderer: MaterialInput,
-        defaultProps: { multiline: true, rows: 4 }
+        defaultProps: { multiline: true, rows: 4 },
       });
     ```
   </Tab>
   <Tab value="Usage">
     ```tsx title="MaterialForm.tsx"
     import { Form, FormField } from '@rilaykit/forms';
-    import { muiRilay } from './muiRilay';
+    import { required } from '@rilaykit/core';
+    import { muiRilay } from '@/lib/mui-rilay';
 
-    const userForm = muiRilay
+    const profileForm = muiRilay
       .form('user-profile')
       .add({
         id: 'name',
         type: 'input',
-        props: { label: 'Full Name' }
+        props: { label: 'Full Name' },
+        validation: { validate: [required()] },
       })
       .add({
         id: 'bio',
         type: 'textarea',
-        props: { label: 'Biography', rows: 6 }
+        props: { label: 'Biography', rows: 6 },
       });
 
     export function MaterialForm() {
       return (
-        <Form formConfig={userForm} onSubmit={console.log}>
+        <Form formConfig={profileForm} onSubmit={console.log}>
           <FormField fieldId="name" />
           <FormField fieldId="bio" />
+          <button type="submit">Save Profile</button>
         </Form>
       );
     }
@@ -237,200 +274,207 @@ const registrationForm = rilay
   </Tab>
 </Tabs>
 
-### Chakra UI Example
+## Shadcn/UI Integration
+
+Integrate RilayKit with shadcn/ui components for a clean, accessible design system.
 
 <Tabs items={['Component', 'Configuration', 'Usage']}>
   <Tab value="Component">
-    ```tsx title="ChakraInput.tsx"
-    import { 
-      FormControl, 
-      FormLabel, 
-      Input, 
-      FormErrorMessage,
-      Textarea,
-      Select
-    } from '@chakra-ui/react';
-    import { ComponentRenderer } from '@rilaykit/core';
+    ```tsx title="ShadcnInput.tsx"
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
+    import type { ComponentRenderer } from '@rilaykit/core';
 
-    interface ChakraInputProps {
+    interface ShadcnInputProps {
       label: string;
+      type?: string;
       placeholder?: string;
-      variant?: 'outline' | 'filled' | 'flushed' | 'unstyled';
-      size?: 'sm' | 'md' | 'lg';
-      multiline?: boolean;
     }
 
-    const ChakraInput: ComponentRenderer<ChakraInputProps> = ({
+    const ShadcnInput: ComponentRenderer<ShadcnInputProps> = ({
       id,
       value,
       onChange,
       onBlur,
       error,
-      props
+      props,
+      disabled,
     }) => (
-      <FormControl isInvalid={!!error} mb={4}>
-        <FormLabel htmlFor={id}>{props.label}</FormLabel>
-        {props.multiline ? (
-          <Textarea
-            id={id}
-            value={value || ''}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={onBlur}
-            placeholder={props.placeholder}
-            variant={props.variant}
-            size={props.size}
-          />
-        ) : (
-          <Input
-            id={id}
-            value={value || ''}
-            onChange={(e) => onChange?.(e.target.value)}
-            onBlur={onBlur}
-            placeholder={props.placeholder}
-            variant={props.variant}
-            size={props.size}
-          />
+      <div className="grid w-full gap-1.5">
+        <Label htmlFor={id}>{props.label}</Label>
+        <Input
+          id={id}
+          type={props.type || 'text'}
+          value={value || ''}
+          onChange={(e) => onChange?.(e.target.value)}
+          onBlur={onBlur}
+          placeholder={props.placeholder}
+          disabled={disabled}
+          className={error ? 'border-destructive' : ''}
+        />
+        {error && (
+          <p className="text-sm text-destructive">{error[0].message}</p>
         )}
-        <FormErrorMessage>{error?.[0]?.message}</FormErrorMessage>
-      </FormControl>
+      </div>
     );
 
-    export default ChakraInput;
+    export { ShadcnInput, type ShadcnInputProps };
     ```
   </Tab>
   <Tab value="Configuration">
-    ```tsx title="chakraRilay.ts"
+    ```tsx title="lib/shadcn-rilay.ts"
     import { ril } from '@rilaykit/core';
-    import ChakraInput from './ChakraInput';
+    import { ShadcnInput } from '@/components/ShadcnInput';
+    import { ShadcnSelect } from '@/components/ShadcnSelect';
 
-    export const chakraRilay = ril.create()
-      .addComponent('input', { 
-        renderer: ChakraInput,
-        defaultProps: { variant: 'outline', size: 'md' }
-      })
-      .addComponent('textarea', { 
-        renderer: ChakraInput,
-        defaultProps: { multiline: true }
-      });
+    export const shadcnRilay = ril.create()
+      .addComponent('input', { renderer: ShadcnInput })
+      .addComponent('select', { renderer: ShadcnSelect });
     ```
   </Tab>
   <Tab value="Usage">
-    ```tsx title="ChakraForm.tsx"
-    import { ChakraProvider } from '@chakra-ui/react';
+    ```tsx title="ShadcnForm.tsx"
     import { Form, FormField } from '@rilaykit/forms';
-    import { chakraRilay } from './chakraRilay';
+    import { required, email } from '@rilaykit/core';
+    import { shadcnRilay } from '@/lib/shadcn-rilay';
 
-    const feedbackForm = chakraRilay
-      .form('feedback')
+    const contactForm = shadcnRilay
+      .form('contact')
       .add({
-        id: 'rating',
+        id: 'name',
         type: 'input',
-        props: { label: 'Rating (1-10)', placeholder: '10' }
+        props: { label: 'Name', placeholder: 'Your name' },
+        validation: { validate: [required()] },
       })
       .add({
-        id: 'comments',
-        type: 'textarea',
-        props: { label: 'Comments', placeholder: 'Tell us what you think...' }
+        id: 'email',
+        type: 'input',
+        props: { label: 'Email', type: 'email', placeholder: 'you@example.com' },
+        validation: { validate: [required(), email()] },
       });
 
-    export function ChakraForm() {
+    export function ShadcnForm() {
       return (
-        <ChakraProvider>
-          <Form formConfig={feedbackForm} onSubmit={console.log}>
-            <FormField fieldId="rating" />
-            <FormField fieldId="comments" />
-          </Form>
-        </ChakraProvider>
+        <Form formConfig={contactForm} onSubmit={console.log}>
+          <div className="space-y-4">
+            <FormField fieldId="name" />
+            <FormField fieldId="email" />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Submit
+            </button>
+          </div>
+        </Form>
       );
     }
     ```
   </Tab>
 </Tabs>
 
-## Advanced Use Cases
+## Multi-Step Workflow
 
-### Dynamic Form Fields
+Build a multi-step user onboarding workflow using `rilay.flow()`.
 
-Adding and removing fields dynamically:
-
-```tsx title="DynamicForm.tsx"
-import { useState } from 'react';
-import { ril, required } from '@rilaykit/core';
-import { Form, FormField } from '@rilaykit/forms';
+```tsx title="OnboardingWorkflow.tsx"
+import { ril, required, email, minLength } from '@rilaykit/core';
+import { Workflow } from '@rilaykit/workflow';
 
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .addComponent('input', { renderer: Input })
+  .addComponent('checkbox', { renderer: Checkbox });
 
-export function DynamicForm() {
-  const [emails, setEmails] = useState(['email1']);
+// Step 1: Account creation
+const accountForm = rilay
+  .form('account')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email', type: 'email' },
+    validation: { validate: [required(), email()] },
+  })
+  .add({
+    id: 'password',
+    type: 'input',
+    props: { label: 'Password', type: 'password' },
+    validation: { validate: [required(), minLength(8)] },
+  });
 
-  const addEmail = () => {
-    setEmails(prev => [...prev, `email${prev.length + 1}`]);
-  };
-
-  const removeEmail = (emailId: string) => {
-    setEmails(prev => prev.filter(id => id !== emailId));
-  };
-
-  const dynamicForm = rilay
-    .form('dynamic-emails')
-    .addFields(emails.map(emailId => ({
-      id: emailId,
-      type: 'input',
-      props: { label: `Email ${emailId.slice(-1)}`, type: 'email' },
-      validation: [required(), email()]
-    })));
-
-  return (
-    <Form formConfig={dynamicForm} onSubmit={console.log}>
-      {emails.map(emailId => (
-        <div key={emailId} className="flex items-end gap-2">
-          <div className="flex-1">
-            <FormField fieldId={emailId} />
-          </div>
-          {emails.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeEmail(emailId)}
-              className="mb-4 px-3 py-2 bg-red-500 text-white rounded"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={addEmail}
-        className="mb-4 px-4 py-2 bg-green-500 text-white rounded"
-      >
-        Add Email
-      </button>
-      <button type="submit" className="w-full bg-blue-500 text-white py-2 px-4 rounded">
-        Submit
-      </button>
-    </Form>
+// Step 2: Profile details
+const profileForm = rilay
+  .form('profile')
+  .add(
+    { id: 'firstName', type: 'input', props: { label: 'First Name' } },
+    { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
   );
+
+// Step 3: Confirmation
+const confirmForm = rilay
+  .form('confirm')
+  .add({
+    id: 'terms',
+    type: 'checkbox',
+    props: { label: 'I agree to the terms and conditions' },
+    validation: {
+      validate: [required('You must accept the terms')],
+    },
+  });
+
+// Build the workflow
+const onboardingWorkflow = rilay
+  .flow('onboarding', 'User Onboarding')
+  .addStep({
+    id: 'account',
+    title: 'Create Account',
+    description: 'Set up your credentials',
+    formConfig: accountForm,
+  })
+  .addStep({
+    id: 'profile',
+    title: 'Your Profile',
+    description: 'Tell us about yourself',
+    formConfig: profileForm,
+    allowSkip: true,
+  })
+  .addStep({
+    id: 'confirm',
+    title: 'Confirmation',
+    description: 'Review and accept terms',
+    formConfig: confirmForm,
+  })
+  .configure({
+    analytics: {
+      onWorkflowStart: (id) => console.log(`Started: ${id}`),
+      onWorkflowComplete: (id, totalTime) => console.log(`Completed: ${id} in ${totalTime}ms`),
+    },
+  });
+
+export function OnboardingWorkflow() {
+  const handleComplete = (data: Record<string, unknown>) => {
+    console.log('Workflow completed:', data);
+  };
+
+  return <Workflow workflowConfig={onboardingWorkflow} onWorkflowComplete={handleComplete} />;
 }
 ```
 
-### Async Validation
+## Async Validation
 
-Real-time validation with API calls:
+Use the `async()` validator from `@rilaykit/core` for server-side checks like email uniqueness.
 
 ```tsx title="AsyncValidationForm.tsx"
-import { ril, required, async } from '@rilaykit/core';
+import { ril, required, email, async as asyncValidator } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 
-// Custom async validator
-const checkEmailAvailability = async(
-  async (email: string) => {
-    const response = await fetch(`/api/check-email?email=${email}`);
+// Custom async validator using the built-in async() helper
+const checkEmailAvailability = asyncValidator(
+  async (value: string) => {
+    const response = await fetch(`/api/check-email?email=${value}`);
     const { available } = await response.json();
-    
-    return available; // Return true if available, false if taken
+    return available;
   },
-  'This email is already taken'
+  'This email is already taken',
 );
 
 const rilay = ril.create()
@@ -442,13 +486,19 @@ const signupForm = rilay
     id: 'email',
     type: 'input',
     props: { label: 'Email', type: 'email' },
-    validation: [required(), email(), checkEmailAvailability]
+    validation: {
+      validate: [required(), email(), checkEmailAvailability],
+      validateOnBlur: true,
+      debounceMs: 500,
+    },
   })
   .add({
     id: 'password',
     type: 'input',
     props: { label: 'Password', type: 'password' },
-    validation: [required(), minLength(8)]
+    validation: {
+      validate: [required(), minLength(8)],
+    },
   });
 
 export function AsyncValidationForm() {
@@ -456,161 +506,159 @@ export function AsyncValidationForm() {
     <Form formConfig={signupForm} onSubmit={console.log}>
       <FormField fieldId="email" />
       <FormField fieldId="password" />
-      <button type="submit">Sign Up</button>
+      <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded">
+        Sign Up
+      </button>
     </Form>
-  );
-}
-```
-
-## Framework Integration
-
-### Next.js App Router
-
-```tsx title="app/contact/page.tsx"
-'use client';
-
-import { ContactForm } from '@/components/ContactForm';
-
-export default function ContactPage() {
-  return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Contact Us</h1>
-      <ContactForm />
-    </div>
-  );
-}
-```
-
-### Remix Integration
-
-```tsx title="app/routes/contact.tsx"
-import type { ActionFunction, LoaderFunction } from '@remix-run/node';
-import { json } from '@remix-run/node';
-import { useActionData } from '@remix-run/react';
-import { ContactForm } from '@/components/ContactForm';
-
-export const action: ActionFunction = async ({ request }) => {
-  const formData = await request.formData();
-  const data = Object.fromEntries(formData);
-  
-  // Process form submission
-  console.log('Contact form data:', data);
-  
-  return json({ success: true });
-};
-
-export default function Contact() {
-  const actionData = useActionData();
-
-  return (
-    <div>
-      <h1>Contact Us</h1>
-      <ContactForm />
-      {actionData?.success && <p>Thank you! Message sent successfully.</p>}
-    </div>
   );
 }
 ```
 
 <Callout type="info">
-More examples and templates are available in our [GitHub repository](https://github.com/andyoucreate/rilay/tree/main/examples).
+You can also achieve async validation using Zod's `.refine()` with an async callback, which works as a Standard Schema validator. See the [Validation](/docs/forms/validation) guide for details.
 </Callout>
 
-## Performance Examples
+## Next.js App Router
 
-### Large Forms Optimization
+RilayKit works seamlessly with Next.js App Router. Since forms are interactive, mark your component file with `'use client'`.
 
-```tsx title="OptimizedLargeForm.tsx"
-import { memo, useMemo } from 'react';
-import { ril, required } from '@rilaykit/core';
+```tsx title="app/contact/page.tsx"
+'use client';
+
+import { ril, required, email } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
+import type { ComponentRenderer } from '@rilaykit/core';
 
-// Memoized field component for better performance
-const MemoizedFormField = memo(FormField);
+// Component definition
+const Input: ComponentRenderer<{ label: string; type?: string }> = ({
+  id, value, onChange, onBlur, error, props,
+}) => (
+  <div className="mb-4">
+    <label htmlFor={id} className="block text-sm font-medium">{props.label}</label>
+    <input
+      id={id}
+      type={props.type || 'text'}
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+      onBlur={onBlur}
+      className="mt-1 w-full rounded-md border p-2"
+    />
+    {error && <p className="text-red-500 text-sm mt-1">{error[0].message}</p>}
+  </div>
+);
 
-export function OptimizedLargeForm() {
-  // Memoize form configuration
-  const largeForm = useMemo(() => {
-    return rilay
-      .form('large-form')
-      .addFields(
-        Array.from({ length: 50 }, (_, i) => ({
-          id: `field${i}`,
-          type: 'input',
-          props: { label: `Field ${i + 1}` },
-          validation: i % 5 === 0 ? [required()] : [] // Only some fields required
-        }))
-      );
-  }, []);
+// RilayKit setup
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input });
+
+const contactForm = rilay
+  .form('contact')
+  .add({
+    id: 'name',
+    type: 'input',
+    props: { label: 'Name' },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email', type: 'email' },
+    validation: { validate: [required(), email()] },
+  });
+
+export default function ContactPage() {
+  async function handleSubmit(data: { name: string; email: string }) {
+    const response = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to submit');
+    }
+  }
 
   return (
-    <Form formConfig={largeForm} onSubmit={console.log}>
-      {Array.from({ length: 50 }, (_, i) => (
-        <MemoizedFormField key={`field${i}`} fieldId={`field${i}`} />
-      ))}
-      <button type="submit">Submit Large Form</button>
-    </Form>
+    <div className="container mx-auto max-w-md py-8">
+      <h1 className="text-3xl font-bold mb-8">Contact Us</h1>
+      <Form formConfig={contactForm} onSubmit={handleSubmit}>
+        <FormField fieldId="name" />
+        <FormField fieldId="email" />
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+        >
+          Send
+        </button>
+      </Form>
+    </div>
   );
 }
 ```
 
-## Testing Examples
+<Callout type="warn">
+In a real application, extract your `ril` instance and form configurations into separate files (e.g., `lib/rilay.ts` and `config/forms.ts`) to keep them reusable across pages.
+</Callout>
 
-### Unit Testing Forms
+## Testing with Vitest
+
+RilayKit forms can be tested with Vitest and Testing Library using standard patterns.
 
 ```tsx title="ContactForm.test.tsx"
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ContactForm } from './ContactForm';
 
 describe('ContactForm', () => {
-  it('validates required fields', async () => {
+  it('should display validation errors for empty required fields', async () => {
     render(<ContactForm />);
-    
-    const submitButton = screen.getByText('Send Message');
-    fireEvent.click(submitButton);
+
+    const submitButton = screen.getByRole('button', { name: /send message/i });
+    await userEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/name is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/email is required/i)).toBeInTheDocument();
+      expect(screen.getByText(/required/i)).toBeInTheDocument();
     });
   });
 
-  it('validates email format', async () => {
+  it('should validate email format on blur', async () => {
     const user = userEvent.setup();
     render(<ContactForm />);
 
     const emailInput = screen.getByLabelText(/email/i);
-    await user.type(emailInput, 'invalid-email');
-    
-    fireEvent.blur(emailInput);
+    await user.type(emailInput, 'not-an-email');
+    await user.tab(); // triggers onBlur
 
     await waitFor(() => {
       expect(screen.getByText(/valid email/i)).toBeInTheDocument();
     });
   });
 
-  it('submits form with valid data', async () => {
+  it('should call onSubmit with valid data', async () => {
     const user = userEvent.setup();
-    const mockSubmit = jest.fn();
-    
-    render(<ContactForm onSubmit={mockSubmit} />);
+    const handleSubmit = vi.fn();
 
-    await user.type(screen.getByLabelText(/name/i), 'John Doe');
-    await user.type(screen.getByLabelText(/email/i), 'john@example.com');
-    await user.type(screen.getByLabelText(/message/i), 'Hello world!');
-    
-    fireEvent.click(screen.getByText('Send Message'));
+    render(<ContactForm onSubmit={handleSubmit} />);
+
+    await user.type(screen.getByLabelText(/name/i), 'Jane Doe');
+    await user.type(screen.getByLabelText(/email/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/message/i), 'Hello, this is a test message.');
+
+    await user.click(screen.getByRole('button', { name: /send message/i }));
 
     await waitFor(() => {
-      expect(mockSubmit).toHaveBeenCalledWith({
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'Hello world!'
+      expect(handleSubmit).toHaveBeenCalledWith({
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+        message: 'Hello, this is a test message.',
       });
     });
   });
 });
 ```
 
-Browse more examples in our [GitHub repository](https://github.com/andyoucreate/rilay/tree/main/examples) or check out the [live playground](https://rilay.io/playground).
+<Callout type="info">
+More examples and starter templates are available in the [GitHub repository](https://github.com/andyoucreate/rilay/tree/main/examples).
+</Callout>

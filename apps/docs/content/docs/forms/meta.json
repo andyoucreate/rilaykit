@@ -1,11 +1,10 @@
 {
   "title": "Forms",
   "pages": [
-    "getting-started",
     "building-forms",
     "rendering-forms",
     "validation",
-    "advanced-forms",
-    "use-form-hook"
+    "hooks",
+    "advanced-forms"
   ]
 }

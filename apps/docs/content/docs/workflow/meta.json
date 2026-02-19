@@ -1,10 +1,13 @@
 {
-  "name": "@rilaykit/workflow",
+  "title": "@rilaykit/workflow",
   "pages": [
     "building-workflows",
-    "navigation-and-rendering",
-    "use-workflow-hook",
-    "advanced-workflows",
-    "complete-workflow"
+    "rendering-workflows",
+    "navigation",
+    "hooks",
+    "persistence",
+    "analytics",
+    "plugins",
+    "advanced-workflows"
   ]
 }

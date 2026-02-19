@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: Complete API reference for all RilayKit packages with types, methods, and examples.
+description: Complete API reference for all RilayKit packages.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
@@ -9,793 +9,1139 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
 Complete API documentation for all RilayKit packages.
 
+---
+
 ## @rilaykit/core
+
+The core package provides the component registry, validation system, conditional logic, and error classes shared across all RilayKit packages.
 
 ### ril
 
-The central configuration class for RilayKit. All functionality starts with a `ril` instance.
+The central configuration class. All RilayKit functionality starts with a `ril` instance. Every mutation method returns a **new instance** (immutable API).
 
-#### Methods
+#### `ril.create()`
 
-##### `ril.create()`
+Creates a new RilayKit configuration instance.
 
-Creates a new RilayKit instance.
-
-```tsx
+```ts
 import { ril } from '@rilaykit/core';
 
 const rilay = ril.create();
 ```
 
-**Returns**: `RilayInstance`
+**Returns**: `ril<Record<string, never>>`
 
-##### `addComponent<T>(id, config)`
+#### `.addComponent(type, config)`
 
-Registers a component renderer with the RilayKit instance.
+Registers a component renderer. Returns a new instance with the component added.
 
-```tsx
-interface ComponentConfig<T> {
-  name?: string;
-  renderer: ComponentRenderer<T>;
-  defaultProps?: Partial<T>;
-}
-
+```ts
 const rilay = ril.create()
   .addComponent('input', {
     name: 'Text Input',
     renderer: InputRenderer,
-    defaultProps: { placeholder: 'Enter text...' }
+    defaultProps: { placeholder: 'Enter text...' },
+  })
+  .addComponent('email', {
+    name: 'Email Input',
+    renderer: EmailRenderer,
+    validation: {
+      validate: email(),
+      validateOnBlur: true,
+    },
   });
 ```
 
 **Parameters**:
-- `id: string` - Unique identifier for the component
-- `config: ComponentConfig<T>` - Component configuration
+- `type: string` -- Unique component type identifier
+- `config: Omit<ComponentConfig<T>, 'id' | 'type'>` -- Component configuration
 
-**Returns**: `RilayInstance` (chainable)
+**Returns**: `ril<C & { [type]: Props }>` (new instance)
 
-##### `form(id)`
+#### `.configure(config)`
 
-Creates a new form builder using registered components.
+Configures form and workflow renderers via a single method. Returns a new instance.
 
-```tsx
-const loginForm = rilay.form('login-form');
+```ts
+const rilay = ril.create()
+  .addComponent('input', { name: 'Input', renderer: InputRenderer })
+  .configure({
+    rowRenderer: CustomRowRenderer,
+    bodyRenderer: CustomBodyRenderer,
+    submitButtonRenderer: CustomSubmitButton,
+    fieldRenderer: CustomFieldRenderer,
+    stepperRenderer: CustomStepper,
+    nextButtonRenderer: CustomNextButton,
+    previousButtonRenderer: CustomPreviousButton,
+    skipButtonRenderer: CustomSkipButton,
+  });
 ```
 
-**Parameters**:
-- `id: string` - Unique form identifier
+**Accepted keys**:
 
-**Returns**: `FormBuilder`
+| Form renderers | Workflow renderers |
+|---|---|
+| `rowRenderer` | `stepperRenderer` |
+| `bodyRenderer` | `nextButtonRenderer` |
+| `submitButtonRenderer` | `previousButtonRenderer` |
+| `fieldRenderer` | `skipButtonRenderer` |
 
-##### `getComponent(id)`
+**Returns**: `ril<C>` (new instance)
+
+#### `.getComponent(id)`
 
 Retrieves a registered component configuration.
 
-```tsx
-const inputComponent = rilay.getComponent('input');
+```ts
+const config = rilay.getComponent('input');
 ```
 
-**Parameters**:
-- `id: string` - Component identifier
+**Returns**: `ComponentConfig<T> | undefined`
 
-**Returns**: `ComponentConfig<any> | undefined`
+#### `.getAllComponents()`
 
-##### `removeComponent(id)`
+Returns all registered component configurations.
 
-Removes a registered component.
+**Returns**: `ComponentConfig[]`
 
-```tsx
-rilay.removeComponent('old-input');
+#### `.hasComponent(id)`
+
+Checks whether a component is registered.
+
+**Returns**: `boolean`
+
+#### `.removeComponent(id)`
+
+Returns a new instance without the specified component.
+
+**Returns**: `ril<C>` (new instance)
+
+#### `.clear()`
+
+Returns a new instance with all components removed. Render configurations are preserved.
+
+**Returns**: `ril<C>` (new instance)
+
+#### `.clone()`
+
+Creates a deep copy of the current instance.
+
+**Returns**: `ril<C>` (new instance)
+
+#### `.getFormRenderConfig()`
+
+Returns the current form render configuration.
+
+**Returns**: `FormRenderConfig`
+
+#### `.getWorkflowRenderConfig()`
+
+Returns the current workflow render configuration.
+
+**Returns**: `WorkflowRenderConfig`
+
+#### `.validate()`
+
+Synchronously validates the configuration (duplicate IDs, missing renderers, invalid keys).
+
+**Returns**: `string[]` -- Array of error messages (empty if valid)
+
+#### `.validateAsync()`
+
+Asynchronous validation with structured error handling. Throws `ValidationError` if invalid.
+
+**Returns**: `Promise<AsyncValidationResult>`
+
+```ts
+interface AsyncValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings?: string[];
+}
 ```
 
-**Parameters**:
-- `id: string` - Component identifier to remove
+#### `.getStats()`
 
-**Returns**: `RilayInstance` (chainable)
+Returns statistics about the current configuration.
 
-### ComponentRenderer
+```ts
+const stats = rilay.getStats();
+// {
+//   total: number;
+//   byType: Record<string, number>;
+//   hasCustomRenderers: {
+//     row: boolean;
+//     body: boolean;
+//     submitButton: boolean;
+//     field: boolean;
+//     stepper: boolean;
+//     workflowNextButton: boolean;
+//     workflowPreviousButton: boolean;
+//     workflowSkipButton: boolean;
+//   };
+// }
+```
 
-Type definition for component renderers.
+---
 
-```tsx
+### ComponentRenderProps
+
+Props passed to every component renderer function.
+
+```ts
 interface ComponentRenderProps<T = any> {
   id: string;
-  value: any;
+  props: T;
+  value?: any;
   onChange?: (value: any) => void;
   onBlur?: () => void;
+  disabled?: boolean;
   error?: ValidationError[];
-  props: T;
-  isDisabled?: boolean;
-  isVisible?: boolean;
+  isValidating?: boolean;
+  [key: string]: any;
 }
 
-type ComponentRenderer<T = any> = React.FC<ComponentRenderProps<T>>;
+type ComponentRenderer<T = any> = (
+  props: ComponentRenderProps<T>
+) => React.ReactElement;
 ```
 
-### Built-in Validators
+---
 
-#### `required(message?)`
+### Validators
 
-Validates that a field has a value.
+All built-in validators implement the [Standard Schema](https://standardschema.dev) interface (`StandardSchemaV1`). They can be used alongside Zod, Yup, or any other Standard Schema-compatible library.
 
-```tsx
-import { required } from '@rilaykit/core';
-
-const validation = [required('This field is required')];
+```ts
+import {
+  required, email, url, minLength, maxLength,
+  pattern, number, min, max, custom, async, combine,
+} from '@rilaykit/core';
 ```
 
-**Parameters**:
-- `message?: string` - Custom error message
+| Validator | Signature | Description |
+|---|---|---|
+| `required` | `required(msg?)` | Field must have a value |
+| `email` | `email(msg?)` | Valid email format |
+| `url` | `url(msg?)` | Valid URL |
+| `minLength` | `minLength(min, msg?)` | Minimum string length |
+| `maxLength` | `maxLength(max, msg?)` | Maximum string length |
+| `pattern` | `pattern(regex, msg?)` | Matches regular expression |
+| `number` | `number(msg?)` | Must be a valid number |
+| `min` | `min(val, msg?)` | Minimum numeric value |
+| `max` | `max(val, msg?)` | Maximum numeric value |
+| `custom` | `custom<T>(fn, msg?)` | Synchronous custom validation (`fn: (value: T) => boolean`) |
+| `async` | `async<T>(fn, msg?)` | Asynchronous custom validation (`fn: (value: T) => Promise<boolean>`) |
+| `combine` | `combine<T>(...schemas)` | Combines multiple `StandardSchemaV1` schemas into one |
 
-**Returns**: `Validator`
+<Callout type="info">
+All validators return `StandardSchemaV1`, so you can mix them freely with Zod, Yup, or any compatible library.
+</Callout>
 
-#### `email(message?)`
-
-Validates email format.
-
-```tsx
-import { email } from '@rilaykit/core';
-
-const validation = [email('Please enter a valid email')];
-```
-
-**Parameters**:
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `minLength(length, message?)`
-
-Validates minimum string length.
-
-```tsx
-import { minLength } from '@rilaykit/core';
-
-const validation = [minLength(8, 'Password must be at least 8 characters')];
-```
-
-**Parameters**:
-- `length: number` - Minimum required length
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `maxLength(length, message?)`
-
-Validates maximum string length.
-
-```tsx
-import { maxLength } from '@rilaykit/core';
-
-const validation = [maxLength(100, 'Message too long')];
-```
-
-**Parameters**:
-- `length: number` - Maximum allowed length
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `min(value, message?)`
-
-Validates minimum numeric value.
-
-```tsx
-import { min } from '@rilaykit/core';
-
-const validation = [min(18, 'Must be at least 18 years old')];
-```
-
-**Parameters**:
-- `value: number` - Minimum value
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `max(value, message?)`
-
-Validates maximum numeric value.
-
-```tsx
-import { max } from '@rilaykit/core';
-
-const validation = [max(120, 'Age cannot exceed 120')];
-```
-
-**Parameters**:
-- `value: number` - Maximum value
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `pattern(regex, message?)`
-
-Validates against a regular expression.
-
-```tsx
-import { pattern } from '@rilaykit/core';
-
-const validation = [pattern(/^\d{3}-\d{2}-\d{4}$/, 'Invalid SSN format')];
-```
-
-**Parameters**:
-- `regex: RegExp` - Regular expression pattern
-- `message?: string` - Custom error message
-
-**Returns**: `Validator`
-
-#### `async(fn, errorMessage?)`
-
-Creates a custom async validator.
-
-```tsx
-import { async } from '@rilaykit/core';
-
-const checkEmail = async(
-  async (email: string) => {
-    const response = await fetch(`/api/check-email?email=${email}`);
-    const { available } = await response.json();
-    return available; // Return boolean for availability
-  },
-  'Email already exists'
-);
-```
-
-**Parameters**:
-- `fn: (value: any) => Promise<boolean>` - Async validation function that returns boolean
-- `errorMessage?: string` - Error message when validation fails
-
-**Returns**: `FieldValidator`
+---
 
 ### Conditional Logic
 
-#### `when(fieldId)`
+#### `when(field)`
 
-Creates a conditional expression builder.
+Creates a `ConditionBuilder` for declaring conditional behaviors on fields or steps.
 
-```tsx
+```ts
 import { when } from '@rilaykit/core';
 
-const conditions = {
-  visible: when('accountType').equals('business'),
-  enabled: when('agreeToTerms').isTrue()
-};
+const condition = when('accountType').equals('business');
 ```
-
-**Parameters**:
-- `fieldId: string` - Field ID to watch
 
 **Returns**: `ConditionBuilder`
 
 #### ConditionBuilder Methods
 
-##### `equals(value)`
-```tsx
-when('status').equals('active')
+**Comparison operators**:
+
+| Method | Signature | Description |
+|---|---|---|
+| `.equals()` | `.equals(value: ConditionValue)` | Strict equality |
+| `.notEquals()` | `.notEquals(value: ConditionValue)` | Strict inequality |
+| `.greaterThan()` | `.greaterThan(value: number)` | Numeric greater than |
+| `.lessThan()` | `.lessThan(value: number)` | Numeric less than |
+| `.greaterThanOrEqual()` | `.greaterThanOrEqual(value: number)` | Numeric greater than or equal |
+| `.lessThanOrEqual()` | `.lessThanOrEqual(value: number)` | Numeric less than or equal |
+| `.contains()` | `.contains(value: string)` | String/array contains |
+| `.notContains()` | `.notContains(value: string)` | String/array does not contain |
+| `.in()` | `.in(values: Array)` | Value is in array |
+| `.notIn()` | `.notIn(values: Array)` | Value is not in array |
+| `.matches()` | `.matches(pattern: string \| RegExp)` | Matches regex pattern |
+| `.exists()` | `.exists()` | Value is not null/undefined |
+| `.notExists()` | `.notExists()` | Value is null/undefined |
+
+**Logical combinators**:
+
+| Method | Signature | Description |
+|---|---|---|
+| `.and()` | `.and(condition: ConditionBuilder \| ConditionConfig)` | Logical AND |
+| `.or()` | `.or(condition: ConditionBuilder \| ConditionConfig)` | Logical OR |
+
+**Terminal methods**:
+
+| Method | Signature | Description |
+|---|---|---|
+| `.build()` | `.build()` | Returns the serializable `ConditionConfig` |
+| `.evaluate()` | `.evaluate(data: Record<string, any>)` | Evaluates the condition against data |
+
+```ts
+// Boolean check
+when('isVerified').equals(true)
+
+// Combining conditions
+when('role').equals('admin')
+  .or(when('permissions').contains('write'))
+
+// Nested field paths
+when('address.country').equals('FR')
 ```
 
-##### `notEquals(value)`
-```tsx
-when('status').notEquals('inactive')
+---
+
+### Error Classes
+
+```ts
+import { RilayError, ValidationError, DuplicateIdError } from '@rilaykit/core';
 ```
 
-##### `equals(true)` / `equals(false)`
-```tsx
-when('isVerified').equals(true)  // For boolean true
-when('isDisabled').equals(false) // For boolean false
-```
+| Class | Code | Description |
+|---|---|---|
+| `RilayError` | Custom `code` | Base error class. Properties: `code: string`, `meta?: Record<string, any>` |
+| `ValidationError` | `VALIDATION_ERROR` | Thrown on validation failures |
+| `DuplicateIdError` | `DUPLICATE_ID_ERROR` | Thrown on duplicate ID registration |
 
-##### `exists()`
-```tsx
-when('name').exists() // Field has a value (not null/undefined)
-```
-
-##### `notExists()`
-```tsx
-when('optionalField').notExists() // Field is null/undefined
-```
-
-##### `contains(value)`
-```tsx
-when('tags').contains('premium')
-```
-
-##### `oneOf(values)`
-```tsx
-when('plan').oneOf(['pro', 'enterprise'])
-```
-
-##### `and(condition)`
-```tsx
-when('age').min(18).and(when('hasParentConsent').isFalse())
-```
-
-##### `or(condition)`
-```tsx
-when('role').equals('admin').or(when('permissions').contains('write'))
-```
+---
 
 ## @rilaykit/forms
 
-### Form
+The forms package provides components, a builder, and granular Zustand-backed hooks for building type-safe forms.
 
-Main form component that wraps form fields and handles submission.
+### Components
+
+#### `Form`
+
+Top-level form wrapper. Accepts either a built `FormConfiguration` or a `form` builder (auto-builds internally).
 
 ```tsx
-interface FormProps<T = any> {
-  formConfig: FormBuilder;
-  onSubmit: (data: T) => void | Promise<void>;
-  defaultValues?: Partial<T>;
-  className?: string;
-  children?: React.ReactNode;
-}
+import { Form } from '@rilaykit/forms';
 
 <Form
   formConfig={myForm}
   onSubmit={handleSubmit}
   defaultValues={{ name: '', email: '' }}
+  onFieldChange={(fieldId, value, formData) => {}}
+  className="my-form"
 >
-  <FormField fieldId="name" />
-  <FormField fieldId="email" />
+  {children}
 </Form>
 ```
 
-**Props**:
-- `formConfig: FormBuilder` - Form configuration from `rilay.form()`
-- `onSubmit: (data: T) => void | Promise<void>` - Form submission handler
-- `defaultValues?: Partial<T>` - Initial form values
-- `className?: string` - CSS class for form element
-- `children?: React.ReactNode` - Form fields and other content
+| Prop | Type | Description |
+|---|---|---|
+| `formConfig` | `FormConfiguration \| form` | Form configuration or builder instance |
+| `defaultValues?` | `Record<string, any>` | Initial form values |
+| `onSubmit?` | `(data: Record<string, any>) => void \| Promise<void>` | Submission handler |
+| `onFieldChange?` | `(fieldId: string, value: any, formData: Record<string, any>) => void` | Field change callback |
+| `className?` | `string` | CSS class for the `<form>` element |
+| `children` | `React.ReactNode` | Form content |
 
-### FormField
+#### `FormProvider`
 
-Renders individual form fields.
+Lower-level provider that wraps the form context. `Form` delegates to this internally.
 
-```tsx
-interface FormFieldProps {
-  fieldId: string;
-  className?: string;
-  renderAs?: React.ComponentType<any>;
-}
+| Prop | Type | Description |
+|---|---|---|
+| `formConfig` | `FormConfiguration` | Built form configuration |
+| `defaultValues?` | `Record<string, unknown>` | Initial form values |
+| `onSubmit?` | `(data: Record<string, unknown>) => void \| Promise<void>` | Submission handler |
+| `onFieldChange?` | `(fieldId: string, value: unknown, formData: Record<string, unknown>) => void` | Field change callback |
+| `className?` | `string` | CSS class |
+| `children` | `React.ReactNode` | Children |
 
-<FormField fieldId="email" className="mb-4" />
-```
+#### `FormBody`
 
-**Props**:
-- `fieldId: string` - ID of the field to render (must match field ID in form config)
-- `className?: string` - CSS class for field wrapper
-- `renderAs?: React.ComponentType<any>` - Custom renderer for this specific field
-
-### FormBody
-
-Container for form fields with automatic layout.
+Renders all form rows automatically from the form configuration.
 
 ```tsx
 <Form formConfig={myForm} onSubmit={handleSubmit}>
   <FormBody />
-  <button type="submit">Submit</button>
 </Form>
 ```
 
-Automatically renders all fields in the form configuration.
+| Prop | Type | Description |
+|---|---|---|
+| `className?` | `string` | CSS class |
 
-### FormRow
+#### `FormField`
 
-Groups multiple fields in a horizontal layout.
-
-```tsx
-<FormRow>
-  <FormField fieldId="firstName" />
-  <FormField fieldId="lastName" />
-</FormRow>
-```
-
-### FormSubmitButton
-
-Pre-configured submit button with loading state.
+Renders a single form field by ID.
 
 ```tsx
-<FormSubmitButton>
-  Submit Form
-</FormSubmitButton>
-
-// With custom props
-<FormSubmitButton 
-  className="bg-blue-500 text-white"
-  loadingText="Submitting..."
->
-  Create Account
-</FormSubmitButton>
+<FormField fieldId="email" disabled={false} className="mb-4" />
 ```
+
+| Prop | Type | Description |
+|---|---|---|
+| `fieldId` | `string` | Field ID (must match a field in the form configuration) |
+| `disabled?` | `boolean` | Force disabled state |
+| `customProps?` | `Record<string, unknown>` | Additional props merged into the component |
+| `className?` | `string` | CSS class for the field wrapper |
+| `forceVisible?` | `boolean` | Override condition-based visibility |
+
+#### `FormRow`
+
+Renders a horizontal row of form fields.
+
+| Prop | Type | Description |
+|---|---|---|
+| `row` | `FormFieldRow` | Row configuration object |
+| `className?` | `string` | CSS class |
+
+#### `FormSubmitButton`
+
+Submit button with automatic loading state from the form store.
+
+| Prop | Type | Description |
+|---|---|---|
+| `isSubmitting?` | `boolean` | Override the computed submitting state |
+| `className?` | `string` | CSS class |
+
+---
+
+### form (FormBuilder)
+
+Builder class for creating type-safe form configurations.
+
+#### Creating a form builder
+
+<Tabs items={['Static factory', 'Via constructor']}>
+<Tab value="Static factory">
+```ts
+import { form } from '@rilaykit/forms';
+
+const myForm = form.create(rilConfig, 'contact-form');
+```
+</Tab>
+<Tab value="Via constructor">
+```ts
+import { form } from '@rilaykit/forms';
+
+const myForm = new form(rilConfig, 'contact-form');
+```
+</Tab>
+</Tabs>
+
+**Parameters**:
+- `config: ril<C>` -- The ril configuration containing component definitions
+- `formId?: string` -- Optional unique form identifier (auto-generated if omitted)
+
+#### `.add(...fields)` / `.add([fields])`
+
+Adds fields to the form. Supports multiple calling patterns:
+
+```ts
+// Single field -- own row
+builder.add({ id: 'name', type: 'input', props: { label: 'Name' } });
+
+// Multiple fields (max 3) -- same row
+builder.add(
+  { id: 'firstName', type: 'input', props: { label: 'First' } },
+  { id: 'lastName', type: 'input', props: { label: 'Last' } },
+);
+
+// Array syntax -- explicit single row
+builder.add([
+  { id: 'email', type: 'email', props: { label: 'Email' } },
+  { id: 'phone', type: 'phone', props: { label: 'Phone' } },
+]);
+
+// More than 3 fields (variadic) -- auto-split into separate rows
+builder.add(field1, field2, field3, field4);
+```
+
+**Returns**: `this` (chainable)
+
+#### `.addSeparateRows(fields)`
+
+Adds an array of fields, each on its own row.
+
+```ts
+builder.addSeparateRows([
+  { type: 'input', props: { label: 'Field 1' } },
+  { type: 'input', props: { label: 'Field 2' } },
+]);
+```
+
+**Returns**: `this` (chainable)
+
+#### `.setId(id)`
+
+Sets or overrides the form identifier.
+
+**Returns**: `this` (chainable)
+
+#### `.setValidation(config)`
+
+Sets form-level validation configuration.
+
+```ts
+builder.setValidation({
+  validate: z.object({
+    password: z.string().min(8),
+    confirmPassword: z.string(),
+  }).refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  }),
+  validateOnSubmit: true,
+});
+```
+
+**Parameters**:
+- `config: FormValidationConfig` -- Form-level validation settings
+
+**Returns**: `this` (chainable)
+
+#### `.addFieldConditions(fieldId, conditions)`
+
+Adds conditional behavior to a field after creation.
+
+```ts
+builder.addFieldConditions('phone', {
+  visible: when('contactMethod').equals('phone').build(),
+  required: when('contactMethod').equals('phone').build(),
+});
+```
+
+**Parameters**:
+- `fieldId: string` -- Field to add conditions to
+- `conditions: ConditionalBehavior` -- Condition configuration (`visible?`, `disabled?`, `required?`, `readonly?`)
+
+**Returns**: `this` (chainable)
+
+#### `.updateField(fieldId, updates)`
+
+Updates an existing field's configuration.
+
+```ts
+builder.updateField('email', {
+  props: { placeholder: 'Enter your email' },
+});
+```
+
+**Returns**: `this` (chainable)
+
+#### `.removeField(fieldId)`
+
+Removes a field and cleans up empty rows.
+
+**Returns**: `this` (chainable)
+
+#### `.getField(fieldId)`
+
+Retrieves a field configuration by ID.
+
+**Returns**: `FormFieldConfig | undefined`
+
+#### `.getFields()`
+
+Returns all fields as a flat array.
+
+**Returns**: `FormFieldConfig[]`
+
+#### `.getRows()`
+
+Returns a copy of all form rows.
+
+**Returns**: `FormFieldRow[]`
+
+#### `.clear()`
+
+Removes all fields and rows, resets the ID generator.
+
+**Returns**: `this` (chainable)
+
+#### `.clone(newId?)`
+
+Creates a deep copy of the form builder.
+
+**Returns**: `form<C>` (new instance)
+
+#### `.validate()`
+
+Checks for structural issues (duplicate IDs, missing components, row constraints).
+
+**Returns**: `string[]`
+
+#### `.build()`
+
+Builds the final `FormConfiguration`. Throws if validation fails.
+
+**Returns**: `FormConfiguration<C>`
+
+#### `.toJSON()` / `.fromJSON(json)`
+
+Serialization and deserialization of the form structure.
+
+#### `.getStats()`
+
+Returns form statistics.
+
+```ts
+const stats = builder.getStats();
+// { totalFields, totalRows, averageFieldsPerRow, maxFieldsInRow, minFieldsInRow }
+```
+
+---
 
 ### Hooks
 
-#### `useFormState()`
+All form hooks are backed by a Zustand store for granular re-renders.
 
-Access form state within form context.
+<Callout type="info">
+Field-level hooks re-render only when their specific field's data changes, not on every form update.
+</Callout>
 
-```tsx
-import { useFormState } from '@rilaykit/forms';
+#### Field Hooks
 
-function CustomSubmitButton() {
-  const { isValid, isSubmitting, isDirty } = useFormState();
-  
-  return (
-    <button 
-      type="submit" 
-      disabled={!isValid || isSubmitting}
-      className={isDirty ? 'bg-blue-500' : 'bg-gray-500'}
-    >
-      {isSubmitting ? 'Saving...' : 'Save'}
-    </button>
-  );
+| Hook | Signature | Returns |
+|---|---|---|
+| `useFieldValue` | `useFieldValue<T>(fieldId: string)` | `T` |
+| `useFieldErrors` | `useFieldErrors(fieldId: string)` | `ValidationError[]` |
+| `useFieldTouched` | `useFieldTouched(fieldId: string)` | `boolean` |
+| `useFieldValidationState` | `useFieldValidationState(fieldId: string)` | `ValidationState` |
+| `useFieldConditions` | `useFieldConditions(fieldId: string)` | `FieldConditions` |
+| `useFieldState` | `useFieldState(fieldId: string)` | `FieldState` |
+| `useFieldActions` | `useFieldActions(fieldId: string)` | `UseFieldActionsResult` |
+
+```ts
+interface FieldState {
+  value: unknown;
+  errors: ValidationError[];
+  validationState: ValidationState; // 'idle' | 'validating' | 'valid' | 'invalid'
+  touched: boolean;
+  dirty: boolean;
+}
+
+interface FieldConditions {
+  visible: boolean;
+  disabled: boolean;
+  required: boolean;
+  readonly: boolean;
+}
+
+interface UseFieldActionsResult {
+  setValue: (value: unknown) => void;
+  setTouched: () => void;
+  setErrors: (errors: ValidationError[]) => void;
+  clearErrors: () => void;
+  setValidationState: (state: ValidationState) => void;
 }
 ```
 
-**Returns**: `FormState`
+#### Form Hooks
 
-```tsx
-interface FormState {
-  values: Record<string, any>;
-  errors: Record<string, ValidationError[]>;
-  touched: Record<string, boolean>;
-  isValid: boolean;
-  isSubmitting: boolean;
-  isDirty: boolean;
+| Hook | Signature | Returns |
+|---|---|---|
+| `useFormSubmitting` | `useFormSubmitting()` | `boolean` |
+| `useFormValid` | `useFormValid()` | `boolean` |
+| `useFormDirty` | `useFormDirty()` | `boolean` |
+| `useFormValues` | `useFormValues()` | `Record<string, unknown>` |
+| `useFormSubmitState` | `useFormSubmitState()` | `{ isSubmitting, isValid, isDirty }` |
+| `useFormActions` | `useFormActions()` | `UseFormActionsResult` |
+
+```ts
+interface UseFormActionsResult {
+  setValue: (fieldId: string, value: unknown) => void;
+  setTouched: (fieldId: string) => void;
+  setErrors: (fieldId: string, errors: ValidationError[]) => void;
+  setSubmitting: (isSubmitting: boolean) => void;
+  reset: (values?: Record<string, unknown>) => void;
+  setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
 }
 ```
 
-#### `useFormSubmission()`
+#### Context Hook
 
-Access form submission handlers.
+| Hook | Signature | Returns |
+|---|---|---|
+| `useFormConfigContext` | `useFormConfigContext()` | `FormConfigContextValue` |
 
-```tsx
-import { useFormSubmission } from '@rilaykit/forms';
-
-function CustomForm() {
-  const { submit, isSubmitting } = useFormSubmission();
-  
-  const handleCustomSubmit = async () => {
-    const result = await submit();
-    if (result.success) {
-      // Handle success
-    }
-  };
-  
-  return (
-    <button onClick={handleCustomSubmit} disabled={isSubmitting}>
-      Custom Submit
-    </button>
-  );
+```ts
+interface FormConfigContextValue {
+  formConfig: FormConfiguration;
+  conditionsHelpers: { hasConditionalFields, getFieldCondition, isFieldVisible, isFieldDisabled, isFieldRequired, isFieldReadonly };
+  validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
+  validateForm: () => Promise<ValidationResult>;
+  submit: (event?: React.FormEvent) => Promise<boolean>;
 }
 ```
 
-#### `useFormValidation()`
-
-Access validation methods.
-
-```tsx
-import { useFormValidation } from '@rilaykit/forms';
-
-function CustomField({ fieldId }: { fieldId: string }) {
-  const { validateField, clearFieldError } = useFormValidation();
-  
-  const handleBlur = async () => {
-    await validateField(fieldId);
-  };
-  
-  const handleFocus = () => {
-    clearFieldError(fieldId);
-  };
-  
-  return (
-    <input onBlur={handleBlur} onFocus={handleFocus} />
-  );
-}
-```
-
-### FormBuilder
-
-The form configuration builder returned by `rilay.form()`.
-
-#### Methods
-
-##### `add(fieldConfig)`
-
-Adds a field to the form.
-
-```tsx
-interface FieldConfig<T = any> {
-  id: string;
-  type: string;
-  props?: T;
-  validation?: Validator[];
-  conditions?: {
-    visible?: ConditionExpression;
-    enabled?: ConditionExpression;
-    required?: ConditionExpression;
-  };
-  defaultValue?: any;
-}
-
-const form = rilay
-  .form('user')
-  .add({
-    id: 'name',
-    type: 'input',
-    props: { label: 'Name', required: true },
-    validation: [required()],
-    defaultValue: ''
-  });
-```
-
-##### `addFields(configs)`
-
-Adds multiple fields at once.
-
-```tsx
-const form = rilay
-  .form('user')
-  .addFields([
-    { id: 'firstName', type: 'input', props: { label: 'First Name' } },
-    { id: 'lastName', type: 'input', props: { label: 'Last Name' } }
-  ]);
-```
-
-##### `remove(fieldId)`
-
-Removes a field from the form.
-
-```tsx
-const form = rilay
-  .form('user')
-  .add({ id: 'temp', type: 'input' })
-  .remove('temp'); // Field removed
-```
-
-##### `get(fieldId)`
-
-Gets field configuration.
-
-```tsx
-const fieldConfig = form.get('name');
-```
-
-##### `update(fieldId, updates)`
-
-Updates field configuration.
-
-```tsx
-const form = rilay
-  .form('user')
-  .add({ id: 'name', type: 'input' })
-  .update('name', { 
-    props: { label: 'Full Name', required: true } 
-  });
-```
+---
 
 ## @rilaykit/workflow
 
-<Callout type="info">
-The workflow package requires a commercial license for production use.
-</Callout>
+The workflow package provides components, a builder, and hooks for building multi-step workflows.
 
-### Workflow
+### Components
 
-Main workflow component for multi-step forms.
+#### `Workflow`
+
+Top-level workflow wrapper. Accepts either a built `WorkflowConfig` or a `flow` builder (auto-builds internally).
 
 ```tsx
-import { Workflow, WorkflowBody } from '@rilaykit/workflow';
+import { Workflow, WorkflowBody, WorkflowStepper, WorkflowNextButton } from '@rilaykit/workflow';
 
 <Workflow
   workflowConfig={myWorkflow}
-  onComplete={handleComplete}
-  persistence={{ adapter: localStorageAdapter }}
+  defaultValues={{ name: '' }}
+  defaultStep="step-1"
+  onStepChange={(from, to, context) => {}}
+  onWorkflowComplete={(data) => {}}
+  className="my-workflow"
 >
+  <WorkflowStepper />
   <WorkflowBody />
+  <WorkflowNextButton />
 </Workflow>
 ```
 
-### WorkflowBuilder
+| Prop | Type | Description |
+|---|---|---|
+| `workflowConfig` | `WorkflowConfig \| flow` | Workflow configuration or builder instance |
+| `children` | `React.ReactNode` | Workflow content |
+| `defaultValues?` | `Record<string, unknown>` | Initial data |
+| `defaultStep?` | `string` | Step ID to start on |
+| `onStepChange?` | `(from: number, to: number, context: WorkflowContext) => void` | Step change callback |
+| `onWorkflowComplete?` | `(data: Record<string, unknown>) => void \| Promise<void>` | Completion callback |
+| `className?` | `string` | CSS class |
 
-#### Methods
+#### `WorkflowBody`
 
-##### `addStep(config)`
+Renders the current step's form content.
 
-Adds a step to the workflow.
+| Prop | Type | Description |
+|---|---|---|
+| `stepId?` | `string` | Only render if this is the current step |
+| `children?` | `React.ReactNode` | Custom content (falls back to `FormBody`) |
 
-```tsx
-interface StepConfig {
-  id: string;
-  title?: string;
-  component?: React.ComponentType;
-  form?: FormBuilder;
-  conditions?: {
-    skip?: ConditionExpression;
-    visible?: ConditionExpression;
-  };
-  onEnter?: (data: any) => void | Promise<void>;
-  onExit?: (data: any) => void | Promise<void>;
-}
+#### `WorkflowStepper`
 
-const workflow = rilay
-  .workflow('onboarding')
-  .addStep({
-    id: 'profile',
-    title: 'Profile Information',
-    form: profileForm,
-    onEnter: async (data) => {
-      console.log('Entering profile step', data);
-    }
-  });
+Renders the step progress indicator.
+
+| Prop | Type | Description |
+|---|---|---|
+| `onStepClick?` | `(stepIndex: number) => void` | Custom step click handler |
+| `className?` | `string` | CSS class |
+
+#### `WorkflowNextButton`
+
+Next/submit button with automatic state management.
+
+| Prop | Type | Description |
+|---|---|---|
+| `isSubmitting?` | `boolean` | Override submitting state |
+| `className?` | `string` | CSS class |
+
+#### `WorkflowPreviousButton`
+
+Previous button with automatic state management.
+
+| Prop | Type | Description |
+|---|---|---|
+| `isSubmitting?` | `boolean` | Override submitting state |
+| `className?` | `string` | CSS class |
+
+#### `WorkflowSkipButton`
+
+Skip button, only active when the current step allows skipping.
+
+| Prop | Type | Description |
+|---|---|---|
+| `isSubmitting?` | `boolean` | Override submitting state |
+| `className?` | `string` | CSS class |
+
+---
+
+### flow (FlowBuilder)
+
+Builder class for creating multi-step workflow configurations.
+
+#### Creating a flow builder
+
+<Tabs items={['Static factory', 'Via constructor']}>
+<Tab value="Static factory">
+```ts
+import { flow } from '@rilaykit/workflow';
+
+const myWorkflow = flow.create(rilConfig, 'onboarding', 'User Onboarding', 'Optional description');
 ```
+</Tab>
+<Tab value="Via constructor">
+```ts
+const myWorkflow = new flow(rilConfig, 'onboarding', 'User Onboarding');
+```
+</Tab>
+</Tabs>
+
+**Parameters**:
+- `config: ril<any>` -- The ril configuration instance
+- `workflowId: string` -- Unique workflow identifier
+- `workflowName: string` -- Display name
+- `description?: string` -- Optional description
+
+#### `.addStep(stepDef)` / `.addStep([stepDefs])`
+
+Adds one or multiple steps to the workflow.
+
+```ts
+workflow
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Information',
+    formConfig: personalForm,
+    allowSkip: false,
+    metadata: { icon: 'user' },
+    onAfterValidation: async (stepData, helper, context) => {
+      const company = await fetchCompany(stepData.siren);
+      helper.setNextStepFields({ companyName: company.name });
+    },
+  })
+  .addStep([
+    { title: 'Step 2', formConfig: form2 },
+    { title: 'Step 3', formConfig: form3, allowSkip: true },
+  ]);
+```
+
+**StepDefinition**:
+
+```ts
+interface StepDefinition {
+  id?: string;                    // Auto-generated if omitted
+  title: string;
+  description?: string;
+  formConfig: FormConfiguration | form;  // Builder is auto-built
+  allowSkip?: boolean;
+  conditions?: StepConditionalBehavior;
+  metadata?: Record<string, any>;
+  onAfterValidation?: (
+    stepData: Record<string, any>,
+    helper: StepDataHelper,
+    context: WorkflowContext,
+  ) => void | Promise<void>;
+}
+```
+
+<Callout type="warn">
+The step lifecycle callback is `onAfterValidation`, not `onEnter` or `onExit`. It fires after successful validation and before navigating to the next step.
+</Callout>
+
+**Returns**: `this` (chainable)
+
+#### `.configure(options)`
+
+Configures workflow-level options.
+
+```ts
+workflow.configure({
+  analytics: {
+    onWorkflowStart: (id, context) => {},
+    onStepComplete: (id, duration, data, context) => {},
+  },
+  persistence: {
+    adapter: localStorageAdapter,
+    options: { autoPersist: true },
+    userId: 'user-123',
+  },
+});
+```
+
+**Parameters**:
+- `options: { analytics?: WorkflowAnalytics, persistence?: { adapter, options?, userId? } }`
+
+**Returns**: `this` (chainable)
+
+#### `.use(plugin)`
+
+Installs a workflow plugin. Validates plugin dependencies before installation.
+
+```ts
+workflow.use(myPlugin);
+```
+
+**Returns**: `this` (chainable)
+
+#### `.removePlugin(name)`
+
+Removes a plugin by name.
+
+**Returns**: `this` (chainable)
+
+#### `.updateStep(id, updates)`
+
+Updates an existing step configuration.
+
+**Returns**: `this` (chainable)
+
+#### `.addStepConditions(id, conditions)`
+
+Adds conditional behavior to a step after creation.
+
+```ts
+workflow.addStepConditions('payment', {
+  visible: when('hasPayment').equals(true).build(),
+  skippable: when('balance').equals(0).build(),
+});
+```
+
+**Returns**: `this` (chainable)
+
+#### `.removeStep(id)`
+
+Removes a step from the workflow.
+
+**Returns**: `this` (chainable)
+
+#### `.getStep(id)`
+
+Retrieves a step configuration by ID.
+
+**Returns**: `StepConfig | undefined`
+
+#### `.getSteps()`
+
+Returns a copy of all step configurations.
+
+**Returns**: `StepConfig[]`
+
+#### `.clearSteps()`
+
+Removes all steps and resets the ID generator.
+
+**Returns**: `this` (chainable)
+
+#### `.clone(newId?, newName?)`
+
+Creates a deep copy of the workflow builder.
+
+**Returns**: `flow` (new instance)
+
+#### `.validate()`
+
+Checks for structural issues (empty workflow, duplicate IDs, missing plugin dependencies).
+
+**Returns**: `string[]`
+
+#### `.build()`
+
+Builds the final `WorkflowConfig`. Throws if validation fails.
+
+**Returns**: `WorkflowConfig`
+
+#### `.toJSON()` / `.fromJSON(json)`
+
+Serialization and deserialization of the workflow structure.
+
+#### `.getStats()`
+
+Returns workflow statistics.
+
+```ts
+const stats = workflow.getStats();
+// {
+//   totalSteps, totalFields, averageFieldsPerStep,
+//   maxFieldsInStep, minFieldsInStep, hasAnalytics
+// }
+```
+
+---
 
 ### Hooks
 
-#### `useWorkflowState()`
+#### Context Hook
 
-Access workflow state.
+| Hook | Signature | Returns |
+|---|---|---|
+| `useWorkflowContext` | `useWorkflowContext()` | `WorkflowContextValue` |
 
-```tsx
-import { useWorkflowState } from '@rilaykit/workflow';
+`useWorkflowContext()` provides the full workflow context including state, navigation, data, and submission methods. See the `WorkflowContextValue` type below for details.
 
-function WorkflowProgress() {
-  const { currentStep, totalSteps, progress, canGoNext, canGoPrevious } = useWorkflowState();
-  
-  return (
-    <div>
-      <p>Step {currentStep + 1} of {totalSteps}</p>
-      <div className="progress-bar" style={{ width: `${progress}%` }} />
-    </div>
-  );
+#### Store Hooks (Zustand)
+
+| Hook | Signature | Returns |
+|---|---|---|
+| `useCurrentStepIndex` | `useCurrentStepIndex()` | `number` |
+| `useWorkflowTransitioning` | `useWorkflowTransitioning()` | `boolean` |
+| `useWorkflowInitializing` | `useWorkflowInitializing()` | `boolean` |
+| `useWorkflowSubmitting` | `useWorkflowSubmitting()` | `boolean` |
+| `useWorkflowAllData` | `useWorkflowAllData()` | `Record<string, unknown>` |
+| `useWorkflowStepData` | `useWorkflowStepData()` | `Record<string, unknown>` |
+| `useStepDataById` | `useStepDataById(stepId: string)` | `Record<string, unknown> \| undefined` |
+| `useVisitedSteps` | `useVisitedSteps()` | `Set<string>` |
+| `usePassedSteps` | `usePassedSteps()` | `Set<string>` |
+| `useIsStepVisited` | `useIsStepVisited(stepId: string)` | `boolean` |
+| `useIsStepPassed` | `useIsStepPassed(stepId: string)` | `boolean` |
+| `useWorkflowNavigationState` | `useWorkflowNavigationState()` | `{ currentStepIndex, isTransitioning, isSubmitting }` |
+| `useWorkflowSubmitState` | `useWorkflowSubmitState()` | `{ isSubmitting, isTransitioning, isInitializing }` |
+| `useWorkflowActions` | `useWorkflowActions()` | `UseWorkflowActionsResult` |
+
+```ts
+interface UseWorkflowActionsResult {
+  setCurrentStep: (stepIndex: number) => void;
+  setStepData: (data: Record<string, unknown>, stepId: string) => void;
+  setAllData: (data: Record<string, unknown>) => void;
+  setFieldValue: (fieldId: string, value: unknown, stepId: string) => void;
+  setSubmitting: (isSubmitting: boolean) => void;
+  setTransitioning: (isTransitioning: boolean) => void;
+  setInitializing: (isInitializing: boolean) => void;
+  markStepVisited: (stepId: string) => void;
+  markStepPassed: (stepId: string) => void;
+  reset: () => void;
+  loadPersistedState: (state: Partial<WorkflowStoreState>) => void;
 }
 ```
 
-#### `useWorkflowNavigation()`
+#### Metadata Hook
 
-Access navigation methods.
+| Hook | Signature | Returns |
+|---|---|---|
+| `useStepMetadata` | `useStepMetadata()` | `UseStepMetadataReturn` |
 
-```tsx
-import { useWorkflowNavigation } from '@rilaykit/workflow';
-
-function CustomNavigation() {
-  const { goNext, goPrevious, goToStep } = useWorkflowNavigation();
-  
-  return (
-    <div>
-      <button onClick={goPrevious}>Previous</button>
-      <button onClick={() => goToStep(0)}>Start Over</button>
-      <button onClick={goNext}>Next</button>
-    </div>
-  );
+```ts
+interface UseStepMetadataReturn {
+  current: Record<string, any> | undefined;
+  getByStepId: (stepId: string) => Record<string, any> | undefined;
+  getByStepIndex: (stepIndex: number) => Record<string, any> | undefined;
+  hasCurrentKey: (key: string) => boolean;
+  getCurrentValue: <T>(key: string, defaultValue?: T) => T;
+  getAllStepsMetadata: () => Array<{ id, title, index, metadata }>;
+  findStepsByMetadata: (predicate) => string[];
 }
 ```
 
-## Universal Validation with Standard Schema
-
-RilayKit provides universal validation through [Standard Schema](https://standardschema.dev), supporting any compatible validation library directly without adapters.
-
-### Unified Validation API
-
-All validation uses the same simple `validate` property:
-
-```tsx
-import { z } from 'zod';
-import * as yup from 'yup';
-import Joi from 'joi';
-import { required, email } from '@rilaykit/core';
-
-// Single validator
-const form = rilay.form('user')
-  .add({
-    id: 'email',
-    type: 'input',
-    validation: {
-      validate: z.string().email() // Direct Zod usage
-    }
-  });
-
-// Multiple validators  
-const advancedForm = rilay.form('advanced')
-  .add({
-    id: 'email',
-    type: 'input',
-    validation: {
-      validate: [
-        required('Email required'),           // RilayKit built-in
-        z.string().email('Invalid format'),   // Zod
-        yup.string().max(100, 'Too long'),    // Yup
-      ]
-    }
-  });
-
-// Form-level validation
-const userFormSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
-
-const secureForm = rilay.form('secure')
-  .add({ id: 'email', type: 'input' })
-  .add({ id: 'password', type: 'password' })
-  .add({ id: 'confirmPassword', type: 'password' })
-  .setValidation({
-    validate: userFormSchema // Object schema for cross-field validation
-  });
-```
-
-### Supported Libraries
-
-| Library | Import | Example |
-|---------|--------|---------|
-| **Zod** | `import { z } from 'zod'` | `z.string().email()` |
-| **Yup** | `import * as yup from 'yup'` | `yup.string().email().required()` |
-| **Joi** | `import Joi from 'joi'` | `Joi.string().email().required()` |
-| **RilayKit** | `import { required, email } from '@rilaykit/core'` | `[required(), email()]` |
-
-### Key Benefits
-
-- **🎯 One API**: Single `validate` property for everything
-- **🔗 Universal**: Works with any Standard Schema library
-- **⚡ Fast**: No adapter overhead
-- **🧩 Composable**: Mix different validation libraries
-- **🔮 Future-proof**: Aligned with ecosystem standards
+---
 
 ## Types
 
-### Common Interfaces
+### Validation
 
-```tsx
-// Validation result
+```ts
 interface ValidationResult {
-  isValid: boolean;
-  errors: ValidationError[];
+  readonly isValid: boolean;
+  readonly errors: ValidationError[];
+  readonly value?: any;
 }
 
-// Validation error
 interface ValidationError {
-  message: string;
-  code?: string;
-  path?: string;
+  readonly message: string;
+  readonly code?: string;
+  readonly path?: string;
 }
 
-// Field value change event
-interface FieldChangeEvent {
-  fieldId: string;
-  value: any;
-  oldValue: any;
+type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
+
+interface FieldValidationConfig<T = any> {
+  readonly validate?: StandardSchemaV1<T> | StandardSchemaV1<T>[];
+  readonly validateOnChange?: boolean;
+  readonly validateOnBlur?: boolean;
+  readonly debounceMs?: number;
 }
 
-// Form submission result
-interface SubmissionResult {
-  success: boolean;
-  data?: any;
-  errors?: ValidationError[];
-}
-```
-
-## Error Handling
-
-RilayKit provides custom error types for better error handling:
-
-```tsx
-import { RilayError, ValidationError, ConfigurationError } from '@rilaykit/core';
-
-try {
-  // RilayKit operations
-} catch (error) {
-  if (error instanceof ValidationError) {
-    // Handle validation errors
-  } else if (error instanceof ConfigurationError) {
-    // Handle configuration errors
-  } else if (error instanceof RilayError) {
-    // Handle other RilayKit errors
-  }
+interface FormValidationConfig<T extends Record<string, any> = Record<string, any>> {
+  readonly validate?: StandardSchemaV1<T> | StandardSchemaV1<T>[];
+  readonly validateOnSubmit?: boolean;
+  readonly validateOnStepChange?: boolean;
 }
 ```
 
-This completes the API reference for RilayKit. For more examples and advanced usage patterns, check out the [Examples Gallery](/examples) and specific package documentation.
+### Conditions
+
+```ts
+interface ConditionConfig {
+  field: string;
+  operator: ConditionOperator;
+  value?: ConditionValue;
+  conditions?: ConditionConfig[];
+  logicalOperator?: 'and' | 'or';
+}
+
+type ConditionOperator =
+  | 'equals' | 'notEquals'
+  | 'greaterThan' | 'lessThan' | 'greaterThanOrEqual' | 'lessThanOrEqual'
+  | 'contains' | 'notContains'
+  | 'in' | 'notIn'
+  | 'matches'
+  | 'exists' | 'notExists';
+
+type ConditionValue = string | number | boolean | null | undefined | Array<string | number | boolean>;
+
+interface ConditionalBehavior {
+  readonly visible?: ConditionConfig;
+  readonly disabled?: ConditionConfig;
+  readonly required?: ConditionConfig;
+  readonly readonly?: ConditionConfig;
+}
+
+interface StepConditionalBehavior {
+  readonly visible?: ConditionConfig;
+  readonly skippable?: ConditionConfig;
+}
+```
+
+### Field and Form State
+
+```ts
+interface FieldConditions {
+  readonly visible: boolean;
+  readonly disabled: boolean;
+  readonly required: boolean;
+  readonly readonly: boolean;
+}
+
+interface FieldState {
+  readonly value: unknown;
+  readonly errors: ValidationError[];
+  readonly validationState: ValidationState;
+  readonly touched: boolean;
+  readonly dirty: boolean;
+}
+```
+
+### Workflow
+
+```ts
+interface WorkflowAnalytics {
+  readonly onWorkflowStart?: (workflowId: string, context: WorkflowContext) => void;
+  readonly onWorkflowComplete?: (workflowId: string, duration: number, data: any) => void;
+  readonly onWorkflowAbandon?: (workflowId: string, currentStep: string, data: any) => void;
+  readonly onStepStart?: (stepId: string, timestamp: number, context: WorkflowContext) => void;
+  readonly onStepComplete?: (stepId: string, duration: number, data: any, context: WorkflowContext) => void;
+  readonly onStepSkip?: (stepId: string, reason: string, context: WorkflowContext) => void;
+  readonly onError?: (error: Error, context: WorkflowContext) => void;
+}
+
+interface WorkflowPlugin {
+  readonly name: string;
+  readonly version?: string;
+  readonly install: (workflow: any) => void;
+  readonly dependencies?: string[];
+}
+
+interface MonitoringConfig {
+  readonly enabled: boolean;
+  readonly enablePerformanceTracking?: boolean;
+  readonly enableErrorTracking?: boolean;
+  readonly enableMemoryTracking?: boolean;
+  readonly performanceThresholds?: PerformanceThresholds;
+  readonly sampleRate?: number;
+  readonly bufferSize?: number;
+  readonly flushInterval?: number;
+  readonly onEvent?: (event: MonitoringEvent) => void;
+  readonly onBatch?: (events: MonitoringEvent[]) => void;
+  readonly onError?: (error: Error) => void;
+}
+```

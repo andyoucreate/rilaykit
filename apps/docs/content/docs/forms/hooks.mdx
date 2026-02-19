@@ -1,0 +1,354 @@
+---
+title: Form Hooks
+description: Granular Zustand-powered hooks for optimal re-render performance and fine-grained state access.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+RilayKit forms are powered by Zustand stores, exposing granular selector hooks that minimize re-renders. Instead of one monolithic hook that causes the entire form to re-render on every change, you pick exactly the state slices you need.
+
+All hooks must be used inside a component wrapped by `FormProvider` (or the `<Form>` component, which includes it).
+
+```tsx
+import {
+  useFieldValue,
+  useFieldActions,
+  useFormSubmitState,
+} from '@rilaykit/forms';
+```
+
+## Context Hook
+
+`useFormConfigContext()` returns the full form context, including the form configuration, condition helpers, validation, and submission methods. Use it when you need access to multiple concerns at once, but be aware that it subscribes to the entire context object.
+
+```ts
+import { useFormConfigContext } from '@rilaykit/forms';
+
+const { formConfig, conditionsHelpers, validateField, validateForm, submit } =
+  useFormConfigContext();
+```
+
+### FormConfigContextValue
+
+```ts
+interface FormConfigContextValue {
+  formConfig: FormConfiguration;
+  conditionsHelpers: {
+    hasConditionalFields: boolean;
+    getFieldCondition(fieldId: string): ConditionEvaluationResult | undefined;
+    isFieldVisible(fieldId: string): boolean;
+    isFieldDisabled(fieldId: string): boolean;
+    isFieldRequired(fieldId: string): boolean;
+    isFieldReadonly(fieldId: string): boolean;
+  };
+  validateField(fieldId: string, value?: unknown): Promise<ValidationResult>;
+  validateForm(): Promise<ValidationResult>;
+  submit(event?: React.FormEvent): Promise<boolean>;
+}
+```
+
+<Callout type="warn">
+`useFormConfigContext()` re-renders whenever **any** part of the context changes. Prefer the granular hooks below for performance-sensitive components.
+</Callout>
+
+## Field State Hooks
+
+These hooks are **read-only selectors** that subscribe to a single field slice in the Zustand store. Each hook only triggers a re-render when its specific slice changes.
+
+| Hook | Returns | Re-renders when |
+|------|---------|-----------------|
+| `useFieldValue<T>(fieldId)` | `T` | Field value changes |
+| `useFieldErrors(fieldId)` | `ValidationError[]` | Field errors change |
+| `useFieldTouched(fieldId)` | `boolean` | Field touch state changes |
+| `useFieldValidationState(fieldId)` | `ValidationState` | Validation state changes |
+| `useFieldConditions(fieldId)` | `FieldConditions` | Field conditions change |
+| `useFieldState(fieldId)` | `FieldState` | Any field state changes |
+
+### Usage
+
+<Tabs items={['Single value', 'Full field state']}>
+  <Tab value="Single value">
+    ```tsx
+    import { useFieldValue, useFieldErrors } from '@rilaykit/forms';
+
+    function PriceDisplay() {
+      const price = useFieldValue<number>('price');
+      const errors = useFieldErrors('price');
+
+      return (
+        <div>
+          <span>Current price: {price ?? 'N/A'}</span>
+          {errors.map((err) => (
+            <p key={err.message} className="text-red-500">{err.message}</p>
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Full field state">
+    ```tsx
+    import { useFieldState } from '@rilaykit/forms';
+
+    function FieldDebug({ fieldId }: { fieldId: string }) {
+      const { value, errors, validationState, touched, dirty } =
+        useFieldState(fieldId);
+
+      return (
+        <pre>{JSON.stringify({ value, errors, validationState, touched, dirty }, null, 2)}</pre>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Types
+
+```ts
+type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
+
+interface FieldConditions {
+  visible: boolean;
+  disabled: boolean;
+  required: boolean;
+  readonly: boolean;
+}
+
+interface FieldState {
+  value: unknown;
+  errors: ValidationError[];
+  validationState: ValidationState;
+  touched: boolean;
+  dirty: boolean;
+}
+```
+
+## Form State Hooks
+
+These hooks subscribe to **form-level** slices. Like field hooks, they only re-render when their specific slice changes.
+
+| Hook | Returns | Re-renders when |
+|------|---------|-----------------|
+| `useFormSubmitting()` | `boolean` | Submit state changes |
+| `useFormValid()` | `boolean` | Validity changes |
+| `useFormDirty()` | `boolean` | Dirty state changes |
+| `useFormValues()` | `Record<string, unknown>` | Any value changes |
+| `useFormSubmitState()` | `{ isSubmitting, isValid, isDirty }` | Submit-related state changes |
+
+### Usage
+
+```tsx
+import { useFormSubmitState } from '@rilaykit/forms';
+
+function SubmitButton() {
+  const { isSubmitting, isValid, isDirty } = useFormSubmitState();
+
+  return (
+    <button type="submit" disabled={isSubmitting || !isDirty || !isValid}>
+      {isSubmitting ? 'Saving...' : 'Save'}
+    </button>
+  );
+}
+```
+
+<Callout type="info">
+`useFormValues()` re-renders whenever **any** field value changes. If you only need a single field, prefer `useFieldValue(fieldId)` instead.
+</Callout>
+
+## Action Hooks
+
+Action hooks return **stable function references** that call directly into the Zustand store. They never subscribe to state, so they never cause re-renders.
+
+<Callout type="info">
+Action hooks return stable references and **never** trigger re-renders. You can safely pass them as props or use them in event handlers without worrying about performance.
+</Callout>
+
+### Field Actions
+
+`useFieldActions(fieldId)` returns actions scoped to a single field.
+
+```ts
+import { useFieldActions } from '@rilaykit/forms';
+
+const { setValue, setTouched, setErrors, clearErrors, setValidationState } =
+  useFieldActions('email');
+
+// Update the field value programmatically
+setValue('user@example.com');
+
+// Mark the field as touched (e.g., on blur)
+setTouched();
+
+// Set validation errors manually
+setErrors([{ message: 'Invalid email', code: 'INVALID_EMAIL' }]);
+
+// Clear all errors for this field
+clearErrors();
+
+// Set validation state directly
+setValidationState('validating');
+```
+
+#### UseFieldActionsResult
+
+```ts
+interface UseFieldActionsResult {
+  setValue: (value: unknown) => void;
+  setTouched: () => void;
+  setErrors: (errors: ValidationError[]) => void;
+  clearErrors: () => void;
+  setValidationState: (state: ValidationState) => void;
+}
+```
+
+### Form Actions
+
+`useFormActions()` returns actions that operate at the form level.
+
+```ts
+import { useFormActions } from '@rilaykit/forms';
+
+const { setValue, setTouched, setErrors, setSubmitting, reset, setFieldConditions } =
+  useFormActions();
+
+// Set any field's value
+setValue('firstName', 'Ada');
+
+// Reset the entire form to default values
+reset();
+
+// Reset with specific values
+reset({ firstName: 'Ada', lastName: 'Lovelace' });
+
+// Programmatically set field conditions
+setFieldConditions('phoneNumber', {
+  visible: true,
+  disabled: false,
+  required: true,
+  readonly: false,
+});
+```
+
+#### UseFormActionsResult
+
+```ts
+interface UseFormActionsResult {
+  setValue: (fieldId: string, value: unknown) => void;
+  setTouched: (fieldId: string) => void;
+  setErrors: (fieldId: string, errors: ValidationError[]) => void;
+  setSubmitting: (isSubmitting: boolean) => void;
+  reset: (values?: Record<string, unknown>) => void;
+  setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
+}
+```
+
+## Condition Hooks
+
+These hooks evaluate conditional behaviors (visibility, disabled state, required state, readonly state) for fields based on form data.
+
+### useConditionEvaluation
+
+Evaluates a `ConditionalBehavior` configuration against the provided form data and returns the resolved states.
+
+```ts
+import { useConditionEvaluation } from '@rilaykit/forms';
+
+const { visible, disabled, required, readonly } = useConditionEvaluation(
+  fieldConfig.conditions, // ConditionalBehavior | undefined
+  formData,               // Record<string, unknown>
+  { visible: true },      // optional default state overrides
+);
+```
+
+The result is memoized and only recomputed when `conditions` or `formData` change.
+
+### useFormConditions
+
+Evaluates all field conditions for an entire form configuration at once. This is what `FormProvider` uses internally.
+
+```ts
+import { useFormConditions } from '@rilaykit/forms';
+
+const {
+  fieldConditions,      // Record<string, ConditionEvaluationResult>
+  hasConditionalFields, // boolean
+  getFieldCondition,    // (fieldId: string) => ConditionEvaluationResult | undefined
+  isFieldVisible,       // (fieldId: string) => boolean
+  isFieldDisabled,      // (fieldId: string) => boolean
+  isFieldRequired,      // (fieldId: string) => boolean
+  isFieldReadonly,      // (fieldId: string) => boolean
+} = useFormConditions({ formConfig, formValues });
+```
+
+### useFieldConditionsLazy
+
+Lazy evaluation with caching. Reads conditions from the Zustand store and only evaluates when form values actually change (based on a values hash).
+
+```ts
+import { useFieldConditionsLazy } from '@rilaykit/forms';
+
+const conditions = useFieldConditionsLazy('myField', {
+  conditions: fieldConfig.conditions, // ConditionalBehavior | undefined
+  skip: false,                        // skip evaluation entirely
+});
+
+if (!conditions.visible) return null;
+```
+
+### useConditionEvaluator
+
+Returns a memoized evaluator function that you can call imperatively for any field. Useful when you need to evaluate conditions for multiple fields on-demand without triggering re-renders.
+
+```ts
+import { useConditionEvaluator } from '@rilaykit/forms';
+
+const evaluate = useConditionEvaluator();
+
+// Call for any field, at any time
+const nameConditions = evaluate('name', nameFieldConfig.conditions);
+const emailConditions = evaluate('email', emailFieldConfig.conditions);
+```
+
+## Internal Hooks
+
+These hooks are used internally by RilayKit components. You rarely need them directly, but they are exported for advanced use cases.
+
+| Hook | Purpose |
+|------|---------|
+| `useFormValidationWithStore` | Wires field and form validation to the Zustand store |
+| `useFormSubmissionWithStore` | Handles form submission lifecycle with the store |
+| `useFormMonitoring` | Tracks form renders, validations, and submissions for performance profiling |
+
+## Best Practices
+
+1. **Prefer granular hooks over `useFormConfigContext()`**. A component that only needs a field value should use `useFieldValue(fieldId)` rather than pulling the entire context.
+
+2. **Use `useFieldActions` for programmatic field changes**. Since actions are stable references, they are safe to pass as props without causing unnecessary re-renders in child components.
+
+3. **Use `useFormSubmitState()` for submit buttons**. It bundles exactly the three values a submit button needs (`isSubmitting`, `isValid`, `isDirty`) into a single hook with minimal subscriptions.
+
+4. **Combine read and action hooks in the same component**. A typical field component pairs `useFieldValue` (read) with `useFieldActions` (write) to achieve optimal re-render boundaries.
+
+```tsx
+import { useFieldValue, useFieldActions, useFieldErrors } from '@rilaykit/forms';
+
+function CustomInput({ fieldId }: { fieldId: string }) {
+  const value = useFieldValue<string>(fieldId);
+  const errors = useFieldErrors(fieldId);
+  const { setValue, setTouched } = useFieldActions(fieldId);
+
+  return (
+    <div>
+      <input
+        value={value ?? ''}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => setTouched()}
+      />
+      {errors.map((err) => (
+        <p key={err.message} className="text-red-500">{err.message}</p>
+      ))}
+    </div>
+  );
+}
+```

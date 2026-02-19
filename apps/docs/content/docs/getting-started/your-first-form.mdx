@@ -132,10 +132,12 @@ export const contactForm = rilay
       required: true,
       type: 'text'
     },
-    validation: [
-      required('Name is required'),
-      minLength(2, 'Name must be at least 2 characters')
-    ]
+    validation: {
+      validate: [
+        required('Name is required'),
+        minLength(2, 'Name must be at least 2 characters')
+      ]
+    }
   })
   .add({
     id: 'email',
@@ -146,10 +148,12 @@ export const contactForm = rilay
       required: true,
       type: 'email'
     },
-    validation: [
-      required('Email is required'),
-      email('Please enter a valid email address')
-    ]
+    validation: {
+      validate: [
+        required('Email is required'),
+        email('Please enter a valid email address')
+      ]
+    }
   })
   .add({
     id: 'message',
@@ -161,10 +165,12 @@ export const contactForm = rilay
       multiline: true,
       rows: 4
     },
-    validation: [
-      required('Message is required'),
-      minLength(10, 'Message must be at least 10 characters')
-    ],
+    validation: {
+      validate: [
+        required('Message is required'),
+        minLength(10, 'Message must be at least 10 characters')
+      ]
+    },
     conditions: {
       visible: when('email').exists() // Only show after email is entered
     }
@@ -173,7 +179,7 @@ export const contactForm = rilay
 
 <Callout type="info">
 **Key concepts:**
-- `validation`: Array of validator functions that run on field changes
+- `validation`: Object with a `validate` array of Standard Schema validators
 - `conditions`: Control when fields are visible or enabled
 - `props`: Custom properties passed to your renderer component
 </Callout>

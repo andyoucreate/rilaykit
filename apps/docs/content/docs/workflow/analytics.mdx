@@ -1,0 +1,324 @@
+---
+title: Analytics
+description: Track workflow events, step timing, and user behavior with callback-based analytics.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Rilaykit workflows expose a callback-based analytics system that fires events at key lifecycle moments: workflow start, step transitions, step skips, errors, and final completion. You can wire these callbacks to any analytics provider -- Segment, Mixpanel, PostHog, or your own backend.
+
+## WorkflowAnalytics Interface
+
+The analytics configuration is an object with optional callbacks for each lifecycle event:
+
+```ts
+interface WorkflowAnalytics {
+  /** Fires once when the workflow mounts */
+  onWorkflowStart?(workflowId: string, context: WorkflowContext): void;
+
+  /** Fires when the last step is successfully submitted */
+  onWorkflowComplete?(
+    workflowId: string,
+    totalTime: number,
+    allData: Record<string, any>
+  ): void;
+
+  /** Fires when a user abandons the workflow (e.g., closes the page) */
+  onWorkflowAbandon?(
+    workflowId: string,
+    currentStep: string,
+    data: any
+  ): void;
+
+  /** Fires when a step becomes active */
+  onStepStart?(
+    stepId: string,
+    timestamp: number,
+    context: WorkflowContext
+  ): void;
+
+  /** Fires when the user leaves a step (navigates forward) */
+  onStepComplete?(
+    stepId: string,
+    duration: number,
+    stepData: Record<string, any>,
+    context: WorkflowContext
+  ): void;
+
+  /** Fires when a step is skipped */
+  onStepSkip?(
+    stepId: string,
+    reason: string,
+    context: WorkflowContext
+  ): void;
+
+  /** Fires when any error occurs during navigation or submission */
+  onError?(error: Error, context: WorkflowContext): void;
+}
+```
+
+### Callback Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `workflowId` | The ID string you defined on the `flow` builder. |
+| `context` | The full `WorkflowContext` at the time of the event (current step, all data, visited steps, etc.). |
+| `totalTime` | Elapsed time in milliseconds from workflow start to completion. |
+| `duration` | Time in milliseconds the user spent on the completed step. |
+| `stepData` | The data collected on the step that just completed. |
+| `reason` | A string indicating why the step was skipped (e.g., `"user_skip"`). |
+
+---
+
+## Configuration
+
+Pass an analytics object inside `.configure()` on your workflow builder:
+
+```tsx
+const workflow = rilay
+  .flow('onboarding', 'User Onboarding')
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Info',
+    formConfig: personalInfoForm,
+  })
+  .addStep({
+    id: 'preferences',
+    title: 'Preferences',
+    formConfig: preferencesForm,
+    allowSkip: true,
+  })
+  .addStep({
+    id: 'review',
+    title: 'Review',
+    formConfig: reviewForm,
+  })
+  .configure({
+    analytics: {
+      onWorkflowStart: (id, context) => {
+        console.log(`Workflow "${id}" started with ${context.totalSteps} steps`);
+      },
+      onStepStart: (stepId, timestamp) => {
+        console.log(`Step "${stepId}" started at ${new Date(timestamp).toISOString()}`);
+      },
+      onStepComplete: (stepId, duration, stepData) => {
+        trackEvent('step_complete', {
+          stepId,
+          duration,
+          fieldsCompleted: Object.keys(stepData).length,
+        });
+      },
+      onStepSkip: (stepId, reason) => {
+        trackEvent('step_skipped', { stepId, reason });
+      },
+      onWorkflowComplete: (id, totalTime, allData) => {
+        trackEvent('workflow_complete', {
+          workflowId: id,
+          totalTimeSeconds: Math.round(totalTime / 1000),
+          stepsCompleted: Object.keys(allData).length,
+        });
+      },
+      onError: (error, context) => {
+        captureException(error, {
+          tags: {
+            workflowId: context.workflowId,
+            stepIndex: context.currentStepIndex,
+          },
+        });
+      },
+    },
+  });
+```
+
+---
+
+## Integration Examples
+
+<Tabs items={['Segment', 'PostHog', 'Custom Backend']}>
+<Tab value="Segment">
+```tsx
+import { analytics } from '@/lib/segment';
+
+.configure({
+  analytics: {
+    onWorkflowStart: (id) => {
+      analytics.track('Workflow Started', { workflowId: id });
+    },
+    onStepComplete: (stepId, duration) => {
+      analytics.track('Workflow Step Completed', {
+        stepId,
+        durationMs: duration,
+      });
+    },
+    onWorkflowComplete: (id, totalTime) => {
+      analytics.track('Workflow Completed', {
+        workflowId: id,
+        totalTimeMs: totalTime,
+      });
+    },
+    onStepSkip: (stepId, reason) => {
+      analytics.track('Workflow Step Skipped', { stepId, reason });
+    },
+  },
+})
+```
+</Tab>
+<Tab value="PostHog">
+```tsx
+import posthog from 'posthog-js';
+
+.configure({
+  analytics: {
+    onWorkflowStart: (id) => {
+      posthog.capture('workflow_started', { workflow_id: id });
+    },
+    onStepComplete: (stepId, duration, stepData) => {
+      posthog.capture('workflow_step_completed', {
+        step_id: stepId,
+        duration_ms: duration,
+        fields_count: Object.keys(stepData).length,
+      });
+    },
+    onWorkflowComplete: (id, totalTime) => {
+      posthog.capture('workflow_completed', {
+        workflow_id: id,
+        total_time_ms: totalTime,
+      });
+    },
+    onError: (error) => {
+      posthog.capture('workflow_error', {
+        error_message: error.message,
+      });
+    },
+  },
+})
+```
+</Tab>
+<Tab value="Custom Backend">
+```tsx
+async function sendAnalyticsEvent(
+  event: string,
+  payload: Record<string, any>
+) {
+  await fetch('/api/analytics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, ...payload, timestamp: Date.now() }),
+  });
+}
+
+.configure({
+  analytics: {
+    onWorkflowStart: (id) => {
+      sendAnalyticsEvent('workflow.started', { workflowId: id });
+    },
+    onStepComplete: (stepId, duration, stepData) => {
+      sendAnalyticsEvent('workflow.step_completed', {
+        stepId,
+        duration,
+        data: stepData,
+      });
+    },
+    onWorkflowComplete: (id, totalTime, allData) => {
+      sendAnalyticsEvent('workflow.completed', {
+        workflowId: id,
+        totalTime,
+        data: allData,
+      });
+    },
+    onError: (error, context) => {
+      sendAnalyticsEvent('workflow.error', {
+        error: error.message,
+        stepIndex: context.currentStepIndex,
+      });
+    },
+  },
+})
+```
+</Tab>
+</Tabs>
+
+---
+
+## useWorkflowAnalytics Hook
+
+The analytics system is powered internally by the `useWorkflowAnalytics` hook. It manages start times, step durations, and event dispatch.
+
+### Return Values
+
+```ts
+interface UseWorkflowAnalyticsReturn {
+  /** Ref holding the workflow start timestamp (used to compute totalTime) */
+  analyticsStartTime: React.MutableRefObject<number>;
+
+  /** Manually fire a step skip event */
+  trackStepSkip: (stepId: string, reason: string) => void;
+
+  /** Manually fire an error event */
+  trackError: (error: Error) => void;
+
+  /** Track navigation performance (fires to RilayMonitor only) */
+  trackNavigation: (fromStep: number, toStep: number, duration: number) => void;
+
+  /** Track condition evaluation performance (fires to RilayMonitor only) */
+  trackConditionEvaluation: (duration: number, conditionsCount: number) => void;
+}
+```
+
+### Automatic Behavior
+
+The hook automatically:
+
+1. **Tracks workflow start** -- fires `onWorkflowStart` once on mount.
+2. **Tracks step timing** -- records when each step becomes active and fires `onStepComplete` with the computed duration when the user leaves the step.
+3. **Tracks step starts** -- fires `onStepStart` each time the current step changes.
+
+You do not need to call any method manually for these events -- they are handled automatically by the `WorkflowProvider`.
+
+---
+
+## Integration with Global Monitoring
+
+When the Rilaykit global monitor is initialized (via `@rilaykit/monitoring`), analytics events are **automatically forwarded** to it in addition to your custom callbacks. This gives you centralized performance tracking across all workflows.
+
+The monitor receives structured events with the type `workflow_navigation` and includes performance metrics:
+
+```ts
+interface WorkflowPerformanceMetrics {
+  timestamp: number;
+  duration: number;
+  workflowId: string;
+  stepCount: number;
+  currentStepIndex: number;
+  navigationDuration: number;
+  conditionEvaluationDuration: number;
+}
+```
+
+Events sent to the monitor include:
+- `workflow_start` -- when the workflow initializes
+- `step_start` -- when a new step becomes active
+- `step_complete` -- when the user leaves a step (with duration)
+- `step_skip` -- when a step is skipped (flagged as medium priority)
+- Navigation performance (flagged as medium when > 1 second)
+- Condition evaluation performance (flagged as medium when > 100ms)
+- Errors (via `monitor.trackError`)
+
+<Callout>
+Monitor integration is opt-in. If you have not initialized the global monitor, analytics callbacks work independently with no overhead.
+</Callout>
+
+---
+
+## Event Timing
+
+Understanding when each callback fires helps you build accurate funnels:
+
+| Event | When it fires |
+|-------|---------------|
+| `onWorkflowStart` | Once, when the `WorkflowProvider` first mounts. |
+| `onStepStart` | Each time the active step changes (including the first step). |
+| `onStepComplete` | When the user navigates away from a step. Duration = time between `onStepStart` and `onStepComplete` for that step. |
+| `onStepSkip` | When `skipStep()` is called or a step is skipped due to conditions. The `reason` is `"user_skip"` for manual skips. |
+| `onWorkflowComplete` | After the last step is submitted and `onWorkflowComplete` (the prop on `<Workflow>`) resolves. `totalTime` = time since `onWorkflowStart`. |
+| `onError` | On any caught error during navigation, validation callbacks, or submission. |

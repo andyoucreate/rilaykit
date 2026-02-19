@@ -62,12 +62,6 @@ when('name').contains('John')
 // Email doesn't contain "test"
 when('email').notContains('test')
 
-// Starts with prefix
-when('code').startsWith('PREFIX_')
-
-// Ends with suffix
-when('email').endsWith('@company.com')
-
 // Regex pattern matching
 when('phone').matches(/^\d{3}-\d{3}-\d{4}$/)
 ```
@@ -92,11 +86,11 @@ when('role').notIn(['admin', 'super-admin'])
 ### Existence Checks
 
 ```typescript
-// Field has a value (not null/undefined/empty)
-when('companyName').isNotEmpty()
+// Field has a value (not null/undefined)
+when('companyName').exists()
 
-// Field is empty, null, or undefined
-when('optionalField').isEmpty()
+// Field is null or undefined
+when('optionalField').notExists()
 ```
 
 ## Logical Operators
@@ -168,7 +162,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Visibility">
     ```typescript
     // Show/hide fields dynamically
-    factory.form()
+    rilay.form('my-form')
       .add({
         id: 'phoneNumber',
         type: 'text',
@@ -191,7 +185,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Required">
     ```typescript
     // Make fields required conditionally
-    factory.form()
+    rilay.form('my-form')
       .add({
         id: 'businessLicense',
         type: 'text',
@@ -214,7 +208,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Disabled">
     ```typescript
     // Disable fields based on conditions
-    factory.form()
+    rilay.form('my-form')
       .add({
         id: 'email',
         type: 'email',
@@ -236,7 +230,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Readonly">
     ```typescript
     // Make fields read-only conditionally
-    factory.form()
+    rilay.form('my-form')
       .add({
         id: 'accountNumber',
         type: 'text',
@@ -262,7 +256,7 @@ Control individual form field behavior with four types of conditions:
 Control workflow step navigation with visibility and skip conditions:
 
 ```typescript
-const workflow = factory.flow('user-onboarding')
+const workflow = rilay.flow('user-onboarding')
   .addStep({
     id: 'personal-info',
     title: 'Personal Information',
@@ -304,7 +298,7 @@ when('contact-details.email').contains('@company.com')
 when('preferences.notifications').equals(true)
 
 // Real-world example
-const workflow = factory.flow('loan-application')
+const workflow = rilay.flow('loan-application')
   .addStep({
     id: 'applicant-info',
     formConfig: applicantForm
@@ -330,7 +324,7 @@ const workflow = factory.flow('loan-application')
 ### E-commerce Checkout Form
 
 ```typescript
-const checkoutForm = factory.form('checkout')
+const checkoutForm = rilay.form('checkout')
   .add({
     id: 'billingAddress',
     type: 'address',
@@ -373,7 +367,7 @@ const checkoutForm = factory.form('checkout')
 ### Survey with Skip Logic
 
 ```typescript
-const surveyForm = factory.form('customer-survey')
+const surveyForm = rilay.form('customer-survey')
   .add({
     id: 'satisfaction',
     type: 'select',
@@ -425,7 +419,7 @@ const surveyForm = factory.form('customer-survey')
 ### Job Application Workflow
 
 ```typescript
-const jobApplicationFlow = factory.flow('job-application')
+const jobApplicationFlow = rilay.flow('job-application')
   .addStep({
     id: 'basic-info',
     title: 'Basic Information',
@@ -468,7 +462,7 @@ const jobApplicationFlow = factory.flow('job-application')
 Reveal fields progressively based on user choices:
 
 ```typescript
-factory.form('progressive-form')
+rilay.form('progressive-form')
   .add({
     id: 'experience',
     type: 'select',
@@ -516,13 +510,13 @@ factory.form('progressive-form')
 Combine conditions with validation for smart form behavior:
 
 ```typescript
-factory.form('smart-validation')
+rilay.form('smart-validation')
   .add({
     id: 'email',
     type: 'email',
     props: { label: 'Email Address' },
     validation: {
-      validators: [
+      validate: [
         required('Email is required'),
         email('Please enter a valid email')
       ]
@@ -537,11 +531,8 @@ factory.form('smart-validation')
     type: 'text',
     props: { label: 'Phone Number' },
     validation: {
-      validators: [
-        validateWhen(
-          (data) => data.contactMethod === 'phone',
-          required('Phone is required when contact method is phone')
-        ),
+      validate: [
+        required('Phone is required'),
         pattern(/^\d{3}-\d{3}-\d{4}$/, 'Please enter a valid phone number')
       ]
     },
@@ -562,12 +553,12 @@ When a field is not visible due to conditions, its validation is automatically s
 
 ```typescript
 // This field's validation only runs when visible
-factory.form()
+rilay.form('my-form')
   .add({
     id: 'businessTaxId',
     type: 'text',
     validation: {
-      validators: [
+      validate: [
         required('Tax ID is required for business accounts'),
         pattern(/^\d{2}-\d{7}$/, 'Tax ID must be in format XX-XXXXXXX')
       ]

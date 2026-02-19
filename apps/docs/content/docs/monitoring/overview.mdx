@@ -1,0 +1,253 @@
+---
+title: Monitoring Overview
+description: Track form and workflow performance, errors, and user behavior with RilayKit's monitoring system.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+RilayKit includes an optional monitoring system for tracking performance, errors, and user behavior across forms and workflows. The system is designed around a central `RilayMonitor` class that collects events and dispatches them to one or more **adapters** (console, remote endpoint, localStorage, etc.).
+
+<Callout type="info">
+Monitoring is entirely opt-in. If you never call `initializeMonitoring`, no events are collected and there is zero runtime overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+<Step>
+### 1. Initialize the global monitor
+
+Call `initializeMonitoring` once at application startup to create a singleton `RilayMonitor` instance.
+
+```tsx
+import { initializeMonitoring, getGlobalMonitor, ConsoleAdapter } from '@rilaykit/core';
+
+initializeMonitoring({
+  enabled: true,
+  sampleRate: 1.0,
+  flushInterval: 30000,
+}, {
+  appName: 'my-app',
+  environment: 'production',
+});
+```
+</Step>
+<Step>
+### 2. Attach an adapter
+
+Adapters determine where events are sent. You can attach as many as you need.
+
+```tsx
+const monitor = getGlobalMonitor();
+monitor?.addAdapter(new ConsoleAdapter('info'));
+```
+</Step>
+<Step>
+### 3. Start tracking
+
+Once the monitor is initialized, RilayKit hooks (`useFormMonitoring`, `useWorkflowAnalytics`) automatically pick it up. You can also track custom events manually.
+
+```tsx
+monitor?.track('custom', 'checkout-page', { action: 'coupon-applied' });
+```
+</Step>
+</Steps>
+
+## The RilayMonitor Class
+
+`RilayMonitor` is the core of the monitoring system. It buffers events, manages adapters, and exposes a `PerformanceProfiler` for fine-grained timing.
+
+```ts
+class RilayMonitor {
+  constructor(config: MonitoringConfig, context?: Partial<MonitoringContext>)
+
+  addAdapter(adapter: MonitoringAdapter): void
+  removeAdapter(adapterName: string): void
+
+  track(
+    type: MonitoringEventType,
+    source: string,
+    data: Record<string, any>,
+    metrics?: PerformanceMetrics,
+    severity?: 'low' | 'medium' | 'high' | 'critical',
+  ): void
+  trackError(error: Error, source: string, context?: any): void
+
+  getProfiler(): PerformanceProfiler
+  updateContext(updates: Partial<MonitoringContext>): void
+
+  flush(): Promise<void>
+  destroy(): Promise<void>
+}
+```
+
+### Key methods
+
+- **`track()`** -- Records a monitoring event of a given type (e.g. `'form_submit'`, `'validation_error'`, `'custom'`). Events are buffered and flushed to all attached adapters at the configured `flushInterval`.
+- **`trackError()`** -- Convenience wrapper that creates an event with `severity: 'high'` and captures the error stack trace.
+- **`flush()`** -- Immediately sends all buffered events to every adapter.
+- **`destroy()`** -- Flushes remaining events and tears down internal timers. Call this on application unmount.
+
+## Global Monitoring
+
+For convenience, RilayKit provides three functions to manage a global singleton so you don't need to pass the monitor instance around manually.
+
+| Function | Description |
+|---|---|
+| `initializeMonitoring(config, context?)` | Creates and stores a global `RilayMonitor` singleton. |
+| `getGlobalMonitor()` | Returns the current global monitor, or `null` if not initialized. |
+| `destroyGlobalMonitoring()` | Calls `destroy()` on the global monitor and clears the reference. |
+
+```tsx
+import {
+  initializeMonitoring,
+  getGlobalMonitor,
+  destroyGlobalMonitoring,
+} from '@rilaykit/core';
+
+// At app startup
+initializeMonitoring({
+  enabled: true,
+  sampleRate: 0.5, // sample 50% of events
+  flushInterval: 15000,
+}, {
+  appName: 'my-app',
+  environment: 'staging',
+});
+
+// Anywhere in the app
+const monitor = getGlobalMonitor();
+monitor?.track('custom', 'dashboard', { widget: 'revenue-chart' });
+
+// At app teardown
+await destroyGlobalMonitoring();
+```
+
+## PerformanceProfiler
+
+Every `RilayMonitor` instance includes a `PerformanceProfiler` accessible via `getProfiler()`. Use it to instrument specific code paths with high-resolution timing.
+
+```ts
+const profiler = monitor.getProfiler();
+
+profiler.start('data-fetch');
+const data = await fetchData();
+profiler.end('data-fetch');
+
+// Or use marks and measures for more complex timings
+profiler.mark('render-start');
+// ... rendering logic ...
+profiler.mark('render-end');
+profiler.measure('full-render', 'render-start', 'render-end');
+
+// Retrieve all collected metrics
+const metrics = profiler.getMetrics();
+```
+
+| Method | Description |
+|---|---|
+| `.start(label)` | Starts a timer with the given label. |
+| `.end(label)` | Ends the timer and records the duration. |
+| `.mark(name)` | Places a named timestamp mark. |
+| `.measure(name, startMark, endMark)` | Measures the duration between two marks. |
+| `.getMetrics()` | Returns all recorded timing data. |
+
+## Integration with Forms
+
+The `useFormMonitoring` hook from `@rilaykit/forms` provides automatic tracking for common form lifecycle events. It connects to the global monitor internally.
+
+```tsx
+import { useFormMonitoring } from '@rilaykit/forms';
+
+const {
+  trackFormRender,
+  trackFormValidation,
+  trackFormSubmission,
+  trackFieldChange,
+  startPerformanceTracking,
+  endPerformanceTracking,
+} = useFormMonitoring({
+  formConfig,
+  monitoring,
+  enabled: true,
+});
+```
+
+<Callout>
+You don't need to call these methods manually in most cases. The `<Form>` and `<FormField>` components invoke them automatically when a global monitor is active.
+</Callout>
+
+### What is tracked automatically
+
+- **Form render** -- Time to first meaningful paint for each form.
+- **Field changes** -- Which fields are modified and how often.
+- **Validation** -- Validation duration, pass/fail counts, and error messages.
+- **Submission** -- Submission attempts, success/failure, and total time.
+
+## Integration with Workflows
+
+The `useWorkflowAnalytics` hook from `@rilaykit/workflow` leverages the global monitor internally to track workflow-specific events.
+
+Tracked events include:
+
+- Step navigation (forward, backward, skip)
+- Step completion time
+- Abandonment rate per step
+- Overall workflow completion
+
+<Callout type="info">
+Workflow analytics are collected automatically when a global monitor is initialized. No additional setup is required beyond calling `initializeMonitoring`.
+</Callout>
+
+## Complete Example
+
+Here is a full example that initializes monitoring in a Next.js application with multiple adapters.
+
+```tsx title="lib/monitoring.ts"
+import {
+  initializeMonitoring,
+  getGlobalMonitor,
+  ConsoleAdapter,
+  RemoteAdapter,
+  DevelopmentAdapter,
+} from '@rilaykit/core';
+
+export function setupMonitoring() {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  initializeMonitoring({
+    enabled: true,
+    sampleRate: isDev ? 1.0 : 0.25,
+    flushInterval: isDev ? 5000 : 30000,
+  }, {
+    appName: 'my-saas',
+    environment: isDev ? 'development' : 'production',
+  });
+
+  const monitor = getGlobalMonitor();
+  if (!monitor) return;
+
+  if (isDev) {
+    monitor.addAdapter(new DevelopmentAdapter());
+  } else {
+    monitor.addAdapter(new RemoteAdapter({
+      endpoint: 'https://analytics.example.com/events',
+      apiKey: process.env.MONITORING_API_KEY!,
+      batchSize: 50,
+      retryAttempts: 3,
+    }));
+  }
+}
+```
+
+```tsx title="app/layout.tsx"
+import { setupMonitoring } from '@/lib/monitoring';
+
+// Initialize once at the root
+setupMonitoring();
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html><body>{children}</body></html>;
+}
+```

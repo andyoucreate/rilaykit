@@ -2,14 +2,19 @@
   "pages": [
     "index",
     "quickstart",
+    "---Getting Started---",
     "getting-started",
-    "examples",
-    "migration",
+    "---Core Concepts---",
     "core-concepts",
-    "api",
     "---@rilaykit/forms---",
     "forms",
     "---@rilaykit/workflow (Premium)---",
-    "workflow"
+    "workflow",
+    "---Monitoring---",
+    "monitoring",
+    "---Reference---",
+    "api",
+    "examples",
+    "migration"
   ]
 }

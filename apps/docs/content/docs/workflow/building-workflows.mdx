@@ -82,14 +82,9 @@ You can configure the overall workflow behavior with the unified `.configure()` 
 ```tsx
 // ...
 .configure({
-  navigation: {
-    allowBackNavigation: true, // Can users go back to previous steps?
-    showProgress: true, // Should the stepper be shown?
-  },
   analytics: {
     onWorkflowStart: (workflowId) => console.log(`Workflow ${workflowId} started.`),
     onStepComplete: (stepId, duration) => console.log(`Step ${stepId} took ${duration}ms.`),
-    // ... other analytics hooks
   }
 })
 // ...
@@ -146,8 +141,8 @@ First, we define the forms for each step:
 const accountForm = rilay
   .form('account-form')
   .add(
-    { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validators: [required(), email()] } },
-    { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validators: [required(), minLength(8)] } }
+    { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()] } },
+    { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } }
   );
 
 const profileForm = rilay
@@ -166,7 +161,7 @@ const confirmationForm = rilay
       label: 'I agree to the terms and conditions',
     },
     validation: {
-      validators: [
+      validate: [
         custom(value => value === true, 'You must accept the terms')
       ]
     }
@@ -202,10 +197,10 @@ export const onboardingWorkflow = rilay
     formConfig: confirmationForm,
   })
   .configure({
-    navigation: {
-      allowBackNavigation: true,
-      showProgress: true,
-    }
+    analytics: {
+      onWorkflowStart: (id) => console.log(`Started: ${id}`),
+      onWorkflowComplete: (id, totalTime) => console.log(`Completed: ${id} in ${totalTime}ms`),
+    },
   });
 ```
 

@@ -1,378 +1,218 @@
 ---
 title: Advanced Workflows
-description: Learn about advanced workflow features including dynamic steps, hooks, and analytics
+description: Dynamic step management, serialization, introspection, and cross-step data manipulation.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 
-The `flow` builder, like the `formBuilder`, is more than a simple configuration tool. It offers advanced features for creating highly dynamic and powerful user flows.
+This guide covers advanced features of the `flow` builder for building dynamic, data-driven workflows.
 
 ## Dynamic Step Management
 
-You can modify a workflow's steps after the builder has been initialized.
-
-- **`.updateStep(stepId, updates)`**: Modifies an existing step's configuration.
-- **`.removeStep(stepId)`**: Removes a step from the workflow.
-- **`.getStep(stepId)`**: Retrieves the configuration for a specific step.
-- **`.getSteps()`**: Returns an array of all step configurations.
-- **`.clearSteps()`**: Removes all steps.
+You can modify steps after the builder is initialized. All methods are chainable.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const myFlow = rilay.flow('my-flow', 'My Dynamic Flow')
-  .addStep({ id: 'step1', ... });
+const workflow = rilay.flow('onboarding', 'Onboarding')
+  .addStep({ id: 'step-1', title: 'Step 1', formConfig: step1Form });
 
-// Later, based on some condition...
+// Add steps conditionally
 if (user.isAdmin) {
-  myFlow.addStep({ id: 'admin-step', ... });
+  workflow.addStep({ id: 'admin', title: 'Admin Setup', formConfig: adminForm });
 }
 
-// Or update a step
-myFlow.updateStep('step1', {
-  title: 'Step 1 (Updated)'
-});
+// Update a step's configuration
+workflow.updateStep('step-1', { title: 'Welcome' });
 
-const workflowConfig = myFlow.build();
+// Remove a step
+workflow.removeStep('admin');
 ```
 
-## Cloning
+### Step Management API
 
-The `.clone(newWorkflowId?, newWorkflowName?)` method creates a deep copy of the builder instance, allowing you to create variations of a workflow.
+| Method | Description |
+|--------|-------------|
+| `.updateStep(stepId, updates)` | Updates an existing step. Throws if not found. |
+| `.removeStep(stepId)` | Removes a step by ID. |
+| `.getStep(stepId)` | Returns the step config or `undefined`. |
+| `.getSteps()` | Returns a copy of all step configurations. |
+| `.clearSteps()` | Removes all steps. |
+
+## The `onAfterValidation` Callback
+
+The most powerful feature for cross-step data management. This callback runs **after** a step's form validation passes but **before** navigation to the next step.
 
 ```tsx
-const baseFlow = rilay.flow('base', 'Base Flow').addStep({ id: 'a', ... });
-const variantFlow = baseFlow.clone('variant', 'Variant Flow').addStep({ id: 'b', ... });
-```
-
-## Serialization (JSON Import/Export)
-
-Workflow configurations can be serialized to and from JSON. This is useful for storing flow definitions in a database or building visual workflow editors.
-
-- **`.toJSON()`**: Exports the current workflow structure as a JSON-serializable object.
-- **`.fromJSON(json)`**: Populates a builder instance from a JSON object.
-
-```tsx
-// 1. Define and serialize
-const originalFlow = rilay.flow('flow1', 'Flow 1').addStep(...);
-const jsonDefinition = originalFlow.toJSON();
-
-// 2. Later, rehydrate from the definition
-const newFlow = rilay.flow('flow2', 'Flow 2').fromJSON(jsonDefinition);
-const workflowConfig = newFlow.build();
-```
-
-## Plugins
-
-Rilaykit's workflow builder supports a plugin architecture to extend its functionality. A plugin is an object with a name, version, and an `install` method that gets called with the builder instance.
-
-This is an advanced feature for creating reusable pieces of workflow logic.
-
-```tsx
-// Example of a simple logging plugin
-const loggingPlugin = {
-  name: 'simple-logger',
-  version: '1.0.0',
-  install(builder) {
-    const existingAnalytics = builder.build().analytics || {};
-    builder.setAnalytics({
-      ...existingAnalytics,
-      onStepStart: (stepId) => {
-        console.log(`PLUGIN: Step started: ${stepId}`);
-        existingAnalytics.onStepStart?.(stepId);
-      }
-    });
-  }
-};
-
-// Use it
-const myFlow = rilay.flow('my-flow', 'My Flow')
-  .use(loggingPlugin)
-  .addStep(...)
-  .build();
-```
-The builder also supports `.removePlugin(pluginName)` and validates plugin dependencies.
-
-## Introspection
-
-The `.getStats()` method provides a quick overview of the workflow's structure.
-
-```ts
-const stats = myFlowBuilder.getStats();
-console.log(stats);
-/*
-{
-  totalSteps: 3,
-  dynamicSteps: 0,
-  pluginsInstalled: 1,
-  estimatedFields: 10,
-  hasPersistence: false,
-  hasAnalytics: true,
-  allowBackNavigation: true
-}
-*/
-```
-This is useful for debugging or analyzing the complexity of your workflows. 
-
-# Advanced Workflows
-
-This guide covers advanced workflow features that help you build complex, dynamic workflows with sophisticated validation and data management.
-
-### Best Practices
-
-```tsx
-// Step 1: Business Registration Form
-const businessRegistrationForm = form.create(config, 'business-registration')
-  .add({
-    type: 'select',
-    props: {
-      label: 'Country',
-      placeholder: 'Select your country',
-      options: [
-        { value: 'US', label: 'United States' },
-        { value: 'FR', label: 'France' },
-        { value: 'DE', label: 'Germany' },
-        { value: 'UK', label: 'United Kingdom' },
-        { value: 'CA', label: 'Canada' },
-      ],
-    },
-  })
-  .add({
-    type: 'text',
-    props: {
-      label: 'Business Registration Number',
-      placeholder: 'Enter your business registration number',
-      helperText: 'EIN (US), SIREN (FR), HRB (DE), Companies House (UK), etc.',
-    },
-  })
-  .build();
-
-// Step 2: Company Details Form (will be pre-filled)
-const companyDetailsForm = form.create(config, 'company-details')
-  .add({
-    type: 'text',
-    props: {
-      label: 'Company Name',
-      disabled: true, // Will be filled from API
-    },
-  })
-  .add({
-    type: 'text',
-    props: {
-      label: 'Legal Form',
-      disabled: true,
-    },
-  })
-  .add({
-    type: 'textarea',
-    props: {
-      label: 'Registered Address',
-      disabled: true,
-    },
-  })
-  .add({
-    type: 'text',
-    props: {
-      label: 'Contact Email',
-      placeholder: 'contact@company.com',
-    },
-  })
-  .build();
-
-// Create workflow with step transition validation
-const businessOnboardingWorkflow = flow.create(
-  config,
-  'business-onboarding',
-  'Business Onboarding'
-)
+const workflow = rilay.flow('business-onboarding', 'Business Onboarding')
   .addStep({
     id: 'registration',
     title: 'Business Registration',
-    formConfig: businessRegistrationForm,
+    formConfig: registrationForm,
     onAfterValidation: async (stepData, helper, context) => {
+      // stepData contains the validated form data from this step
       const { country, registrationNumber } = stepData;
 
-      // Validate required fields
-      if (!country || !registrationNumber) {
-        // You can throw an error to halt transition
-        throw new Error('Country and registration number are required');
-      }
+      // Call an external API
+      const businessData = await validateBusiness(registrationNumber, country);
 
-      try {
-        // Call API to validate and fetch business data
-        const businessData = await validateBusinessRegistration(
-          registrationNumber,
-          country
-        );
-
-        // Use the helper to modify data for subsequent steps
-        helper.setStepFields('company-details', {
-          companyName: businessData.name,
-          legalForm: businessData.legalForm,
-          registeredAddress: businessData.address,
-        });
-
-        // You can also modify the data for the entire workflow
-        helper.setNextStepFields({
-          taxId: businessData.taxId,
-        });
-      } catch (error) {
-        // Throwing an error will prevent navigation and can be caught to display a message
-        if (error.status === 404) {
-          throw new Error('Business registration number not found');
-        }
-        throw new Error('Unable to validate registration number. Please try again.');
-      }
+      // Pre-fill the next step's fields
+      helper.setStepFields('company-details', {
+        companyName: businessData.name,
+        legalForm: businessData.legalForm,
+        address: businessData.address,
+      });
     },
   })
   .addStep({
     id: 'company-details',
     title: 'Company Details',
     formConfig: companyDetailsForm,
-  })
-  .addStep({
-    id: 'verification',
-    title: 'Verification',
-    formConfig: verificationForm,
-  })
-  .build();
+  });
 ```
 
-### Using the Step Error Management Functions
+<Callout type="warn">
+Throwing an error inside `onAfterValidation` prevents navigation to the next step. Use this for server-side validation or API checks that must pass before proceeding.
+</Callout>
 
-The workflow context provides functions to manage step-level errors:
+### StepDataHelper
 
-```typescript
-import { useWorkflowContext } from '@rilaykit/workflow';
+The `helper` parameter provides methods to manipulate data across steps:
 
-function BusinessRegistrationStep() {
-  const {
-    getCurrentStepErrors,
-    isCurrentStepValidating,
-    goNext,
-  } = useWorkflowContext();
+```ts
+interface StepDataHelper {
+  // Target a specific step
+  setStepData(stepId: string, data: Record<string, any>): void;
+  setStepFields(stepId: string, fields: Record<string, any>): void; // merges with existing
+  getStepData(stepId: string): Record<string, any>;
 
-  const stepErrors = getCurrentStepErrors();
-  const isValidating = isCurrentStepValidating();
+  // Target the next step
+  setNextStepField(fieldId: string, value: any): void;
+  setNextStepFields(fields: Record<string, any>): void; // merges with existing
 
-  return (
-    <div>
-      <WorkflowBody />
-      
-      {/* Display step-level errors */}
-      {stepErrors.length > 0 && (
-        <div className="error-panel">
-          <h4>Validation Errors:</h4>
-          <ul>
-            {stepErrors.map((error, index) => (
-              <li key={index} className="error-message">
-                {error.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Navigation buttons */}
-      <div className="navigation">
-        <WorkflowPreviousButton />
-        <WorkflowNextButton disabled={isValidating}>
-          {isValidating ? 'Validating...' : 'Continue'}
-        </WorkflowNextButton>
-      </div>
-    </div>
-  );
+  // Global access
+  getAllData(): Record<string, any>;
+  getSteps(): StepConfig[];
 }
 ```
 
-### Tax ID Validation Example
+**Key difference**: `setStepData` replaces the entire step's data, while `setStepFields` merges with existing data.
 
-Here's another example for tax ID validation that works across multiple countries:
+## Cloning
+
+Create variations of a workflow with `.clone()`:
 
 ```tsx
-const taxIdValidationStep = {
-  id: 'tax-validation',
-  title: 'Tax Information',
-  formConfig: taxIdForm,
-  onAfterValidation: async (stepData, helper, context) => {
-    const { country, taxId } = stepData;
-    
-    try {
-      // Different validation patterns by country
-      const validationRules = {
-        US: /^\\d{2}-\\d{7}$/, // EIN format
-        FR: /^\\d{11}$/, // SIRET format
-        DE: /^\\d{11}$/, // Steuernummer format
-        UK: /^\\d{10}$/, // UTR format
-        CA: /^\\d{9}$/, // BN format
-      };
+const baseWorkflow = rilay.flow('base', 'Base Onboarding')
+  .addStep({ id: 'welcome', title: 'Welcome', formConfig: welcomeForm })
+  .addStep({ id: 'profile', title: 'Profile', formConfig: profileForm });
 
-      const pattern = validationRules[country];
-      if (!pattern || !pattern.test(taxId)) {
-        throw new Error(`Invalid tax ID format for ${country}`);
-      }
-
-      // Validate with tax authority API
-      const response = await fetch(`/api/tax/validate/${country}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taxId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Tax ID could not be verified with authorities');
-      }
-
-      const taxData = await response.json();
-
-      helper.setNextStepFields({
-        taxStatus: taxData.status,
-        registeredName: taxData.registeredName,
-      });
-
-    } catch (error) {
-      throw new Error('Unable to validate tax ID. Please try again later.');
-    }
-  },
-};
+// Create a variant with an extra step
+const enterpriseWorkflow = baseWorkflow
+  .clone('enterprise', 'Enterprise Onboarding')
+  .addStep({ id: 'billing', title: 'Billing', formConfig: billingForm });
 ```
 
-### Best Practices
+## Serialization
 
-1.  **Error Handling**: Always provide meaningful error messages in the user's language
-2.  **Loading States**: Use `isCurrentStepValidating()` to show loading indicators
-3.  **Fallback Validation**: Have client-side validation as a fallback
-4.  **API Timeouts**: Implement proper timeout handling for API calls
-5.  **Retry Logic**: Consider implementing retry mechanisms for transient failures
+Export and import workflow definitions as JSON for storage or visual editors.
 
-```typescript
-// Example with retry logic
-const retryApiCall = async (fn: () => Promise<any>, maxRetries = 3) => {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-    }
-  }
-};
+```tsx
+// Export
+const workflow = rilay.flow('survey', 'Survey')
+  .addStep({ id: 'q1', title: 'Question 1', formConfig: q1Form });
 
-// Usage in onAfterValidation
-const stepConfig = {
-  // ... other step properties
-  onAfterValidation: async (stepData, helper, context) => {
-    try {
-      const result = await retryApiCall(() => 
-        validateBusinessRegistration(stepData.registrationNumber, stepData.country)
-      );
-      
-      helper.setNextStepFields({ businessInfo: result });
+const json = workflow.toJSON();
+// Store in database, send to API, etc.
 
-    } catch (error) {
-      throw new Error('Validation failed after retries');
-    }
-  },
-};
+// Import
+const restored = rilay.flow('survey-restored', 'Survey')
+  .fromJSON(json);
+
+const config = restored.build();
 ```
 
-This approach provides a robust, international-friendly way to handle step transitions with API validation that can adapt to different countries and regulatory requirements. 
+## Validation
+
+The `.validate()` method checks the builder configuration for common errors before building:
+
+```tsx
+const errors = workflow.validate();
+// Returns string[] — empty if valid
+// Checks: at least 1 step, unique step IDs, plugin dependencies
+```
+
+`.build()` calls `.validate()` internally and throws if errors are found.
+
+## Introspection
+
+Get a statistical overview of your workflow:
+
+```tsx
+const stats = workflow.getStats();
+// {
+//   totalSteps: 3,
+//   totalFields: 12,
+//   averageFieldsPerStep: 4,
+//   maxFieldsInStep: 6,
+//   minFieldsInStep: 2,
+//   hasAnalytics: true,
+// }
+```
+
+## Complete Example
+
+```tsx
+import { rilay, required, email, when } from '@rilaykit/core';
+import { Workflow, WorkflowBody, WorkflowStepper, WorkflowNextButton, WorkflowPreviousButton } from '@rilaykit/workflow';
+
+// Build forms
+const personalForm = rilay.form('personal')
+  .add(
+    { id: 'firstName', type: 'text', props: { label: 'First Name' }, validation: { validate: [required()] } },
+    { id: 'lastName', type: 'text', props: { label: 'Last Name' }, validation: { validate: [required()] } }
+  )
+  .add({ id: 'email', type: 'text', props: { label: 'Email' }, validation: { validate: [required(), email()] } });
+
+const preferencesForm = rilay.form('preferences')
+  .add({ id: 'plan', type: 'select', props: { label: 'Plan', options: [{ value: 'free', label: 'Free' }, { value: 'pro', label: 'Pro' }] } });
+
+// Build workflow
+const onboarding = rilay.flow('onboarding', 'User Onboarding')
+  .addStep({
+    id: 'personal',
+    title: 'Personal Info',
+    formConfig: personalForm,
+    onAfterValidation: async (data, helper) => {
+      // Check if email already exists
+      const exists = await checkEmailExists(data.email);
+      if (exists) throw new Error('Email already registered');
+    },
+  })
+  .addStep({
+    id: 'preferences',
+    title: 'Preferences',
+    formConfig: preferencesForm,
+    allowSkip: true,
+  })
+  .configure({
+    analytics: {
+      onWorkflowComplete: (id, totalTime) => {
+        trackEvent('onboarding_complete', { duration: totalTime });
+      },
+    },
+  });
+
+// Render
+function OnboardingPage() {
+  return (
+    <Workflow workflowConfig={onboarding} onWorkflowComplete={handleComplete}>
+      <WorkflowStepper />
+      <WorkflowBody />
+      <div className="flex justify-between mt-6">
+        <WorkflowPreviousButton />
+        <WorkflowNextButton />
+      </div>
+    </Workflow>
+  );
+}
+```

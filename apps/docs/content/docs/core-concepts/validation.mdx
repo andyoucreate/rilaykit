@@ -1,0 +1,426 @@
+---
+title: Validation
+description: Built-in validators and Standard Schema support for type-safe form validation.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+RilayKit ships with a built-in validation engine that implements the [Standard Schema](https://standardschema.dev) specification. This means you can use RilayKit's own validators **or** any Standard Schema-compatible library (Zod 3.24+, Valibot 1.0+, ArkType 2.0+) interchangeably -- without adapters.
+
+<Callout type="info">
+Every built-in validator returns a `StandardSchemaV1` object, so it can be mixed freely with Zod, Valibot, ArkType, or any other compliant library in the same `validate` array.
+</Callout>
+
+## Built-in Validators
+
+All built-in validators are imported from `@rilaykit/core`. Each one accepts an optional custom error message and returns a Standard Schema object.
+
+### `required(message?)`
+
+Validates that the value is non-empty. Catches empty strings, `null`, `undefined`, empty arrays, and empty objects.
+
+```ts
+import { required } from '@rilaykit/core';
+
+required()                          // Default: 'This field is required'
+required('Please fill this in')     // Custom message
+```
+
+### `email(message?)`
+
+Validates email format.
+
+```ts
+import { email } from '@rilaykit/core';
+
+email()                                      // Default: 'Please enter a valid email address'
+email('A valid email is required')           // Custom message
+```
+
+### `url(message?)`
+
+Validates URL format using the native `URL` constructor.
+
+```ts
+import { url } from '@rilaykit/core';
+
+url()                                  // Default: 'Please enter a valid URL'
+url('Must be a valid link')            // Custom message
+```
+
+### `minLength(min, message?)`
+
+Validates minimum string length.
+
+```ts
+import { minLength } from '@rilaykit/core';
+
+minLength(3)                                       // Default: 'Must be at least 3 characters long'
+minLength(8, 'Password is too short')              // Custom message
+```
+
+### `maxLength(max, message?)`
+
+Validates maximum string length.
+
+```ts
+import { maxLength } from '@rilaykit/core';
+
+maxLength(100)                                     // Default: 'Must be no more than 100 characters long'
+maxLength(50, 'Keep it under 50 characters')       // Custom message
+```
+
+### `pattern(regex, message?)`
+
+Validates against a regular expression.
+
+```ts
+import { pattern } from '@rilaykit/core';
+
+pattern(/^[a-z0-9]+$/)                                  // Default: 'Value does not match required pattern'
+pattern(/^\d{5}$/, 'Must be a 5-digit zip code')        // Custom message
+```
+
+### `number(message?)`
+
+Validates that the value is a valid number. Also coerces strings to numbers.
+
+```ts
+import { number } from '@rilaykit/core';
+
+number()                                // Default: 'Must be a valid number'
+number('Enter a numeric value')         // Custom message
+```
+
+### `min(minValue, message?)`
+
+Validates a minimum numeric value. Coerces strings to numbers before comparison.
+
+```ts
+import { min } from '@rilaykit/core';
+
+min(0)                                  // Default: 'Must be at least 0'
+min(18, 'You must be 18 or older')      // Custom message
+```
+
+### `max(maxValue, message?)`
+
+Validates a maximum numeric value. Coerces strings to numbers before comparison.
+
+```ts
+import { max } from '@rilaykit/core';
+
+max(100)                                        // Default: 'Must be no more than 100'
+max(999, 'Value cannot exceed 999')             // Custom message
+```
+
+### `custom<T>(fn, message?)`
+
+Creates a synchronous custom validator. The function receives the field value and must return `true` (valid) or `false` (invalid).
+
+```ts
+import { custom } from '@rilaykit/core';
+
+custom<string>(
+  (value) => value.startsWith('SK_'),
+  'Must start with SK_'
+)
+
+// Default message: 'Validation failed'
+```
+
+### `async<T>(fn, message?)`
+
+Creates an asynchronous custom validator. The function receives the field value and must return a `Promise<boolean>`.
+
+```ts
+import { async } from '@rilaykit/core';
+
+async<string>(
+  async (value) => {
+    const res = await fetch(`/api/check-username?name=${value}`);
+    const { available } = await res.json();
+    return available;
+  },
+  'Username is already taken'
+)
+
+// Default message: 'Async validation failed'
+```
+
+### `combine<T>(...schemas)`
+
+Combines multiple Standard Schema validators into a single schema. Runs them in sequence and accumulates all issues.
+
+```ts
+import { combine, required, minLength, email } from '@rilaykit/core';
+
+const emailValidator = combine(
+  required('Email is required'),
+  email(),
+  minLength(5, 'Email seems too short')
+);
+```
+
+## Standard Schema Support
+
+The [Standard Schema specification](https://standardschema.dev) defines a common interface for validation libraries. Any library that implements `StandardSchemaV1` works directly with RilayKit -- no wrappers, no adapters.
+
+| Library      | Version  | Standard Schema Support |
+|--------------|----------|-------------------------|
+| **Zod**      | 3.24.0+  | Native support          |
+| **Valibot**  | 1.0+     | Native support          |
+| **ArkType**  | 2.0+     | Native support          |
+
+<Tabs items={['Zod', 'Valibot', 'ArkType']}>
+  <Tab value="Zod">
+    ```tsx
+    import { z } from 'zod';
+
+    const form = rilay.form('signup')
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { label: 'Email' },
+        validation: {
+          validate: [z.string().email()],
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="Valibot">
+    ```tsx
+    import * as v from 'valibot';
+
+    const form = rilay.form('signup')
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { label: 'Email' },
+        validation: {
+          validate: [v.pipe(v.string(), v.email())],
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="ArkType">
+    ```tsx
+    import { type } from 'arktype';
+
+    const form = rilay.form('signup')
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { label: 'Email' },
+        validation: {
+          validate: [type('string.email')],
+        },
+      });
+    ```
+  </Tab>
+</Tabs>
+
+## Combining Validators
+
+You can freely mix built-in validators and third-party schemas in the same `validate` array. They are executed in order and all issues are accumulated.
+
+```tsx
+import { required, minLength } from '@rilaykit/core';
+import { z } from 'zod';
+
+const form = rilay.form('profile')
+  .add({
+    id: 'username',
+    type: 'input',
+    props: { label: 'Username' },
+    validation: {
+      validate: [
+        required(),                                   // RilayKit built-in
+        minLength(3),                                 // RilayKit built-in
+        z.string().regex(/^[a-z0-9]+$/),              // Zod schema
+      ],
+    },
+  });
+```
+
+<Callout type="warn">
+The `validation` property is always an **object** with a `validate` key -- never a bare array. Use `{ validate: [...] }`, not `[...]`.
+</Callout>
+
+## Validation Configuration
+
+### Field-Level: `FieldValidationConfig`
+
+Each field accepts an optional `validation` object that controls what, when, and how validation runs.
+
+```ts
+interface FieldValidationConfig<T = any> {
+  /** One or more Standard Schema validators */
+  validate?: StandardSchema<T> | StandardSchema<T>[];
+
+  /** Run validation every time the value changes (default: false) */
+  validateOnChange?: boolean;
+
+  /** Run validation when the field loses focus (default: false) */
+  validateOnBlur?: boolean;
+
+  /** Debounce delay in milliseconds before validation fires */
+  debounceMs?: number;
+}
+```
+
+**Usage example:**
+
+```tsx
+import { required, email } from '@rilaykit/core';
+
+const form = rilay.form('contact')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email' },
+    validation: {
+      validate: [required(), email()],
+      validateOnBlur: true,
+      debounceMs: 300,
+    },
+  })
+  .add({
+    id: 'name',
+    type: 'input',
+    props: { label: 'Name' },
+    validation: {
+      validate: [required()],
+      validateOnChange: true,
+    },
+  });
+```
+
+## Form-Level Validation
+
+For cross-field validation (e.g. "confirm password must match password"), use `FormValidationConfig` via the `setValidation()` method on a form builder.
+
+### `FormValidationConfig`
+
+```ts
+interface FormValidationConfig<T> {
+  /** One or more Standard Schema validators applied to the entire form data */
+  validate?: StandardSchema<T> | StandardSchema<T>[];
+
+  /** Run form-level validation on submit (default: depends on config) */
+  validateOnSubmit?: boolean;
+
+  /** Run form-level validation on workflow step change */
+  validateOnStepChange?: boolean;
+}
+```
+
+**Usage with `setValidation()`:**
+
+<Tabs items={['Zod Object Schema', 'RilayKit Custom Validator']}>
+  <Tab value="Zod Object Schema">
+    ```tsx
+    import { z } from 'zod';
+
+    const passwordSchema = z.object({
+      password: z.string().min(8, 'Password too short'),
+      confirmPassword: z.string(),
+    }).refine(
+      (data) => data.password === data.confirmPassword,
+      {
+        message: "Passwords don't match",
+        path: ['confirmPassword'],
+      }
+    );
+
+    const form = rilay
+      .form('change-password')
+      .add({
+        id: 'password',
+        type: 'password',
+        props: { label: 'New Password' },
+      })
+      .add({
+        id: 'confirmPassword',
+        type: 'password',
+        props: { label: 'Confirm Password' },
+      })
+      .setValidation({
+        validate: passwordSchema,
+      });
+    ```
+  </Tab>
+  <Tab value="RilayKit Custom Validator">
+    ```tsx
+    import { custom } from '@rilaykit/core';
+
+    const passwordMatch = custom(
+      (data: any) => data.password === data.confirmPassword,
+      "Passwords don't match"
+    );
+
+    const form = rilay
+      .form('change-password')
+      .add({
+        id: 'password',
+        type: 'password',
+        props: { label: 'New Password' },
+      })
+      .add({
+        id: 'confirmPassword',
+        type: 'password',
+        props: { label: 'Confirm Password' },
+      })
+      .setValidation({
+        validate: passwordMatch,
+      });
+    ```
+  </Tab>
+</Tabs>
+
+## Utility Functions
+
+RilayKit exports two utility functions for advanced use cases.
+
+### `isStandardSchema(value)`
+
+Type guard that checks whether a value implements the Standard Schema interface (`~standard` property with version 1, a vendor string, and a validate function).
+
+```ts
+import { isStandardSchema } from '@rilaykit/core';
+
+isStandardSchema(required());         // true
+isStandardSchema(z.string().email()); // true
+isStandardSchema('not a schema');     // false
+```
+
+### `combineSchemas(...schemas)`
+
+Combines multiple Standard Schema objects into a single schema. Unlike passing an array to `validate`, this produces one unified schema object -- useful when you need to pass a single schema somewhere that does not accept arrays.
+
+```ts
+import { combineSchemas, required, email } from '@rilaykit/core';
+import { z } from 'zod';
+
+const combinedEmailSchema = combineSchemas(
+  required('Email is required'),
+  email(),
+  z.string().min(5, 'Email too short')
+);
+
+// Use as a single schema
+const form = rilay.form('contact')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email' },
+    validation: {
+      validate: combinedEmailSchema, // single schema, not an array
+    },
+  });
+```
+
+<Callout type="tip">
+The difference between `combine()` (from validators) and `combineSchemas()` (from utilities) is purely organizational -- they produce the same result. Use whichever import feels clearest in context.
+</Callout>

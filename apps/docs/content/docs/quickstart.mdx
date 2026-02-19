@@ -83,13 +83,13 @@ export const loginForm = rilay
     id: 'email',
     type: 'input',
     props: { label: 'Email', type: 'email' },
-    validation: [required(), email()]
+    validation: { validate: [required(), email()] },
   })
   .add({
     id: 'password',
     type: 'input',
     props: { label: 'Password', type: 'password' },
-    validation: [required()]
+    validation: { validate: [required()] },
   });
 ```
 
@@ -185,13 +185,15 @@ export const rilay = ril.create()
 ### Validation with Zod
 
 ```tsx
-import { z } from 'zod'; // Zod now supports Standard Schema natively
+import { z } from 'zod'; // Zod 3.24+ supports Standard Schema natively
 
 const form = rilay.form('user')
   .add({
     id: 'email',
     type: 'input',
-    validation: [zodFieldValidator(z.string().email())]
+    validation: {
+      validate: z.string().email(), // Use Zod directly — no adapter needed
+    },
   });
 ```
 
@@ -218,19 +220,16 @@ const form = rilay.form('account')
 ```tsx
 import { custom } from '@rilaykit/core';
 
-const passwordMatch = (confirmPassword: string) => 
-  custom((password: string) => {
-    if (password !== confirmPassword) {
-      throw new Error('Passwords do not match');
-    }
-    return password;
-  });
+const passwordMatch = custom(
+  (value, context) => value === context?.formData?.password,
+  'Passwords do not match'
+);
 
 // Usage
 .add({
   id: 'confirmPassword',
   type: 'input',
-  validation: [required(), passwordMatch(formData.password)]
+  validation: { validate: [required(), passwordMatch] },
 })
 ```
 

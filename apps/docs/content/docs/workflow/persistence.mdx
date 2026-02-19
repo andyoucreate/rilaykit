@@ -1,0 +1,311 @@
+---
+title: Persistence
+description: Save and restore workflow progress with built-in localStorage adapter or custom storage.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+Multi-step workflows can take time to complete. Users may close their browser, lose connectivity, or simply want to finish later. Rilaykit's persistence system saves workflow progress automatically and restores it when the user returns.
+
+## How It Works
+
+<Steps>
+<Step>
+### Configure an adapter
+
+Choose a storage backend -- `LocalStorageAdapter` for browser storage, or implement your own adapter for server-side persistence.
+</Step>
+<Step>
+### Attach to the workflow
+
+Pass the adapter and options via the `.configure()` method on the `flow` builder.
+</Step>
+<Step>
+### Automatic save/restore
+
+The `WorkflowProvider` detects the persistence configuration, loads any saved state on mount, and auto-saves on every meaningful state change (debounced).
+</Step>
+</Steps>
+
+---
+
+## LocalStorageAdapter
+
+The built-in adapter that persists workflow data to the browser's `localStorage`. It is SSR-safe -- all operations silently no-op when `window` is not available.
+
+```tsx
+import { LocalStorageAdapter } from '@rilaykit/workflow';
+
+const adapter = new LocalStorageAdapter({
+  keyPrefix: 'rilay_workflow_',  // default
+  compress: false,               // default, uses btoa/atob when true
+  maxAge: undefined,             // milliseconds before data expires
+});
+```
+
+### Constructor Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `keyPrefix` | `string` | `'rilay_workflow_'` | Prefix added to all localStorage keys for namespace isolation. |
+| `compress` | `boolean` | `false` | When `true`, data is base64-encoded before storage. Useful for large workflows. |
+| `maxAge` | `number \| undefined` | `undefined` | Time-to-live in milliseconds. Expired data is removed on next `load` or `exists` check. |
+
+### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `save` | `(key: string, data: PersistedWorkflowData) => Promise<void>` | Saves workflow data. Handles quota exceeded errors by clearing expired entries and retrying. |
+| `load` | `(key: string) => Promise<PersistedWorkflowData \| null>` | Loads saved data. Returns `null` if not found or expired. |
+| `remove` | `(key: string) => Promise<void>` | Deletes saved data for the given key. |
+| `exists` | `(key: string) => Promise<boolean>` | Checks if non-expired data exists for the key. |
+| `listKeys` | `() => Promise<string[]>` | Lists all valid (non-expired) workflow keys. |
+| `clear` | `() => Promise<void>` | Removes all workflow data matching the key prefix. |
+
+<Callout>
+When `compress` is `true`, the adapter encodes the JSON payload with `btoa()` before writing to localStorage and decodes with `atob()` on read. This is a simple encoding, not a compression algorithm -- consider a library like LZ-String for production use with very large datasets.
+</Callout>
+
+---
+
+## Configuration via Flow Builder
+
+Enable persistence by passing a `persistence` object inside `.configure()`:
+
+```tsx
+import { LocalStorageAdapter } from '@rilaykit/workflow';
+
+const workflow = rilay
+  .flow('onboarding', 'Onboarding')
+  .addStep({
+    id: 'personal-info',
+    title: 'Personal Info',
+    formConfig: personalInfoForm,
+  })
+  .addStep({
+    id: 'preferences',
+    title: 'Preferences',
+    formConfig: preferencesForm,
+  })
+  .configure({
+    persistence: {
+      adapter: new LocalStorageAdapter({
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      }),
+      options: {
+        autoPersist: true,
+        debounceMs: 500,
+      },
+      userId: currentUser.id, // Isolates storage per user
+    },
+  });
+```
+
+### PersistenceOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `autoPersist` | `boolean` | `false` | Automatically save on every meaningful state change. |
+| `debounceMs` | `number` | `500` | Delay in ms before the auto-save fires after the last change. |
+| `storageKey` | `string` | workflow ID | Override the key used for storage. |
+| `metadata` | `Record<string, any>` | `undefined` | Extra metadata saved alongside workflow data (e.g., version, tenant). |
+
+### userId
+
+When `userId` is provided, it is appended to the storage key so that different users on the same browser get independent persistence.
+
+---
+
+## PersistedWorkflowData
+
+The shape of data that gets saved and loaded:
+
+```ts
+interface PersistedWorkflowData {
+  workflowId: string;
+  currentStepIndex: number;
+  allData: Record<string, any>;
+  stepData: Record<string, any>;
+  visitedSteps: string[];
+  passedSteps?: string[];
+  lastSaved: number;            // Unix timestamp
+  metadata?: Record<string, any>;
+}
+```
+
+This structure contains everything needed to fully restore the workflow: which step the user was on, all the data they entered, which steps they visited, and which steps passed validation.
+
+---
+
+## usePersistence Hook
+
+The persistence logic is powered by the `usePersistence` hook. It is used internally by `WorkflowProvider`, but you can interact with its return values through `useWorkflowContext()`.
+
+### Return Values
+
+```ts
+interface UsePersistenceReturn {
+  /** Whether a save operation is currently in progress */
+  isPersisting: boolean;
+
+  /** The last persistence error, if any */
+  persistenceError: WorkflowPersistenceError | null;
+
+  /** Trigger an immediate save (bypasses debounce) */
+  persistNow: () => Promise<void>;
+
+  /** Load persisted data from the adapter */
+  loadPersistedData: () => Promise<PersistedWorkflowData | null>;
+
+  /** Delete all persisted data for this workflow */
+  clearPersistedData: () => Promise<void>;
+
+  /** Check if persisted data exists */
+  hasPersistedData: () => Promise<boolean>;
+}
+```
+
+### Accessing from Components
+
+The `persistNow`, `isPersisting`, and `persistenceError` values are surfaced through `useWorkflowContext()`:
+
+```tsx
+import { useWorkflowContext } from '@rilaykit/workflow';
+
+function PersistenceIndicator() {
+  const { isPersisting, persistenceError, persistNow } = useWorkflowContext();
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      {isPersisting && <span>Saving...</span>}
+      {persistenceError && (
+        <span className="text-destructive">
+          Save failed: {persistenceError.message}
+        </span>
+      )}
+      <button onClick={() => persistNow?.()}>
+        Save now
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## Auto-Save Behavior
+
+When `autoPersist` is `true`, the hook watches for state changes and saves automatically. It applies several safeguards:
+
+1. **Debouncing** -- Saves are debounced by `debounceMs` (default 500ms) to avoid writing on every keystroke.
+2. **Significant change detection** -- Only saves when the step index, data, or visited steps have actually changed.
+3. **Skips during transitions** -- No save fires while `isTransitioning`, `isSubmitting`, or `isInitializing` is `true`.
+4. **Quota exceeded recovery** -- The `LocalStorageAdapter` clears expired entries and retries when `QuotaExceededError` is thrown.
+
+---
+
+## Custom Adapter
+
+Implement the `WorkflowPersistenceAdapter` interface to use any storage backend.
+
+```ts
+interface WorkflowPersistenceAdapter {
+  save(key: string, data: PersistedWorkflowData): Promise<void>;
+  load(key: string): Promise<PersistedWorkflowData | null>;
+  remove(key: string): Promise<void>;
+  exists(key: string): Promise<boolean>;
+  listKeys?(): Promise<string[]>;
+  clear?(): Promise<void>;
+}
+```
+
+### Example: Supabase Adapter
+
+<Tabs items={['Implementation', 'Usage']}>
+<Tab value="Implementation">
+```ts
+import type {
+  PersistedWorkflowData,
+  WorkflowPersistenceAdapter,
+} from '@rilaykit/workflow';
+import { supabase } from '@/lib/supabase';
+
+export class SupabaseAdapter implements WorkflowPersistenceAdapter {
+  private table = 'workflow_progress';
+
+  async save(key: string, data: PersistedWorkflowData): Promise<void> {
+    const { error } = await supabase
+      .from(this.table)
+      .upsert({
+        key,
+        data: JSON.stringify(data),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+
+    if (error) throw new Error(error.message);
+  }
+
+  async load(key: string): Promise<PersistedWorkflowData | null> {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('data')
+      .eq('key', key)
+      .single();
+
+    if (error || !data) return null;
+    return JSON.parse(data.data);
+  }
+
+  async remove(key: string): Promise<void> {
+    await supabase.from(this.table).delete().eq('key', key);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    const { count } = await supabase
+      .from(this.table)
+      .select('key', { count: 'exact', head: true })
+      .eq('key', key);
+
+    return (count ?? 0) > 0;
+  }
+}
+```
+</Tab>
+<Tab value="Usage">
+```tsx
+const workflow = rilay
+  .flow('onboarding', 'Onboarding')
+  .addStep(...)
+  .configure({
+    persistence: {
+      adapter: new SupabaseAdapter(),
+      options: { autoPersist: true, debounceMs: 1000 },
+      userId: currentUser.id,
+    },
+  });
+```
+</Tab>
+</Tabs>
+
+<Callout>
+The `listKeys()` and `clear()` methods are optional. They are useful for admin tooling or cleanup jobs but are not required by the persistence system.
+</Callout>
+
+---
+
+## Error Handling
+
+Persistence errors are wrapped in `WorkflowPersistenceError`, which includes a machine-readable `code`:
+
+| Code | Meaning |
+|------|---------|
+| `SAVE_FAILED` | The save operation failed. |
+| `LOAD_FAILED` | The load operation failed. |
+| `REMOVE_FAILED` | The remove operation failed. |
+| `LIST_FAILED` | Listing keys failed. |
+| `CLEAR_FAILED` | Clearing all data failed. |
+| `QUOTA_EXCEEDED` | localStorage is full and cleanup could not free enough space. |
+| `OPERATION_FAILED` | Generic fallback code. |
+
+Errors are surfaced through `persistenceError` in the hook and are also logged to the console with the `[WorkflowPersistence]` prefix.

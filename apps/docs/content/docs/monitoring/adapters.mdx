@@ -1,0 +1,225 @@
+---
+title: Monitoring Adapters
+description: Built-in and custom adapters for sending monitoring events to different destinations.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Adapters are the output layer of the monitoring system. Each adapter receives batches of `MonitoringEvent` objects and decides what to do with them -- log to the console, send to a remote API, persist in localStorage, etc. You can attach multiple adapters to a single `RilayMonitor` instance.
+
+## The MonitoringAdapter Interface
+
+Every adapter must implement the following interface:
+
+```ts
+interface MonitoringAdapter {
+  name: string;
+  send(events: MonitoringEvent[]): Promise<void>;
+  flush?(): Promise<void>;
+  configure?(config: Record<string, any>): void;
+}
+```
+
+| Property | Required | Description |
+|---|---|---|
+| `name` | Yes | A unique identifier for the adapter. Used by `removeAdapter()`. |
+| `send(events)` | Yes | Receives a batch of events to process. Called automatically at each flush interval. |
+| `flush()` | No | Called when `monitor.flush()` is invoked. Use this to force-send any internally buffered events. |
+| `configure(config)` | No | Allows reconfiguring the adapter at runtime. |
+
+## Built-in Adapters
+
+RilayKit ships with four adapters that cover the most common use cases.
+
+### ConsoleAdapter
+
+Logs events to the browser console. Useful during development or for quick debugging in production.
+
+```ts
+import { ConsoleAdapter } from '@rilaykit/core';
+
+const adapter = new ConsoleAdapter('info');
+monitor.addAdapter(adapter);
+```
+
+The constructor accepts an optional `logLevel` parameter that controls the minimum severity of events that are logged.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `logLevel` | `'debug' \| 'info' \| 'warn' \| 'error'` | `'info'` | Minimum log level. Events below this level are silently ignored. |
+
+### RemoteAdapter
+
+Sends events to a remote HTTP endpoint. Events are batched and retried on failure, making this adapter suitable for production analytics pipelines.
+
+```ts
+import { RemoteAdapter } from '@rilaykit/core';
+
+const adapter = new RemoteAdapter({
+  endpoint: 'https://analytics.example.com/events',
+  apiKey: 'your-api-key',
+  headers: { 'X-App': 'my-app' },
+  batchSize: 50,
+  retryAttempts: 3,
+});
+monitor.addAdapter(adapter);
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `endpoint` | `string` | -- | The URL to POST events to. **Required.** |
+| `apiKey` | `string` | -- | Sent as the `Authorization: Bearer` header value. |
+| `headers` | `Record<string, string>` | `{}` | Additional HTTP headers to include in every request. |
+| `batchSize` | `number` | `50` | Maximum number of events per request. |
+| `retryAttempts` | `number` | `3` | Number of retry attempts on network failure before dropping the batch. |
+
+<Callout type="info">
+The `RemoteAdapter` sends events as a JSON array in the request body. Each event conforms to the `MonitoringEvent` type. Your server should respond with a `2xx` status code to acknowledge receipt.
+</Callout>
+
+### LocalStorageAdapter
+
+Persists events in the browser's `localStorage`. This is useful for offline-first applications or for retaining events across page reloads before they can be flushed to a remote endpoint.
+
+```ts
+import { LocalStorageAdapter } from '@rilaykit/core';
+
+const adapter = new LocalStorageAdapter(1000);
+monitor.addAdapter(adapter);
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `maxEvents` | `number` | `1000` | Maximum number of events to store. When the limit is reached, the oldest events are discarded. |
+
+The adapter exposes additional methods for direct access to the stored data:
+
+```ts
+// Retrieve all stored events
+const events = adapter.getStoredEvents();
+
+// Get the current count
+const count = adapter.getEventCount();
+
+// Clear all stored events
+adapter.clearStoredEvents();
+```
+
+<Callout>
+`LocalStorageAdapter` is intended for buffering or debugging. For long-term persistence, forward events to a remote endpoint using `RemoteAdapter`.
+</Callout>
+
+### DevelopmentAdapter
+
+An enhanced console adapter designed for local development. It groups related events, color-codes severity levels, and prints periodic performance summaries.
+
+```ts
+import { DevelopmentAdapter } from '@rilaykit/core';
+
+const adapter = new DevelopmentAdapter();
+monitor.addAdapter(adapter);
+```
+
+No configuration is required. The adapter automatically formats output for readability:
+
+- Events are grouped by source using `console.group`.
+- Error events are highlighted with `console.error`.
+- A performance summary is printed at each flush interval, showing average durations for tracked operations.
+
+<Callout type="info">
+`DevelopmentAdapter` is a great default during local development. Swap it for `RemoteAdapter` in production. See the [Monitoring Overview](/docs/monitoring/overview) for a full setup example that switches adapters based on the environment.
+</Callout>
+
+## Choosing the Right Adapter
+
+<Tabs items={['Development', 'Staging', 'Production']}>
+  <Tab value="Development">
+    Use `DevelopmentAdapter` for rich, grouped console output with performance summaries.
+
+    ```ts
+    monitor.addAdapter(new DevelopmentAdapter());
+    ```
+  </Tab>
+  <Tab value="Staging">
+    Combine `ConsoleAdapter` for visibility with `LocalStorageAdapter` for persistence across refreshes.
+
+    ```ts
+    monitor.addAdapter(new ConsoleAdapter('debug'));
+    monitor.addAdapter(new LocalStorageAdapter(5000));
+    ```
+  </Tab>
+  <Tab value="Production">
+    Use `RemoteAdapter` to send events to your analytics backend. Optionally add `LocalStorageAdapter` as a fallback buffer.
+
+    ```ts
+    monitor.addAdapter(new RemoteAdapter({
+      endpoint: 'https://analytics.example.com/events',
+      apiKey: process.env.MONITORING_API_KEY!,
+      batchSize: 100,
+      retryAttempts: 5,
+    }));
+    ```
+  </Tab>
+</Tabs>
+
+## Creating a Custom Adapter
+
+You can create your own adapter by implementing the `MonitoringAdapter` interface. This is useful for integrating with third-party services like Sentry, Datadog, Mixpanel, or any proprietary system.
+
+```ts title="lib/sentry-adapter.ts"
+import type { MonitoringAdapter, MonitoringEvent } from '@rilaykit/core';
+import * as Sentry from '@sentry/browser';
+
+class SentryAdapter implements MonitoringAdapter {
+  name = 'sentry';
+
+  async send(events: MonitoringEvent[]): Promise<void> {
+    for (const event of events) {
+      if (event.severity === 'critical' || event.severity === 'high') {
+        Sentry.captureEvent({
+          message: `[${event.type}] ${event.source}`,
+          level: event.severity === 'critical' ? 'fatal' : 'error',
+          extra: {
+            data: event.data,
+            metrics: event.metrics,
+          },
+          tags: {
+            source: event.source,
+            eventType: event.type,
+          },
+        });
+      }
+    }
+  }
+
+  async flush(): Promise<void> {
+    await Sentry.flush(2000);
+  }
+}
+```
+
+Then register it like any other adapter:
+
+```ts
+import { getGlobalMonitor } from '@rilaykit/core';
+import { SentryAdapter } from '@/lib/sentry-adapter';
+
+const monitor = getGlobalMonitor();
+monitor?.addAdapter(new SentryAdapter());
+```
+
+## Managing Adapters at Runtime
+
+Adapters can be added or removed at any time during the application lifecycle.
+
+```ts
+const monitor = getGlobalMonitor();
+
+// Add an adapter
+monitor?.addAdapter(new ConsoleAdapter('debug'));
+
+// Remove it later by name
+monitor?.removeAdapter('console');
+```
+
+This is useful for scenarios like enabling verbose logging when a user opens a debug panel, or temporarily attaching a `LocalStorageAdapter` to capture a reproduction of a bug.
