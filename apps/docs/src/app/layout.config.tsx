@@ -8,7 +8,7 @@ export const baseOptions: BaseLayoutProps = {
     title: <RilayLogo className="h-8 w-auto" />,
     url: 'https://rilay.dev',
   },
-  githubUrl: 'https://github.com/andyoucreate/rilaykit',
+  githubUrl: 'https://github.com/andyoucreate/rilay',
   links: [
     {
       type: 'icon',
