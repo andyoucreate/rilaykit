@@ -1,63 +1,21 @@
-# RilayKit Licensing
+MIT License
 
-RilayKit uses a dual licensing model to support both open source and commercial use cases.
+Copyright (c) 2025 AND YOU CREATE
 
-## 📦 Package Licenses
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-### Free & Open Source (MIT License)
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-The following packages are free to use for any purpose, including commercial use:
-
-- **`@rilaykit/core`** - Core functionality and types
-- **`@rilaykit/forms`** - Form building utilities and components
-
-These packages are licensed under the [MIT License](https://opensource.org/licenses/MIT), which means you can:
-- ✅ Use for any purpose (personal, commercial, etc.)
-- ✅ Modify and distribute
-- ✅ Include in proprietary software
-- ✅ Sell products that use these packages
-
-### Commercial License Required
-
-The following package requires a commercial license for ALL use:
-
-- **`@rilaykit/workflow`** - Advanced workflow and multi-step form utilities
-
-⚠️ **Important:** This package is NEVER free. It requires a paid license for any use case, including:
-- 🏢 **Commercial applications** - Business websites and applications
-- 🎓 **Educational use** - Students, teachers, academic research
-- 🏠 **Personal projects** - Side projects and hobby applications
-- 🧪 **Development and testing** - All development environments
-
-**Without a valid license, the package will display watermarks in the UI and console that cannot be removed.**
-
-[Get a license →](https://rilay.io/pricing)
-
-## 🤝 Why This Model?
-
-This dual licensing approach allows us to:
-- Keep core functionality free and open source
-- Support the open source community with free form-building tools
-- Fund continued development of advanced workflow features through commercial licenses
-- Provide professional support and enterprise features
-- Ensure sustainable development of the library
-
-## 📞 Contact
-
-- **Commercial licensing**: license@andyoucreate.com
-- **Technical support**: support@andyoucreate.com
-- **General inquiries**: contact@andyoucreate.com
-
-## 📚 Learn More
-
-- [Pricing & Licensing](https://rilay.io/pricing)
-- [Documentation](https://rilay.io/docs)
-- [GitHub Repository](https://github.com/andyoucreate/rilay)
-
----
-
-**Questions about licensing?** We're here to help! Contact us at license@andyoucreate.com
-
----
-
-**RilayKit** is developed by [AND YOU CREATE](https://andyoucreate.com), a French consulting company (SIREN: 940 190 614) specializing in business strategy and performance optimization. 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
