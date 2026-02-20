@@ -1,3 +1,35 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+
+/* Golden palette override */
+@theme {
+  --color-fd-primary: hsl(40, 80%, 42%);
+  --color-fd-primary-foreground: hsl(0, 0%, 100%);
+  --color-fd-accent: hsla(40, 60%, 50%, 20%);
+  --color-fd-accent-foreground: hsl(40, 80%, 30%);
+  --color-fd-ring: hsl(40, 70%, 50%);
+}
+
+.dark {
+  --color-fd-primary: hsl(42, 78%, 60%);
+  --color-fd-primary-foreground: hsl(0, 0%, 5%);
+  --color-fd-accent: hsla(42, 60%, 50%, 15%);
+  --color-fd-accent-foreground: hsl(42, 70%, 70%);
+  --color-fd-ring: hsl(42, 70%, 55%);
+}
+
+/* ============================================================================
+ * SIDEBAR
+ * ============================================================================ */
+
+#nd-sidebar a,
+#nd-sidebar button {
+  margin-block: 1px;
+  transition: none !important;
+}
+
+#nd-sidebar a:hover,
+#nd-sidebar button:hover {
+  transition: none !important;
+}

@@ -1,71 +1,128 @@
 ---
 title: Introduction
-description: A schema-first, type-safe React library for building forms and workflows with full UI flexibility.
+description: The schema-first form and workflow engine for React. Define forms as data, get type safety, validation, conditions, and multi-step workflows with any UI library.
 ---
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { FileCode, BotMessageSquare, Settings2, Sparkles } from 'lucide-react';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-# RilayKit
+<RilayHero />
 
-**RilayKit** is a schema-first React library for building type-safe forms and workflows. Define your forms as data structures, register your components once, and let TypeScript propagate types through the entire chain — from component registry to rendered fields.
+```tsx
+// Register components once
+const rilay = ril.create()
+  .addComponent('input', { renderer: YourInput })
+  .addComponent('select', { renderer: YourSelect });
+
+// Define forms as data structures
+const onboarding = rilay.form('onboarding')
+  .add({ id: 'email', type: 'input', validation: { validate: [required(), email()] } })
+  .add({ id: 'plan', type: 'select', props: { options: plans } })
+  .add({ id: 'company', type: 'input', conditions: { visible: when('plan').equals('business') } });
+
+// Render with full type safety — anywhere, with any design system
+<Form formConfig={onboarding} onSubmit={handleSubmit}>
+  <FormField fieldId="email" />
+  <FormField fieldId="plan" />
+  <FormField fieldId="company" />
+</Form>
+```
 
 <Callout type="info">
-RilayKit is fully **headless** — it manages state, validation, and logic. You bring the components, the markup, and the styling.
+RilayKit is fully **headless** — it manages state, validation, and logic. You own the components, the markup, and the styling.
 </Callout>
 
-## What Makes RilayKit Different
+---
 
-Most form libraries are imperative: you write JSX, sprinkle in validation, and manually wire state. RilayKit inverts this — forms are **declarative configurations** that are serializable, composable, and fully type-safe.
+## Why RilayKit
 
-Read the full story in [Why RilayKit](/why-rilaykit).
+Most form libraries are imperative: you write JSX, sprinkle in validation, and manually wire state. Every form is a one-off. Multi-step flows require custom state machines. Type safety is bolted on after the fact.
+
+RilayKit takes a different approach. Forms are **declarative data structures** — serializable, composable, and type-safe from registration to render.
+
+| | Traditional Libraries | RilayKit |
+|---|---|---|
+| **Form definition** | Scattered across JSX | Centralized data structure |
+| **Type safety** | Manual type annotations | Automatic type propagation |
+| **Validation** | Library-specific adapters | Any Standard Schema library, directly |
+| **Conditions** | `useEffect` + state | Declarative `when()` API |
+| **Multi-step** | Build your own | Built-in workflow engine |
+| **Serialization** | Not possible | `.toJSON()` / `.fromJSON()` |
+
+[Read the full story](/why-rilaykit)
+
+---
+
+## Core Ideas
 
 ### Type Propagation
 
-Register components with their prop types. TypeScript tracks everything — from the registry through form definitions to rendered fields. Invalid types and props are caught at compile time, not at runtime.
+Register a component with `addComponent('input', { renderer: Input })` and TypeScript knows its props everywhere. Use `type: 'input'` in a form definition and your IDE autocompletes the right props. Use an unregistered type and the compiler catches it.
 
-[Learn more about TypeScript support](/core-concepts/typescript-support)
+```tsx
+rilay.form('test')
+  .add({
+    type: 'input',       // Autocompletes from registry
+    props: { label: '' } // Typed as InputProps
+  })
+  .add({
+    type: 'unknown',     // Compile error — not in registry
+  });
+```
+
+[Learn more](/core-concepts/typescript-support)
 
 ### Universal Validation
 
-Use any Standard Schema compatible library directly — Zod, Valibot, ArkType — or RilayKit's built-in validators. No adapters, no wrappers.
+One `validate` field. Any validation library. No adapters.
 
-[Learn more about validation](/core-concepts/validation)
+```tsx
+// Built-in validators
+validation: { validate: [required(), email(), minLength(8)] }
+
+// Zod — directly, no adapter needed
+validation: { validate: z.string().email() }
+
+// Mix them
+validation: { validate: [required(), z.string().min(8)] }
+```
+
+[Learn more](/core-concepts/validation)
 
 ### Declarative Conditions
 
-Control field visibility, disabled state, and requirements with a fluent condition API. No `useEffect`, no imperative state management.
+Control field visibility and behavior without `useEffect`:
 
-[Learn more about conditions](/core-concepts/conditions)
+```tsx
+.add({
+  id: 'company',
+  type: 'input',
+  conditions: {
+    visible: when('accountType').equals('business'),
+    required: when('plan').in(['pro', 'enterprise']),
+  }
+})
+```
+
+[Learn more](/core-concepts/conditions)
 
 ### Workflow Engine
 
-Build multi-step processes with step navigation, persistence, analytics, and a plugin system. Not a wizard with hidden divs — a real workflow engine.
-
-[Learn more about workflows](/workflow/building-workflows)
-
-## Quick Example
+Not a wizard with hidden divs. A real engine with navigation guards, persistence, analytics, and plugins:
 
 ```tsx
-import { ril, required, email, minLength } from '@rilaykit/core';
-import { Form, FormField } from '@rilaykit/forms';
-
-// 1. Register your components once
-const rilay = ril.create()
-  .addComponent('input', { renderer: YourInputComponent });
-
-// 2. Define forms as data
-const loginForm = rilay
-  .form('login')
-  .add({ id: 'email', type: 'input', props: { label: 'Email' }, validation: { validate: [required(), email()] } })
-  .add({ id: 'password', type: 'input', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } });
-
-// 3. Render with full type safety
-<Form formConfig={loginForm} onSubmit={handleLogin}>
-  <FormField fieldId="email" />
-  <FormField fieldId="password" />
-</Form>
+const flow = rilay.flow('onboarding')
+  .addStep({ id: 'account', title: 'Account', formConfig: accountForm })
+  .addStep({ id: 'profile', title: 'Profile', formConfig: profileForm })
+  .configure({
+    persistence: { adapter: 'localStorage', key: 'onboarding' },
+    analytics: { onStepComplete: (id) => track('step_done', { step: id }) },
+  });
 ```
+
+[Learn more](/workflow/building-workflows)
+
+---
 
 ## Packages
 
@@ -94,19 +151,42 @@ RilayKit is modular. Install only what you need.
   />
 </Cards>
 
+---
+
 ## Design Principles
 
-### Bring Your Own Components
-RilayKit generates no HTML and no CSS. It connects to your existing components through a renderer system, giving you complete control over markup, styling, and accessibility.
+### Headless Architecture
+RilayKit generates no HTML and no CSS. It connects to your existing components through a renderer system, giving you complete control over markup, styling, and accessibility. Works with any design system — Material UI, shadcn/ui, Chakra, or your own.
 
-### Extensible by Design
-Every layer is customizable — validators, conditions, renderers, workflow plugins. Build exactly the form system your product needs.
+### Schema-First
+Forms and workflows are data structures, not JSX trees. Serialize them, store them in a database, generate them from a visual builder, diff them in version control.
 
 ### Type Safety First
 Built from the ground up with TypeScript. The type accumulation pattern ensures autocompletion, compile-time validation, and zero runtime type errors across your entire form system.
 
-## Getting Started
+---
 
-Start with the [installation guide](/getting-started/installation) or jump straight into [building your first form](/getting-started/your-first-form).
+## Get Started
 
-For a faster introduction, try the [Quick Start](/quickstart) guide.
+<Cards>
+  <Card
+    title="Quick Start"
+    description="Get a working form in 5 minutes."
+    href="/quickstart"
+  />
+  <Card
+    title="Installation"
+    description="Install packages and system requirements."
+    href="/getting-started/installation"
+  />
+  <Card
+    title="Your First Form"
+    description="Step-by-step tutorial with explanations."
+    href="/getting-started/your-first-form"
+  />
+  <Card
+    title="Why RilayKit"
+    description="The schema-first approach explained in depth."
+    href="/why-rilaykit"
+  />
+</Cards>
