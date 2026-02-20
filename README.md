@@ -1,163 +1,184 @@
-# Rilay
+# RilayKit
 
 [![npm version](https://badge.fury.io/js/@rilaykit%2Fcore.svg)](https://badge.fury.io/js/@rilaykit%2Fcore)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 
-**A next-generation React form library designed with modularity, type safety, and extensibility at its core.**
+**A schema-first, headless form library for React — with type-safe builders, universal validation, and a real workflow engine.**
 
-🏠 **[Full Documentation](https://docs.rilay.io)** • 🚀 **[Quick Start Guide](#installation)**
+[Documentation](https://rilay.dev) | [Quick Start](https://rilay.dev/quickstart) | [Examples](https://rilay.dev/examples)
 
-## ✨ Key Features
+## Why RilayKit
 
-- 🧩 **Modular Architecture** - Separate packages for core, forms, and workflows
-- 🔷 **100% TypeScript** - Full support with type inference
-- 🎨 **"Bring your own components"** - Provides the logic, you provide the UI
-- ⚡ **Fluent Builder API** - Form creation with chainable syntax
-- 🔄 **Multi-step Workflows** - Complex navigation with conditional logic
-- ✅ **Advanced Validation System** - Sync/async validation with debouncing
-- 🎯 **Conditional Logic** - Dynamic field show/hide functionality
-- 📊 **Built-in Analytics** - Performance and user behavior tracking
+RilayKit treats forms as **data structures**, not JSX trees. You describe what a form contains, and the library handles state, validation, conditions, and rendering orchestration. Your components stay in your design system — RilayKit generates zero HTML and zero CSS.
 
-## 📦 Packages
+- **Schema-first** — forms are declarative, serializable, introspectable, clonable
+- **Headless** — bring your own components, styling, and design system
+- **Type-safe** — generic type accumulation propagates component prop types through the entire builder chain
+- **Universal validation** — Standard Schema compatible (Zod, Valibot, ArkType, Yup) with no adapters
+- **Workflow engine** — multi-step flows with navigation guards, persistence, analytics, and plugins
 
-| Package | Version | Description | License |
-|---------|---------|-------------|---------|
-| `@rilaykit/core` | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Core configuration system and types | MIT |
-| `@rilaykit/forms` | ![npm](https://img.shields.io/npm/v/@rilaykit/forms) | Form building and rendering | MIT |
-| `@rilaykit/workflow` | ![npm](https://img.shields.io/npm/v/@rilaykit/workflow) | Multi-step workflows (Premium) | Commercial |
+## Packages
 
-## 🚀 Installation
+| Package | Version | Description |
+|---------|---------|-------------|
+| [`@rilaykit/core`](./packages/core) | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Component registry, types, validation, conditions, monitoring |
+| [`@rilaykit/forms`](./packages/forms) | ![npm](https://img.shields.io/npm/v/@rilaykit/forms) | Form builder and headless React components |
+| [`@rilaykit/workflow`](./packages/workflow) | ![npm](https://img.shields.io/npm/v/@rilaykit/workflow) | Multi-step workflows with persistence, analytics, plugins |
+
+All packages are MIT licensed and open source.
+
+## Installation
 
 ```bash
-# Basic installation (forms)
-npm install @rilaykit/core @rilaykit/forms
+# Core + Forms (most use cases)
+pnpm add @rilaykit/core @rilaykit/forms
 
-# With workflows (license required)  
-npm install @rilaykit/core @rilaykit/forms @rilaykit/workflow
+# With multi-step workflows
+pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 ```
 
-## 🏁 Quick Start Guide
+**Requirements:** React >= 18, TypeScript >= 5
 
-### 1. Component Configuration
+## Quick Start
 
-```typescript
-import { ril } from '@rilaykit/core';
-import { TextInput, EmailInput } from './components';
+### 1. Register Your Components
 
-const factory = ril
-  .create()
-  .addComponent('text', {
-    name: 'Text Input',
-    renderer: TextInput,
-    defaultProps: { placeholder: 'Enter text...' },
-    validation: {
-      validators: [required()],
-      validateOnBlur: true
-    }
+```tsx
+import { ril, ComponentRenderer } from '@rilaykit/core';
+
+interface InputProps {
+  label: string;
+  type?: string;
+  placeholder?: string;
+}
+
+const Input: ComponentRenderer<InputProps> = ({
+  id, value, onChange, onBlur, error, props,
+}) => (
+  <div>
+    <label htmlFor={id}>{props.label}</label>
+    <input
+      id={id}
+      type={props.type || 'text'}
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+      onBlur={onBlur}
+    />
+    {error && <p>{error[0].message}</p>}
+  </div>
+);
+
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input });
+```
+
+### 2. Build a Form
+
+```tsx
+import { required, email } from '@rilaykit/core';
+
+const loginForm = rilay
+  .form('login')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email', type: 'email' },
+    validation: { validate: [required(), email()] },
   })
-  .addComponent('email', {
-    name: 'Email Input',
-    renderer: EmailInput,
-    validation: {
-      validators: [email('Invalid email')],
-    }
+  .add({
+    id: 'password',
+    type: 'input',
+    props: { label: 'Password', type: 'password' },
+    validation: { validate: [required()] },
   });
 ```
 
-### 2. Form Building
+### 3. Render It
 
-```typescript
-import { required, minLength } from '@rilaykit/core';
-
-const form = factory
-  .form('user-registration')
-  .add({
-    type: 'text',
-    props: { label: 'First Name' },
-    validation: {
-      validators: [required(), minLength(2)],
-      validateOnBlur: true
-    }
-  })
-  .add(
-    { type: 'text', props: { label: 'First Name' } },
-    { type: 'text', props: { label: 'Last Name' } }  // Same row
-  )
-  .add({
-    type: 'email',
-    props: { label: 'Email' },
-    validation: {
-      validators: [
-        async(async (value) => {
-          const isUnique = await checkEmailUnique(value);
-          return isUnique;
-        }, 'Email already exists')
-      ],
-      debounceMs: 500
-    }
-  })
-  .build();
-```
-
-### 3. Form Rendering
-
-```typescript
+```tsx
 import { Form, FormField } from '@rilaykit/forms';
 
-function MyForm() {
+function LoginForm() {
+  const handleSubmit = (data: { email: string; password: string }) => {
+    console.log('Login:', data);
+  };
+
   return (
-    <Form formConfig={form}>
-      <FormField fieldId="firstName" />
-      <FormField fieldId="lastName" />
+    <Form formConfig={loginForm} onSubmit={handleSubmit}>
       <FormField fieldId="email" />
+      <FormField fieldId="password" />
+      <button type="submit">Sign In</button>
     </Form>
   );
 }
 ```
 
-### 4. Multi-step Workflow (Premium)
+## Key Features
 
-```typescript
+### Universal Validation
+
+Use built-in validators, Zod, Valibot, Yup, or any Standard Schema library — no adapters needed. Mix them freely.
+
+```tsx
+import { required, custom } from '@rilaykit/core';
+import { z } from 'zod';
+
+validation: {
+  validate: [
+    required(),
+    z.string().email(),
+    custom((value) => value.endsWith('@company.com'), 'Must be a company email'),
+  ],
+}
+```
+
+### Declarative Conditions
+
+```tsx
 import { when } from '@rilaykit/core';
-import { Workflow, WorkflowStepper, WorkflowBody } from '@rilaykit/workflow';
 
-const workflow = factory
+conditions: {
+  visible: when('accountType').equals('business'),
+  required: when('revenue').greaterThan(100000),
+}
+```
+
+### Multi-Step Workflows
+
+```tsx
+import { LocalStorageAdapter } from '@rilaykit/workflow';
+
+const onboarding = rilay
   .flow('onboarding', 'User Onboarding')
+  .addStep({ id: 'account', title: 'Create Account', formConfig: accountForm })
   .addStep({
-    title: 'Personal Information',
-    formConfig: personalInfoForm,
-    onAfterValidation: async (stepData, helper, context) => {
-      // API call based on step data
-      const companyInfo = await fetchCompanyBySiren(stepData.siren);
-      
-      // Pre-fill next step
-      helper.setNextStepFields({
-        companyName: companyInfo.name,
-        address: companyInfo.address
-      });
-    }
-  })
-  .addStep({
-    title: 'Company Details',
-    formConfig: companyForm,
-    conditions: {
-      visible: when('personal-info.siren').equals('123456789'),
-      skippable: when('companyName').isNotEmpty()
-    }
+    id: 'profile',
+    title: 'Your Profile',
+    formConfig: profileForm,
+    allowSkip: true,
   })
   .configure({
+    persistence: {
+      adapter: new LocalStorageAdapter({ maxAge: 7 * 24 * 60 * 60 * 1000 }),
+      options: { autoPersist: true, debounceMs: 500 },
+    },
     analytics: {
-      onStepComplete: (stepId, duration, data) => {
-        console.log('Step completed:', stepId, duration);
-      }
-    }
-  })
-  .build();
+      onStepComplete: (stepId, duration) => trackEvent('step_complete', { stepId, duration }),
+      onWorkflowComplete: (id, totalTime) => trackEvent('workflow_complete', { id, totalTime }),
+    },
+  });
+```
 
-function MyWorkflow() {
+```tsx
+import {
+  Workflow, WorkflowStepper, WorkflowBody,
+  WorkflowPreviousButton, WorkflowNextButton,
+} from '@rilaykit/workflow';
+
+function OnboardingFlow() {
   return (
-    <Workflow workflowConfig={workflow}>
+    <Workflow workflowConfig={onboarding} onComplete={handleComplete}>
       <WorkflowStepper />
       <WorkflowBody />
       <div>
@@ -169,126 +190,41 @@ function MyWorkflow() {
 }
 ```
 
-## 🔧 Advanced Features
+## Architecture
 
-### Conditional Logic
-
-```typescript
-import { when } from '@rilaykit/core';
-
-.add({
-  type: 'text',
-  props: { label: 'Company Name' },
-  conditions: {
-    visible: when('userType').equals('business'),
-    required: when('revenue').greaterThan(100000),
-    disabled: when('isProcessing').equals(true)
-  }
-})
+```
+@rilaykit/core          Registry, types, validation, conditions, monitoring
+    ↑
+@rilaykit/forms         Form builder, React components, Zustand store
+    ↑
+@rilaykit/workflow      Workflow builder, navigation, persistence, analytics, plugins
 ```
 
-### Complex Validation
+The Registry and Builder layers have no React dependency — they run in Node, tests, and build scripts. The rendering layer is entirely your code.
 
-```typescript
-// Form-level validation
-const form = factory
-  .form()
-  .setValidation({
-    validators: [
-      (formData) => {
-        if (!formData.email && !formData.phone) {
-          return { 
-            isValid: false, 
-            errors: [{ message: 'Email or phone required' }] 
-          };
-        }
-        return { isValid: true, errors: [] };
-      }
-    ]
-  });
-```
+## Documentation
 
-### Custom Rendering
+Full documentation at [rilay.dev](https://rilay.dev):
 
-```typescript
-const factory = ril
-  .create()
-  .configure({
-    rowRenderer: CustomRowRenderer,
-    submitButtonRenderer: CustomSubmitButton,
-    fieldRenderer: CustomFieldRenderer
-  });
-```
+- [Installation](https://rilay.dev/getting-started/installation)
+- [Quick Start](https://rilay.dev/quickstart)
+- [Core Concepts](https://rilay.dev/core-concepts/philosophy)
+- [Forms](https://rilay.dev/forms/building-forms)
+- [Workflows](https://rilay.dev/workflow/building-workflows)
+- [Validation](https://rilay.dev/core-concepts/validation)
+- [TypeScript Support](https://rilay.dev/core-concepts/typescript-support)
+- [API Reference](https://rilay.dev/api)
 
-## 📚 Documentation
+## Contributing
 
-- **[Installation](https://docs.rilay.io/getting-started/installation)** - Detailed installation guide
-- **[Your First Form](https://docs.rilay.io/getting-started/your-first-form)** - Step-by-step tutorial
-- **[Core API](https://docs.rilay.io/core-concepts/ril-instance)** - RIL instance documentation
-- **[Forms](https://docs.rilay.io/forms/building-forms)** - Form building guide
-- **[Workflows](https://docs.rilay.io/workflow/building-workflows)** - Multi-step workflows
-- **[Validation](https://docs.rilay.io/forms/validation)** - Validation system
-- **[TypeScript](https://docs.rilay.io/core-concepts/typescript-support)** - TypeScript support
+Contributions are welcome! Please see our [contributing guide](./CONTRIBUTING.md) to get started.
 
-## 🛠 Usage Examples
+## Support
 
-Check the [`apps/playground`](./apps/playground) folder for complete examples:
+- [Documentation](https://rilay.dev)
+- [GitHub Issues](https://github.com/andyoucreate/rilay/issues)
+- [Email](mailto:contact@andyoucreate.com)
 
-- **[Form Test](./apps/playground/src/pages/form-test.tsx)** - Basic form example
-- **[Workflow Test](./apps/playground/src/pages/workflow-test.tsx)** - Complete workflow with API integration
+## License
 
-## 🏗 Architecture
-
-Rilay is built around several key concepts:
-
-### Component Registry
-Register your components with default properties and validation:
-
-```typescript
-.addComponent('text', {
-  name: 'Text Input',
-  renderer: TextInput,
-  defaultProps: { placeholder: 'Enter...' },
-  validation: { validators: [required()] }
-})
-```
-
-### Builder Pattern
-Fluent, chainable API for building your forms:
-
-```typescript
-factory.form()
-  .add({ type: 'text', props: { label: 'Name' } })
-  .add({ type: 'email', props: { label: 'Email' } })
-  .build()
-```
-
-### Rendering System
-Complete control over rendering of every UI element:
-
-- `ComponentRenderer` - Individual field rendering
-- `RowRenderer` - Form row rendering
-- `FormRenderer` - Complete form rendering
-- `SubmitButtonRenderer` - Submit button rendering
-
-## 🔐 License
-
-- **@rilaykit/core** and **@rilaykit/forms**: [MIT License](./LICENSE.md)
-- **@rilaykit/workflow**: Commercial license required ([More info](https://docs.rilay.io/workflow/licensing))
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [contributing guide](./CONTRIBUTING.md) to get started.
-
-## 🆘 Support
-
-- 📖 [Documentation](https://docs.rilay.io)
-- 💬 [GitHub Discussions](https://github.com/andyoucreate/rilaykit/discussions)
-- 🐛 [Issues](https://github.com/andyoucreate/rilaykit/issues)
-- 📧 [Support](mailto:support@rilay.io)
-
----
-
-<div align="center">
-  <strong>Built with ❤️ by the Rilay team</strong>
-</div>
+MIT — see [LICENSE](./LICENSE.md) for details.
