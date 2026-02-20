@@ -28,7 +28,7 @@
   "keywords": ["react", "forms", "form-builder", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
-  "homepage": "https://rilay.io",
+  "homepage": "https://rilay.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/andyoucreate/rilay.git"

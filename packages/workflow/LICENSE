@@ -1,72 +1,21 @@
-RilayKit Workflow Commercial License
+MIT License
 
 Copyright (c) 2025 AND YOU CREATE
 
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. DEFINITIONS
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-"License" refers to the terms and conditions for use, reproduction, and distribution as defined by Sections 1 through 9 of this document.
-
-"Software" refers to the RilayKit Workflow package and any associated documentation files.
-
-"Commercial Use" means any use of the Software that is primarily intended for or directed toward commercial advantage or monetary compensation.
-
-"Non-Commercial Use" means use of the Software for educational, research, personal, or other non-commercial purposes.
-
-2. GRANT OF RIGHTS
-
-This Software requires a valid commercial license for ANY use. Without a valid license, the Software will display watermarks and licensing notices that cannot be removed.
-
-COMMERCIAL LICENSE REQUIRED: All use of this Software requires a valid commercial license. Contact license@andyoucreate.com to obtain a commercial license.
-
-3. LICENSING AND WATERMARKS
-
-The Software will display watermarks and licensing notices in both the user interface and console when used without a valid commercial license. These watermarks cannot be removed or disabled without a proper license.
-
-Commercial licenses are available at:
-
-Website: https://rilay.io/pricing
-Email: license@andyoucreate.com
-
-4. RESTRICTIONS
-
-You may NOT:
-- Use the Software without a valid commercial license
-- Remove or alter any copyright notices, license terms, or watermarks
-- Distribute the Software as part of any product without a license
-- Reverse engineer, decompile, or disassemble the Software
-- Use the Software to create competing workflow libraries
-- Attempt to bypass, remove, or disable the licensing watermarks
-
-5. ATTRIBUTION
-
-You must retain all copyright notices and this license in all copies or substantial portions of the Software.
-
-6. DISCLAIMER OF WARRANTY
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-
-7. LIMITATION OF LIABILITY
-
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-8. TERMINATION
-
-This License and the rights granted hereunder will terminate automatically if you fail to comply with the terms herein. Upon termination, you must cease all use of the Software and destroy all copies.
-
-9. CONTACT INFORMATION
-
-For commercial licensing inquiries:
-Email: license@andyoucreate.com
-Website: https://rilay.io
-
-For technical support:
-Email: support@andyoucreate.com
-GitHub: https://github.com/andyoucreate/rilay
-
----
-
-This license allows free use for non-commercial purposes while requiring a commercial license for business use. For detailed pricing and licensing options, please visit https://rilay.io/pricing or contact us directly.
-
-Last updated: June 2025 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

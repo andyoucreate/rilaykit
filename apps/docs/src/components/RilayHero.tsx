@@ -48,16 +48,6 @@ function RilayHero() {
           alt="npm version"
           className="h-5"
         />
-        <img
-          src="https://img.shields.io/npm/l/@rilaykit/core?style=flat-square&color=d4a020"
-          alt="license"
-          className="h-5"
-        />
-        <img
-          src="https://img.shields.io/npm/dm/@rilaykit/core?style=flat-square&color=d4a020&label=downloads"
-          alt="downloads"
-          className="h-5"
-        />
       </div>
     </div>
   );

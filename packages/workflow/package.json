@@ -27,8 +27,8 @@
   },
   "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
-  "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://rilay.io",
+  "license": "MIT",
+  "homepage": "https://rilay.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/andyoucreate/rilay.git"
