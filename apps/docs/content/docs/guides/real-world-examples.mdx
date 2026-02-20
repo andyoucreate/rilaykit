@@ -1,0 +1,652 @@
+---
+title: Real-World Examples
+description: Production-ready patterns for SaaS onboarding, KYC verification, and dynamic pricing — complete implementations with RilayKit.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+# Real-World Examples
+
+These examples demonstrate how RilayKit handles production scenarios end to end. Each one includes the complete configuration -- form and workflow definitions, conditional logic, validation rules, persistence, and analytics -- so you can adapt them directly to your own applications.
+
+---
+
+## SaaS Onboarding Flow
+
+A 4-step onboarding workflow that collects account credentials, company information, team setup, and billing preferences. It uses persistence to save progress across sessions and analytics to track funnel completion.
+
+<Steps>
+<Step>
+### Define the forms for each step
+
+Each step has its own form configuration with validation and conditions.
+
+```tsx title="config/onboarding-forms.ts"
+import { ril, required, email, minLength, when } from '@rilaykit/core';
+
+// Assumes components are registered on the ril instance
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input })
+  .addComponent('select', { renderer: Select })
+  .addComponent('textarea', { renderer: Textarea });
+
+// Step 1 - Account Setup
+const accountForm = rilay
+  .form('onboarding-account')
+  .add({
+    id: 'name',
+    type: 'input',
+    props: { label: 'Full Name', placeholder: 'Jane Doe' },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email Address', type: 'email', placeholder: 'jane@acme.com' },
+    validation: { validate: [required(), email()] },
+  })
+  .add({
+    id: 'password',
+    type: 'input',
+    props: { label: 'Password', type: 'password' },
+    validation: { validate: [required(), minLength(8)] },
+  });
+
+// Step 2 - Company Details
+const companyForm = rilay
+  .form('onboarding-company')
+  .add({
+    id: 'companyName',
+    type: 'input',
+    props: { label: 'Company Name', placeholder: 'Acme Inc.' },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'companySize',
+    type: 'select',
+    props: {
+      label: 'Company Size',
+      options: [
+        { value: '1-10', label: '1-10 employees' },
+        { value: '11-50', label: '11-50 employees' },
+        { value: '51-200', label: '51-200 employees' },
+        { value: '200+', label: '200+ employees' },
+      ],
+    },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'industry',
+    type: 'select',
+    props: {
+      label: 'Industry',
+      options: [
+        { value: 'technology', label: 'Technology' },
+        { value: 'finance', label: 'Finance' },
+        { value: 'healthcare', label: 'Healthcare' },
+        { value: 'other', label: 'Other' },
+      ],
+    },
+    validation: { validate: [required()] },
+  });
+
+// Step 3 - Team Configuration
+const teamForm = rilay
+  .form('onboarding-team')
+  .add({
+    id: 'teamName',
+    type: 'input',
+    props: { label: 'Team Name', placeholder: 'Engineering' },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'inviteEmails',
+    type: 'textarea',
+    props: {
+      label: 'Invite Team Members',
+      placeholder: 'alice@acme.com, bob@acme.com',
+    },
+  })
+  .add({
+    id: 'role',
+    type: 'select',
+    props: {
+      label: 'Default Role',
+      options: [
+        { value: 'admin', label: 'Admin' },
+        { value: 'member', label: 'Member' },
+        { value: 'viewer', label: 'Viewer' },
+      ],
+    },
+  });
+
+// Step 4 - Billing
+const billingForm = rilay
+  .form('onboarding-billing')
+  .add({
+    id: 'plan',
+    type: 'select',
+    props: {
+      label: 'Plan',
+      options: [
+        { value: 'free', label: 'Free' },
+        { value: 'pro', label: 'Pro' },
+        { value: 'enterprise', label: 'Enterprise' },
+      ],
+    },
+    validation: { validate: [required()] },
+  })
+  .add({
+    id: 'cardNumber',
+    type: 'input',
+    props: { label: 'Card Number', placeholder: '4242 4242 4242 4242' },
+    validation: { validate: [required('Card number is required for paid plans')] },
+    conditions: {
+      visible: when('plan').notEquals('free'),
+    },
+  });
+```
+</Step>
+<Step>
+### Build the workflow with persistence and analytics
+
+Chain the steps together and configure persistence to save progress in localStorage. Analytics callbacks track each step of the funnel.
+
+```tsx title="config/onboarding-workflow.ts"
+import { LocalStorageAdapter } from '@rilaykit/workflow';
+
+const onboarding = rilay
+  .flow('saas-onboarding', 'SaaS Onboarding')
+  .addStep({
+    id: 'account',
+    title: 'Account Setup',
+    description: 'Create your account credentials',
+    formConfig: accountForm,
+  })
+  .addStep({
+    id: 'company',
+    title: 'Company Details',
+    description: 'Tell us about your organization',
+    formConfig: companyForm,
+  })
+  .addStep({
+    id: 'team',
+    title: 'Team',
+    description: 'Set up your first team',
+    formConfig: teamForm,
+    allowSkip: true,
+  })
+  .addStep({
+    id: 'billing',
+    title: 'Billing',
+    description: 'Choose a plan',
+    formConfig: billingForm,
+  })
+  .configure({
+    persistence: {
+      adapter: new LocalStorageAdapter(),
+      options: { autoPersist: true, debounceMs: 500, storageKey: 'onboarding-progress' },
+    },
+    analytics: {
+      onStepComplete: (stepId, duration) => {
+        analytics.track('onboarding_step_complete', { step: stepId, durationMs: duration });
+      },
+      onWorkflowComplete: (id, totalTime, data) => {
+        analytics.track('onboarding_complete', {
+          workflowId: id,
+          totalTimeMs: totalTime,
+          plan: data.billing?.plan,
+        });
+      },
+      onStepSkip: (stepId, reason) => {
+        analytics.track('onboarding_step_skipped', { step: stepId, reason });
+      },
+    },
+  });
+```
+</Step>
+<Step>
+### Render the onboarding page
+
+Use the composable workflow components to build the UI. The `<Workflow>` component accepts the builder instance directly -- no need to call `.build()`.
+
+```tsx title="pages/OnboardingPage.tsx"
+import {
+  Workflow,
+  WorkflowBody,
+  WorkflowStepper,
+  WorkflowNextButton,
+  WorkflowPreviousButton,
+  WorkflowSkipButton,
+} from '@rilaykit/workflow';
+
+function OnboardingPage() {
+  async function handleComplete(data: Record<string, unknown>) {
+    await fetch('/api/onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
+
+  return (
+    <Workflow
+      workflowConfig={onboarding}
+      onWorkflowComplete={handleComplete}
+      className="max-w-2xl mx-auto py-12"
+    >
+      <WorkflowStepper className="mb-8" />
+
+      <div className="min-h-[400px]">
+        <WorkflowBody />
+      </div>
+
+      <div className="flex items-center justify-between mt-6 pt-4 border-t">
+        <WorkflowPreviousButton />
+        <div className="flex gap-3">
+          <WorkflowSkipButton />
+          <WorkflowNextButton />
+        </div>
+      </div>
+    </Workflow>
+  );
+}
+```
+</Step>
+</Steps>
+
+<Callout type="info">
+The `cardNumber` field is only visible (and only validated) when the selected plan is not `free`. When a field is hidden by a visibility condition, RilayKit automatically skips its validation on submit.
+</Callout>
+
+---
+
+## KYC Identity Verification
+
+A 3-step verification workflow: personal details, document upload, and a final review with legal acknowledgment. This example demonstrates conditional fields based on nationality, a custom async validator for document verification, and persistence to let users resume later.
+
+<Tabs items={['Forms', 'Async Validator', 'Workflow', 'Component']}>
+  <Tab value="Forms">
+    ```tsx title="config/kyc-forms.ts"
+    import { ril, required, when, custom } from '@rilaykit/core';
+
+    const rilay = ril.create()
+      .addComponent('input', { renderer: Input })
+      .addComponent('select', { renderer: Select })
+      .addComponent('checkbox', { renderer: Checkbox });
+
+    // Step 1 - Personal Information
+    const personalInfoForm = rilay
+      .form('kyc-personal')
+      .add({
+        id: 'firstName',
+        type: 'input',
+        props: { label: 'First Name' },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'lastName',
+        type: 'input',
+        props: { label: 'Last Name' },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'dateOfBirth',
+        type: 'input',
+        props: { label: 'Date of Birth', type: 'date' },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'nationality',
+        type: 'select',
+        props: {
+          label: 'Nationality',
+          options: [
+            { value: 'US', label: 'United States' },
+            { value: 'GB', label: 'United Kingdom' },
+            { value: 'CA', label: 'Canada' },
+            { value: 'DE', label: 'Germany' },
+            { value: 'FR', label: 'France' },
+            { value: 'JP', label: 'Japan' },
+            { value: 'AU', label: 'Australia' },
+          ],
+        },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'ssn',
+        type: 'input',
+        props: { label: 'Social Security Number', placeholder: 'XXX-XX-XXXX' },
+        validation: { validate: [required('SSN is required for US nationals')] },
+        conditions: {
+          visible: when('nationality').equals('US'),
+        },
+      });
+
+    // Step 2 - Document Upload
+    const documentForm = rilay
+      .form('kyc-document')
+      .add({
+        id: 'documentType',
+        type: 'select',
+        props: {
+          label: 'Document Type',
+          options: [
+            { value: 'passport', label: 'Passport' },
+            { value: 'drivers-license', label: "Driver's License" },
+            { value: 'national-id', label: 'National ID' },
+          ],
+        },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'documentNumber',
+        type: 'input',
+        props: { label: 'Document Number' },
+        validation: {
+          validate: [required(), validateDocument],
+          validateOnBlur: true,
+          debounceMs: 500,
+        },
+      })
+      .add({
+        id: 'expirationDate',
+        type: 'input',
+        props: { label: 'Expiration Date', type: 'date' },
+        validation: { validate: [required()] },
+      });
+
+    // Step 3 - Review
+    const reviewForm = rilay
+      .form('kyc-review')
+      .add({
+        id: 'termsAccepted',
+        type: 'checkbox',
+        props: { label: 'I accept the terms and conditions' },
+        validation: {
+          validate: [custom((value) => value === true, 'You must accept the terms')],
+        },
+      })
+      .add({
+        id: 'certifyAccurate',
+        type: 'checkbox',
+        props: { label: 'I certify that all information provided is accurate' },
+        validation: {
+          validate: [custom((value) => value === true, 'You must certify accuracy')],
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="Async Validator">
+    ```tsx title="config/kyc-validators.ts"
+    import { custom } from '@rilaykit/core';
+
+    const validateDocument = custom(
+      async (value, context) => {
+        const response = await fetch('/api/verify-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            number: value,
+            type: context?.formData?.documentType,
+          }),
+        });
+        const result = await response.json();
+        return result.valid;
+      },
+      'Invalid document number'
+    );
+    ```
+
+    The `custom()` validator receives the current form data through its `context` parameter, allowing cross-field validation. Here, the document type is sent alongside the number so the backend can apply format-specific checks (passport vs. national ID, etc.).
+  </Tab>
+  <Tab value="Workflow">
+    ```tsx title="config/kyc-workflow.ts"
+    import { LocalStorageAdapter } from '@rilaykit/workflow';
+
+    const kycWorkflow = rilay
+      .flow('kyc-verification', 'Identity Verification')
+      .addStep({
+        id: 'personal',
+        title: 'Personal Information',
+        description: 'Your legal name and nationality',
+        formConfig: personalInfoForm,
+      })
+      .addStep({
+        id: 'document',
+        title: 'Document Upload',
+        description: 'Provide a valid identity document',
+        formConfig: documentForm,
+      })
+      .addStep({
+        id: 'review',
+        title: 'Review',
+        description: 'Confirm and submit',
+        formConfig: reviewForm,
+      })
+      .configure({
+        persistence: {
+          adapter: new LocalStorageAdapter({ maxAge: 24 * 60 * 60 * 1000 }),
+          options: { autoPersist: true, storageKey: 'kyc-progress' },
+        },
+        analytics: {
+          onStepComplete: (stepId, duration) => {
+            analytics.track('kyc_step_complete', { step: stepId, durationMs: duration });
+          },
+          onWorkflowComplete: (id, totalTime) => {
+            analytics.track('kyc_complete', { totalTimeMs: totalTime });
+          },
+          onError: (error, context) => {
+            analytics.track('kyc_error', {
+              error: error.message,
+              step: context.currentStepIndex,
+            });
+          },
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="Component">
+    ```tsx title="pages/KycPage.tsx"
+    import {
+      Workflow,
+      WorkflowBody,
+      WorkflowStepper,
+      WorkflowNextButton,
+      WorkflowPreviousButton,
+    } from '@rilaykit/workflow';
+
+    function KycPage() {
+      async function handleComplete(data: Record<string, unknown>) {
+        await fetch('/api/kyc/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+      }
+
+      return (
+        <Workflow
+          workflowConfig={kycWorkflow}
+          onWorkflowComplete={handleComplete}
+          className="max-w-xl mx-auto py-12"
+        >
+          <WorkflowStepper className="mb-8" />
+
+          <div className="min-h-[350px]">
+            <WorkflowBody />
+          </div>
+
+          <div className="flex items-center justify-between mt-6 pt-4 border-t">
+            <WorkflowPreviousButton />
+            <WorkflowNextButton />
+          </div>
+        </Workflow>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Callout>
+The `ssn` field is only shown when the user selects `US` as their nationality. Its validation is skipped entirely for non-US nationals, so the form can be submitted without it.
+</Callout>
+
+---
+
+## Dynamic Pricing Calculator
+
+A single-page form (not a workflow) with multiple conditional fields that adapt based on the selected service type. This pattern is common for quote generators, booking forms, and pricing pages where the visible fields depend on user choices.
+
+<Tabs items={['Form Definition', 'Component']}>
+  <Tab value="Form Definition">
+    ```tsx title="config/pricing-form.ts"
+    import { ril, required, when, custom } from '@rilaykit/core';
+
+    const rilay = ril.create()
+      .addComponent('input', { renderer: Input })
+      .addComponent('select', { renderer: Select })
+      .addComponent('checkbox-group', { renderer: CheckboxGroup });
+
+    const pricingForm = rilay
+      .form('pricing-calculator')
+      .add({
+        id: 'serviceType',
+        type: 'select',
+        props: {
+          label: 'Service Type',
+          options: [
+            { value: 'consulting', label: 'Consulting' },
+            { value: 'development', label: 'Development' },
+            { value: 'design', label: 'Design' },
+          ],
+        },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'projectScope',
+        type: 'select',
+        props: {
+          label: 'Project Scope',
+          options: [
+            { value: 'small', label: 'Small (1-2 weeks)' },
+            { value: 'medium', label: 'Medium (1-2 months)' },
+            { value: 'large', label: 'Large (3+ months)' },
+          ],
+        },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'timeline',
+        type: 'select',
+        props: {
+          label: 'Timeline',
+          options: [
+            { value: 'standard', label: 'Standard' },
+            { value: 'expedited', label: 'Expedited (+25%)' },
+            { value: 'rush', label: 'Rush (+50%)' },
+          ],
+        },
+        validation: { validate: [required()] },
+      })
+      .add({
+        id: 'teamSize',
+        type: 'input',
+        props: { label: 'Team Size', type: 'number', placeholder: 'Number of developers' },
+        validation: {
+          validate: [
+            required('Team size is required for development projects'),
+            custom(
+              (value) => {
+                const num = Number(value);
+                return !isNaN(num) && num >= 1 && num <= 50;
+              },
+              'Team size must be between 1 and 50'
+            ),
+          ],
+        },
+        conditions: {
+          visible: when('serviceType').equals('development'),
+        },
+      })
+      .add({
+        id: 'designRevisions',
+        type: 'input',
+        props: { label: 'Design Revisions', type: 'number', placeholder: 'Number of revision rounds' },
+        validation: {
+          validate: [
+            required('Number of revisions is required for design projects'),
+            custom(
+              (value) => {
+                const num = Number(value);
+                return !isNaN(num) && num >= 1 && num <= 10;
+              },
+              'Revisions must be between 1 and 10'
+            ),
+          ],
+        },
+        conditions: {
+          visible: when('serviceType').equals('design'),
+        },
+      })
+      .add({
+        id: 'additionalServices',
+        type: 'checkbox-group',
+        props: {
+          label: 'Additional Services',
+          options: [
+            { value: 'testing', label: 'QA & Testing' },
+            { value: 'documentation', label: 'Technical Documentation' },
+            { value: 'training', label: 'Team Training' },
+            { value: 'support', label: '30-Day Post-Launch Support' },
+          ],
+        },
+      });
+    ```
+  </Tab>
+  <Tab value="Component">
+    ```tsx title="pages/PricingPage.tsx"
+    import { Form, FormField } from '@rilaykit/forms';
+
+    function PricingPage() {
+      function handleSubmit(data: Record<string, unknown>) {
+        console.log('Pricing request:', data);
+        // Send to backend for quote generation
+      }
+
+      return (
+        <div className="max-w-lg mx-auto py-12">
+          <h1 className="text-2xl font-bold mb-6">Get a Quote</h1>
+
+          <Form formConfig={pricingForm} onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <FormField fieldId="serviceType" />
+              <FormField fieldId="projectScope" />
+              <FormField fieldId="timeline" />
+              <FormField fieldId="teamSize" />
+              <FormField fieldId="designRevisions" />
+              <FormField fieldId="additionalServices" />
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+              >
+                Request Quote
+              </button>
+            </div>
+          </Form>
+        </div>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+The `teamSize` field appears only when the service type is `development`, and `designRevisions` appears only for `design` projects. All other fields remain visible regardless of the selection. Hidden fields are excluded from validation and from the submitted data.
+
+---
+
+<Callout type="info">
+These examples show configuration patterns. Adapt them to your specific business requirements and design system. For more basic examples, see the [Examples](/docs/examples) page.
+</Callout>

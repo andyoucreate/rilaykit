@@ -1,0 +1,199 @@
+---
+title: Internationalization
+description: Patterns for building multilingual forms and workflows with RilayKit — localized labels, validation messages, and dynamic form generation.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Callout type="info">
+RilayKit does not include a built-in internationalization system. Because it is headless and schema-first, you can integrate any i18n library (react-intl, next-intl, i18next, etc.) using the patterns described below.
+</Callout>
+
+RilayKit's schema-first architecture actually makes internationalization simpler than imperative form libraries. Since field labels, placeholders, validation messages, and step titles are all **data** defined in a configuration object, they can be swapped for their localized equivalents without touching any rendering logic. You describe the form once, and the i18n layer provides the right strings.
+
+This page shows practical integration patterns you can adapt to any i18n library.
+
+## Localized Validation Messages
+
+All built-in validators accept an optional custom message parameter. Combine this with your i18n library's translation function to produce localized error messages:
+
+```tsx
+import { required, email, minLength } from '@rilaykit/core';
+import { useTranslation } from 'react-i18next'; // or your i18n library
+
+function useLocalizedForm() {
+  const { t } = useTranslation();
+
+  return rilay.form('contact')
+    .add({
+      id: 'name',
+      type: 'input',
+      props: { label: t('form.name') },
+      validation: { validate: [required(t('validation.required'))] },
+    })
+    .add({
+      id: 'email',
+      type: 'input',
+      props: { label: t('form.email') },
+      validation: { validate: [required(t('validation.required')), email(t('validation.email'))] },
+    });
+}
+```
+
+<Callout type="warn">
+Form configs should be rebuilt when the locale changes, because messages are baked into the configuration at creation time. Use `useMemo` with the current locale as a dependency to avoid unnecessary rebuilds while still reacting to language switches.
+</Callout>
+
+```tsx
+import { useMemo } from 'react';
+import { required } from '@rilaykit/core';
+import { Form, FormField } from '@rilaykit/forms';
+import { useTranslation } from 'react-i18next';
+
+function LocalizedContactForm() {
+  const { t, i18n } = useTranslation();
+
+  const form = useMemo(() => rilay.form('contact')
+    .add({
+      id: 'name',
+      type: 'input',
+      props: { label: t('form.name') },
+      validation: { validate: [required(t('validation.required'))] },
+    }),
+    [i18n.language] // Rebuild when locale changes
+  );
+
+  return (
+    <Form formConfig={form} onSubmit={handleSubmit}>
+      <FormField fieldId="name" />
+    </Form>
+  );
+}
+```
+
+## Localized Component Props
+
+Because all component props flow through the schema, localizing labels, placeholders, and option lists is straightforward. Pass translated strings directly into the `props` object:
+
+```tsx
+const form = rilay.form('signup')
+  .add({
+    id: 'country',
+    type: 'select',
+    props: {
+      label: t('form.country'),
+      placeholder: t('form.selectCountry'),
+      options: [
+        { value: 'us', label: t('countries.us') },
+        { value: 'fr', label: t('countries.fr') },
+        { value: 'de', label: t('countries.de') },
+      ],
+    },
+  });
+```
+
+This pattern works with any prop your registered components accept -- option labels, helper text, aria attributes, and more.
+
+## Server-Driven Localized Forms
+
+Because form configs are plain, serializable data, you can generate locale-specific configurations entirely on the server. This is useful for SEO-critical forms, CMS-driven pages, or applications where the form structure itself varies by locale.
+
+<Tabs items={['Server', 'Client']}>
+  <Tab value="Server">
+    ```tsx
+    // server: generate config with the right locale
+    const formConfig = generateFormConfig(locale);
+    return Response.json(formConfig);
+    ```
+  </Tab>
+  <Tab value="Client">
+    ```tsx
+    // client: deserialize and render
+    const config = await fetch('/api/form?locale=fr').then(r => r.json());
+    const form = rilay.form('contact').fromJSON(config);
+    ```
+  </Tab>
+</Tabs>
+
+The server can resolve translations, apply locale-specific field ordering, or include region-specific fields before sending the config to the client.
+
+## Localized Workflow Steps
+
+The same pattern applies to multi-step workflows. Step titles, descriptions, and all nested field labels can be localized through the translation function:
+
+```tsx
+import { useMemo } from 'react';
+import { required } from '@rilaykit/core';
+import { useTranslation } from 'react-i18next';
+
+function useLocalizedOnboarding() {
+  const { t, i18n } = useTranslation();
+
+  const workflow = useMemo(() => rilay.flow('onboarding')
+    .addStep({
+      id: 'account',
+      title: t('onboarding.steps.account'),
+      fields: [
+        {
+          id: 'email',
+          type: 'input',
+          props: { label: t('form.email') },
+          validation: { validate: [required(t('validation.required'))] },
+        },
+      ],
+    })
+    .addStep({
+      id: 'profile',
+      title: t('onboarding.steps.profile'),
+      fields: [
+        {
+          id: 'name',
+          type: 'input',
+          props: { label: t('form.name') },
+          validation: { validate: [required(t('validation.required'))] },
+        },
+      ],
+    }),
+    [i18n.language]
+  );
+
+  return workflow;
+}
+```
+
+The `useMemo` dependency on `i18n.language` ensures the entire workflow config -- including step titles and all nested validation messages -- is rebuilt when the user switches locale.
+
+## RTL Support
+
+RilayKit does not interfere with text direction. Because it is headless, RTL (right-to-left) support is purely a CSS and HTML concern handled by your renderers. Set the `dir` attribute at the level that makes sense for your application:
+
+```tsx
+import type { ComponentRenderProps } from '@rilaykit/core';
+
+interface InputProps {
+  label: string;
+  placeholder?: string;
+}
+
+const Input: React.FC<ComponentRenderProps<InputProps>> = ({ id, value, onChange, props }) => (
+  <div dir="auto">
+    <label htmlFor={id}>{props.label}</label>
+    <input
+      id={id}
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  </div>
+);
+```
+
+Using `dir="auto"` lets the browser determine the text direction based on content. For full RTL layouts, set `dir="rtl"` on a parent element or the `<html>` tag and let your CSS handle the rest. RilayKit will not conflict with any direction-related styles.
+
+## Best Practices
+
+- **Rebuild configs on locale change.** Use `useMemo` with the locale as a dependency so translated strings stay in sync.
+- **Keep validation messages in your i18n files.** Centralizing messages in translation files makes them easier to maintain and review across locales.
+- **Use server-driven configs for SEO-critical forms.** Generating fully localized configs on the server avoids layout shifts and ensures search engines see the right content.
+- **Test with RTL locales.** If your application supports Arabic, Hebrew, or other RTL languages, verify that your renderers handle `dir="rtl"` correctly.
+- **Account for pluralization.** Validation messages like "minimum 1 character" vs "minimum 8 characters" require proper plural rules. Most i18n libraries handle this natively -- use their pluralization features rather than string concatenation.
+- **Avoid hardcoding fallback strings.** Let your i18n library handle fallbacks so missing translations are caught during development, not discovered in production.

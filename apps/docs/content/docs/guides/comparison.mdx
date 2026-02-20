@@ -1,0 +1,192 @@
+---
+title: Comparison with Other Libraries
+description: An honest comparison of RilayKit with React Hook Form, Formik, and TanStack Form — understand the trade-offs and when to choose each.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+## Overview
+
+The React ecosystem offers several excellent form libraries, each with its own philosophy and trade-offs. There is no single "best" library -- the right choice depends on your project's complexity, team preferences, and specific requirements.
+
+RilayKit takes a **schema-first, declarative** approach: you describe your entire form as data (fields, validation, conditions, workflows), and RilayKit handles the rest. This is powerful for complex, multi-step workflows and scenarios where form configurations need to be serialized, stored, or generated dynamically. However, it may be more than what you need for a simple contact form or a single login page.
+
+This page provides an honest comparison to help you make an informed decision.
+
+## RilayKit vs React Hook Form
+
+[React Hook Form](https://react-hook-form.com/) (RHF) is the most popular React form library, and for good reason. It is lightweight, performant, and has excellent developer experience with minimal re-renders. If you have worked with React forms, you have likely encountered it.
+
+### Key Differences
+
+- **Configuration model**: RHF is imperative -- you register fields directly in JSX using `register()` or `Controller`. RilayKit is declarative -- you define the entire form structure as a configuration object via the fluent builder API.
+- **Rendering strategy**: RHF optimizes performance through refs and uncontrolled inputs, minimizing re-renders. RilayKit uses controlled components through a renderer system, giving you full control over how each field type is rendered.
+- **Serialization**: RilayKit form configs are plain data that can be serialized with `.toJSON()` and restored with `.fromJSON()`. RHF forms are runtime objects tied to React component trees and cannot be serialized.
+- **Multi-step workflows**: RilayKit has a built-in workflow engine with step navigation, conditional steps, persistence, and analytics. RHF requires external solutions or custom code for multi-step flows.
+- **Ecosystem**: RHF has a larger ecosystem with official resolvers, DevTools, and extensive community resources. RilayKit is newer but ships more features out of the box.
+
+### Code Comparison
+
+A simple login form implemented in both libraries:
+
+<Tabs items={['React Hook Form', 'RilayKit']}>
+  <Tab value="React Hook Form">
+    ```tsx
+    import { useForm } from 'react-hook-form';
+    import { zodResolver } from '@hookform/resolvers/zod';
+    import { z } from 'zod';
+
+    const schema = z.object({
+      email: z.string().email(),
+      password: z.string().min(8),
+    });
+
+    function LoginForm() {
+      const { register, handleSubmit, formState: { errors } } = useForm({
+        resolver: zodResolver(schema),
+      });
+
+      return (
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <input {...register('email')} />
+          {errors.email && <span>{errors.email.message}</span>}
+          <input {...register('password')} type="password" />
+          {errors.password && <span>{errors.password.message}</span>}
+          <button type="submit">Login</button>
+        </form>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="RilayKit">
+    ```tsx
+    import { required, email, minLength } from '@rilaykit/core';
+    import { Form, FormField } from '@rilaykit/forms';
+
+    const loginForm = rilay
+      .form('login')
+      .add({
+        id: 'email',
+        type: 'input',
+        props: { label: 'Email' },
+        validation: { validate: [required(), email()] },
+      })
+      .add({
+        id: 'password',
+        type: 'input',
+        props: { label: 'Password', type: 'password' },
+        validation: { validate: [required(), minLength(8)] },
+      });
+
+    function LoginForm() {
+      return (
+        <Form formConfig={loginForm} onSubmit={handleLogin}>
+          <FormField fieldId="email" />
+          <FormField fieldId="password" />
+          <button type="submit">Login</button>
+        </Form>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Both approaches are concise for a simple form. The difference becomes more apparent as complexity grows -- conditional fields, multi-step flows, and dynamic form generation are where RilayKit's declarative model pays off.
+
+### When to Choose React Hook Form
+
+- Simple, standalone forms where maximum performance matters
+- You prefer uncontrolled inputs and ref-based rendering
+- You need the large RHF ecosystem (DevTools, resolvers, community examples)
+- Your forms do not require serialization or dynamic generation
+- You want the smallest possible bundle size
+
+### When to Choose RilayKit
+
+- Complex multi-step workflows with conditional navigation
+- Form configurations that need to be serialized, stored in a database, or generated from an API
+- Multi-brand or multi-tenant applications where the same form logic renders differently per design system
+- You want a type-safe component registry with declarative conditions
+- You need built-in analytics and persistence for long-running workflows
+
+## RilayKit vs Formik
+
+[Formik](https://formik.org/) was one of the first popular React form libraries and played a pioneering role in shaping how the community thinks about form management. It introduced many patterns that are now standard.
+
+### Key Differences
+
+- **Maintenance status**: Formik has seen reduced maintenance activity in recent years. RilayKit is actively developed and maintained.
+- **Rendering approach**: Formik uses controlled inputs with `<Field>` and `<ErrorMessage>` components that render HTML directly. RilayKit is fully headless -- it produces no HTML output, delegating all rendering to your component registry.
+- **Performance**: Formik has known performance issues with large forms due to its reliance on React context and frequent re-renders. RilayKit's architecture was designed with these lessons in mind.
+- **Bundle size**: Formik has a larger bundle footprint. RilayKit's modular architecture lets you import only what you need.
+- **Advanced features**: Formik does not provide built-in support for conditional fields, multi-step workflows, serialization, or analytics. These require custom implementation or third-party libraries.
+
+### When to Choose Formik
+
+- Legacy projects that already use Formik and where migration cost outweighs the benefits
+- Simple forms where Formik's API is already familiar to the team
+- Prototyping or quick projects where Formik's `<Field>` components reduce initial setup
+
+### When to Choose RilayKit
+
+- New projects starting fresh, where you want modern tooling and active maintenance
+- Complex forms with conditional logic, validation composition, or cross-field dependencies
+- Projects requiring type safety, workflows, serialization, or a headless architecture
+- Teams concerned about long-term maintenance and ecosystem health
+
+## RilayKit vs TanStack Form
+
+[TanStack Form](https://tanstack.com/form) is the newest major player in the space. It shares many philosophical similarities with RilayKit: TypeScript-first, headless, and focused on type safety. It is the closest competitor in terms of design philosophy.
+
+### Key Differences
+
+- **Configuration paradigm**: TanStack Form is field-centric -- you configure and validate each field individually using hooks like `useField`. RilayKit is schema-centric -- you define the entire form as a single configuration object, making it easier to treat forms as data.
+- **Serialization**: RilayKit form configs are serializable data structures. TanStack Form configurations include functions and React hooks, which cannot be serialized.
+- **Built-in features**: RilayKit ships with a workflow engine, persistence adapter system, analytics callbacks, declarative conditions (`when()`), and a plugin system. TanStack Form focuses on the core form primitives and leaves these concerns to the application.
+- **Framework support**: TanStack Form supports React, Vue, Solid, Angular, and Lit through framework adapters. RilayKit is React-only, which allows it to provide deeper React-specific optimizations and patterns.
+- **Component registry**: RilayKit's component registry pattern lets you register field types once and reference them by key across all forms. TanStack Form does not have an equivalent built-in concept.
+
+### When to Choose TanStack Form
+
+- Multi-framework projects (Vue, Solid, Angular) where a single form library across frameworks is valuable
+- You prefer field-by-field, hook-driven configuration over schema-level declarations
+- You are already invested in the TanStack ecosystem (Router, Query, Table) and want consistency
+- You want a minimal core and prefer to build higher-level features yourself
+
+### When to Choose RilayKit
+
+- React-only projects where deep React integration is an advantage
+- You need schema-first, serializable form configurations (e.g., form builder tools, CMS-driven forms, stored configs)
+- Multi-step workflows with conditional navigation, persistence, and analytics
+- You want declarative conditions (`when()`) without writing manual logic
+- You value a type-safe component registry pattern for multi-brand or design system projects
+
+## Feature Matrix
+
+The following table provides a high-level comparison across key features. Bundle sizes are approximate and may vary depending on tree-shaking and usage.
+
+| Feature | RilayKit | React Hook Form | Formik | TanStack Form |
+|---|---|---|---|---|
+| **Type inference** | Full (schema to props) | Partial (schema types) | Limited | Full (field-level) |
+| **Headless** | Yes | No (uses refs) | No (renders HTML) | Yes |
+| **Schema validation** | Standard Schema (native) | Via resolvers | Via Yup/Zod | Built-in + adapters |
+| **Declarative conditions** | Built-in (`when()`) | Manual | Manual | Manual |
+| **Multi-step workflows** | Built-in engine | External | External | External |
+| **Serialization** | `.toJSON()` / `.fromJSON()` | No | No | No |
+| **Component registry** | Built-in | No | No | No |
+| **Analytics** | Built-in | No | No | No |
+| **Plugin system** | Built-in | No | No | No |
+| **Bundle size** | ~15 KB | ~9 KB | ~13 KB | ~10 KB |
+| **Maintenance** | Active | Active | Low activity | Active |
+| **Framework support** | React | React | React | React, Vue, Solid, Angular |
+| **License** | MIT | MIT | Apache 2.0 | MIT |
+
+<Callout type="info">
+Bundle sizes are approximate gzipped values and will vary based on what features you import. RilayKit's modular architecture (`@rilaykit/core`, `@rilaykit/forms`, `@rilaykit/workflow`) means you only pay for what you use.
+</Callout>
+
+## Summary
+
+<Callout type="info">
+**Key takeaway**: Every library in this comparison is a solid choice for the right use case. RilayKit shines when you need schema-first forms with multi-step workflows, serializable configurations, declarative conditions, and a type-safe component registry. For simple standalone forms where bundle size and raw performance are the top priorities, lighter libraries like React Hook Form or TanStack Form may be a better fit. Choose the tool that matches your project's actual complexity -- not the one with the longest feature list.
+</Callout>

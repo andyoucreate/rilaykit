@@ -1,0 +1,377 @@
+---
+title: Accessibility
+description: Patterns for building accessible forms and workflows with RilayKit's headless architecture — ARIA attributes, focus management, and keyboard navigation.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Accessibility in a Headless Library
+
+<Callout type="warn">
+RilayKit is fully headless -- it manages form state and logic, but generates no HTML. This means accessibility is your responsibility. The patterns below will help you build WCAG 2.1 AA compliant forms using RilayKit's renderer system.
+</Callout>
+
+This is intentional, and it works in your favor.
+
+Libraries that generate HTML often inject their own ARIA attributes, sometimes incorrectly. They make assumptions about your markup structure, your error display strategy, and your focus management approach. When those assumptions conflict with your design system, you end up fighting the library.
+
+RilayKit sidesteps this entirely. Because it produces zero HTML and zero ARIA attributes, there are no conflicting assumptions. You control every element, every attribute, and every interaction. The trade-off is that you must implement accessibility yourself -- but you get to do it correctly for your specific context.
+
+The renderer system provides all the data you need to build accessible components: `id` for label association, `error` for validation state, `disabled` for interaction state, `touched` for display logic, and `onBlur` for focus tracking.
+
+## Building Accessible Renderers
+
+Every `ComponentRenderer` receives a `ComponentRenderProps` object with the following properties:
+
+- `id` -- Unique field identifier, use it for `htmlFor`/`id` pairing
+- `props` -- Your component-specific props (label, placeholder, etc.)
+- `value` -- Current field value
+- `onChange` -- Value change handler
+- `onBlur` -- Blur handler for touch tracking
+- `disabled` -- Whether the field is disabled
+- `error` -- Array of `ValidationError` objects (each has a `message` property)
+- `isValidating` -- Whether async validation is in progress
+- `touched` -- Whether the field has been interacted with
+
+Here is a fully accessible input renderer:
+
+```tsx title="components/accessible-input.tsx"
+import type { ComponentRenderer } from '@rilaykit/core';
+
+interface InputProps {
+  label: string;
+  type?: string;
+  placeholder?: string;
+  helpText?: string;
+  required?: boolean;
+}
+
+const AccessibleInput: ComponentRenderer<InputProps> = ({
+  id, value, onChange, onBlur, error, disabled, touched, props
+}) => {
+  const errorId = `${id}-error`;
+  const helpId = `${id}-help`;
+  const hasError = touched && error && error.length > 0;
+
+  return (
+    <div>
+      <label htmlFor={id}>
+        {props.label}
+        {props.required && <span aria-hidden="true"> *</span>}
+      </label>
+      <input
+        id={id}
+        type={props.type || 'text'}
+        value={value || ''}
+        onChange={(e) => onChange?.(e.target.value)}
+        onBlur={onBlur}
+        disabled={disabled}
+        placeholder={props.placeholder}
+        aria-invalid={hasError ? 'true' : undefined}
+        aria-describedby={[
+          hasError ? errorId : null,
+          props.helpText ? helpId : null,
+        ].filter(Boolean).join(' ') || undefined}
+        aria-required={props.required || undefined}
+      />
+      {props.helpText && (
+        <p id={helpId}>{props.helpText}</p>
+      )}
+      {hasError && (
+        <p id={errorId} role="alert">
+          {error[0].message}
+        </p>
+      )}
+    </div>
+  );
+};
+```
+
+Key points in this implementation:
+
+- The `label` element is linked to the input via `htmlFor={id}` and the input's `id` attribute. This is the most important accessibility requirement for form fields.
+- `aria-invalid` is only set when the field has been touched and has errors. Setting it before the user interacts with the field creates a confusing experience.
+- `aria-describedby` links the input to both the help text and the error message. When both exist, screen readers announce them in order.
+- `aria-required` communicates the requirement to assistive technology, while the visual `*` indicator (hidden from screen readers with `aria-hidden`) communicates it visually.
+- The error message uses `role="alert"`, which causes screen readers to announce it immediately when it appears.
+
+## Select and Checkbox Patterns
+
+### Accessible Select
+
+```tsx title="components/accessible-select.tsx"
+import type { ComponentRenderer } from '@rilaykit/core';
+
+interface SelectProps {
+  label: string;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  helpText?: string;
+  required?: boolean;
+}
+
+const AccessibleSelect: ComponentRenderer<SelectProps> = ({
+  id, value, onChange, onBlur, error, disabled, touched, props
+}) => {
+  const errorId = `${id}-error`;
+  const helpId = `${id}-help`;
+  const hasError = touched && error && error.length > 0;
+
+  return (
+    <div>
+      <label htmlFor={id}>
+        {props.label}
+        {props.required && <span aria-hidden="true"> *</span>}
+      </label>
+      <select
+        id={id}
+        value={value || ''}
+        onChange={(e) => onChange?.(e.target.value)}
+        onBlur={onBlur}
+        disabled={disabled}
+        aria-invalid={hasError ? 'true' : undefined}
+        aria-describedby={[
+          hasError ? errorId : null,
+          props.helpText ? helpId : null,
+        ].filter(Boolean).join(' ') || undefined}
+        aria-required={props.required || undefined}
+      >
+        {props.placeholder && (
+          <option value="" disabled>
+            {props.placeholder}
+          </option>
+        )}
+        {props.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {props.helpText && (
+        <p id={helpId}>{props.helpText}</p>
+      )}
+      {hasError && (
+        <p id={errorId} role="alert">
+          {error[0].message}
+        </p>
+      )}
+    </div>
+  );
+};
+```
+
+### Accessible Checkbox
+
+```tsx title="components/accessible-checkbox.tsx"
+import type { ComponentRenderer } from '@rilaykit/core';
+
+interface CheckboxProps {
+  label: string;
+  helpText?: string;
+  required?: boolean;
+}
+
+const AccessibleCheckbox: ComponentRenderer<CheckboxProps> = ({
+  id, value, onChange, onBlur, error, disabled, touched, props
+}) => {
+  const errorId = `${id}-error`;
+  const helpId = `${id}-help`;
+  const hasError = touched && error && error.length > 0;
+
+  return (
+    <div>
+      <label>
+        <input
+          id={id}
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange?.(e.target.checked)}
+          onBlur={onBlur}
+          disabled={disabled}
+          aria-invalid={hasError ? 'true' : undefined}
+          aria-describedby={[
+            hasError ? errorId : null,
+            props.helpText ? helpId : null,
+          ].filter(Boolean).join(' ') || undefined}
+          aria-required={props.required || undefined}
+        />
+        {props.label}
+        {props.required && <span aria-hidden="true"> *</span>}
+      </label>
+      {props.helpText && (
+        <p id={helpId}>{props.helpText}</p>
+      )}
+      {hasError && (
+        <p id={errorId} role="alert">
+          {error[0].message}
+        </p>
+      )}
+    </div>
+  );
+};
+```
+
+For checkboxes, the `label` element wraps the input rather than using `htmlFor`. Both approaches are valid, but wrapping provides a larger click target and keeps the label and input tightly associated.
+
+## Error Summary Pattern
+
+When a form has multiple errors, displaying a summary at the top helps users understand what needs to be fixed. Each error links to the corresponding field, enabling keyboard navigation to the problem.
+
+RilayKit does not provide a built-in error summary component, but you can build one using `useFormStoreApi` to access the form state:
+
+```tsx title="components/error-summary.tsx"
+import { useFormStoreApi } from '@rilaykit/forms';
+import { useStore } from 'zustand';
+
+function ErrorSummary() {
+  const store = useFormStoreApi();
+  const errors = useStore(store, (state) => state.errors);
+
+  const fieldIds = Object.keys(errors).filter(
+    (fieldId) => errors[fieldId].length > 0
+  );
+
+  if (fieldIds.length === 0) return null;
+
+  return (
+    <div role="alert" aria-labelledby="error-summary-title">
+      <h2 id="error-summary-title">
+        There are errors in your form
+      </h2>
+      <ul>
+        {fieldIds.map((fieldId) => (
+          <li key={fieldId}>
+            <a href={`#${fieldId}`}>
+              {errors[fieldId][0].message}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+Place this component inside the `<Form>` provider, before the form body:
+
+```tsx
+<Form formConfig={formConfig} onSubmit={handleSubmit}>
+  <ErrorSummary />
+  <FormBody />
+  <FormSubmitButton>Submit</FormSubmitButton>
+</Form>
+```
+
+The `role="alert"` on the container ensures screen readers announce the error summary when it appears. The anchor links (`href="#fieldId"`) move focus to the corresponding field when clicked, since the `id` attribute on each input matches the field's `id` from the form configuration.
+
+## Conditional Fields and Live Regions
+
+RilayKit's condition system can show, hide, enable, or disable fields based on other field values. When a field appears or disappears, sighted users see the change immediately, but screen reader users need to be notified.
+
+Wrap conditional field areas in an ARIA live region:
+
+```tsx
+<Form formConfig={formConfig} onSubmit={handleSubmit}>
+  <FormField fieldId="accountType" />
+  <div aria-live="polite" aria-atomic="false">
+    {/* Fields with visibility conditions will appear and
+        disappear here. The live region ensures screen readers
+        announce the change. */}
+    <FormField fieldId="companyName" />
+    <FormField fieldId="companySize" />
+  </div>
+  <FormSubmitButton>Submit</FormSubmitButton>
+</Form>
+```
+
+Use `aria-live="polite"` so the announcement waits until the screen reader finishes its current output. Use `aria-atomic="false"` so only the changed content is announced, not the entire region.
+
+<Callout>
+Avoid wrapping the entire form in a live region. This causes screen readers to announce every field change, which quickly becomes overwhelming. Only wrap the areas where fields are conditionally shown or hidden.
+</Callout>
+
+## Workflow Step Navigation
+
+For multi-step workflows, an accessible stepper helps users understand where they are in the process. Use `aria-current="step"` to indicate the active step.
+
+```tsx title="components/workflow-stepper.tsx"
+import type { StepConfig } from '@rilaykit/core';
+
+interface WorkflowStepperProps {
+  steps: StepConfig[];
+  currentStep: number;
+}
+
+function WorkflowStepper({ steps, currentStep }: WorkflowStepperProps) {
+  return (
+    <nav aria-label="Progress">
+      <ol role="list">
+        {steps.map((step, index) => (
+          <li key={step.id}>
+            <span
+              aria-current={index === currentStep ? 'step' : undefined}
+            >
+              Step {index + 1}: {step.title}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+```
+
+The `nav` element with `aria-label="Progress"` identifies this as a navigation landmark. Screen readers will list it alongside other landmarks on the page. The `aria-current="step"` attribute tells assistive technology which step is currently active.
+
+If you allow users to click on completed steps to navigate back, use `button` elements instead of `span` and add `disabled` for steps that are not yet reachable.
+
+## Focus Management
+
+When navigating between workflow steps, focus should move to the first focusable element of the new step. Without this, keyboard users are left at the top of the page or at the navigation button they just clicked, with no clear indication of where the new content starts.
+
+```tsx title="components/step-content.tsx"
+import { useEffect, useRef } from 'react';
+
+function StepContent({ children }: { children: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const firstInput = containerRef.current?.querySelector(
+      'input, select, textarea'
+    );
+    if (firstInput instanceof HTMLElement) {
+      firstInput.focus();
+    }
+  }, []);
+
+  return <div ref={containerRef}>{children}</div>;
+}
+```
+
+Use this wrapper around each step's content in your workflow:
+
+```tsx
+<Workflow workflowConfig={workflowConfig} onComplete={handleComplete}>
+  <StepContent>
+    <FormBody />
+  </StepContent>
+</Workflow>
+```
+
+<Callout>
+The `useEffect` in this example runs on mount, which means focus moves when the step first renders. If your workflow uses transitions or animations, you may need to delay the focus call until the animation completes. A `requestAnimationFrame` or a timeout matching your animation duration can help.
+</Callout>
+
+## Checklist
+
+Use this checklist to verify your implementation meets WCAG 2.1 AA requirements:
+
+- Every form field has a visible `<label>` with matching `htmlFor`/`id`
+- Error messages use `role="alert"` or `aria-live="assertive"`
+- Invalid fields have `aria-invalid="true"`
+- Required fields have `aria-required="true"` and a visual indicator
+- Help text is linked via `aria-describedby`
+- Conditional fields are wrapped in `aria-live="polite"` regions
+- Workflow navigation uses `aria-current="step"`
+- Focus moves to the first field when changing steps
+- All interactive elements are keyboard accessible
+- Color is not the only indicator of errors (use icons, text, or borders alongside color)

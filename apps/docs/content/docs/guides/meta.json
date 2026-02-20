@@ -1,0 +1,10 @@
+{
+  "title": "Guides",
+  "pages": [
+    "real-world-examples",
+    "comparison",
+    "accessibility",
+    "internationalization",
+    "debugging"
+  ]
+}

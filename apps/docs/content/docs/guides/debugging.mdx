@@ -1,0 +1,307 @@
+---
+title: Debugging
+description: Tools and techniques for debugging RilayKit forms and workflows — monitoring adapters, state inspection, and common troubleshooting patterns.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Debugging dynamic forms and multi-step workflows can be challenging. This guide covers the built-in tools RilayKit provides, reusable debug panel patterns, and solutions to the most common issues.
+
+## Development Monitoring
+
+The `DevelopmentAdapter` provides detailed, grouped console output during local development. It logs every monitoring event with structured data, including form events, validation results, workflow transitions, and periodic performance summaries.
+
+```tsx title="lib/monitoring.ts"
+import {
+  initializeMonitoring,
+  getGlobalMonitor,
+  DevelopmentAdapter,
+} from '@rilaykit/core';
+
+if (process.env.NODE_ENV === 'development') {
+  initializeMonitoring({
+    enabled: true,
+    sampleRate: 1.0,
+    flushInterval: 5000,
+  }, {
+    environment: 'development',
+  });
+
+  const monitor = getGlobalMonitor();
+  monitor?.addAdapter(new DevelopmentAdapter());
+}
+```
+
+Once initialized, the adapter automatically logs:
+
+- **Form events** -- renders, field changes, validation runs, and submissions.
+- **Validation results** -- pass/fail counts, error messages, and durations.
+- **Workflow transitions** -- step navigation (forward, backward, skip), step completion, and overall progress.
+- **Performance summaries** -- average and max durations grouped by event type, printed at each flush interval.
+
+<Callout type="info">
+Monitoring is entirely opt-in. If you never call `initializeMonitoring`, no events are collected and there is zero runtime overhead. The `DevelopmentAdapter` wraps a `ConsoleAdapter` set to `'debug'` level, so all severity levels are visible.
+</Callout>
+
+## Form Debug Panel
+
+A reusable component that displays the current form state directly in the page. Place it inside a `<Form>` component to inspect values, errors, and submit state in real time.
+
+```tsx title="components/form-debug-panel.tsx"
+import { useFormValues, useFormSubmitState } from '@rilaykit/forms';
+import { useFormStore } from '@rilaykit/forms';
+import { useStore } from 'zustand';
+
+function FormDebugPanel() {
+  const values = useFormValues();
+  const store = useFormStore();
+  const errors = useStore(store, (state) => state.errors);
+  const submitState = useFormSubmitState();
+
+  if (process.env.NODE_ENV === 'production') return null;
+
+  return (
+    <details open>
+      <summary>Form Debug</summary>
+      <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+        <h4>Values</h4>
+        <pre>{JSON.stringify(values, null, 2)}</pre>
+        <h4>Errors</h4>
+        <pre>{JSON.stringify(errors, null, 2)}</pre>
+        <h4>Submit State</h4>
+        <pre>{JSON.stringify(submitState, null, 2)}</pre>
+      </div>
+    </details>
+  );
+}
+```
+
+Drop it anywhere inside the form tree:
+
+```tsx
+<Form formConfig={myForm} onSubmit={handleSubmit}>
+  <FormField fieldId="email" />
+  <FormField fieldId="password" />
+  <FormDebugPanel />
+</Form>
+```
+
+The panel reads from the Zustand store, so it updates instantly as you type or interact with the form. Because it checks `process.env.NODE_ENV`, it renders nothing in production builds.
+
+## Workflow Debug Panel
+
+A similar component for inspecting workflow state. Place it inside a `<WorkflowProvider>` (or `<Workflow>`) to see the current step, visited steps, and navigation state.
+
+```tsx title="components/workflow-debug-panel.tsx"
+import {
+  useWorkflowContext,
+  useCurrentStepIndex,
+  useVisitedSteps,
+  usePassedSteps,
+  useWorkflowNavigationState,
+} from '@rilaykit/workflow';
+
+function WorkflowDebugPanel() {
+  const workflow = useWorkflowContext();
+  const currentStepIndex = useCurrentStepIndex();
+  const visitedSteps = useVisitedSteps();
+  const passedSteps = usePassedSteps();
+  const navigationState = useWorkflowNavigationState();
+
+  if (process.env.NODE_ENV === 'production') return null;
+
+  return (
+    <details open>
+      <summary>Workflow Debug</summary>
+      <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+        <h4>Current Step</h4>
+        <pre>{JSON.stringify({
+          index: currentStepIndex,
+          step: workflow.currentStep,
+        }, null, 2)}</pre>
+        <h4>Progress</h4>
+        <pre>{JSON.stringify({
+          totalSteps: workflow.context.totalSteps,
+          visitedSteps: [...visitedSteps],
+          passedSteps: [...passedSteps],
+        }, null, 2)}</pre>
+        <h4>Navigation State</h4>
+        <pre>{JSON.stringify(navigationState, null, 2)}</pre>
+      </div>
+    </details>
+  );
+}
+```
+
+## Inspecting Field State
+
+For debugging a single field in isolation, `useFieldState` returns the complete state slice for that field -- value, errors, validation state, touched, and dirty flags.
+
+```tsx title="components/field-debug.tsx"
+import { useFieldState } from '@rilaykit/forms';
+
+function FieldDebug({ fieldId }: { fieldId: string }) {
+  const state = useFieldState(fieldId);
+
+  if (process.env.NODE_ENV === 'production') return null;
+
+  return (
+    <pre style={{ fontSize: 10, opacity: 0.7 }}>
+      {JSON.stringify(state, null, 2)}
+    </pre>
+  );
+}
+```
+
+Place it next to any `<FormField>` to see exactly what the store holds for that field:
+
+```tsx
+<FormField fieldId="email" />
+<FieldDebug fieldId="email" />
+```
+
+The returned `FieldState` object contains:
+
+```ts
+interface FieldState {
+  value: unknown;
+  errors: ValidationError[];
+  validationState: 'idle' | 'validating' | 'valid' | 'invalid';
+  touched: boolean;
+  dirty: boolean;
+}
+```
+
+## Testing Conditions
+
+Conditions built with `when()` expose an `evaluate()` method, so you can test them outside of React with plain data objects. This is useful for unit tests or quick REPL debugging.
+
+```ts
+import { when } from '@rilaykit/core';
+
+// Create a condition
+const condition = when('accountType').equals('business');
+
+// Test it with mock data
+const result = condition.evaluate({ accountType: 'business' }); // true
+const result2 = condition.evaluate({ accountType: 'personal' }); // false
+```
+
+Compound conditions work the same way:
+
+```ts
+const compound = when('age').greaterThanOrEqual(18)
+  .and(when('country').in(['US', 'CA', 'UK']));
+
+compound.evaluate({ age: 21, country: 'US' }); // true
+compound.evaluate({ age: 16, country: 'US' }); // false
+compound.evaluate({ age: 21, country: 'JP' }); // false
+```
+
+<Callout>
+`evaluate()` is synchronous and has no side effects. You can call it as many times as needed in tests without any setup.
+</Callout>
+
+## Performance Profiling
+
+Every `RilayMonitor` instance includes a `PerformanceProfiler` accessible via `getProfiler()`. Use it to instrument specific code paths with high-resolution timing.
+
+```ts
+import { getGlobalMonitor } from '@rilaykit/core';
+
+const monitor = getGlobalMonitor();
+const profiler = monitor?.getProfiler();
+
+profiler?.start('form-render');
+// ... render form
+profiler?.end('form-render');
+
+// Retrieve all collected metrics
+console.log(profiler?.getAllMetrics());
+```
+
+The profiler also supports marks and measures for more complex timings:
+
+```ts
+profiler?.mark('validation-start');
+// ... run validation
+profiler?.mark('validation-end');
+profiler?.measure('full-validation', 'validation-start', 'validation-end');
+```
+
+| Method | Description |
+|---|---|
+| `.start(label)` | Starts a timer with the given label. |
+| `.end(label)` | Ends the timer and returns the recorded `PerformanceMetrics`. |
+| `.mark(name)` | Places a named timestamp mark via `performance.mark`. |
+| `.measure(name, startMark, endMark?)` | Measures the duration between two marks. |
+| `.getMetrics(label)` | Returns the metrics for a specific label. |
+| `.getAllMetrics()` | Returns all recorded metrics as a `Record<string, PerformanceMetrics>`. |
+| `.clear(label?)` | Clears metrics for a specific label, or all metrics if no label is given. |
+
+## Common Issues and Solutions
+
+### Field not visible
+
+**Symptoms:** A field defined in the form configuration does not render.
+
+- **Check conditions.** If the field has a `when()` condition on its visibility, verify it references the correct field ID and that the condition evaluates to `true` with the current form data. Use `condition.evaluate(mockData)` to test it in isolation.
+- **Verify field IDs match.** The `id` passed to `.add({ id: '...' })` in the form builder must match the `fieldId` prop on `<FormField fieldId="..." />` exactly.
+- **Inspect the Form Debug Panel.** Check the current form values to confirm the field that the condition depends on has the expected value.
+
+### Validation not running
+
+**Symptoms:** Entering invalid data does not trigger error messages.
+
+- **Check the validation format.** Validation must be specified as `validation: { validate: [...] }`, not `validation: [...]`. The `validate` key is required.
+- **Check trigger settings.** By default, validation runs on blur. If you need it on change, set `validateOnChange: true` in the validation config.
+- **Verify the field is touched.** Validation on blur only fires once the field has received and lost focus. Use the Field Debug component to check the `touched` state.
+- **Check library versions for Standard Schema.** If using Zod, ensure you are on version 3.24 or later, which includes Standard Schema support.
+
+### Types not autocompleting
+
+**Symptoms:** TypeScript does not suggest field IDs or types when using the form builder.
+
+- **Chain from the typed instance.** The typed `ril` instance is the one returned by `.addComponent()`. Ensure you are chaining `.form()` from that instance, not from a fresh `ril()` call.
+- **Reuse a single `rilay` instance.** If the instance is recreated on every call, TypeScript cannot accumulate the registered component types. Export it from a shared module and import it everywhere.
+- **Check TypeScript version.** Type-safe chaining requires TypeScript 5.0 or later.
+
+### Workflow persistence not working
+
+**Symptoms:** Workflow progress is lost on page reload despite persistence being configured.
+
+- **Check the persistence key.** Each workflow must have a unique persistence key. If two workflows share the same key, they will overwrite each other.
+- **Verify adapter configuration.** Ensure the adapter is passed to `.configure({ persistence: { ... } })` in the workflow builder.
+- **Inspect stored data.** Open the browser DevTools, navigate to the Application tab, and check localStorage for the stored workflow state.
+
+### Form submit not firing
+
+**Symptoms:** Clicking the submit button does nothing.
+
+<Tabs items={['Check validation', 'Check button type', 'Check handler']}>
+  <Tab value="Check validation">
+    Use the Form Debug Panel or `useFormSubmitState()` to check if the form has validation errors. If `isValid` is `false`, submission is blocked.
+
+    ```tsx
+    const { isSubmitting, isValid, isDirty } = useFormSubmitState();
+    console.log({ isSubmitting, isValid, isDirty });
+    ```
+  </Tab>
+  <Tab value="Check button type">
+    Ensure the submit button has `type="submit"` and is placed **inside** the `<Form>` component. A button outside the form tree will not trigger the form's `onSubmit` handler.
+
+    ```tsx
+    <Form formConfig={myForm} onSubmit={handleSubmit}>
+      {/* fields */}
+      <button type="submit">Submit</button>
+    </Form>
+    ```
+  </Tab>
+  <Tab value="Check handler">
+    Verify that `onSubmit` is passed to the `<Form>` component. Without it, the form has no submission handler to call.
+
+    ```tsx
+    <Form formConfig={myForm} onSubmit={handleSubmit}>
+    ```
+  </Tab>
+</Tabs>

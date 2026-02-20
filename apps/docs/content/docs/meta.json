@@ -1,6 +1,7 @@
 {
   "pages": [
     "index",
+    "why-rilaykit",
     "quickstart",
     "---Getting Started---",
     "getting-started",
@@ -8,8 +9,10 @@
     "core-concepts",
     "---@rilaykit/forms---",
     "forms",
-    "---@rilaykit/workflow (Premium)---",
+    "---@rilaykit/workflow---",
     "workflow",
+    "---Guides---",
+    "guides",
     "---Monitoring---",
     "monitoring",
     "---Reference---",

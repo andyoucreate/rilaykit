@@ -1,6 +1,7 @@
 {
   "name": "Core Concepts",
   "pages": [
+    "philosophy",
     "ril-instance",
     "component-registry",
     "renderers",

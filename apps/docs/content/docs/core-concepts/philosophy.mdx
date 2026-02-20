@@ -1,0 +1,134 @@
+---
+title: Philosophy
+description: The design principles behind RilayKit — schema-first forms, headless architecture, type accumulation, and layer separation.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+RilayKit is built on a set of deliberate architectural decisions. Understanding them will help you use the library effectively and make the most of its design.
+
+## Schema-First Design
+
+Forms are data, not imperative code.
+
+In traditional React form libraries, form logic is scattered across JSX trees: state declarations, change handlers, validation effects, conditional rendering. The form's structure is implicit, buried inside component hierarchies. This makes forms hard to inspect, hard to compose, and impossible to serialize.
+
+RilayKit takes a different approach. A form is a **declarative data structure** that describes fields, validation rules, and conditions. Think of it as "JSON Schema for forms, but type-safe."
+
+A form configuration is:
+
+- A **plain data structure** describing fields, validation, and conditions
+- **Serializable** to JSON
+- **Introspectable** -- you can iterate fields, check conditions, and analyze structure programmatically
+- **Composable** -- clone, extend, and merge configurations at runtime
+
+```tsx
+// Traditional: form logic scattered in JSX
+function TraditionalForm() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState({});
+  // 50+ lines of handlers, validation, effects...
+}
+
+// RilayKit: form is a data structure
+const form = rilay.form('contact')
+  .add({ id: 'name', type: 'input', props: { label: 'Name' }, validation: { validate: [required()] } })
+  .add({ id: 'email', type: 'input', props: { label: 'Email' }, validation: { validate: [required(), email()] } });
+```
+
+The RilayKit approach separates the **what** (field definitions, rules) from the **how** (rendering, event handling). The builder produces a configuration object that can be passed to a React provider, stored in a database, or inspected by developer tools -- all without touching any rendering code.
+
+## Headless by Design
+
+RilayKit generates **zero HTML** and **zero CSS**. It is a pure logic layer that provides:
+
+- **State management** -- field values, errors, touched states, dirty tracking
+- **Validation orchestration** -- field-level and form-level, sync and async, with debouncing
+- **Condition evaluation** -- show/hide fields, enable/disable, set values based on other fields
+- **Workflow navigation** -- step progression, skip logic, persistence
+
+You provide everything visual:
+
+- All HTML markup
+- All styling (CSS, Tailwind, CSS-in-JS, anything)
+- All ARIA attributes and accessibility patterns
+- All animations and transitions
+
+This separation means RilayKit works with any design system, any component library, and any styling approach. Your renderers are plain React components that receive standardized props from the engine.
+
+<Callout>
+Because RilayKit is fully headless, you have complete control over markup and accessibility. This means you are responsible for implementing ARIA attributes, focus management, and keyboard navigation in your renderers. See the [Renderers](/docs/core-concepts/renderers) guide for patterns.
+</Callout>
+
+## Immutability and Type Accumulation
+
+Each builder method returns a **new typed instance**. When you call `.addComponent('input', { renderer: Input })`, TypeScript creates a new type that includes `'input'` in the valid component types. When you add `'select'`, the type grows to `'input' | 'select'`. This pattern:
+
+- Enables **full autocompletion** on `.add({ type: '...' })` -- your IDE knows exactly which types are valid
+- **Prevents typos at compile time** -- using an unregistered type is a type error, not a runtime crash
+- **Propagates component prop types** through the entire chain -- once you pick a type, props are typed to match that component
+
+```tsx
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input })      // Type now knows about 'input'
+  .addComponent('select', { renderer: Select });    // Type now knows about 'input' | 'select'
+
+// TypeScript enforces valid types
+rilay.form('test')
+  .add({ id: 'field', type: 'input', props: { /* Input props autocompleted */ } })
+  .add({ id: 'field2', type: 'unknown' }); // Compile error: 'unknown' is not assignable
+```
+
+Because the API is immutable, each `.addComponent()` call returns a new instance with an extended type. Calling `.addComponent()` without capturing the return value has no effect. This is by design: it prevents accidental mutations and ensures every variable has a precise, narrow type.
+
+## Separation of Layers
+
+RilayKit has four distinct layers, each with a single responsibility:
+
+1. **Registry** (`ril.create().addComponent(...)`) -- Maps type names to renderers and default props. Configured once per application.
+2. **Builder** (`rilay.form().add(...)`) -- Constructs form and workflow configurations as data structures. Pure configuration, no React dependency.
+3. **Provider** (`<Form formConfig={...}>`) -- React context that manages state, validation, and rendering orchestration.
+4. **Renderer** (your components) -- Receives props from the provider, renders UI. You own this layer completely.
+
+```
+Registry (ril.create)
+    | component definitions
+Builder (rilay.form / rilay.flow)
+    | form/workflow config
+Provider (<Form> / <Workflow>)
+    | state + props
+Renderer (your components)
+    | HTML + CSS
+User
+```
+
+This separation has practical consequences. The Registry and Builder layers have no React dependency -- they can run in Node, in tests, in build scripts. The Provider is the only layer that touches React. The Renderer is entirely your code. This means you can:
+
+- Test form configurations without rendering anything
+- Generate configs on the server and send them to the client
+- Share registry definitions across multiple applications
+- Replace renderers without changing any configuration
+
+## Serialization as a First-Class Concern
+
+Form and workflow configurations can be serialized with `.toJSON()` and restored with `.fromJSON()`. This is not an afterthought -- the schema-first design makes serialization natural because configurations are already plain data structures.
+
+This enables:
+
+- **Visual form builders** -- Generate configs from drag-and-drop interfaces, store them as JSON
+- **Server-driven forms** -- Store configs in databases, serve them via API, render them on the client
+- **Version control** -- Diff form definitions like any other data, track changes over time
+- **A/B testing** -- Clone configs with `.clone()` and modify them at runtime to test variations
+
+```tsx
+// Serialize a form to JSON
+const json = myForm.toJSON();
+const jsonString = JSON.stringify(json);
+
+// Later, rehydrate it
+const restored = rilay.form().fromJSON(JSON.parse(jsonString));
+```
+
+<Callout type="warn">
+Serialization is structural -- it preserves field definitions, validation rules, and conditions, but not renderer functions. After deserializing with `fromJSON()`, you must use the same `ril` instance to provide the component renderers.
+</Callout>

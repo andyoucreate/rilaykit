@@ -1,27 +1,48 @@
 ---
 title: Introduction
-description: A next-generation React form library focused on type safety, modularity, and developer experience.
+description: A schema-first, type-safe React library for building forms and workflows with full UI flexibility.
 ---
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { FileCode, BotMessageSquare, Settings2, Sparkles } from 'lucide-react';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-# Welcome to RilayKit
+# RilayKit
 
-**RilayKit** is a next-generation React form library that combines powerful functionality with exceptional developer experience. Built with TypeScript-first design, it provides type-safe form building through an intuitive fluent API while maintaining complete UI flexibility.
+**RilayKit** is a schema-first React library for building type-safe forms and workflows. Define your forms as data structures, register your components once, and let TypeScript propagate types through the entire chain — from component registry to rendered fields.
 
 <Callout type="info">
-RilayKit follows a **headless architecture** — you bring the components, we handle the complex logic, state management, and validation.
+RilayKit is fully **headless** — it manages state, validation, and logic. You bring the components, the markup, and the styling.
 </Callout>
 
-## Why Choose RilayKit?
+## What Makes RilayKit Different
 
-- **🎯 Type-Safe by Design**: Full TypeScript support with intelligent type inference
-- **🧩 Modular Architecture**: Use only what you need — core, forms, workflows, or validation adapters
-- **⚡ Fluent Builder API**: Intuitive, chainable syntax for building complex forms
-- **🎨 UI Agnostic**: Works with any component library (Material-UI, Chakra, Ant Design, or custom)
-- **🔄 Advanced Workflows**: Multi-step processes with conditional logic and persistence
-- **📊 Built-in Analytics**: Track user behavior and form performance (Premium)
+Most form libraries are imperative: you write JSX, sprinkle in validation, and manually wire state. RilayKit inverts this — forms are **declarative configurations** that are serializable, composable, and fully type-safe.
+
+Read the full story in [Why RilayKit](/why-rilaykit).
+
+### Type Propagation
+
+Register components with their prop types. TypeScript tracks everything — from the registry through form definitions to rendered fields. Invalid types and props are caught at compile time, not at runtime.
+
+[Learn more about TypeScript support](/core-concepts/typescript-support)
+
+### Universal Validation
+
+Use any Standard Schema compatible library directly — Zod, Valibot, ArkType — or RilayKit's built-in validators. No adapters, no wrappers.
+
+[Learn more about validation](/core-concepts/validation)
+
+### Declarative Conditions
+
+Control field visibility, disabled state, and requirements with a fluent condition API. No `useEffect`, no imperative state management.
+
+[Learn more about conditions](/core-concepts/conditions)
+
+### Workflow Engine
+
+Build multi-step processes with step navigation, persistence, analytics, and a plugin system. Not a wizard with hidden divs — a real workflow engine.
+
+[Learn more about workflows](/workflow/building-workflows)
 
 ## Quick Example
 
@@ -29,74 +50,63 @@ RilayKit follows a **headless architecture** — you bring the components, we ha
 import { ril, required, email, minLength } from '@rilaykit/core';
 import { Form, FormField } from '@rilaykit/forms';
 
-// Configure your instance once
+// 1. Register your components once
 const rilay = ril.create()
   .addComponent('input', { renderer: YourInputComponent });
 
-// Build forms with fluent API
+// 2. Define forms as data
 const loginForm = rilay
   .form('login')
-  .add({ id: 'email', type: 'input', validation: [required(), email()] })
-  .add({ id: 'password', type: 'input', validation: [required(), minLength(8)] });
+  .add({ id: 'email', type: 'input', props: { label: 'Email' }, validation: { validate: [required(), email()] } })
+  .add({ id: 'password', type: 'input', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } });
 
-// Render anywhere
+// 3. Render with full type safety
 <Form formConfig={loginForm} onSubmit={handleLogin}>
   <FormField fieldId="email" />
   <FormField fieldId="password" />
 </Form>
 ```
 
-## Architecture Overview
+## Packages
 
-RilayKit's modular design allows you to compose exactly the functionality you need:
+RilayKit is modular. Install only what you need.
 
 <Cards>
   <Card
     icon={<Settings2/>}
     title="@rilaykit/core"
-    description="Type system, component registry, validation engine, and conditional logic. The foundation of everything."
+    description="Type system, component registry, validation engine, and conditional logic. Required as the foundation for all RilayKit usage."
   />
   <Card
     icon={<FileCode/>}
     title="@rilaykit/forms"
-    description="Fluent form builder with React hooks and components. Perfect for single-page forms and quick implementations."
+    description="Form builder with React hooks and components. Build single-page forms with fluent API and full type safety."
   />
   <Card
     icon={<BotMessageSquare/>}
     title="@rilaykit/workflow"
-    description="Multi-step workflows with navigation, persistence, and analytics. Ideal for onboarding and complex processes."
+    description="Multi-step workflows with navigation, persistence, analytics, and plugin system. For onboarding flows and complex processes."
   />
   <Card
     icon={<Sparkles/>}
     title="Standard Schema Support"
-    description="Native support for Standard Schema - use Zod, Yup, Joi and other validation libraries directly without adapters."
+    description="Native support for Standard Schema — use Zod, Yup, Valibot, ArkType and other validation libraries directly without adapters."
   />
 </Cards>
 
-## Core Principles
+## Design Principles
 
-### 🏗️ **Bring Your Own Components**
-RilayKit doesn't include UI components. Instead, it connects to your existing components through a powerful renderer system. This means:
-- Perfect integration with your design system
-- No CSS conflicts or unwanted styling
-- Complete control over accessibility and UX
+### Bring Your Own Components
+RilayKit generates no HTML and no CSS. It connects to your existing components through a renderer system, giving you complete control over markup, styling, and accessibility.
 
-### 🔧 **Extensible by Design**
-Every aspect of RilayKit can be customized:
-- Custom validators and validation logic
-- Conditional field visibility and behavior
-- Custom renderers for any UI framework
-- Plugin system for extending functionality
+### Extensible by Design
+Every layer is customizable — validators, conditions, renderers, workflow plugins. Build exactly the form system your product needs.
 
-### 🛡️ **Type Safety First**
-Built from the ground up with TypeScript:
-- Intelligent autocompletion for your registered components
-- Compile-time validation of form configurations
-- Inferred types from validation schemas
-- Zero runtime type errors
+### Type Safety First
+Built from the ground up with TypeScript. The type accumulation pattern ensures autocompletion, compile-time validation, and zero runtime type errors across your entire form system.
 
 ## Getting Started
 
-Ready to build better forms? Start with our [installation guide](/getting-started/installation) or dive into [your first form](/getting-started/your-first-form).
+Start with the [installation guide](/getting-started/installation) or jump straight into [building your first form](/getting-started/your-first-form).
 
-For developers migrating from validation adapters, check out our [Standard Schema migration guide](/migration/standard-schema).
+For a faster introduction, try the [Quick Start](/quickstart) guide.
