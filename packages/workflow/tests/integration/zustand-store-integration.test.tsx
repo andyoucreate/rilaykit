@@ -150,8 +150,7 @@ describe('Workflow Zustand Store Integration', () => {
         return (
           <div>
             <div data-testid="step">{stepIndex}</div>
-            {/* biome-ignore lint/a11y/useButtonType: test component */}
-            <button data-testid="next" onClick={() => goNext()}>
+            <button type="button" data-testid="next" onClick={() => goNext()}>
               Next
             </button>
           </div>
@@ -204,8 +203,7 @@ describe('Workflow Zustand Store Integration', () => {
         return (
           <div>
             <div data-testid="transitioning">{isTransitioning ? 'yes' : 'no'}</div>
-            {/* biome-ignore lint/a11y/useButtonType: test component */}
-            <button data-testid="next" onClick={() => goNext()}>
+            <button type="button" data-testid="next" onClick={() => goNext()}>
               Next
             </button>
           </div>

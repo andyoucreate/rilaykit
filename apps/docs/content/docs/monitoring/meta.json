@@ -1,7 +1,4 @@
 {
   "title": "Monitoring",
-  "pages": [
-    "overview",
-    "adapters"
-  ]
+  "pages": ["overview", "adapters"]
 }

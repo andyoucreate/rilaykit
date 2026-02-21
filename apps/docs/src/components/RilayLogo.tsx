@@ -23,8 +23,18 @@ function WorkflowIcon({ className }: { className?: string }) {
       <circle cx="4" cy="12" r="3" fill="#d4a020" />
       <circle cx="20" cy="6" r="2.5" fill="#d4a020" />
       <circle cx="20" cy="18" r="2.5" fill="#d4a020" />
-      <path d="M7 12 C12 12, 14 6, 17.5 6" stroke="#d4a020" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M7 12 C12 12, 14 18, 17.5 18" stroke="#d4a020" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M7 12 C12 12, 14 6, 17.5 6"
+        stroke="#d4a020"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M7 12 C12 12, 14 18, 17.5 18"
+        stroke="#d4a020"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

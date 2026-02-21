@@ -122,9 +122,6 @@ docs/dist/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 
-# Playground builds
-playground/dist/
-
 # Generated files
 *.generated.*
 auto-generated/

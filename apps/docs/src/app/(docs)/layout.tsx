@@ -1,4 +1,4 @@
-import { baseOptions, SidebarFooter } from '@/app/layout.config';
+import { SidebarFooter, baseOptions } from '@/app/layout.config';
 import { source } from '@/lib/source';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
