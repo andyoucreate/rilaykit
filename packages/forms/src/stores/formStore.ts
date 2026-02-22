@@ -2,12 +2,14 @@ import type {
   FieldConditions,
   FieldState,
   FormState,
+  RepeatableFieldConfig,
   ValidationError,
   ValidationState,
 } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { buildCompositeKey } from '../utils/repeatable-data';
 
 // =================================================================
 // STORE STATE & ACTIONS
@@ -17,6 +19,11 @@ export interface FormStoreState extends FormState {
   // Internal state
   _defaultValues: Record<string, unknown>;
   _fieldConditions: Record<string, FieldConditions>;
+
+  // Repeatable state
+  _repeatableConfigs: Record<string, RepeatableFieldConfig>;
+  _repeatableOrder: Record<string, string[]>;
+  _repeatableNextKey: Record<string, number>;
 
   // Actions (internal - exposed via FormActions interface)
   _setValue: (fieldId: string, value: unknown) => void;
@@ -28,6 +35,13 @@ export interface FormStoreState extends FormState {
   _reset: (values?: Record<string, unknown>) => void;
   _setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
   _updateIsValid: () => void;
+
+  // Repeatable actions
+  _setRepeatableConfig: (id: string, config: RepeatableFieldConfig) => void;
+  _appendRepeatableItem: (repeatableId: string, defaultValue?: Record<string, unknown>) => string | null;
+  _removeRepeatableItem: (repeatableId: string, key: string) => boolean;
+  _moveRepeatableItem: (repeatableId: string, fromIndex: number, toIndex: number) => void;
+  _insertRepeatableItem: (repeatableId: string, index: number, defaultValue?: Record<string, unknown>) => string | null;
 }
 
 // =================================================================
@@ -51,6 +65,11 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
       // Internal state
       _defaultValues: { ...initialValues },
       _fieldConditions: {},
+
+      // Repeatable state
+      _repeatableConfigs: {},
+      _repeatableOrder: {},
+      _repeatableNextKey: {},
 
       // Actions
       _setValue: (fieldId, value) => {
@@ -127,6 +146,8 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
           isDirty: false,
           isSubmitting: false,
           isValid: true,
+          _repeatableOrder: {},
+          _repeatableNextKey: {},
         });
       },
 
@@ -146,6 +167,153 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         );
         const hasInvalidFields = Object.values(state.validationStates).some((s) => s === 'invalid');
         set({ isValid: !hasErrors && !hasInvalidFields });
+      },
+
+      // Repeatable actions
+      _setRepeatableConfig: (id, config) => {
+        set((state) => ({
+          _repeatableConfigs: { ...state._repeatableConfigs, [id]: config },
+        }));
+      },
+
+      _appendRepeatableItem: (repeatableId, defaultValue) => {
+        const state = get();
+        const config = state._repeatableConfigs[repeatableId];
+        if (!config) return null;
+
+        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        if (config.max !== undefined && currentOrder.length >= config.max) return null;
+
+        const nextKeyNum = state._repeatableNextKey[repeatableId] ?? 0;
+        const itemKey = `k${nextKeyNum}`;
+        const itemDefaults = defaultValue ?? config.defaultValue ?? {};
+
+        // Set values for the new item
+        const newValues = { ...state.values };
+        for (const field of config.allFields) {
+          const compositeKey = buildCompositeKey(repeatableId, itemKey, field.id);
+          newValues[compositeKey] = itemDefaults[field.id] ?? undefined;
+        }
+
+        set({
+          values: newValues,
+          isDirty: true,
+          _repeatableOrder: {
+            ...state._repeatableOrder,
+            [repeatableId]: [...currentOrder, itemKey],
+          },
+          _repeatableNextKey: {
+            ...state._repeatableNextKey,
+            [repeatableId]: nextKeyNum + 1,
+          },
+        });
+
+        return itemKey;
+      },
+
+      _removeRepeatableItem: (repeatableId, key) => {
+        const state = get();
+        const config = state._repeatableConfigs[repeatableId];
+        if (!config) return false;
+
+        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        if (config.min !== undefined && currentOrder.length <= config.min) return false;
+        if (!currentOrder.includes(key)) return false;
+
+        // Remove the key from order
+        const newOrder = currentOrder.filter((k) => k !== key);
+
+        // Clean up store entries for this item
+        const newValues = { ...state.values };
+        const newErrors = { ...state.errors };
+        const newValidationStates = { ...state.validationStates };
+        const newTouched = { ...state.touched };
+        const newFieldConditions = { ...state._fieldConditions };
+
+        for (const field of config.allFields) {
+          const compositeKey = buildCompositeKey(repeatableId, key, field.id);
+          delete newValues[compositeKey];
+          delete newErrors[compositeKey];
+          delete newValidationStates[compositeKey];
+          delete newTouched[compositeKey];
+          delete newFieldConditions[compositeKey];
+        }
+
+        set({
+          values: newValues,
+          errors: newErrors,
+          validationStates: newValidationStates,
+          touched: newTouched,
+          isDirty: true,
+          _fieldConditions: newFieldConditions,
+          _repeatableOrder: {
+            ...state._repeatableOrder,
+            [repeatableId]: newOrder,
+          },
+        });
+
+        get()._updateIsValid();
+        return true;
+      },
+
+      _moveRepeatableItem: (repeatableId, fromIndex, toIndex) => {
+        const state = get();
+        const currentOrder = state._repeatableOrder[repeatableId];
+        if (!currentOrder) return;
+        if (fromIndex < 0 || fromIndex >= currentOrder.length) return;
+        if (toIndex < 0 || toIndex >= currentOrder.length) return;
+        if (fromIndex === toIndex) return;
+
+        const newOrder = [...currentOrder];
+        const [moved] = newOrder.splice(fromIndex, 1);
+        newOrder.splice(toIndex, 0, moved);
+
+        set({
+          _repeatableOrder: {
+            ...state._repeatableOrder,
+            [repeatableId]: newOrder,
+          },
+        });
+      },
+
+      _insertRepeatableItem: (repeatableId, index, defaultValue) => {
+        const state = get();
+        const config = state._repeatableConfigs[repeatableId];
+        if (!config) return null;
+
+        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        if (config.max !== undefined && currentOrder.length >= config.max) return null;
+
+        const nextKeyNum = state._repeatableNextKey[repeatableId] ?? 0;
+        const itemKey = `k${nextKeyNum}`;
+        const itemDefaults = defaultValue ?? config.defaultValue ?? {};
+
+        // Set values for the new item
+        const newValues = { ...state.values };
+        for (const field of config.allFields) {
+          const compositeKey = buildCompositeKey(repeatableId, itemKey, field.id);
+          newValues[compositeKey] = itemDefaults[field.id] ?? undefined;
+        }
+
+        // Insert at the specified index
+        const newOrder = [...currentOrder];
+        const clampedIndex = Math.max(0, Math.min(index, newOrder.length));
+        newOrder.splice(clampedIndex, 0, itemKey);
+
+        set({
+          values: newValues,
+          isDirty: true,
+          _repeatableOrder: {
+            ...state._repeatableOrder,
+            [repeatableId]: newOrder,
+          },
+          _repeatableNextKey: {
+            ...state._repeatableNextKey,
+            [repeatableId]: nextKeyNum + 1,
+          },
+        });
+
+        return itemKey;
       },
     }))
   );
@@ -302,6 +470,17 @@ export function useFormSubmitState(): {
   const isDirty = useStore(store, (state) => state.isDirty);
 
   return { isSubmitting, isValid, isDirty };
+}
+
+// Stable empty array for repeatable keys
+const EMPTY_KEYS: string[] = [];
+
+/**
+ * Select ordered keys for a repeatable field — re-renders when the order changes
+ */
+export function useRepeatableKeys(repeatableId: string): string[] {
+  const store = useFormStore();
+  return useStore(store, (state) => state._repeatableOrder[repeatableId] ?? EMPTY_KEYS);
 }
 
 // =================================================================

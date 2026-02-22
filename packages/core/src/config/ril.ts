@@ -97,6 +97,8 @@ export interface RilayInstance<C> {
       body: boolean;
       submitButton: boolean;
       field: boolean;
+      repeatable: boolean;
+      repeatableItem: boolean;
       stepper: boolean;
       workflowNextButton: boolean;
       workflowPreviousButton: boolean;
@@ -210,6 +212,8 @@ export class ril<C> implements RilayInstance<C> {
       'bodyRenderer',
       'submitButtonRenderer',
       'fieldRenderer',
+      'repeatableRenderer',
+      'repeatableItemRenderer',
     ];
     const workflowKeys: (keyof WorkflowRenderConfig)[] = [
       'stepperRenderer',
@@ -329,6 +333,8 @@ export class ril<C> implements RilayInstance<C> {
       body: boolean;
       submitButton: boolean;
       field: boolean;
+      repeatable: boolean;
+      repeatableItem: boolean;
       stepper: boolean;
       workflowNextButton: boolean;
       workflowPreviousButton: boolean;
@@ -351,6 +357,8 @@ export class ril<C> implements RilayInstance<C> {
         body: Boolean(this.formRenderConfig.bodyRenderer),
         submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
         field: Boolean(this.formRenderConfig.fieldRenderer),
+        repeatable: Boolean(this.formRenderConfig.repeatableRenderer),
+        repeatableItem: Boolean(this.formRenderConfig.repeatableItemRenderer),
         stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
         workflowNextButton: Boolean(this.workflowRenderConfig.nextButtonRenderer),
         workflowPreviousButton: Boolean(this.workflowRenderConfig.previousButtonRenderer),
@@ -388,7 +396,14 @@ export class ril<C> implements RilayInstance<C> {
     const formRendererKeys = Object.keys(this.formRenderConfig);
     const workflowRendererKeys = Object.keys(this.workflowRenderConfig);
 
-    const validFormKeys = ['rowRenderer', 'bodyRenderer', 'submitButtonRenderer', 'fieldRenderer'];
+    const validFormKeys = [
+      'rowRenderer',
+      'bodyRenderer',
+      'submitButtonRenderer',
+      'fieldRenderer',
+      'repeatableRenderer',
+      'repeatableItemRenderer',
+    ];
     const validWorkflowKeys = [
       'stepperRenderer',
       'nextButtonRenderer',

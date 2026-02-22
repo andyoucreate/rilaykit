@@ -4,12 +4,16 @@ import {
   type FormConfiguration,
   type FormFieldConfig,
   type FormFieldRow,
+  type FormRepeatableRow,
+  type FormRowEntry,
   type FormValidationConfig,
   IdGenerator,
+  type RepeatableFieldConfig,
   deepClone,
   ensureUnique,
   type ril,
 } from '@rilaykit/core';
+import { RepeatableBuilder } from './repeatable-builder';
 
 /**
  * Configuration for a form field with type safety
@@ -89,7 +93,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   /** The ril configuration instance containing component definitions */
   private config: ril<C>;
   /** Array of form rows containing field configurations */
-  private rows: FormFieldRow[] = [];
+  private rows: FormRowEntry[] = [];
   /** Unique identifier for this form */
   private formId: string;
   /** Generator for creating unique IDs */
@@ -227,6 +231,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     const fields = fieldConfigs.map((config) => this.createFormField(config));
 
     return {
+      kind: 'fields' as const,
       id: this.idGenerator.next('row'),
       fields,
       maxColumns: fieldConfigs.length,
@@ -344,6 +349,60 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
+   * Adds a repeatable field group to the form
+   *
+   * Repeatable fields allow users to add/remove instances of a group of fields
+   * at runtime (e.g., "Add another item", "Add another contact").
+   *
+   * @param id - Unique identifier for the repeatable group (cannot contain [ or ])
+   * @param configure - Callback receiving a RepeatableBuilder for fluent configuration
+   * @returns The form builder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.addRepeatable("items", r => r
+   *   .add(
+   *     { id: "name", type: "text", props: { label: "Item" } },
+   *     { id: "qty", type: "number", props: { label: "Qty" } }
+   *   )
+   *   .min(1)
+   *   .max(10)
+   *   .defaultValue({ name: "", qty: 1 })
+   * );
+   * ```
+   */
+  addRepeatable(
+    id: string,
+    configure: (builder: RepeatableBuilder<C>) => RepeatableBuilder<C>
+  ): this {
+    // Validate ID — brackets are reserved for composite keys
+    if (id.includes('[') || id.includes(']')) {
+      throw new Error(
+        `Repeatable ID "${id}" cannot contain "[" or "]" (reserved for composite keys)`
+      );
+    }
+
+    const builder = new RepeatableBuilder<C>(this.config);
+    const configured = configure(builder);
+
+    // Nesting check — repeatables cannot contain other repeatables
+    if (configured._hasRepeatables()) {
+      throw new Error(`Nested repeatables are not supported (in repeatable "${id}")`);
+    }
+
+    const repeatableConfig = configured._build(id);
+
+    const row: FormRepeatableRow = {
+      kind: 'repeatable',
+      id: this.idGenerator.next('repeatable'),
+      repeatable: repeatableConfig,
+    };
+
+    this.rows.push(row);
+    return this;
+  }
+
+  /**
    * Sets the form identifier
    *
    * @param id - The new form identifier
@@ -403,8 +462,13 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   private findField(fieldId: string): FormFieldConfig | null {
     for (const row of this.rows) {
-      const field = row.fields.find((f) => f.id === fieldId);
-      if (field) return field;
+      if (row.kind === 'fields') {
+        const field = row.fields.find((f) => f.id === fieldId);
+        if (field) return field;
+      } else {
+        const field = row.repeatable.allFields.find((f) => f.id === fieldId);
+        if (field) return field;
+      }
     }
     return null;
   }
@@ -426,11 +490,14 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   removeField(fieldId: string): this {
     this.rows = this.rows
-      .map((row) => ({
-        ...row,
-        fields: row.fields.filter((field) => field.id !== fieldId),
-      }))
-      .filter((row) => row.fields.length > 0);
+      .map((row) => {
+        if (row.kind === 'repeatable') return row;
+        return {
+          ...row,
+          fields: row.fields.filter((field) => field.id !== fieldId),
+        };
+      })
+      .filter((row) => row.kind === 'repeatable' || row.fields.length > 0);
 
     return this;
   }
@@ -468,7 +535,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   getFields(): FormFieldConfig[] {
-    return this.rows.flatMap((row) => row.fields);
+    return this.rows
+      .filter((row): row is FormFieldRow => row.kind === 'fields')
+      .flatMap((row) => row.fields);
   }
 
   /**
@@ -485,7 +554,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * console.log(`Form has ${rows.length} rows`);
    * ```
    */
-  getRows(): FormFieldRow[] {
+  getRows(): FormRowEntry[] {
     return [...this.rows];
   }
 
@@ -660,29 +729,74 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     const errors: string[] = [];
     const allFields = this.getFields();
 
-    // Check for duplicate field IDs using shared utility
-    const fieldIds = allFields.map((field) => field.id);
+    // Collect all repeatable configs
+    const repeatableRows = this.rows.filter(
+      (row): row is FormRepeatableRow => row.kind === 'repeatable'
+    );
+    const repeatableTemplateFields = repeatableRows.flatMap((row) => row.repeatable.allFields);
+
+    // Check for duplicate field IDs (including across repeatables)
+    const allFieldIds = [
+      ...allFields.map((field) => field.id),
+      ...repeatableTemplateFields.map((field) => field.id),
+    ];
     try {
-      ensureUnique(fieldIds, 'field');
+      ensureUnique(allFieldIds, 'field');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
 
-    // Check that all referenced components exist
+    // Check for duplicate repeatable IDs
+    const repeatableIds = repeatableRows.map((row) => row.repeatable.id);
+    try {
+      ensureUnique(repeatableIds, 'repeatable');
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+
+    // Check that all referenced components exist (static fields)
     for (const field of allFields) {
       if (!this.config.hasComponent(field.componentId)) {
         errors.push(`Component "${field.componentId}" not found for field "${field.id}"`);
       }
     }
 
-    // Check row constraints
-    for (const row of this.rows) {
-      if (row.fields.length > 3) {
-        errors.push(`Row "${row.id}" has ${row.fields.length} fields, maximum is 3`);
+    // Check that all referenced components exist (repeatable template fields)
+    for (const field of repeatableTemplateFields) {
+      if (!this.config.hasComponent(field.componentId)) {
+        errors.push(
+          `Component "${field.componentId}" not found for repeatable template field "${field.id}"`
+        );
       }
+    }
 
-      if (row.fields.length === 0) {
-        errors.push(`Row "${row.id}" is empty`);
+    // Check row constraints (only for field rows)
+    for (const row of this.rows) {
+      if (row.kind === 'fields') {
+        if (row.fields.length > 3) {
+          errors.push(`Row "${row.id}" has ${row.fields.length} fields, maximum is 3`);
+        }
+
+        if (row.fields.length === 0) {
+          errors.push(`Row "${row.id}" is empty`);
+        }
+      }
+    }
+
+    // Validate brackets not in IDs
+    for (const field of allFields) {
+      if (field.id.includes('[') || field.id.includes(']')) {
+        errors.push(
+          `Field ID "${field.id}" cannot contain "[" or "]" (reserved for repeatable composite keys)`
+        );
+      }
+    }
+
+    for (const repeatableId of repeatableIds) {
+      if (repeatableId.includes('[') || repeatableId.includes(']')) {
+        errors.push(
+          `Repeatable ID "${repeatableId}" cannot contain "[" or "]" (reserved for composite keys)`
+        );
       }
     }
 
@@ -719,10 +833,20 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       throw new Error(`Form validation failed: ${errors.join(', ')}`);
     }
 
+    // Build repeatableFields index
+    const repeatableRows = this.rows.filter(
+      (row): row is FormRepeatableRow => row.kind === 'repeatable'
+    );
+    const repeatableFields: Record<string, RepeatableFieldConfig> | undefined =
+      repeatableRows.length > 0
+        ? Object.fromEntries(repeatableRows.map((row) => [row.repeatable.id, row.repeatable]))
+        : undefined;
+
     return {
       id: this.formId,
       rows: [...this.rows],
       allFields: this.getFields(),
+      repeatableFields,
       config: this.config,
       renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
@@ -774,7 +898,13 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   fromJSON(json: any): this {
     if (json.id) this.formId = json.id;
     if (json.rows) {
-      this.rows = json.rows;
+      // Add kind: 'fields' to legacy rows that don't have a kind discriminant
+      this.rows = json.rows.map((row: any) => {
+        if (!row.kind) {
+          return { ...row, kind: 'fields' as const };
+        }
+        return row;
+      });
     }
     return this;
   }
@@ -803,19 +933,30 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   getStats() {
     const allFields = this.getFields();
-    const fieldCounts = this.rows.map((row) => row.fields.length);
+    const fieldRows = this.rows.filter((row): row is FormFieldRow => row.kind === 'fields');
+    const repeatableRows = this.rows.filter(
+      (row): row is FormRepeatableRow => row.kind === 'repeatable'
+    );
+    const fieldCounts = fieldRows.map((row) => row.fields.length);
 
     return {
-      /** Total number of fields across all rows */
+      /** Total number of static fields across all rows */
       totalFields: allFields.length,
       /** Total number of rows in the form */
       totalRows: this.rows.length,
-      /** Average number of fields per row */
-      averageFieldsPerRow: this.rows.length > 0 ? allFields.length / this.rows.length : 0,
+      /** Average number of fields per row (field rows only) */
+      averageFieldsPerRow: fieldRows.length > 0 ? allFields.length / fieldRows.length : 0,
       /** Maximum number of fields in any single row */
       maxFieldsInRow: fieldCounts.length > 0 ? Math.max(...fieldCounts) : 0,
       /** Minimum number of fields in any single row */
       minFieldsInRow: fieldCounts.length > 0 ? Math.min(...fieldCounts) : 0,
+      /** Total number of repeatable groups */
+      totalRepeatables: repeatableRows.length,
+      /** Total number of fields across all repeatable templates */
+      totalRepeatableFields: repeatableRows.reduce(
+        (sum, row) => sum + row.repeatable.allFields.length,
+        0
+      ),
     };
   }
 }

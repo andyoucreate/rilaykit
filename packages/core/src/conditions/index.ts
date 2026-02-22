@@ -295,6 +295,12 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
 }
 
 function getFieldValue(data: Record<string, any>, fieldPath: string): any {
+  // Direct key lookup first — supports flat composite keys like "items[k0].type"
+  if (fieldPath in data) {
+    return data[fieldPath];
+  }
+
+  // Fallback to dot-path traversal for nested objects
   const parts = fieldPath.split('.');
   let value: any = data;
 

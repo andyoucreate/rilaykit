@@ -23,6 +23,9 @@ export * from './useFormConditions';
 export * from './useFormSubmissionWithStore';
 export * from './useFormValidationWithStore';
 
+// Repeatable fields
+export { useRepeatableField, type UseRepeatableFieldReturn } from './use-repeatable-field';
+
 // Monitoring
 export { useFormMonitoring } from './useFormMonitoring';
 export type { UseFormMonitoringProps, UseFormMonitoringReturn } from './useFormMonitoring';

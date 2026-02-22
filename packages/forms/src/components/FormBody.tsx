@@ -3,6 +3,7 @@ import { ComponentRendererWrapper } from '@rilaykit/core';
 import React, { useMemo } from 'react';
 import { useFormConfigContext } from './FormProvider';
 import FormRow from './FormRow';
+import { RepeatableField } from './repeatable-field';
 
 export const FormBody = React.memo(function FormBody({
   className,
@@ -10,9 +11,21 @@ export const FormBody = React.memo(function FormBody({
 }: ComponentRendererBaseProps<FormBodyRendererProps>) {
   const { formConfig } = useFormConfigContext();
 
-  // Render all rows using FormRow component (default children)
+  // Render all rows — dispatch by kind
   const defaultRenderedRows = useMemo<React.ReactNode>(
-    () => formConfig.rows.map((row) => <FormRow key={row.id} row={row} />),
+    () =>
+      formConfig.rows.map((row) => {
+        if (row.kind === 'repeatable') {
+          return (
+            <RepeatableField
+              key={row.id}
+              repeatableId={row.repeatable.id}
+              repeatableConfig={row.repeatable}
+            />
+          );
+        }
+        return <FormRow key={row.id} row={row} />;
+      }),
     [formConfig.rows]
   );
 

@@ -1,4 +1,4 @@
-import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
+import type { FormConfiguration, FormFieldConfig, ValidationResult } from '@rilaykit/core';
 import {
   createValidationContext,
   hasUnifiedValidation,
@@ -7,6 +7,7 @@ import {
 } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
+import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
 import type { UseFormConditionsReturn } from './useFormConditions';
 
 // Helper function to create success result
@@ -36,7 +37,23 @@ export function useFormValidationWithStore({
   // Optimized field validation with stable dependencies
   const validateField = useCallback(
     async (fieldId: string, value?: unknown): Promise<ValidationResult> => {
-      const fieldConfig = formConfigRef.current.allFields.find((field) => field.id === fieldId);
+      // Try static fields first, then composite key lookup for repeatable fields
+      let fieldConfig: FormFieldConfig | undefined =
+        formConfigRef.current.allFields.find((field) => field.id === fieldId);
+
+      if (!fieldConfig) {
+        const parsed = parseCompositeKey(fieldId);
+        if (parsed && formConfigRef.current.repeatableFields) {
+          const repeatableConfig = formConfigRef.current.repeatableFields[parsed.repeatableId];
+          if (repeatableConfig) {
+            const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
+            if (templateField) {
+              fieldConfig = { ...templateField, id: fieldId };
+            }
+          }
+        }
+      }
+
       const state = store.getState();
 
       // Skip if field doesn't exist
@@ -143,11 +160,53 @@ export function useFormValidationWithStore({
       state._setValidationState(field.id, 'valid');
     }
 
-    // Validate visible fields
+    // Validate visible static fields
     const fieldResults = await Promise.all(
       fieldsToValidate.map((field) => validateField(field.id))
     );
-    const hasFieldErrors = fieldResults.some((result) => !result.isValid);
+    let hasFieldErrors = fieldResults.some((result) => !result.isValid);
+
+    // Validate repeatable fields
+    const repeatableConfigs = formConfigRef.current.repeatableFields ?? {};
+    const repeatableResults: ValidationResult[] = [];
+
+    for (const [repeatableId, config] of Object.entries(repeatableConfigs)) {
+      const order = state._repeatableOrder[repeatableId] ?? [];
+
+      // Validate each item's fields
+      for (const itemKey of order) {
+        for (const templateField of config.allFields) {
+          const compositeId = buildCompositeKey(repeatableId, itemKey, templateField.id);
+
+          // Skip invisible fields
+          if (!conditionsHelpersRef.current.isFieldVisible(compositeId)) {
+            state._setErrors(compositeId, []);
+            state._setValidationState(compositeId, 'valid');
+            continue;
+          }
+
+          const result = await validateField(compositeId);
+          repeatableResults.push(result);
+        }
+      }
+
+      // Validate min count constraint
+      if (config.min !== undefined && order.length < config.min) {
+        repeatableResults.push({
+          isValid: false,
+          errors: [
+            {
+              message: `At least ${config.min} item(s) required`,
+              code: 'REPEATABLE_MIN_COUNT',
+              path: repeatableId,
+            },
+          ],
+        });
+      }
+    }
+
+    const hasRepeatableErrors = repeatableResults.some((result) => !result.isValid);
+    hasFieldErrors = hasFieldErrors || hasRepeatableErrors;
 
     // Form-level validation (if configured)
     let formResult = createSuccessResult();
@@ -192,7 +251,11 @@ export function useFormValidationWithStore({
 
     return {
       isValid: !hasFieldErrors && formResult.isValid,
-      errors: [...fieldResults.flatMap((result) => result.errors), ...formResult.errors],
+      errors: [
+        ...fieldResults.flatMap((result) => result.errors),
+        ...repeatableResults.flatMap((result) => result.errors),
+        ...formResult.errors,
+      ],
     };
   }, [store, validateField]);
 

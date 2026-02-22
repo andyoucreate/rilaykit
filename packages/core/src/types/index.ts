@@ -289,17 +289,73 @@ export interface FormFieldConfig {
 }
 
 export interface FormFieldRow {
+  readonly kind: 'fields';
   readonly id: string;
   readonly fields: FormFieldConfig[];
   readonly maxColumns?: number;
 }
 
-// 4.2. Form Configuration
+// 5.2. Repeatable Fields
+export interface RepeatableFieldConfig {
+  readonly id: string;
+  readonly rows: FormFieldRow[];
+  readonly allFields: FormFieldConfig[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly defaultValue?: Record<string, unknown>;
+  readonly validation?: FieldValidationConfig;
+}
+
+export interface RepeatableFieldItem {
+  readonly key: string;
+  readonly index: number;
+  readonly rows: FormFieldRow[];
+  readonly allFields: FormFieldConfig[];
+}
+
+export interface FormRepeatableRow {
+  readonly kind: 'repeatable';
+  readonly id: string;
+  readonly repeatable: RepeatableFieldConfig;
+}
+
+export type FormRowEntry = FormFieldRow | FormRepeatableRow;
+
+// 5.3. Repeatable Renderers
+export interface RepeatableFieldRendererProps {
+  readonly repeatableId: string;
+  readonly items: RepeatableFieldItem[];
+  readonly canAdd: boolean;
+  readonly canRemove: boolean;
+  readonly onAdd: () => void;
+  readonly min?: number;
+  readonly max?: number;
+  readonly children: React.ReactNode;
+}
+
+export interface RepeatableItemRendererProps {
+  readonly item: RepeatableFieldItem;
+  readonly index: number;
+  readonly total: number;
+  readonly canRemove: boolean;
+  readonly canMoveUp: boolean;
+  readonly canMoveDown: boolean;
+  readonly onRemove: () => void;
+  readonly onMoveUp: () => void;
+  readonly onMoveDown: () => void;
+  readonly children: React.ReactNode;
+}
+
+export type RepeatableFieldRenderer = RendererChildrenFunction<RepeatableFieldRendererProps>;
+export type RepeatableItemRenderer = RendererChildrenFunction<RepeatableItemRendererProps>;
+
+// 5.4. Form Configuration
 export interface FormConfiguration<C extends Record<string, any> = Record<string, never>> {
   readonly id: string;
   readonly config: ril<C>;
-  readonly rows: FormFieldRow[];
+  readonly rows: FormRowEntry[];
   readonly allFields: FormFieldConfig[];
+  readonly repeatableFields?: Record<string, RepeatableFieldConfig>;
   readonly renderConfig?: FormRenderConfig;
   readonly validation?: FormValidationConfig;
 }
@@ -309,6 +365,8 @@ export interface FormRenderConfig {
   readonly bodyRenderer?: FormBodyRenderer;
   readonly submitButtonRenderer?: FormSubmitButtonRenderer;
   readonly fieldRenderer?: FieldRenderer;
+  readonly repeatableRenderer?: RepeatableFieldRenderer;
+  readonly repeatableItemRenderer?: RepeatableItemRenderer;
 }
 
 // 4.3. Form Renderers

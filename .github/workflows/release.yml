@@ -197,35 +197,31 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Debug OIDC token exchange
+      - name: Exchange OIDC token for npm publish token
         run: |
-          echo "=== OIDC environment ==="
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
-          echo "ACTIONS_RUNTIME_TOKEN set: ${ACTIONS_RUNTIME_TOKEN:+yes}"
+          OIDC_TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.npmjs.org" | jq -r '.value')
 
-          echo "=== Requesting OIDC token ==="
-          RESPONSE=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.npmjs.org")
-          TOKEN=$(echo "$RESPONSE" | jq -r '.value // empty')
+          if [ -z "$OIDC_TOKEN" ]; then
+            echo "Failed to get OIDC token"
+            exit 1
+          fi
 
-          if [ -z "$TOKEN" ]; then
-            echo "ERROR: Failed to get OIDC token"
+          RESPONSE=$(curl -sS -X POST "https://registry.npmjs.org/-/npm/v1/security/oidc/tokens" \
+            -H "Content-Type: application/json" \
+            -d "{\"token\": \"$OIDC_TOKEN\"}")
+
+          NPM_TOKEN=$(echo "$RESPONSE" | jq -r '.token // empty')
+
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "Failed to exchange OIDC token for npm token"
             echo "Response: $RESPONSE"
             exit 1
           fi
 
-          echo "Token length: ${#TOKEN}"
-          echo "Token prefix: ${TOKEN:0:20}..."
-
-          echo "=== Testing npm auth with OIDC token ==="
-          echo "//registry.npmjs.org/:_authToken=$TOKEN" > ~/.npmrc
-          npm whoami 2>&1 || echo "npm whoami failed"
-
-          echo "=== npm config ==="
-          npm config list
-
-          echo "=== .npmrc content (redacted) ==="
-          cat ~/.npmrc | sed 's/_authToken=.*/_authToken=<REDACTED>/'
+          echo "npm token obtained successfully"
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          echo "NPM_TOKEN=$NPM_TOKEN" >> $GITHUB_ENV
 
       - name: Create Release Pull Request or Publish
         id: changeset
@@ -236,6 +232,7 @@ jobs:
           commit: 'release: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ env.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
 
   # 🎉 Post-Release

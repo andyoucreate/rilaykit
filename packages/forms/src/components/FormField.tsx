@@ -1,10 +1,13 @@
-import type { ComponentRenderProps } from '@rilaykit/core';
+import type { ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
 import { useFieldActions, useFieldConditions, useFieldState, useFieldValue } from '../stores';
+import { parseCompositeKey } from '../utils/repeatable-data';
 import { useFormConfigContext } from './FormProvider';
 
 export interface FormFieldProps {
   fieldId: string;
+  /** Pre-resolved field config (used by RepeatableItem to skip allFields lookup) */
+  fieldConfig?: FormFieldConfig;
   disabled?: boolean;
   customProps?: Record<string, unknown>;
   className?: string;
@@ -13,6 +16,7 @@ export interface FormFieldProps {
 
 export const FormField = React.memo(function FormField({
   fieldId,
+  fieldConfig: fieldConfigProp,
   disabled = false,
   customProps = {},
   className,
@@ -27,8 +31,30 @@ export const FormField = React.memo(function FormField({
   const conditions = useFieldConditions(fieldId);
   const { setValue, setTouched } = useFieldActions(fieldId);
 
-  // Get field config - early return if not found
-  const fieldConfig = formConfig.allFields.find((field) => field.id === fieldId);
+  // Get field config — use prop if provided, otherwise lookup
+  const fieldConfig = useMemo(() => {
+    if (fieldConfigProp) return fieldConfigProp;
+
+    // Try static fields first
+    const staticField = formConfig.allFields.find((field) => field.id === fieldId);
+    if (staticField) return staticField;
+
+    // Try composite key lookup for repeatable fields
+    const parsed = parseCompositeKey(fieldId);
+    if (parsed && formConfig.repeatableFields) {
+      const repeatableConfig = formConfig.repeatableFields[parsed.repeatableId];
+      if (repeatableConfig) {
+        const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
+        if (templateField) {
+          // Return a copy with the composite ID
+          return { ...templateField, id: fieldId };
+        }
+      }
+    }
+
+    return undefined;
+  }, [fieldConfigProp, formConfig.allFields, formConfig.repeatableFields, fieldId]);
+
   if (!fieldConfig) {
     throw new Error(`Field with ID "${fieldId}" not found`);
   }
