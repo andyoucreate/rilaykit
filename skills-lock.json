@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "rilaykit": {
+      "source": "/Users/karl/Documents/rilay",
+      "sourceType": "local",
+      "computedHash": "59d7552306e05b8593570c7d73de02747ae7e98dfca53eadcb7f1377a7483905"
+    }
+  }
+}
