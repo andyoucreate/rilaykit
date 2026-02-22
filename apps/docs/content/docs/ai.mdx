@@ -1,0 +1,88 @@
+---
+title: AI & Skills
+description: Use RilayKit documentation with AI agents. Install the RilayKit skill for Claude Code, Cursor, and other AI coding assistants.
+---
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# AI & Skills
+
+RilayKit is designed to be AI-friendly. Use the documentation directly with AI agents, or install the RilayKit skill for context-aware assistance.
+
+## LLM-Ready Documentation
+
+The full RilayKit documentation is available in machine-readable formats for AI agents:
+
+| Endpoint | Description |
+|----------|-------------|
+| [`/llms.txt`](/llms.txt) | Lightweight index of all pages with titles and descriptions |
+| [`/llms-full.txt`](/llms-full.txt) | Complete documentation content in plain markdown |
+
+Use these endpoints to feed RilayKit knowledge into any AI tool that supports `llms.txt`.
+
+## Install the RilayKit Skill
+
+The RilayKit skill gives AI coding agents deep knowledge of the framework: builder patterns, validation, conditions, hooks, and real-world patterns.
+
+<Tabs items={['Claude Code', 'All Agents', 'Global Install']}>
+  <Tab value="Claude Code">
+    ```bash
+    npx skills add andyoucreate/rilaykit -a claude-code
+    ```
+  </Tab>
+  <Tab value="All Agents">
+    ```bash
+    npx skills add andyoucreate/rilaykit --all
+    ```
+  </Tab>
+  <Tab value="Global Install">
+    ```bash
+    npx skills add andyoucreate/rilaykit -g --all
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+The skill uses **progressive disclosure** — only the relevant reference is loaded into context when needed, keeping the AI's context window efficient.
+</Callout>
+
+## What's Included
+
+The skill covers the entire RilayKit API across three reference files:
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">Core</h3>
+    <p className="text-sm text-gray-600">ril instance, component registry, Standard Schema validation, conditions with `when()` builder</p>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">Forms</h3>
+    <p className="text-sm text-gray-600">Form builder API, row layouts, components, field hooks, form hooks, condition hooks</p>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">Workflow</h3>
+    <p className="text-sm text-gray-600">Flow builder, navigation, step data helpers, persistence, analytics, real-world patterns</p>
+  </div>
+</div>
+
+## Supported Agents
+
+The skill works with any agent compatible with the [skills.sh](https://skills.sh) ecosystem, including:
+
+- **Claude Code** — Anthropic's CLI agent
+- **Cursor** — AI-powered code editor
+- **Windsurf** — Codeium's AI IDE
+- **OpenCode** — Open-source coding agent
+- And [40+ more agents](https://skills.sh)
+
+## Verify Installation
+
+After installing, ask your AI agent:
+
+```
+How do I create a multi-step workflow with conditional steps using RilayKit?
+```
+
+The agent should reference the `@rilaykit/workflow` builder API with `when()` conditions — not generic form library patterns.
