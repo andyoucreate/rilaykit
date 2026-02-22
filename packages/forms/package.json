@@ -34,10 +34,10 @@
   "homepage": "https://rilay.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/andyoucreate/rilay.git"
+    "url": "https://github.com/andyoucreate/rilaykit.git"
   },
   "bugs": {
-    "url": "https://github.com/andyoucreate/rilay/issues"
+    "url": "https://github.com/andyoucreate/rilaykit/issues"
   },
   "dependencies": {
     "@rilaykit/core": "workspace:*",
