@@ -23,7 +23,7 @@ on:
         default: 'alpha'
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
   PNPM_VERSION: '8'
 
 jobs:
@@ -207,6 +207,7 @@ jobs:
           commit: 'release: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ''
 
   # 🎉 Post-Release
   post-release:
