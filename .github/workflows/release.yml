@@ -73,7 +73,7 @@ jobs:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
 
-  # 🏗️ Build
+  # Build
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -107,7 +107,7 @@ jobs:
             packages/*/build
           retention-days: 1
 
-  # 🔍 Security Audit
+  # Security Audit
   security:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -128,7 +128,7 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level moderate
 
-  # 📋 Changeset Check
+  # Changeset Check
   changeset-check:
     name: Changeset Check
     runs-on: ubuntu-latest
@@ -155,13 +155,13 @@ jobs:
       - name: Check for changeset
         run: |
           if [ "$(pnpm changeset status --output=json | jq '.changesets | length')" -eq 0 ]; then
-            echo "❌ No changeset found. Please add a changeset with 'pnpm changeset'"
+            echo "No changeset found. Please add a changeset with 'pnpm changeset'"
             exit 1
           else
-            echo "✅ Changeset found"
+            echo "Changeset found"
           fi
 
-  # 🚀 Release
+  # Release
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -209,12 +209,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ''
 
-  # 🎉 Post-Release
+  # Post-Release
   post-release:
     name: Post Release
     runs-on: ubuntu-latest
     needs: release
     if: needs.release.outputs.published == 'true'
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -227,27 +229,16 @@ jobs:
           tag_name: v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }}
           release_name: Release v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }}
           body: |
-            ## New Rilay Release
+            ## New RilayKit Release
 
             ### Published packages:
             ${{ needs.release.outputs.publishedPackages }}
 
             ### Useful links:
-            - 📚 [Documentation](https://rilay.io)
-            - 🐛 [Report a bug](https://github.com/andyoucreate/rilay/issues)
-            - 💬 [Discussions](https://github.com/andyoucreate/rilay/discussions)
+            - [Documentation](https://rilay.dev)
+            - [Report a bug](https://github.com/andyoucreate/rilaykit/issues)
+            - [Discussions](https://github.com/andyoucreate/rilaykit/discussions)
 
             ### Thank you to all contributors!
           draft: false
           prerelease: false
-
-      - name: Notify Slack
-        if: env.SLACK_WEBHOOK_URL != ''
-        uses: 8398a7/action-slack@v3
-        with:
-          status: success
-          text: |
-            🚀 New Rilay release v${{ fromJson(needs.release.outputs.publishedPackages)[0].version }} published!
-            📦 Packages: ${{ needs.release.outputs.publishedPackages }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
