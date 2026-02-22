@@ -4,6 +4,7 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { isEmptyValue } from './utils';
 
 // =================================================================
 // STANDARD SCHEMA VALIDATORS - RILAY BUILT-INS
@@ -18,13 +19,7 @@ export function required(message = 'This field is required'): StandardSchemaV1<a
       version: 1,
       vendor: 'rilaykit',
       validate: (value: unknown) => {
-        const isEmpty =
-          value === '' ||
-          value == null ||
-          (Array.isArray(value) && value.length === 0) ||
-          (typeof value === 'object' && Object.keys(value as any).length === 0);
-
-        return isEmpty ? { issues: [{ message, path: undefined }] } : { value };
+        return isEmptyValue(value) ? { issues: [{ message, path: undefined }] } : { value };
       },
     },
   };

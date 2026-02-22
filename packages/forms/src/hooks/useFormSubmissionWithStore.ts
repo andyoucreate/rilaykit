@@ -2,6 +2,7 @@ import type { ValidationResult } from '@rilaykit/core';
 import type React from 'react';
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
+import { structureFormValues } from '../utils/repeatable-data';
 
 export interface UseFormSubmissionWithStoreProps {
   store: FormStore;
@@ -41,12 +42,20 @@ export function useFormSubmissionWithStore({
           return false;
         }
 
-        // Get current values from store
-        const currentValues = store.getState().values as Record<string, unknown>;
+        // Get current values and structure them (flatten composite keys into arrays)
+        const currentState = store.getState();
+        const hasRepeatables = Object.keys(currentState._repeatableConfigs).length > 0;
+        const structuredValues = hasRepeatables
+          ? structureFormValues(
+              currentState.values as Record<string, unknown>,
+              currentState._repeatableConfigs,
+              currentState._repeatableOrder
+            )
+          : (currentState.values as Record<string, unknown>);
 
         // Call onSubmit if provided
         if (onSubmitRef.current) {
-          await onSubmitRef.current(currentValues);
+          await onSubmitRef.current(structuredValues);
         }
 
         state._setSubmitting(false);

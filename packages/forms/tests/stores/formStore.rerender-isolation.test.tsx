@@ -388,7 +388,6 @@ describe('FormStore Re-render Isolation', () => {
         const { isSubmitting, isValid } = useFormSubmitState();
         renders.push(Date.now());
         return (
-          // biome-ignore lint/a11y/useButtonType: test component
           <button disabled={isSubmitting || !isValid}>
             {isSubmitting ? 'Submitting...' : 'Submit'}
           </button>

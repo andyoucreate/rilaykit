@@ -19,6 +19,8 @@ export {
   useFormDirty,
   useFormValues,
   useFormSubmitState,
+  // Repeatable selectors
+  useRepeatableKeys,
   // Action hooks
   useFieldActions,
   useFormActions,

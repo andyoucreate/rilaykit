@@ -95,7 +95,6 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
         rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
         bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
         nextButtonRenderer: ({ onClick }: any) => (
-          // biome-ignore lint/a11y/useButtonType: test component
           <button onClick={onClick} data-testid="next-button">
             Next
           </button>

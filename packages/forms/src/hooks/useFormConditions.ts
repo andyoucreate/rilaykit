@@ -1,5 +1,7 @@
 import type { ConditionalBehavior, FormConfiguration } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
+import { buildCompositeKey } from '../utils/repeatable-data';
+import { scopeConditions } from '../utils/scope-conditions';
 import {
   type ConditionEvaluationResult,
   useMultipleConditionEvaluation,
@@ -8,6 +10,8 @@ import {
 export interface UseFormConditionsProps {
   formConfig: FormConfiguration;
   formValues: Record<string, any>;
+  /** Active repeatable item keys, keyed by repeatable ID */
+  repeatableOrder?: Record<string, string[]>;
 }
 
 export interface UseFormConditionsReturn {
@@ -49,17 +53,46 @@ export interface UseFormConditionsReturn {
 export function useFormConditions({
   formConfig,
   formValues,
+  repeatableOrder,
 }: UseFormConditionsProps): UseFormConditionsReturn {
   // Create field conditions map for evaluation - memoize to avoid recreating on every render
   const fieldsWithConditions = useMemo(() => {
     const conditionsMap: Record<string, ConditionalBehavior | undefined> = {};
+
+    // Static fields
     for (const field of formConfig.allFields) {
       if (field.conditions) {
         conditionsMap[field.id] = field.conditions;
       }
     }
+
+    // Repeatable item fields — scope conditions to each active item
+    if (repeatableOrder && formConfig.repeatableFields) {
+      for (const [repeatableId, config] of Object.entries(formConfig.repeatableFields)) {
+        const keys = repeatableOrder[repeatableId] ?? [];
+        if (keys.length === 0) continue;
+
+        // Build template field IDs set once per repeatable
+        const templateFieldIds = new Set(config.allFields.map((f) => f.id));
+
+        for (const itemKey of keys) {
+          for (const templateField of config.allFields) {
+            if (!templateField.conditions) continue;
+
+            const compositeId = buildCompositeKey(repeatableId, itemKey, templateField.id);
+            conditionsMap[compositeId] = scopeConditions(
+              templateField.conditions,
+              repeatableId,
+              itemKey,
+              templateFieldIds
+            );
+          }
+        }
+      }
+    }
+
     return conditionsMap;
-  }, [formConfig.allFields]);
+  }, [formConfig.allFields, formConfig.repeatableFields, repeatableOrder]);
 
   // Check if form has any conditional fields - memoize for performance
   const hasConditionalFields = useMemo(() => {
