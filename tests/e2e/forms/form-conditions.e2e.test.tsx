@@ -1,17 +1,17 @@
-import { ril, when, required } from '@rilaykit/core';
-import { form, FormBody, FormProvider, useFormConfigContext } from '@rilaykit/forms';
+import { required, ril, when } from '@rilaykit/core';
+import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
 import { useFormStoreApi, useFormValues } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MockTextInput,
-  MockSelectInput,
-  MockNumberInput,
+  FieldErrorDisplay,
   FormValuesDisplay,
+  MockNumberInput,
+  MockSelectInput,
+  MockTextInput,
   SetValueButton,
   ValidationTrigger,
-  FieldErrorDisplay,
 } from '../_setup/test-helpers';
 import { createTestRilConfig } from '../_setup/test-ril-config';
 
@@ -65,7 +65,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="type" value="company" />
           <SetValueButton fieldId="type" value="personal" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (type is empty)
@@ -126,7 +126,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="role" value="guest" />
           <SetValueButton fieldId="role" value="admin" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially visible (role = 'admin', notEquals 'guest')
@@ -173,7 +173,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="age" value={25} />
           <SetValueButton fieldId="age" value={10} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (age = 15, not > 18)
@@ -229,7 +229,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="tags" value={['vip', 'premium']} />
           <SetValueButton fieldId="tags" value={['basic']} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (tags is undefined)
@@ -292,7 +292,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="country" value="FR" />
           <SetValueButton fieldId="country" value="US" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (country = 'US', not in list)
@@ -348,7 +348,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="code" value="ABC" />
           <SetValueButton fieldId="code" value="abcd" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (code = 'ab', does not match)
@@ -404,7 +404,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="optional" value="something" />
           <SetValueButton fieldId="optional" value={null} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (optional is undefined)
@@ -470,7 +470,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="country" value="FR" />
           <SetValueButton fieldId="isPro" value={false} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (isPro=true but country='US' -> AND fails)
@@ -534,7 +534,7 @@ describe('Form Conditions E2E', () => {
           <SetValueButton fieldId="role" value="admin" />
           <SetValueButton fieldId="role" value="manager" />
           <SetValueButton fieldId="role" value="viewer" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially hidden (role = 'viewer')
@@ -615,7 +615,7 @@ describe('Form Conditions E2E', () => {
           <SetValueButton fieldId="a" value="show-b" />
           <SetValueButton fieldId="b" value="hello" />
           <SetValueButton fieldId="a" value="hide-b" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially all conditional fields hidden
@@ -683,7 +683,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="locked" value={true} />
           <SetValueButton fieldId="locked" value={false} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially enabled (locked = false)
@@ -739,7 +739,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <ValidationTrigger />
           <FieldErrorDisplay fieldId="company" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Verify the field is marked as required via conditions
@@ -777,7 +777,7 @@ describe('Form Conditions E2E', () => {
           <FormBody />
           <SetValueButton fieldId="finalized" value={true} />
           <SetValueButton fieldId="finalized" value={false} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially not readonly - check data attribute on the wrapper div
@@ -838,7 +838,7 @@ describe('Form Conditions E2E', () => {
         <FormProvider formConfig={formConfig} defaultValues={{ showEmail: false, email: '' }}>
           <FormBody />
           <ValidationTrigger />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // email field is hidden (showEmail = false), so validation should skip it
@@ -884,7 +884,7 @@ describe('Form Conditions E2E', () => {
           <FieldErrorDisplay fieldId="name" />
           <SetValueButton fieldId="showName" value={false} />
           <SetValueButton fieldId="showName" value={true} />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // name is visible (showName = true). Validate to trigger error.

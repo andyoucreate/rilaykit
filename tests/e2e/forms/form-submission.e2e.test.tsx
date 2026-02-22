@@ -1,19 +1,19 @@
-import { ril, required } from '@rilaykit/core';
-import { form, FormBody, FormProvider, useFormConfigContext } from '@rilaykit/forms';
-import { useFormStoreApi, useFormValues, useFormSubmitState } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { required, ril } from '@rilaykit/core';
+import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
+import { useFormStoreApi, useFormSubmitState, useFormValues } from '@rilaykit/forms';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MockTextInput,
-  MockNumberInput,
-  FormValuesDisplay,
-  FormStateDisplay,
-  SubmitButton,
-  SetValueButton,
-  ValidationTrigger,
   FieldErrorDisplay,
+  FormStateDisplay,
+  FormValuesDisplay,
+  MockNumberInput,
+  MockTextInput,
+  SetValueButton,
   StoreInspector,
+  SubmitButton,
+  ValidationTrigger,
 } from '../_setup/test-helpers';
 import { createTestRilConfig } from '../_setup/test-ril-config';
 
@@ -53,11 +53,7 @@ describe('Form Submission — E2E', () => {
       .build();
 
     render(
-      <FormProvider
-        formConfig={formConfig}
-        defaultValues={{ name: 'Alice' }}
-        onSubmit={onSubmit}
-      >
+      <FormProvider formConfig={formConfig} defaultValues={{ name: 'Alice' }} onSubmit={onSubmit}>
         <FormBody />
         <SubmitButton />
         <FormStateDisplay />
@@ -108,11 +104,7 @@ describe('Form Submission — E2E', () => {
       .build();
 
     render(
-      <FormProvider
-        formConfig={formConfig}
-        defaultValues={{ title: 'Test' }}
-        onSubmit={onSubmit}
-      >
+      <FormProvider formConfig={formConfig} defaultValues={{ title: 'Test' }} onSubmit={onSubmit}>
         <FormBody />
         <SubmitButton />
         <FormStateDisplay />
@@ -263,11 +255,7 @@ describe('Form Submission — E2E', () => {
       .build();
 
     const { container } = render(
-      <FormProvider
-        formConfig={formConfig}
-        defaultValues={{ note: 'Hello' }}
-        onSubmit={onSubmit}
-      >
+      <FormProvider formConfig={formConfig} defaultValues={{ note: 'Hello' }} onSubmit={onSubmit}>
         <FormBody />
       </FormProvider>
     );

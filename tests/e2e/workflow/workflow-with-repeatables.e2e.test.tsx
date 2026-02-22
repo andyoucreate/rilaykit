@@ -1,19 +1,19 @@
-import { ril, required } from '@rilaykit/core';
+import { required, ril } from '@rilaykit/core';
 import { form, useFormStoreApi } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
 import {
-  flow,
-  WorkflowProvider,
-  useWorkflowContext,
   WorkflowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
+  WorkflowProvider,
+  flow,
+  useWorkflowContext,
 } from '@rilaykit/workflow';
 import { useWorkflowAllData } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockTextInput, MockNumberInput } from '../_setup/test-helpers';
+import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // RIL CONFIG
@@ -35,12 +35,12 @@ const rilConfig = ril
     bodyRenderer: ({ children }) => <div>{children}</div>,
     rowRenderer: ({ children }) => <div>{children}</div>,
     nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-      <button data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
+      <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
         Next
       </button>
     ),
     previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-      <button data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
+      <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
         Previous
       </button>
     ),
@@ -66,7 +66,7 @@ function buildStep2FormWithRepeatables() {
         .add({ id: 'name', type: 'text', props: { label: 'Item Name' } })
         .add({ id: 'qty', type: 'number', props: { label: 'Quantity' } })
         .min(1)
-        .defaultValue({ name: '', qty: 1 }),
+        .defaultValue({ name: '', qty: 1 })
     )
     .build();
 }
@@ -85,7 +85,7 @@ function buildStep2FormWithRequiredRepeatables() {
         })
         .add({ id: 'qty', type: 'number', props: { label: 'Quantity' } })
         .min(1)
-        .defaultValue({ name: '', qty: 1 }),
+        .defaultValue({ name: '', qty: 1 })
     )
     .build();
 }
@@ -178,7 +178,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Step 1 is displayed first
@@ -221,7 +221,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Navigate to step 2 (items)
@@ -284,7 +284,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Navigate to step 2
@@ -344,7 +344,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
         <WorkflowPreviousButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Navigate to step 2
@@ -427,12 +427,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     const itemsStepData = allData.items;
     expect(itemsStepData.items).toBeDefined();
     expect(itemsStepData.items).toHaveLength(2);
-    expect(itemsStepData.items[0]).toEqual(
-      expect.objectContaining({ name: 'Widget', qty: 5 }),
-    );
-    expect(itemsStepData.items[1]).toEqual(
-      expect.objectContaining({ name: 'Gadget', qty: 10 }),
-    );
+    expect(itemsStepData.items[0]).toEqual(expect.objectContaining({ name: 'Widget', qty: 5 }));
+    expect(itemsStepData.items[1]).toEqual(expect.objectContaining({ name: 'Gadget', qty: 10 }));
   });
 
   // --------------------------------------------------------------------------
@@ -444,15 +440,12 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     const workflowConfig = buildWorkflow();
 
     render(
-      <WorkflowProvider
-        workflowConfig={workflowConfig}
-        onWorkflowComplete={onWorkflowComplete}
-      >
+      <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
         <WorkflowBody />
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Step 1: fill contact name
@@ -544,14 +537,10 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     const submittedData = onWorkflowComplete.mock.calls[0][0];
 
     // Step 1 data should be present under its step ID
-    expect(submittedData.contact).toEqual(
-      expect.objectContaining({ name: 'Alice Dupont' }),
-    );
+    expect(submittedData.contact).toEqual(expect.objectContaining({ name: 'Alice Dupont' }));
 
     // Step 3 data should be present
-    expect(submittedData.summary).toEqual(
-      expect.objectContaining({ notes: 'Rush delivery' }),
-    );
+    expect(submittedData.summary).toEqual(expect.objectContaining({ notes: 'Rush delivery' }));
 
     // Step 2 data should contain STRUCTURED nested arrays, not flat composite keys.
     // This is the critical assertion: the items field should be an array of objects,
@@ -570,7 +559,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'Widget', qty: 3 }),
         expect.objectContaining({ name: 'Gadget', qty: 7 }),
-      ]),
+      ])
     );
 
     // Verify NO flat composite keys leaked into the step data

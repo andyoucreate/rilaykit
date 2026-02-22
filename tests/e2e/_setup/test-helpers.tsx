@@ -1,5 +1,4 @@
 import type { ValidationResult } from '@rilaykit/core';
-import React, { useState } from 'react';
 import { useFormConfigContext } from '@rilaykit/forms';
 import {
   useFieldErrors,
@@ -11,6 +10,8 @@ import {
   useRepeatableKeys,
 } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
+import type React from 'react';
+import { useState } from 'react';
 
 // =================================================================
 // MOCK COMPONENTS
@@ -18,8 +19,9 @@ import { useRepeatableField } from '@rilaykit/forms';
 
 export const MockTextInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{props.label}</label>}
     <input
+      id={id}
       data-testid={`input-${id}`}
       value={value ?? ''}
       onChange={(e: any) => onChange?.(e.target.value)}
@@ -33,8 +35,9 @@ export const MockTextInput = ({ id, value, onChange, onBlur, disabled, props }: 
 
 export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{props.label}</label>}
     <select
+      id={id}
       data-testid={`input-${id}`}
       value={value ?? ''}
       onChange={(e: any) => onChange?.(e.target.value)}
@@ -52,8 +55,9 @@ export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }
 
 export const MockNumberInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{props.label}</label>}
     <input
+      id={id}
       data-testid={`input-${id}`}
       type="number"
       value={value ?? ''}
@@ -66,8 +70,9 @@ export const MockNumberInput = ({ id, value, onChange, onBlur, disabled, props }
 
 export const MockCheckboxInput = ({ id, value, onChange, disabled, props }: any) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{props.label}</label>}
     <input
+      id={id}
       data-testid={`input-${id}`}
       type="checkbox"
       checked={!!value}
@@ -199,8 +204,8 @@ export function FieldErrorDisplay({ fieldId }: { fieldId: string }) {
   if (errors.length === 0) return null;
   return (
     <div data-testid={`errors-${fieldId}`}>
-      {errors.map((err, i) => (
-        <span key={i} data-testid={`error-${fieldId}-${i}`}>
+      {errors.map((err) => (
+        <span key={err.message} data-testid={`error-${fieldId}-${errors.indexOf(err)}`}>
           {err.message}
         </span>
       ))}
@@ -237,9 +242,7 @@ export function RepeatableControls({ repeatableId }: { repeatableId: string }) {
   return (
     <div data-testid={`repeatable-controls-${repeatableId}`}>
       <span data-testid={`repeatable-count-${repeatableId}`}>{count}</span>
-      <span data-testid={`repeatable-can-add-${repeatableId}`}>
-        {canAdd ? 'true' : 'false'}
-      </span>
+      <span data-testid={`repeatable-can-add-${repeatableId}`}>{canAdd ? 'true' : 'false'}</span>
       <span data-testid={`repeatable-can-remove-${repeatableId}`}>
         {canRemove ? 'true' : 'false'}
       </span>
@@ -293,15 +296,9 @@ export function StoreInspector() {
       <pre data-testid="store-values">{JSON.stringify(state.values)}</pre>
       <pre data-testid="store-errors">{JSON.stringify(state.errors)}</pre>
       <pre data-testid="store-touched">{JSON.stringify(state.touched)}</pre>
-      <pre data-testid="store-validation-states">
-        {JSON.stringify(state.validationStates)}
-      </pre>
-      <pre data-testid="store-repeatable-order">
-        {JSON.stringify(state._repeatableOrder)}
-      </pre>
-      <pre data-testid="store-repeatable-next-key">
-        {JSON.stringify(state._repeatableNextKey)}
-      </pre>
+      <pre data-testid="store-validation-states">{JSON.stringify(state.validationStates)}</pre>
+      <pre data-testid="store-repeatable-order">{JSON.stringify(state._repeatableOrder)}</pre>
+      <pre data-testid="store-repeatable-next-key">{JSON.stringify(state._repeatableNextKey)}</pre>
     </div>
   );
 }

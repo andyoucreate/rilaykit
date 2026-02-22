@@ -1,38 +1,38 @@
 import {
-  ril,
-  when,
-  required,
+  combine,
+  custom,
   email,
-  minLength,
+  max,
   maxLength,
   min,
-  max,
+  minLength,
   pattern,
-  custom,
-  combine,
+  required,
+  ril,
+  when,
 } from '@rilaykit/core';
-import { form, FormBody, FormProvider, useFormConfigContext } from '@rilaykit/forms';
+import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
 import {
-  useFormStoreApi,
-  useFormValues,
   useFieldErrors,
   useFieldValidationState,
+  useFormStoreApi,
+  useFormValues,
 } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React, { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import {
-  MockTextInput,
-  MockNumberInput,
-  FormValuesDisplay,
-  FormStateDisplay,
-  SubmitButton,
-  SetValueButton,
-  ValidationTrigger,
   FieldErrorDisplay,
+  FormStateDisplay,
+  FormValuesDisplay,
+  MockNumberInput,
+  MockTextInput,
+  SetValueButton,
+  SubmitButton,
+  ValidationTrigger,
 } from '../_setup/test-helpers';
 import { createTestRilConfig } from '../_setup/test-ril-config';
-import { z } from 'zod';
 
 // ============================================================================
 // SETUP
@@ -86,9 +86,7 @@ describe('Form Validation E2E', () => {
       // Assert: required error should appear
       await waitFor(() => {
         expect(screen.getByTestId('errors-name')).toBeInTheDocument();
-        expect(screen.getByTestId('error-name-0')).toHaveTextContent(
-          'This field is required'
-        );
+        expect(screen.getByTestId('error-name-0')).toHaveTextContent('This field is required');
       });
     });
   });
@@ -204,9 +202,7 @@ describe('Form Validation E2E', () => {
           vendor: 'test',
           validate: async (value: unknown) => {
             await new Promise((r) => setTimeout(r, 50));
-            return value === 'taken'
-              ? { issues: [{ message: 'Already taken' }] }
-              : { value };
+            return value === 'taken' ? { issues: [{ message: 'Already taken' }] } : { value };
           },
         },
       };
@@ -244,9 +240,7 @@ describe('Form Validation E2E', () => {
       // Assert: async error appears
       await waitFor(() => {
         expect(screen.getByTestId('errors-username')).toBeInTheDocument();
-        expect(screen.getByTestId('error-username-0')).toHaveTextContent(
-          'Already taken'
-        );
+        expect(screen.getByTestId('error-username-0')).toHaveTextContent('Already taken');
       });
       expect(onSubmit).not.toHaveBeenCalled();
 
@@ -259,9 +253,7 @@ describe('Form Validation E2E', () => {
 
       // Assert: submission succeeds
       await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalledWith(
-          expect.objectContaining({ username: 'available' })
-        );
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ username: 'available' }));
       });
     });
   });
@@ -277,16 +269,12 @@ describe('Form Validation E2E', () => {
           vendor: 'test',
           validate: (value: unknown) => {
             const data = value as Record<string, unknown>;
-            const hasEmail =
-              typeof data.contactEmail === 'string' && data.contactEmail.length > 0;
-            const hasPhone =
-              typeof data.contactPhone === 'string' && data.contactPhone.length > 0;
+            const hasEmail = typeof data.contactEmail === 'string' && data.contactEmail.length > 0;
+            const hasPhone = typeof data.contactPhone === 'string' && data.contactPhone.length > 0;
 
             if (!hasEmail && !hasPhone) {
               return {
-                issues: [
-                  { message: 'Either email or phone is required' },
-                ],
+                issues: [{ message: 'Either email or phone is required' }],
               };
             }
             return { value };
@@ -501,9 +489,7 @@ describe('Form Validation E2E', () => {
       // Assert: min error
       await waitFor(() => {
         expect(screen.getByTestId('errors-quantity')).toBeInTheDocument();
-        expect(screen.getByTestId('error-quantity-0')).toHaveTextContent(
-          'Must be at least 0'
-        );
+        expect(screen.getByTestId('error-quantity-0')).toHaveTextContent('Must be at least 0');
       });
 
       // Act: set 50 (valid) and validate
@@ -647,9 +633,7 @@ describe('Form Validation E2E', () => {
       // Assert: Zod validation error
       await waitFor(() => {
         expect(screen.getByTestId('errors-zodEmail')).toBeInTheDocument();
-        expect(screen.getByTestId('error-zodEmail-0')).toHaveTextContent(
-          'Invalid email format'
-        );
+        expect(screen.getByTestId('error-zodEmail-0')).toHaveTextContent('Invalid email format');
       });
 
       // Act: type valid email and validate
@@ -693,10 +677,7 @@ describe('Form Validation E2E', () => {
         .build();
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ isPro: false, companyName: '' }}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ isPro: false, companyName: '' }}>
           <FormBody />
           <FieldErrorDisplay fieldId="companyName" />
           <SetValueButton fieldId="isPro" value={true} />
@@ -762,10 +743,7 @@ describe('Form Validation E2E', () => {
         .build();
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ show: true, hiddenRequired: '' }}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ show: true, hiddenRequired: '' }}>
           <FormBody />
           <FieldErrorDisplay fieldId="hiddenRequired" />
           <SetValueButton fieldId="show" value={false} />
@@ -792,9 +770,7 @@ describe('Form Validation E2E', () => {
       // Wait for conditions to propagate
       await waitFor(() => {
         // Field should be hidden from the DOM
-        expect(
-          screen.queryByTestId('input-hiddenRequired')
-        ).not.toBeInTheDocument();
+        expect(screen.queryByTestId('input-hiddenRequired')).not.toBeInTheDocument();
       });
 
       // Act: validate again while the field is hidden
@@ -808,9 +784,7 @@ describe('Form Validation E2E', () => {
       });
 
       // Assert: errors are cleared on the hidden field
-      expect(
-        screen.queryByTestId('errors-hiddenRequired')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('errors-hiddenRequired')).not.toBeInTheDocument();
     });
   });
 });

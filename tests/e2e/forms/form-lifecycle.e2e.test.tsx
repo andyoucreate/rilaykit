@@ -1,5 +1,5 @@
 import { email, required } from '@rilaykit/core';
-import { form, FormBody, FormProvider } from '@rilaykit/forms';
+import { FormBody, FormProvider, form } from '@rilaykit/forms';
 import { useFormStoreApi } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -371,9 +371,7 @@ describe('Form Lifecycle — E2E', () => {
       .create(rilConfig, 'repeatable-reset-test')
       .add({ id: 'title', type: 'text', props: { label: 'Title' } })
       .addRepeatable('items', (r) =>
-        r
-          .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-          .defaultValue({ name: '' })
+        r.add({ id: 'name', type: 'text', props: { label: 'Name' } }).defaultValue({ name: '' })
       )
       .build();
 

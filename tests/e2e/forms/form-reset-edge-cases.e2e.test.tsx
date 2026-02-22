@@ -1,19 +1,19 @@
-import { ril, required, when } from '@rilaykit/core';
-import { form, FormBody, FormProvider, useFormConfigContext } from '@rilaykit/forms';
-import { useFormStoreApi, useFormValues, useFormSubmitState } from '@rilaykit/forms';
+import { required, ril, when } from '@rilaykit/core';
+import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
+import { useFormStoreApi, useFormSubmitState, useFormValues } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React, { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MockTextInput,
-  MockNumberInput,
-  FormValuesDisplay,
   FormStateDisplay,
-  SubmitButton,
+  FormValuesDisplay,
+  MockNumberInput,
+  MockTextInput,
   RepeatableControls,
-  StoreInspector,
   SetValueButton,
+  StoreInspector,
+  SubmitButton,
 } from '../_setup/test-helpers';
 import { createTestRilConfig } from '../_setup/test-ril-config';
 
@@ -237,7 +237,7 @@ describe('Form Reset & Edge Cases — E2E', () => {
             <FormValuesDisplay />
             <SetValueButton fieldId="name" value="modified" />
           </FormProvider>
-          <button data-testid="change-config" onClick={() => setConfigId('form-2')}>
+          <button type="button" data-testid="change-config" onClick={() => setConfigId('form-2')}>
             Change
           </button>
         </>

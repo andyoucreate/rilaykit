@@ -1,22 +1,22 @@
-import { ril, when, required } from '@rilaykit/core';
-import { form, FormBody, FormProvider, useFormConfigContext } from '@rilaykit/forms';
+import { required, ril, when } from '@rilaykit/core';
+import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
 import { useFormStoreApi, useFormValues, useRepeatableKeys } from '@rilaykit/forms';
-import { useRepeatableField, structureFormValues } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { structureFormValues, useRepeatableField } from '@rilaykit/forms';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MockTextInput,
-  MockSelectInput,
-  MockNumberInput,
-  FormValuesDisplay,
-  FormStateDisplay,
-  SubmitButton,
-  SetValueButton,
-  RepeatableControls,
-  ValidationTrigger,
-  StoreInspector,
   FieldErrorDisplay,
+  FormStateDisplay,
+  FormValuesDisplay,
+  MockNumberInput,
+  MockSelectInput,
+  MockTextInput,
+  RepeatableControls,
+  SetValueButton,
+  StoreInspector,
+  SubmitButton,
+  ValidationTrigger,
 } from '../_setup/test-helpers';
 import { createTestRilConfig } from '../_setup/test-ril-config';
 
@@ -58,9 +58,9 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add(
               { id: 'name', type: 'text', props: { label: 'Name' } },
-              { id: 'qty', type: 'number', props: { label: 'Qty' } },
+              { id: 'qty', type: 'number', props: { label: 'Qty' } }
             )
-            .defaultValue({ name: '', qty: 0 }),
+            .defaultValue({ name: '', qty: 0 })
         )
         .build();
 
@@ -76,7 +76,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <FormValuesDisplay />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Verify both items are rendered with composite keys
@@ -92,18 +92,15 @@ describe('Repeatable Fields — E2E', () => {
         .addRepeatable('items', (r) =>
           r
             .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-            .defaultValue({ name: 'New Item' }),
+            .defaultValue({ name: 'New Item' })
         )
         .build();
 
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ items: [{ name: 'First' }] }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ items: [{ name: 'First' }] }}>
           <FormBody />
           <RepeatableControls repeatableId="items" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initially 1 item
@@ -124,9 +121,7 @@ describe('Repeatable Fields — E2E', () => {
       const config = form
         .create(rilConfig, 'test')
         .addRepeatable('items', (r) =>
-          r
-            .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-            .defaultValue({ name: '' }),
+          r.add({ id: 'name', type: 'text', props: { label: 'Name' } }).defaultValue({ name: '' })
         )
         .build();
 
@@ -139,7 +134,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <RepeatableControls repeatableId="items" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       expect(screen.getByTestId('repeatable-count-items')).toHaveTextContent('2');
@@ -163,18 +158,15 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add({ id: 'name', type: 'text', props: { label: 'Name' } })
             .min(1)
-            .defaultValue({ name: '' }),
+            .defaultValue({ name: '' })
         )
         .build();
 
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ items: [{ name: 'Only' }] }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ items: [{ name: 'Only' }] }}>
           <FormBody />
           <RepeatableControls repeatableId="items" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // At min (1 item with min=1), canRemove should be false
@@ -189,7 +181,7 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add({ id: 'name', type: 'text', props: { label: 'Name' } })
             .max(2)
-            .defaultValue({ name: '' }),
+            .defaultValue({ name: '' })
         )
         .build();
 
@@ -202,7 +194,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <RepeatableControls repeatableId="items" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // At max (2 items with max=2), canAdd should be false
@@ -214,9 +206,7 @@ describe('Repeatable Fields — E2E', () => {
       const config = form
         .create(rilConfig, 'test')
         .addRepeatable('items', (r) =>
-          r
-            .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-            .defaultValue({ name: '' }),
+          r.add({ id: 'name', type: 'text', props: { label: 'Name' } }).defaultValue({ name: '' })
         )
         .build();
 
@@ -230,25 +220,17 @@ describe('Repeatable Fields — E2E', () => {
           <FormBody />
           <RepeatableControls repeatableId="items" />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Initial order: k0 (Alpha), k1 (Beta), k2 (Gamma)
-      expect(storeRef.getState()._repeatableOrder.items).toEqual([
-        'k0',
-        'k1',
-        'k2',
-      ]);
+      expect(storeRef.getState()._repeatableOrder.items).toEqual(['k0', 'k1', 'k2']);
 
       // Move second item (index 1) up to index 0
       fireEvent.click(screen.getByTestId('repeatable-move-up-items-1'));
 
       await waitFor(() => {
-        expect(storeRef.getState()._repeatableOrder.items).toEqual([
-          'k1',
-          'k0',
-          'k2',
-        ]);
+        expect(storeRef.getState()._repeatableOrder.items).toEqual(['k1', 'k0', 'k2']);
       });
     });
   });
@@ -269,18 +251,15 @@ describe('Repeatable Fields — E2E', () => {
               props: { label: 'Name' },
               validation: { validate: required('Name is required') },
             })
-            .defaultValue({ name: '' }),
+            .defaultValue({ name: '' })
         )
         .build();
 
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ items: [{ name: '' }] }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ items: [{ name: '' }] }}>
           <FormBody />
           <ValidationTrigger />
-        </FormProvider>,
+        </FormProvider>
       );
 
       fireEvent.click(screen.getByTestId('validate-btn'));
@@ -320,7 +299,7 @@ describe('Repeatable Fields — E2E', () => {
                 visible: when('type').equals('physical'),
               },
             })
-            .defaultValue({ type: '', weight: '' }),
+            .defaultValue({ type: '', weight: '' })
         )
         .build();
 
@@ -335,7 +314,7 @@ describe('Repeatable Fields — E2E', () => {
           }}
         >
           <FormBody />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Physical item: weight should be visible
@@ -373,7 +352,7 @@ describe('Repeatable Fields — E2E', () => {
                 visible: when('country').equals('US'),
               },
             })
-            .defaultValue({ name: '', state: '' }),
+            .defaultValue({ name: '', state: '' })
         )
         .build();
 
@@ -387,7 +366,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <SetValueButton fieldId="country" value="FR" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // With country=US, state should be visible
@@ -413,9 +392,9 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add(
               { id: 'name', type: 'text', props: { label: 'Name' } },
-              { id: 'qty', type: 'number', props: { label: 'Qty' } },
+              { id: 'qty', type: 'number', props: { label: 'Qty' } }
             )
-            .defaultValue({ name: '', qty: 0 }),
+            .defaultValue({ name: '', qty: 0 })
         )
         .build();
 
@@ -433,7 +412,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <SubmitButton />
-        </FormProvider>,
+        </FormProvider>
       );
 
       fireEvent.click(screen.getByTestId('submit-btn'));
@@ -459,14 +438,12 @@ describe('Repeatable Fields — E2E', () => {
       const config = form
         .create(rilConfig, 'test')
         .addRepeatable('items', (r) =>
-          r
-            .add({ id: 'name', type: 'text', props: { label: 'Item' } })
-            .defaultValue({ name: '' }),
+          r.add({ id: 'name', type: 'text', props: { label: 'Item' } }).defaultValue({ name: '' })
         )
         .addRepeatable('contacts', (r) =>
           r
             .add({ id: 'email', type: 'text', props: { label: 'Email' } })
-            .defaultValue({ email: '' }),
+            .defaultValue({ email: '' })
         )
         .build();
 
@@ -481,7 +458,7 @@ describe('Repeatable Fields — E2E', () => {
           <FormBody />
           <RepeatableControls repeatableId="items" />
           <RepeatableControls repeatableId="contacts" />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Items: 1 entry
@@ -509,9 +486,9 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add(
               { id: 'name', type: 'text', props: { label: 'Name' } },
-              { id: 'qty', type: 'number', props: { label: 'Qty' } },
+              { id: 'qty', type: 'number', props: { label: 'Qty' } }
             )
-            .defaultValue({ name: 'Untitled', qty: 1 }),
+            .defaultValue({ name: 'Untitled', qty: 1 })
         )
         .build();
 
@@ -520,7 +497,7 @@ describe('Repeatable Fields — E2E', () => {
           <FormBody />
           <RepeatableControls repeatableId="items" />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       expect(screen.getByTestId('repeatable-count-items')).toHaveTextContent('0');
@@ -551,19 +528,16 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add({ id: 'name', type: 'text', props: { label: 'Name' } })
             .min(2)
-            .defaultValue({ name: 'Item' }),
+            .defaultValue({ name: 'Item' })
         )
         .build();
 
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ items: [{ name: 'Only One' }] }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ items: [{ name: 'Only One' }] }}>
           <FormBody />
           <ValidationTrigger />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Trigger form validation
@@ -576,9 +550,7 @@ describe('Repeatable Fields — E2E', () => {
       // Check that validation errors include REPEATABLE_MIN_COUNT
       const errorsText = screen.getByTestId('validation-errors').textContent!;
       const errors = JSON.parse(errorsText);
-      const minCountError = errors.find(
-        (e: any) => e.code === 'REPEATABLE_MIN_COUNT',
-      );
+      const minCountError = errors.find((e: any) => e.code === 'REPEATABLE_MIN_COUNT');
       expect(minCountError).toBeDefined();
       expect(minCountError.path).toBe('items');
       expect(minCountError.message).toContain('2');
@@ -595,7 +567,7 @@ describe('Repeatable Fields — E2E', () => {
               props: { label: 'Name' },
               validation: { validate: required('Required') },
             })
-            .defaultValue({ name: '' }),
+            .defaultValue({ name: '' })
         )
         .build();
 
@@ -606,7 +578,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Set up state on the second item (k1)
@@ -614,9 +586,7 @@ describe('Repeatable Fields — E2E', () => {
         const state = storeRef.getState();
         state._setValue('items[k1].name', 'Dirty');
         state._setTouched('items[k1].name');
-        state._setErrors('items[k1].name', [
-          { message: 'Test error', code: 'TEST' },
-        ]);
+        state._setErrors('items[k1].name', [{ message: 'Test error', code: 'TEST' }]);
         state._setFieldConditions('items[k1].name', {
           visible: true,
           disabled: false,
@@ -657,9 +627,9 @@ describe('Repeatable Fields — E2E', () => {
           r
             .add(
               { id: 'name', type: 'text', props: { label: 'Name' } },
-              { id: 'qty', type: 'number', props: { label: 'Qty' } },
+              { id: 'qty', type: 'number', props: { label: 'Qty' } }
             )
-            .defaultValue({ name: '', qty: 0 }),
+            .defaultValue({ name: '', qty: 0 })
         )
         .build();
 
@@ -678,7 +648,7 @@ describe('Repeatable Fields — E2E', () => {
           <FormBody />
           <StoreAccessor />
           <SubmitButton />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Remove the middle item (k1)
@@ -706,7 +676,7 @@ describe('Repeatable Fields — E2E', () => {
       const structured = structureFormValues(
         state.values,
         state._repeatableConfigs,
-        state._repeatableOrder,
+        state._repeatableOrder
       );
       expect(structured.items).toHaveLength(2);
       expect(structured.items).toEqual([
@@ -721,7 +691,7 @@ describe('Repeatable Fields — E2E', () => {
         .addRepeatable('items', (r) =>
           r
             .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-            .defaultValue({ name: 'Auto' }),
+            .defaultValue({ name: 'Auto' })
         )
         .build();
 
@@ -729,7 +699,7 @@ describe('Repeatable Fields — E2E', () => {
         <FormProvider formConfig={config} defaultValues={{ items: [] }}>
           <FormBody />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Rapidly add 10 items
@@ -761,9 +731,7 @@ describe('Repeatable Fields — E2E', () => {
       expect(state._repeatableNextKey.items).toBe(10);
 
       // No orphaned composite keys in values
-      const compositeKeys = Object.keys(state.values).filter((k) =>
-        k.startsWith('items['),
-      );
+      const compositeKeys = Object.keys(state.values).filter((k) => k.startsWith('items['));
       expect(compositeKeys).toHaveLength(0);
     });
 
@@ -772,20 +740,15 @@ describe('Repeatable Fields — E2E', () => {
         .create(rilConfig, 'test')
         .add({ id: 'title', type: 'text', props: { label: 'Title' } })
         .addRepeatable('items', (r) =>
-          r
-            .add({ id: 'name', type: 'text', props: { label: 'Name' } })
-            .defaultValue({ name: '' }),
+          r.add({ id: 'name', type: 'text', props: { label: 'Name' } }).defaultValue({ name: '' })
         )
         .build();
 
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ title: 'Original' }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ title: 'Original' }}>
           <FormBody />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Add items and modify values
@@ -794,9 +757,7 @@ describe('Repeatable Fields — E2E', () => {
         storeRef.getState()._appendRepeatableItem('items');
         storeRef.getState()._setValue('items[k0].name', 'Modified');
         storeRef.getState()._setTouched('items[k0].name');
-        storeRef.getState()._setErrors('items[k0].name', [
-          { message: 'Error', code: 'TEST' },
-        ]);
+        storeRef.getState()._setErrors('items[k0].name', [{ message: 'Error', code: 'TEST' }]);
       });
 
       // Verify state is dirty
@@ -818,9 +779,7 @@ describe('Repeatable Fields — E2E', () => {
       expect(state._repeatableNextKey).toEqual({});
 
       // Composite keys should be cleaned from values
-      const compositeKeys = Object.keys(state.values).filter((k) =>
-        k.startsWith('items['),
-      );
+      const compositeKeys = Object.keys(state.values).filter((k) => k.startsWith('items['));
       expect(compositeKeys).toHaveLength(0);
 
       // Errors/touched should be empty
@@ -857,7 +816,7 @@ describe('Repeatable Fields — E2E', () => {
                 visible: when('type').equals('physical'),
               },
             })
-            .defaultValue({ type: '', weight: '' }),
+            .defaultValue({ type: '', weight: '' })
         )
         .build();
 
@@ -873,7 +832,7 @@ describe('Repeatable Fields — E2E', () => {
         >
           <FormBody />
           <StoreAccessor />
-        </FormProvider>,
+        </FormProvider>
       );
 
       // Verify initial render works

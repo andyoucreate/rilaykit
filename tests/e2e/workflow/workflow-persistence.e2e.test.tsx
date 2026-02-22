@@ -1,12 +1,12 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  flow,
-  WorkflowProvider,
-  useWorkflowContext,
+  LocalStorageAdapter,
   WorkflowBody,
   WorkflowNextButton,
-  LocalStorageAdapter,
+  WorkflowProvider,
+  flow,
+  useWorkflowContext,
 } from '@rilaykit/workflow';
 import { useWorkflowAllData } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -130,7 +130,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Wait for initialization
@@ -212,7 +212,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -271,7 +271,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert - workflow starts fresh at step 0
@@ -328,7 +328,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert - workflow starts at step 0

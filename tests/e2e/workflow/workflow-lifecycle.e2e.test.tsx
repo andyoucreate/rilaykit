@@ -1,18 +1,18 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  flow,
-  WorkflowProvider,
-  useWorkflowContext,
   WorkflowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
+  WorkflowProvider,
+  flow,
+  useWorkflowContext,
 } from '@rilaykit/workflow';
-import { useWorkflowStore, useCurrentStepIndex, useWorkflowAllData } from '@rilaykit/workflow';
+import { useCurrentStepIndex, useWorkflowAllData, useWorkflowStore } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockTextInput, MockSelectInput } from '../_setup/test-helpers';
+import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // SETUP
@@ -35,12 +35,12 @@ function createWorkflowRilConfig() {
       bodyRenderer: ({ children }) => <div>{children}</div>,
       rowRenderer: ({ children }) => <div>{children}</div>,
       nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-        <button data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
+        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
           {isSubmitting ? 'Loading...' : 'Next'}
         </button>
       ),
       previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
+        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
           Previous
         </button>
       ),
@@ -120,7 +120,7 @@ describe('Workflow Lifecycle — E2E', () => {
       <WorkflowProvider workflowConfig={workflowConfig}>
         <WorkflowBody />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert
@@ -147,7 +147,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert step 1 is visible
@@ -196,7 +196,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Navigate forward to step 3
@@ -246,7 +246,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -298,7 +298,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -342,7 +342,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -363,7 +363,7 @@ describe('Workflow Lifecycle — E2E', () => {
         expect.objectContaining({
           workflowId: 'test-workflow',
           currentStepIndex: expect.any(Number),
-        }),
+        })
       );
     });
 
@@ -379,7 +379,7 @@ describe('Workflow Lifecycle — E2E', () => {
         2, // toStep index
         expect.objectContaining({
           workflowId: 'test-workflow',
-        }),
+        })
       );
     });
   });
@@ -394,14 +394,11 @@ describe('Workflow Lifecycle — E2E', () => {
     const workflowConfig = buildThreeStepWorkflow();
 
     render(
-      <WorkflowProvider
-        workflowConfig={workflowConfig}
-        onWorkflowComplete={onWorkflowComplete}
-      >
+      <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -448,7 +445,7 @@ describe('Workflow Lifecycle — E2E', () => {
       <WorkflowProvider workflowConfig={workflowConfig} defaultStep="step2">
         <WorkflowBody />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert — should start at step 2 (index 1)
@@ -483,7 +480,7 @@ describe('Workflow Lifecycle — E2E', () => {
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     // Assert — step 1: isFirstStep=true, isLastStep=false
@@ -527,14 +524,11 @@ describe('Workflow Lifecycle — E2E', () => {
     const workflowConfig = buildThreeStepWorkflow();
 
     render(
-      <WorkflowProvider
-        workflowConfig={workflowConfig}
-        onWorkflowComplete={onWorkflowComplete}
-      >
+      <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
         <WorkflowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
-      </WorkflowProvider>,
+      </WorkflowProvider>
     );
 
     await waitFor(() => {
@@ -611,7 +605,7 @@ describe('Workflow Lifecycle — E2E', () => {
       expect.objectContaining({
         firstName: 'Alice',
         lastName: 'Dupont',
-      }),
+      })
     );
 
     // Step 2 data must be present
@@ -620,7 +614,7 @@ describe('Workflow Lifecycle — E2E', () => {
       expect.objectContaining({
         email: 'alice@example.com',
         phone: '+33612345678',
-      }),
+      })
     );
 
     // Step 3 data must be present — not just the last step
@@ -629,7 +623,7 @@ describe('Workflow Lifecycle — E2E', () => {
       expect.objectContaining({
         company: 'Acme Corp',
         role: 'Engineer',
-      }),
+      })
     );
   });
 });

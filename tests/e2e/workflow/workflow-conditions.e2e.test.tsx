@@ -1,19 +1,19 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  flow,
-  WorkflowProvider,
-  useWorkflowContext,
   WorkflowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
+  WorkflowProvider,
   WorkflowSkipButton,
+  flow,
+  useWorkflowContext,
 } from '@rilaykit/workflow';
 import { useCurrentStepIndex } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockTextInput, MockSelectInput, SetValueButton } from '../_setup/test-helpers';
+import { MockSelectInput, MockTextInput, SetValueButton } from '../_setup/test-helpers';
 
 // ============================================================================
 // SETUP
@@ -38,17 +38,17 @@ function createRilConfig() {
       bodyRenderer: ({ children }) => <div>{children}</div>,
       rowRenderer: ({ children }) => <div>{children}</div>,
       nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-        <button data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
+        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
           Next
         </button>
       ),
       previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
+        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
           Previous
         </button>
       ),
       skipButtonRenderer: ({ onSkip, canSkip }) => (
-        <button data-testid="skip-btn" onClick={onSkip} disabled={!canSkip}>
+        <button type="button" data-testid="skip-btn" onClick={onSkip} disabled={!canSkip}>
           Skip
         </button>
       ),
@@ -60,7 +60,7 @@ function createRilConfig() {
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState, context, conditionsHelpers } = useWorkflowContext();
+  const { workflowState, context } = useWorkflowContext();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -72,11 +72,12 @@ function WorkflowStateDisplay() {
 
 function StepVisibilityDisplay({ stepCount }: { stepCount: number }) {
   const { conditionsHelpers } = useWorkflowContext();
+  const steps = Array.from({ length: stepCount }, (_, i) => i);
   return (
     <div>
-      {Array.from({ length: stepCount }, (_, i) => (
-        <span key={i} data-testid={`step-visible-${i}`}>
-          {conditionsHelpers.isStepVisible(i) ? 'true' : 'false'}
+      {steps.map((stepIndex) => (
+        <span key={stepIndex} data-testid={`step-visible-${stepIndex}`}>
+          {conditionsHelpers.isStepVisible(stepIndex) ? 'true' : 'false'}
         </span>
       ))}
     </div>

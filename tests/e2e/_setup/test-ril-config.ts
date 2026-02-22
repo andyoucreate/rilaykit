@@ -1,14 +1,14 @@
 import { ril } from '@rilaykit/core';
 import {
-  MockTextInput,
-  MockSelectInput,
-  MockNumberInput,
   MockCheckboxInput,
+  MockNumberInput,
+  MockSelectInput,
+  MockTextInput,
   TestBodyRenderer,
+  TestRepeatableItemRenderer,
+  TestRepeatableRenderer,
   TestRowRenderer,
   TestSubmitButtonRenderer,
-  TestRepeatableRenderer,
-  TestRepeatableItemRenderer,
 } from './test-helpers';
 
 // =================================================================
