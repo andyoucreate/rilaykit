@@ -22,8 +22,8 @@ import {
   useWorkflowSubmission,
 } from '../hooks';
 import { usePersistence } from '../hooks/usePersistence';
-import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
+import type { WorkflowPersistenceAdapter } from '../persistence/types';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -304,7 +304,12 @@ export function WorkflowProvider({
       persistenceError: hasPersistence ? persistenceHook.persistenceError : null,
       persistNow: hasPersistence ? persistenceHook.persistNow : undefined,
     }),
-    [hasPersistence, persistenceHook.isPersisting, persistenceHook.persistenceError, persistenceHook.persistNow]
+    [
+      hasPersistence,
+      persistenceHook.isPersisting,
+      persistenceHook.persistenceError,
+      persistenceHook.persistNow,
+    ]
   );
 
   // Create workflow context for conditions and callbacks

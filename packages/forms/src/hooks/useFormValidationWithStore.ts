@@ -39,8 +39,9 @@ export function useFormValidationWithStore({
   const validateField = useCallback(
     async (fieldId: string, value?: unknown): Promise<ValidationResult> => {
       // Try static fields first, then composite key lookup for repeatable fields
-      let fieldConfig: FormFieldConfig | undefined =
-        formConfigRef.current.allFields.find((field) => field.id === fieldId);
+      let fieldConfig: FormFieldConfig | undefined = formConfigRef.current.allFields.find(
+        (field) => field.id === fieldId
+      );
 
       if (!fieldConfig) {
         const parsed = parseCompositeKey(fieldId);
