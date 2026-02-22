@@ -23,7 +23,7 @@ on:
         default: 'alpha'
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   PNPM_VERSION: '8'
 
 jobs:
@@ -185,6 +185,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -197,32 +198,6 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Exchange OIDC token for npm publish token
-        run: |
-          OIDC_TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.npmjs.org" | jq -r '.value')
-
-          if [ -z "$OIDC_TOKEN" ]; then
-            echo "Failed to get OIDC token"
-            exit 1
-          fi
-
-          RESPONSE=$(curl -sS -X POST "https://registry.npmjs.org/-/npm/v1/security/oidc/tokens" \
-            -H "Content-Type: application/json" \
-            -d "{\"token\": \"$OIDC_TOKEN\"}")
-
-          NPM_TOKEN=$(echo "$RESPONSE" | jq -r '.token // empty')
-
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "Failed to exchange OIDC token for npm token"
-            echo "Response: $RESPONSE"
-            exit 1
-          fi
-
-          echo "npm token obtained successfully"
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          echo "NPM_TOKEN=$NPM_TOKEN" >> $GITHUB_ENV
-
       - name: Create Release Pull Request or Publish
         id: changeset
         uses: changesets/action@v1
@@ -232,8 +207,6 @@ jobs:
           commit: 'release: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ env.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
 
   # 🎉 Post-Release
   post-release:
