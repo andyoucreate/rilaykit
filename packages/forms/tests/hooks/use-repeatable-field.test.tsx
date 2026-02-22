@@ -1,7 +1,7 @@
 import type { FormConfiguration, RepeatableFieldConfig } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { act, renderHook } from '@testing-library/react';
-import React from 'react';
+import type React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormProvider } from '../../src/components/FormProvider';
@@ -12,7 +12,11 @@ import { useRepeatableField } from '../../src/hooks/use-repeatable-field';
 // =================================================================
 
 const MockInput = ({ value, onChange, props }: any) => (
-  <input value={value || ''} onChange={(e: any) => onChange?.(e.target.value)} placeholder={props?.label} />
+  <input
+    value={value || ''}
+    onChange={(e: any) => onChange?.(e.target.value)}
+    placeholder={props?.label}
+  />
 );
 
 let rilConfig: any;
@@ -183,7 +187,10 @@ describe('useRepeatableField', () => {
   describe('remove', () => {
     it('should remove an item by key', () => {
       const wrapper = createWrapper(formConfig, {
-        items: [{ name: 'A', qty: 1 }, { name: 'B', qty: 2 }],
+        items: [
+          { name: 'A', qty: 1 },
+          { name: 'B', qty: 2 },
+        ],
       });
 
       const { result } = renderHook(() => useRepeatableField('items'), { wrapper });
@@ -201,7 +208,11 @@ describe('useRepeatableField', () => {
   describe('move', () => {
     it('should reorder items', () => {
       const wrapper = createWrapper(formConfig, {
-        items: [{ name: 'A', qty: 1 }, { name: 'B', qty: 2 }, { name: 'C', qty: 3 }],
+        items: [
+          { name: 'A', qty: 1 },
+          { name: 'B', qty: 2 },
+          { name: 'C', qty: 3 },
+        ],
       });
 
       const { result } = renderHook(() => useRepeatableField('items'), { wrapper });

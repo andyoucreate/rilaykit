@@ -11,10 +11,7 @@ import {
 // HELPERS
 // =================================================================
 
-function createRepeatableConfig(
-  id: string,
-  fieldIds: string[]
-): RepeatableFieldConfig {
+function createRepeatableConfig(id: string, fieldIds: string[]): RepeatableFieldConfig {
   return {
     id,
     rows: [
@@ -47,9 +44,7 @@ describe('Composite Key Helpers', () => {
     });
 
     it('should handle various ID formats', () => {
-      expect(buildCompositeKey('lineItems', 'k42', 'unitPrice')).toBe(
-        'lineItems[k42].unitPrice'
-      );
+      expect(buildCompositeKey('lineItems', 'k42', 'unitPrice')).toBe('lineItems[k42].unitPrice');
     });
   });
 

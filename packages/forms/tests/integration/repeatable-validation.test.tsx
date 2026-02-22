@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormBody } from '../../src/components/FormBody';
 import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
-import { useFormStoreApi } from '../../src/stores';
 
 // =================================================================
 // MOCK COMPONENTS
@@ -20,9 +19,7 @@ const MockTextInput = ({ id, value, onChange, props, error }: any) => (
       value={value || ''}
       onChange={(e: any) => onChange?.(e.target.value)}
     />
-    {error && error.length > 0 && (
-      <div data-testid={`error-${id}`}>{error[0].message}</div>
-    )}
+    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
   </div>
 );
 
@@ -35,9 +32,7 @@ const MockNumberInput = ({ id, value, onChange, props, error }: any) => (
       value={value ?? ''}
       onChange={(e: any) => onChange?.(Number(e.target.value))}
     />
-    {error && error.length > 0 && (
-      <div data-testid={`error-${id}`}>{error[0].message}</div>
-    )}
+    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
   </div>
 );
 
@@ -75,8 +70,7 @@ function buildForm(opts?: { min?: number }): FormConfiguration {
 }
 
 function ValidationTestChild() {
-  const { validateForm, validateField } = useFormConfigContext();
-  const store = useFormStoreApi();
+  const { validateForm } = useFormConfigContext();
   const [result, setResult] = React.useState<ValidationResult | null>(null);
 
   return (
@@ -94,9 +88,7 @@ function ValidationTestChild() {
       <div data-testid="validation-result">
         {result !== null ? (result.isValid ? 'valid' : 'invalid') : 'pending'}
       </div>
-      <div data-testid="error-count">
-        {result !== null ? result.errors.length : 0}
-      </div>
+      <div data-testid="error-count">{result !== null ? result.errors.length : 0}</div>
     </div>
   );
 }
@@ -180,10 +172,7 @@ describe('Repeatable Fields — Validation Integration', () => {
     it('should fail validation when below min count', async () => {
       const config = buildForm({ min: 2 });
       render(
-        <FormProvider
-          formConfig={config}
-          defaultValues={{ items: [{ name: 'Only One', qty: 1 }] }}
-        >
+        <FormProvider formConfig={config} defaultValues={{ items: [{ name: 'Only One', qty: 1 }] }}>
           <ValidationTestChild />
         </FormProvider>
       );
@@ -246,9 +235,7 @@ describe('Repeatable Fields — Validation Integration', () => {
       fireEvent.submit(formElement!);
 
       await waitFor(() => {
-        expect(onSubmit).toHaveBeenCalledWith(
-          expect.objectContaining({ title: 'Empty' })
-        );
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: 'Empty' }));
       });
     });
   });

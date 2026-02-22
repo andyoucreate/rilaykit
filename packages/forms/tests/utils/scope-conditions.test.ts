@@ -1,4 +1,4 @@
-import type { ConditionalBehavior, ConditionConfig } from '@rilaykit/core';
+import type { ConditionConfig, ConditionalBehavior } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { scopeConditions } from '../../src/utils/scope-conditions';
 

@@ -29,18 +29,16 @@ describe('Form Builder — Repeatable Fields', () => {
 
   describe('addRepeatable', () => {
     it('should add a repeatable group with fluent API', () => {
-      const builder = form
-        .create(rilConfig, 'order-form')
-        .addRepeatable('items', (r) =>
-          r
-            .add(
-              { id: 'name', type: 'text', props: { label: 'Item' } },
-              { id: 'qty', type: 'number', props: { label: 'Qty' } }
-            )
-            .min(1)
-            .max(10)
-            .defaultValue({ name: '', qty: 1 })
-        );
+      const builder = form.create(rilConfig, 'order-form').addRepeatable('items', (r) =>
+        r
+          .add(
+            { id: 'name', type: 'text', props: { label: 'Item' } },
+            { id: 'qty', type: 'number', props: { label: 'Qty' } }
+          )
+          .min(1)
+          .max(10)
+          .defaultValue({ name: '', qty: 1 })
+      );
 
       const config = builder.build();
 
@@ -104,14 +102,12 @@ describe('Form Builder — Repeatable Fields', () => {
     });
 
     it('should support addSeparateRows in repeatable', () => {
-      const builder = form
-        .create(rilConfig)
-        .addRepeatable('items', (r) =>
-          r.addSeparateRows([
-            { id: 'name', type: 'text', props: { label: 'Name' } },
-            { id: 'qty', type: 'number', props: { label: 'Qty' } },
-          ])
-        );
+      const builder = form.create(rilConfig).addRepeatable('items', (r) =>
+        r.addSeparateRows([
+          { id: 'name', type: 'text', props: { label: 'Name' } },
+          { id: 'qty', type: 'number', props: { label: 'Qty' } },
+        ])
+      );
 
       const config = builder.build();
       const repeatableConfig = config.repeatableFields!.items;
@@ -208,7 +204,10 @@ describe('Form Builder — Repeatable Fields', () => {
         form
           .create(rilConfig)
           .addRepeatable('items', (r) =>
-            r.add({ id: 'name', type: 'text', props: { label: 'Item' } }).min(5).max(2)
+            r
+              .add({ id: 'name', type: 'text', props: { label: 'Item' } })
+              .min(5)
+              .max(2)
           )
           .build();
       }).toThrow('min (5) cannot be greater than max (2)');
@@ -216,13 +215,11 @@ describe('Form Builder — Repeatable Fields', () => {
 
     it('should throw for nested repeatables', () => {
       expect(() => {
-        form
-          .create(rilConfig)
-          .addRepeatable('outer', (r) => {
-            // RepeatableBuilder delegates to form, but addRepeatable is on form, not RepeatableBuilder
-            // So nesting would mean the inner form has a repeatable - which we check
-            return r.add({ id: 'name', type: 'text', props: { label: 'Item' } });
-          });
+        form.create(rilConfig).addRepeatable('outer', (r) => {
+          // RepeatableBuilder delegates to form, but addRepeatable is on form, not RepeatableBuilder
+          // So nesting would mean the inner form has a repeatable - which we check
+          return r.add({ id: 'name', type: 'text', props: { label: 'Item' } });
+        });
       }).not.toThrow();
     });
 
@@ -375,7 +372,10 @@ describe('Form Builder — Repeatable Fields', () => {
         .create(rilConfig, 'test')
         .add({ id: 'name', type: 'text', props: { label: 'Name' } })
         .addRepeatable('items', (r) =>
-          r.add({ id: 'item', type: 'text', props: { label: 'Item' } }).min(1).max(5)
+          r
+            .add({ id: 'item', type: 'text', props: { label: 'Item' } })
+            .min(1)
+            .max(5)
         );
 
       const json = builder.toJSON();

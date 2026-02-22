@@ -1,6 +1,6 @@
 import { ril, when } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
+import type React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormBody } from '../../src/components/FormBody';
