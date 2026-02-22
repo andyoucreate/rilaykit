@@ -1,9 +1,9 @@
 import type { FormFieldConfig, FormFieldRow, RepeatableFieldItem } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
-import { useRepeatableKeys, useFormStore } from '../stores';
+import { useFormConfigContext } from '../components/FormProvider';
+import { useFormStore, useRepeatableKeys } from '../stores';
 import { buildCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
-import { useFormConfigContext } from '../components/FormProvider';
 
 // =================================================================
 // TYPES

@@ -66,8 +66,8 @@ export function FormProvider({
     let initialNextKeys: Record<string, number> = {};
 
     // If defaultValues contain arrays for repeatables, flatten them
-    const hasRepeatableDefaults = Object.keys(repeatableConfigs).some(
-      (id) => Array.isArray(defaultValues[id])
+    const hasRepeatableDefaults = Object.keys(repeatableConfigs).some((id) =>
+      Array.isArray(defaultValues[id])
     );
 
     if (hasRepeatableDefaults) {
@@ -153,8 +153,8 @@ export function FormProvider({
       let initialNextKeys: Record<string, number> = {};
 
       // Flatten default arrays for repeatables
-      const hasRepeatableDefaults = Object.keys(repeatableConfigs).some(
-        (id) => Array.isArray(defaultValues[id])
+      const hasRepeatableDefaults = Object.keys(repeatableConfigs).some((id) =>
+        Array.isArray(defaultValues[id])
       );
 
       if (hasRepeatableDefaults) {
@@ -215,9 +215,7 @@ export function FormProvider({
   }, [store]);
 
   // Subscribe to repeatable order for reactive conditions evaluation
-  const [repeatableOrder, setRepeatableOrder] = useState(
-    () => store.getState()._repeatableOrder
-  );
+  const [repeatableOrder, setRepeatableOrder] = useState(() => store.getState()._repeatableOrder);
 
   useEffect(() => {
     const unsubscribe = store.subscribe(

@@ -38,10 +38,17 @@ export interface FormStoreState extends FormState {
 
   // Repeatable actions
   _setRepeatableConfig: (id: string, config: RepeatableFieldConfig) => void;
-  _appendRepeatableItem: (repeatableId: string, defaultValue?: Record<string, unknown>) => string | null;
+  _appendRepeatableItem: (
+    repeatableId: string,
+    defaultValue?: Record<string, unknown>
+  ) => string | null;
   _removeRepeatableItem: (repeatableId: string, key: string) => boolean;
   _moveRepeatableItem: (repeatableId: string, fromIndex: number, toIndex: number) => void;
-  _insertRepeatableItem: (repeatableId: string, index: number, defaultValue?: Record<string, unknown>) => string | null;
+  _insertRepeatableItem: (
+    repeatableId: string,
+    index: number,
+    defaultValue?: Record<string, unknown>
+  ) => string | null;
 }
 
 // =================================================================

@@ -36,16 +36,36 @@ export function scopeConditions(
   const result: ConditionalBehavior = {};
 
   if (conditions.visible) {
-    result.visible = scopeConditionConfig(conditions.visible, repeatableId, itemKey, templateFieldIds);
+    result.visible = scopeConditionConfig(
+      conditions.visible,
+      repeatableId,
+      itemKey,
+      templateFieldIds
+    );
   }
   if (conditions.disabled) {
-    result.disabled = scopeConditionConfig(conditions.disabled, repeatableId, itemKey, templateFieldIds);
+    result.disabled = scopeConditionConfig(
+      conditions.disabled,
+      repeatableId,
+      itemKey,
+      templateFieldIds
+    );
   }
   if (conditions.required) {
-    result.required = scopeConditionConfig(conditions.required, repeatableId, itemKey, templateFieldIds);
+    result.required = scopeConditionConfig(
+      conditions.required,
+      repeatableId,
+      itemKey,
+      templateFieldIds
+    );
   }
   if (conditions.readonly) {
-    result.readonly = scopeConditionConfig(conditions.readonly, repeatableId, itemKey, templateFieldIds);
+    result.readonly = scopeConditionConfig(
+      conditions.readonly,
+      repeatableId,
+      itemKey,
+      templateFieldIds
+    );
   }
 
   return result;

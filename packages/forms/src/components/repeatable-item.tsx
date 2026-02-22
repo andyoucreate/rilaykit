@@ -1,7 +1,7 @@
 import type { RepeatableFieldItem } from '@rilaykit/core';
 import React, { useMemo } from 'react';
-import { useFormConfigContext } from './FormProvider';
 import { FormField } from './FormField';
+import { useFormConfigContext } from './FormProvider';
 import FormRow from './FormRow';
 
 // =================================================================

@@ -12,11 +12,7 @@ const COMPOSITE_KEY_REGEX = /^([^[\]]+)\[([^\]]+)\]\.(.+)$/;
 /**
  * Build a composite key from parts: `repeatableId[key].fieldId`
  */
-export function buildCompositeKey(
-  repeatableId: string,
-  itemKey: string,
-  fieldId: string
-): string {
+export function buildCompositeKey(repeatableId: string, itemKey: string, fieldId: string): string {
   return `${repeatableId}[${itemKey}].${fieldId}`;
 }
 
