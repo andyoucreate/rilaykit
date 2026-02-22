@@ -22,7 +22,16 @@ import {
   useWorkflowSubmission,
 } from '../hooks';
 import { usePersistence } from '../hooks/usePersistence';
+import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
+
+// Noop adapter — always call usePersistence to respect Rules of Hooks
+const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
+  save: async () => {},
+  load: async () => null,
+  remove: async () => {},
+  exists: async () => false,
+};
 import {
   type WorkflowStore,
   WorkflowStoreContext,
@@ -242,23 +251,32 @@ export function WorkflowProvider({
 
   const resetWorkflow = useCallback(() => store.getState()._reset(), [store]);
 
-  // Initialize persistence if configured
-  const persistenceHook = workflowConfig.persistence?.adapter
-    ? usePersistence({
-        workflowId: workflowConfig.id,
-        workflowState,
-        adapter: workflowConfig.persistence.adapter,
-        options: workflowConfig.persistence.options,
-        userId: workflowConfig.persistence.userId,
-      })
-    : null;
+  // Initialize persistence unconditionally (Rules of Hooks)
+  const hasPersistence = !!workflowConfig.persistence?.adapter;
 
-  // Load persisted data on mount
+  const persistenceHook = usePersistence({
+    workflowId: workflowConfig.id,
+    workflowState,
+    adapter: workflowConfig.persistence?.adapter ?? NOOP_PERSISTENCE_ADAPTER,
+    options: workflowConfig.persistence?.options,
+    userId: workflowConfig.persistence?.userId,
+  });
+
+  // Ref to avoid re-triggering effect when persistenceHook identity changes
+  const persistenceHookRef = useRef(persistenceHook);
+  persistenceHookRef.current = persistenceHook;
+
+  // Load persisted data once on mount
+  const hasLoadedPersistedRef = useRef(false);
+
   useEffect(() => {
+    if (hasLoadedPersistedRef.current) return;
+    hasLoadedPersistedRef.current = true;
+
     const loadPersistedData = async () => {
-      if (persistenceHook) {
+      if (hasPersistence) {
         try {
-          const persistedData = await persistenceHook.loadPersistedData();
+          const persistedData = await persistenceHookRef.current.loadPersistedData();
           if (persistedData) {
             store.getState()._loadPersistedState({
               currentStepIndex: persistedData.currentStepIndex,
@@ -273,21 +291,20 @@ export function WorkflowProvider({
           console.error('Failed to load persisted state:', error);
         }
       }
-      // Mark initialization complete
       store.getState()._setInitializing(false);
     };
 
     loadPersistedData();
-  }, [store, persistenceHook]);
+  }, [store, hasPersistence]);
 
-  // Extract persistence utilities
+  // Extract persistence utilities (only expose when persistence is configured)
   const persistenceInfo = useMemo(
     () => ({
-      isPersisting: persistenceHook?.isPersisting ?? false,
-      persistenceError: persistenceHook?.persistenceError ?? null,
-      persistNow: persistenceHook?.persistNow,
+      isPersisting: hasPersistence ? persistenceHook.isPersisting : false,
+      persistenceError: hasPersistence ? persistenceHook.persistenceError : null,
+      persistNow: hasPersistence ? persistenceHook.persistNow : undefined,
     }),
-    [persistenceHook?.isPersisting, persistenceHook?.persistenceError, persistenceHook?.persistNow]
+    [hasPersistence, persistenceHook.isPersisting, persistenceHook.persistenceError, persistenceHook.persistNow]
   );
 
   // Create workflow context for conditions and callbacks

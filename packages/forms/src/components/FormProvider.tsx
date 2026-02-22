@@ -142,13 +142,66 @@ export function FormProvider({
     return unsubscribe;
   }, [store]);
 
-  // Reset when form ID changes
+  // Reset when form ID changes — reinitialize repeatable configs and min items
   useEffect(() => {
     if (prevFormIdRef.current !== formConfig.id) {
       prevFormIdRef.current = formConfig.id;
-      store.getState()._reset(defaultValues);
+
+      const repeatableConfigs = formConfig.repeatableFields ?? {};
+      let resetValues = { ...defaultValues };
+      let initialOrder: Record<string, string[]> = {};
+      let initialNextKeys: Record<string, number> = {};
+
+      // Flatten default arrays for repeatables
+      const hasRepeatableDefaults = Object.keys(repeatableConfigs).some(
+        (id) => Array.isArray(defaultValues[id])
+      );
+
+      if (hasRepeatableDefaults) {
+        const flattened = flattenRepeatableValues(defaultValues, repeatableConfigs);
+        resetValues = flattened.values;
+        initialOrder = flattened.order;
+        initialNextKeys = flattened.nextKeys;
+      }
+
+      // Create min items for repeatables without defaults
+      for (const [id, config] of Object.entries(repeatableConfigs)) {
+        if (!initialOrder[id]) {
+          const minItems = config.min ?? 0;
+          const keys: string[] = [];
+          let keyCounter = initialNextKeys[id] ?? 0;
+
+          for (let i = 0; i < minItems; i++) {
+            const itemKey = `k${keyCounter}`;
+            keys.push(itemKey);
+
+            for (const field of config.allFields) {
+              const compositeKey = buildCompositeKey(id, itemKey, field.id);
+              resetValues[compositeKey] = config.defaultValue?.[field.id] ?? undefined;
+            }
+
+            keyCounter++;
+          }
+
+          initialOrder[id] = keys;
+          initialNextKeys[id] = keyCounter;
+        }
+      }
+
+      // Reset with computed values
+      store.getState()._reset(resetValues);
+
+      // Re-set repeatable configs and order
+      const state = store.getState();
+      for (const [id, config] of Object.entries(repeatableConfigs)) {
+        state._setRepeatableConfig(id, config);
+      }
+      store.setState({
+        _repeatableOrder: initialOrder,
+        _repeatableNextKey: initialNextKeys,
+      });
     }
-  }, [formConfig.id, store, defaultValues]);
+  }, [formConfig.id, formConfig.repeatableFields, store, defaultValues]);
 
   // Subscribe to form values for reactive conditions evaluation
   const [formValues, setFormValues] = useState(() => store.getState().values);

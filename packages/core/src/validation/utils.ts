@@ -7,6 +7,30 @@
 
 import type { ValidationContext, ValidationError, ValidationResult } from '../types';
 
+// =================================================================
+// VALUE CHECKS
+// =================================================================
+
+/**
+ * Checks whether a value is considered "empty" for validation purposes.
+ *
+ * Handles: `undefined`, `null`, empty string, whitespace-only string,
+ * empty array, and empty plain object.
+ *
+ * @returns `true` if the value is empty
+ */
+export function isEmptyValue(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === 'string') return value.trim().length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+  return false;
+}
+
+// =================================================================
+// RESULT BUILDERS
+// =================================================================
+
 /**
  * Creates a validation result object
  *

@@ -2,6 +2,7 @@ import type { FormConfiguration, FormFieldConfig, ValidationResult } from '@rila
 import {
   createValidationContext,
   hasUnifiedValidation,
+  isEmptyValue,
   validateFormWithUnifiedConfig,
   validateWithUnifiedConfig,
 } from '@rilaykit/core';
@@ -68,8 +69,21 @@ export function useFormValidationWithStore({
         return createSuccessResult();
       }
 
-      // Skip if no validation configured
+      // No base validation configured — still check conditional required
       if (!fieldConfig.validation || !hasUnifiedValidation(fieldConfig.validation)) {
+        const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(fieldId);
+        const valueToCheck = value !== undefined ? value : state.values[fieldId];
+
+        if (isConditionallyRequired && isEmptyValue(valueToCheck)) {
+          const result = {
+            isValid: false as const,
+            errors: [{ message: 'This field is required', code: 'CONDITIONAL_REQUIRED' }],
+          };
+          state._setErrors(fieldId, result.errors);
+          state._setValidationState(fieldId, 'invalid');
+          return result;
+        }
+
         state._setErrors(fieldId, []);
         state._setValidationState(fieldId, 'valid');
         return createSuccessResult();
@@ -96,10 +110,8 @@ export function useFormValidationWithStore({
 
         // Check if conditionally required
         const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(fieldId);
-        const isEmpty =
-          valueToValidate === undefined || valueToValidate === null || valueToValidate === '';
 
-        if (isConditionallyRequired && isEmpty) {
+        if (isConditionallyRequired && isEmptyValue(valueToValidate)) {
           const hasRequiredError = result.errors.some(
             (error) => error.code === 'REQUIRED' || error.message.toLowerCase().includes('required')
           );
@@ -144,11 +156,14 @@ export function useFormValidationWithStore({
   const validateForm = useCallback(async (): Promise<ValidationResult> => {
     const state = store.getState();
 
-    // Get visible fields with validation
+    // Get visible fields with validation or conditional required
     const fieldsToValidate = formConfigRef.current.allFields.filter((field) => {
       const isVisible = conditionsHelpersRef.current.isFieldVisible(field.id);
+      if (!isVisible) return false;
+
       const hasValidation = field.validation && hasUnifiedValidation(field.validation);
-      return isVisible && hasValidation;
+      const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(field.id);
+      return hasValidation || isConditionallyRequired;
     });
 
     // Clear errors for invisible fields
