@@ -197,6 +197,36 @@ jobs:
       - name: Build packages
         run: pnpm build
 
+      - name: Debug OIDC token exchange
+        run: |
+          echo "=== OIDC environment ==="
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
+          echo "ACTIONS_RUNTIME_TOKEN set: ${ACTIONS_RUNTIME_TOKEN:+yes}"
+
+          echo "=== Requesting OIDC token ==="
+          RESPONSE=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.npmjs.org")
+          TOKEN=$(echo "$RESPONSE" | jq -r '.value // empty')
+
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Failed to get OIDC token"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+          echo "Token length: ${#TOKEN}"
+          echo "Token prefix: ${TOKEN:0:20}..."
+
+          echo "=== Testing npm auth with OIDC token ==="
+          echo "//registry.npmjs.org/:_authToken=$TOKEN" > ~/.npmrc
+          npm whoami 2>&1 || echo "npm whoami failed"
+
+          echo "=== npm config ==="
+          npm config list
+
+          echo "=== .npmrc content (redacted) ==="
+          cat ~/.npmrc | sed 's/_authToken=.*/_authToken=<REDACTED>/'
+
       - name: Create Release Pull Request or Publish
         id: changeset
         uses: changesets/action@v1
