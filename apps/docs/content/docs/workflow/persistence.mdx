@@ -76,14 +76,13 @@ Enable persistence by passing a `persistence` object inside `.configure()`:
 ```tsx
 import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({
     id: 'personal-info',
     title: 'Personal Info',
     formConfig: personalInfoForm,
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
@@ -274,9 +273,8 @@ export class SupabaseAdapter implements WorkflowPersistenceAdapter {
 </Tab>
 <Tab value="Usage">
 ```tsx
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
-  .addStep(...)
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step(...)
   .configure({
     persistence: {
       adapter: new SupabaseAdapter(),

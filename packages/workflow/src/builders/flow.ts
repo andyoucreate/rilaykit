@@ -11,6 +11,8 @@ import type {
 } from '@rilaykit/core';
 import { IdGenerator, deepClone, ensureUnique, normalizeToArray, type ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
+import type { StepContext, StepMetadata } from '../context/step-context';
+import { createStepContext } from '../context/step-context';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
 
 /**
@@ -54,12 +56,6 @@ export interface StepDefinition {
   allowSkip?: boolean;
 
   /**
-   * Whether this step is required to complete the workflow
-   * @default true
-   */
-  requiredToComplete?: boolean;
-
-  /**
    * Custom renderer for the step
    * Allows complete customization of step presentation
    */
@@ -87,43 +83,55 @@ export interface StepDefinition {
    *   metadata: {
    *     icon: 'user-circle',
    *     category: 'personal-info',
-   *     analytics: { trackCompletion: true, priority: 'high' },
-   *     ui: { theme: 'primary', showProgress: true },
-   *     business: { requiresApproval: false, estimatedTime: 120 }
+   *     tags: ['onboarding', 'required']
    *   }
    * }
    * ```
    */
-  metadata?: Record<string, any>;
+  metadata?: StepMetadata;
 
   /**
    * Callback function that executes after successful validation and before moving to next step
-   * Provides clean helper methods for modifying workflow data and pre-filling subsequent steps
    *
-   * @param stepData - The validated data from the current step
-   * @param helper - Helper object with methods to modify workflow data cleanly
-   * @param context - Full workflow context for reference
+   * Simplified signature with a single StepContext parameter containing all necessary data and methods.
+   *
+   * @param step - Structured context with data, next-step controls, and workflow access
    *
    * @example
    * ```typescript
-   * onAfterValidation: async (stepData, helper, context) => {
-   *   // API call based on current step data
-   *   const companyInfo = await fetchCompanyBySiren(stepData.siren);
+   * after: async (step) => {
+   *   // Access current step data
+   *   if (step.data.userType === 'business') {
+   *     // Pre-fill next step
+   *     step.next.prefill({
+   *       companyName: '',
+   *       taxId: ''
+   *     });
+   *   }
    *
-   *   // Pre-fill next step with clean helper methods
-   *   helper.setNextStepFields({
-   *     companyName: companyInfo.name,
-   *     address: companyInfo.address,
-   *     industry: companyInfo.sector
-   *   });
+   *   // Access other steps
+   *   const basics = step.workflow.get('basics');
    *
-   *   // Or set data for a specific step
-   *   helper.setStepFields('company-details', {
-   *     legalForm: companyInfo.legalForm,
-   *     foundedYear: companyInfo.creation_date
-   *   });
+   *   // Navigation
+   *   if (step.data.skipPayment) {
+   *     step.next.skip();
+   *   }
    * }
    * ```
+   */
+  after?: (step: StepContext) => void | Promise<void>;
+
+  /**
+   * Legacy callback function with verbose 3-parameter signature
+   *
+   * @deprecated Use `after` instead for a simpler, more intuitive API.
+   *
+   * This callback is called after successful validation and before moving to the next step.
+   * The new `after` callback provides the same functionality with a cleaner, single-parameter API.
+   *
+   * @param stepData - The validated data from the current step
+   * @param helper - Helper object with methods to interact with workflow data
+   * @param context - Workflow context with navigation state
    */
   onAfterValidation?: (
     stepData: Record<string, any>,
@@ -173,6 +181,7 @@ interface WorkflowOptions {
  *
  * @example
  * ```typescript
+ * // With explicit ID and name
  * const workflow = flow.create(rilConfig, 'user-onboarding', 'User Onboarding')
  *   .addStep({
  *     title: 'Personal Information',
@@ -184,9 +193,13 @@ interface WorkflowOptions {
  *     allowSkip: true
  *   })
  *   .configure({
- *     navigation: { allowBackNavigation: true },
- *     persistence: { saveOnStepComplete: true }
+ *     analytics: { trackStepCompletion: true }
  *   })
+ *   .build();
+ *
+ * // With auto-generated ID and default name
+ * const workflow = flow.create(rilConfig)
+ *   .addStep({ title: 'Step 1', formConfig: step1Form })
  *   .build();
  * ```
  *
@@ -211,14 +224,14 @@ export class flow {
    * Creates a new workflow builder instance
    *
    * @param config - The ril configuration instance
-   * @param workflowId - Unique identifier for the workflow
-   * @param workflowName - Display name for the workflow
+   * @param workflowId - Optional unique identifier for the workflow. Auto-generated if not provided
+   * @param workflowName - Optional display name for the workflow. Defaults to "Workflow" if not provided
    * @param description - Optional description of the workflow purpose
    */
-  constructor(config: ril<any>, workflowId: string, workflowName: string, description?: string) {
+  constructor(config: ril<any>, workflowId?: string, workflowName?: string, description?: string) {
     this.config = config;
-    this.workflowId = workflowId;
-    this.workflowName = workflowName;
+    this.workflowId = workflowId || `workflow-${Math.random().toString(36).substring(2, 15)}`;
+    this.workflowName = workflowName || 'Workflow';
     this.workflowDescription = description;
   }
 
@@ -231,20 +244,24 @@ export class flow {
    * DX Note: Prefer using this factory over `new flow(...)` for clarity and consistency.
    *
    * @param config - The ril configuration instance
-   * @param workflowId - Unique identifier for the workflow
-   * @param workflowName - Display name for the workflow
+   * @param workflowId - Optional unique identifier for the workflow. Auto-generated if not provided
+   * @param workflowName - Optional display name for the workflow. Defaults to "Workflow" if not provided
    * @param description - Optional description of the workflow purpose
    * @returns A new flow builder instance
    *
    * @example
    * ```typescript
+   * // With explicit ID and name
    * const workflow = flow.create(rilConfig, 'checkout', 'Checkout Process');
+   *
+   * // With auto-generated ID and default name
+   * const workflow = flow.create(rilConfig);
    * ```
    */
   static create(
     config: ril<any>,
-    workflowId: string,
-    workflowName: string,
+    workflowId?: string,
+    workflowName?: string,
     description?: string
   ): flow {
     return new flow(config, workflowId, workflowName, description);
@@ -262,6 +279,15 @@ export class flow {
    * @returns A complete StepConfig object
    */
   private createStepFromDefinition(stepDef: StepDefinition): StepConfig {
+    // Transform new 'after' callback to legacy 'onAfterValidation' format
+    // If 'after' is provided, use it (transformed). Otherwise, use legacy 'onAfterValidation'
+    const onAfterValidation = stepDef.after
+      ? (stepData: Record<string, any>, helper: StepDataHelper, context: WorkflowContext) => {
+          const stepContext = createStepContext(stepData, helper, context, stepDef.metadata);
+          return stepDef.after!(stepContext);
+        }
+      : stepDef.onAfterValidation;
+
     return {
       id: stepDef.id || this.idGenerator.next('step'),
       title: stepDef.title,
@@ -272,8 +298,23 @@ export class flow {
       renderer: stepDef.renderer,
       conditions: stepDef.conditions,
       metadata: stepDef.metadata,
-      onAfterValidation: stepDef.onAfterValidation,
+      onAfterValidation,
     };
+  }
+
+  /**
+   * Internal method to add steps - shared implementation for addStep() and step()
+   * @private
+   */
+  private _addStepsInternal(input: StepDefinition | StepDefinition[]): this {
+    const stepDefinitions = normalizeToArray(input);
+
+    for (const stepDef of stepDefinitions) {
+      const step = this.createStepFromDefinition(stepDef);
+      this.steps.push(step);
+    }
+
+    return this;
   }
 
   /**
@@ -283,6 +324,8 @@ export class flow {
    * It can handle both single step definitions and arrays of step definitions,
    * making it easy to build workflows programmatically.
    *
+   * **Note:** A shorter alias `.step()` is available for the same functionality.
+   *
    * @param stepDefinition - Single step definition
    * @returns The flow instance for method chaining
    *
@@ -290,6 +333,16 @@ export class flow {
    * ```typescript
    * // Add a single step
    * workflow.addStep({
+   *   title: 'User Details',
+   *   formConfig: userForm,
+   *   after: async (step) => {
+   *     // New simplified callback signature
+   *     step.next.prefill({ field: 'value' });
+   *   }
+   * });
+   *
+   * // Or use the shorter .step() alias
+   * workflow.step({
    *   title: 'User Details',
    *   formConfig: userForm
    * });
@@ -299,6 +352,8 @@ export class flow {
 
   /**
    * Universal add method - handles single steps or multiple steps
+   *
+   * **Note:** A shorter alias `.step()` is available for the same functionality.
    *
    * @param stepDefinitions - Array of step definitions
    * @returns The flow instance for method chaining
@@ -315,14 +370,38 @@ export class flow {
   addStep(stepDefinitions: StepDefinition[]): this;
 
   addStep(input: StepDefinition | StepDefinition[]): this {
-    const stepDefinitions = normalizeToArray(input);
+    return this._addStepsInternal(input);
+  }
 
-    for (const stepDef of stepDefinitions) {
-      const step = this.createStepFromDefinition(stepDef);
-      this.steps.push(step);
-    }
-
-    return this;
+  /**
+   * Alias for addStep() - provides a shorter, more concise API
+   *
+   * This method is functionally identical to addStep() and exists purely
+   * for developer experience. Use whichever you prefer - both are fully supported.
+   *
+   * @param input - Single step definition or array of step definitions
+   * @returns The flow instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Using the concise .step() alias
+   * workflow.step({
+   *   title: 'User Details',
+   *   formConfig: userForm,
+   *   after: async (step) => {
+   *     step.next.prefill({ companyName: '' });
+   *   }
+   * });
+   *
+   * // Also supports arrays (same as addStep)
+   * workflow.step([
+   *   { title: 'Step 1', formConfig: form1 },
+   *   { title: 'Step 2', formConfig: form2 }
+   * ]);
+   * ```
+   */
+  step(input: StepDefinition | StepDefinition[]): this {
+    return this._addStepsInternal(input);
   }
 
   /**

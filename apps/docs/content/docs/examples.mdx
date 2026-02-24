@@ -17,6 +17,7 @@ A basic contact form using built-in validators with the `validation: { validate:
 
 ```tsx title="ContactForm.tsx"
 import { ril, required, email, minLength } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { Form, FormField } from '@rilaykit/forms';
 import type { ComponentRenderer } from '@rilaykit/core';
 
@@ -54,8 +55,7 @@ const rilay = ril.create()
   .addComponent('input', { renderer: Input });
 
 // Build the form
-const contactForm = rilay
-  .form_OLD('contact')
+const contactForm = form.create(rilay, 'contact')
   .add({
     id: 'name',
     type: 'input',
@@ -111,8 +111,7 @@ const rilay = ril.create()
   .addComponent('input', { renderer: Input })
   .addComponent('select', { renderer: Select });
 
-const registrationForm = rilay
-  .form_OLD('registration')
+const registrationForm = form.create(rilay, 'registration')
   .add({
     id: 'email',
     type: 'input',
@@ -249,8 +248,7 @@ Integrate RilayKit with Material-UI by creating typed component renderers.
     import { required } from '@rilaykit/core';
     import { muiRilay } from '@/lib/mui-rilay';
 
-    const profileForm = muiRilay
-      .form_OLD('user-profile')
+    const profileForm = form.create(muiRilay, 'user-profile')
       .add({
         id: 'name',
         type: 'input',
@@ -340,8 +338,7 @@ Integrate RilayKit with shadcn/ui components for a clean, accessible design syst
     import { required, email } from '@rilaykit/core';
     import { shadcnRilay } from '@/lib/shadcn-rilay';
 
-    const contactForm = shadcnRilay
-      .form_OLD('contact')
+    const contactForm = form.create(shadcnRilay, 'contact')
       .add({
         id: 'name',
         type: 'input',
@@ -377,10 +374,12 @@ Integrate RilayKit with shadcn/ui components for a clean, accessible design syst
 
 ## Multi-Step Workflow
 
-Build a multi-step user onboarding workflow using `rilay.flow()`.
+Build a multi-step user onboarding workflow using `flow.create(rilay, )`.
 
 ```tsx title="OnboardingWorkflow.tsx"
 import { ril, required, email, minLength } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { flow } from '@rilaykit/workflow';
 import { Workflow } from '@rilaykit/workflow';
 
 const rilay = ril.create()
@@ -388,8 +387,7 @@ const rilay = ril.create()
   .addComponent('checkbox', { renderer: Checkbox });
 
 // Step 1: Account creation
-const accountForm = rilay
-  .form_OLD('account')
+const accountForm = form.create(rilay, 'account')
   .add({
     id: 'email',
     type: 'input',
@@ -404,16 +402,14 @@ const accountForm = rilay
   });
 
 // Step 2: Profile details
-const profileForm = rilay
-  .form_OLD('profile')
+const profileForm = form.create(rilay, 'profile')
   .add(
     { id: 'firstName', type: 'input', props: { label: 'First Name' } },
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
   );
 
 // Step 3: Confirmation
-const confirmForm = rilay
-  .form_OLD('confirm')
+const confirmForm = form.create(rilay, 'confirm')
   .add({
     id: 'terms',
     type: 'checkbox',
@@ -424,22 +420,21 @@ const confirmForm = rilay
   });
 
 // Build the workflow
-const onboardingWorkflow = rilay
-  .flow('onboarding', 'User Onboarding')
-  .addStep({
+const onboardingWorkflow = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .step({
     id: 'account',
     title: 'Create Account',
     description: 'Set up your credentials',
     formConfig: accountForm,
   })
-  .addStep({
+  .step({
     id: 'profile',
     title: 'Your Profile',
     description: 'Tell us about yourself',
     formConfig: profileForm,
     allowSkip: true,
   })
-  .addStep({
+  .step({
     id: 'confirm',
     title: 'Confirmation',
     description: 'Review and accept terms',
@@ -482,8 +477,7 @@ const checkEmailAvailability = asyncValidator(
 const rilay = ril.create()
   .addComponent('input', { renderer: Input });
 
-const signupForm = rilay
-  .form_OLD('signup')
+const signupForm = form.create(rilay, 'signup')
   .add({
     id: 'email',
     type: 'input',
@@ -553,8 +547,7 @@ const Input: ComponentRenderer<{ label: string; type?: string }> = ({
 const rilay = ril.create()
   .addComponent('input', { renderer: Input });
 
-const contactForm = rilay
-  .form_OLD('contact')
+const contactForm = form.create(rilay, 'contact')
   .add({
     id: 'name',
     type: 'input',

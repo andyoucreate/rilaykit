@@ -21,10 +21,10 @@ The builder instance provides several methods for this:
 
 ```tsx
 import { rilay } from '@/lib/rilay';
+    import { form } from '@rilaykit/forms';
 
 // Start with a base configuration
-const myDynamicForm = rilay
-  .form('dynamic-form')
+const myDynamicForm = form.create(rilay, 'dynamic-form')
   .add({ id: 'username', type: 'text', props: { label: 'Username' } });
 
 // Later, based on some condition...
@@ -50,8 +50,7 @@ Remember that the builder methods mutate the builder instance itself. If you nee
 The `.clone(newFormId?)` method creates a deep copy of the builder instance, allowing you to create variations of a form without affecting the original.
 
 ```tsx
-const baseForm = rilay
-  .form('base-form')
+const baseForm = form.create(rilay, 'base-form')
   .add({ id: 'name', type: 'text', props: { label: 'Name' } });
 
 // Create a version for admins
@@ -77,8 +76,7 @@ Form configurations can be serialized to and from JSON. This is an incredibly po
 import { rilay } from '@/lib/rilay';
 
 // 1. Define a form
-const originalForm = rilay
-  .form('question-form')
+const originalForm = form.create(rilay, 'question-form')
   .add({ id: 'question', type: 'text', props: { label: 'Your Question' } });
 
 // 2. Serialize it to JSON

@@ -76,7 +76,9 @@ function LocalizedContactForm() {
 Because all component props flow through the schema, localizing labels, placeholders, and option lists is straightforward. Pass translated strings directly into the `props` object:
 
 ```tsx
-const form = form.create(rilay, 'signup')
+import { form } from '@rilaykit/forms';
+
+const signupForm = form.create(rilay, 'signup')
   .add({
     id: 'country',
     type: 'select',
@@ -108,9 +110,11 @@ Because form configs are plain, serializable data, you can generate locale-speci
   </Tab>
   <Tab value="Client">
     ```tsx
+    import { form } from '@rilaykit/forms';
+
     // client: deserialize and render
     const config = await fetch('/api/form?locale=fr').then(r => r.json());
-    const form = form.create(rilay, 'contact').fromJSON(config);
+    const contactForm = form.create(rilay, 'contact').fromJSON(config);
     ```
   </Tab>
 </Tabs>
@@ -129,8 +133,8 @@ import { useTranslation } from 'react-i18next';
 function useLocalizedOnboarding() {
   const { t, i18n } = useTranslation();
 
-  const workflow = useMemo(() => rilay.flow('onboarding')
-    .addStep({
+  const workflow = useMemo(() => flow.create(rilay, 'onboarding')
+    .step({
       id: 'account',
       title: t('onboarding.steps.account'),
       fields: [
@@ -142,7 +146,7 @@ function useLocalizedOnboarding() {
         },
       ],
     })
-    .addStep({
+    .step({
       id: 'profile',
       title: t('onboarding.steps.profile'),
       fields: [

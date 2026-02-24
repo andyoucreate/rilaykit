@@ -78,8 +78,8 @@ const myForm = form.create(rilay, 'my-form')
   .add({ type: 'text', props: { label: 'Name' } });
 
 // Create a workflow builder
-const myWorkflow = rilay.flow('my-workflow', 'My Workflow')
-  .addStep({ title: 'Step 1', formConfig: myForm });
+const myWorkflow = flow.create(rilay, 'my-workflow', 'My Workflow')
+  .step({ title: 'Step 1', formConfig: myForm });
 ```
 
 ## Introspection & Debugging

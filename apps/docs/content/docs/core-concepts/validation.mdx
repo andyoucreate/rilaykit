@@ -177,8 +177,9 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
   <Tab value="Zod">
     ```tsx
     import { z } from 'zod';
+    import { form } from '@rilaykit/forms';
 
-    const form = form.create(rilay, 'signup')
+    const signupForm = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -192,8 +193,9 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
   <Tab value="Valibot">
     ```tsx
     import * as v from 'valibot';
+    import { form } from '@rilaykit/forms';
 
-    const form = form.create(rilay, 'signup')
+    const signupForm = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -207,8 +209,9 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
   <Tab value="ArkType">
     ```tsx
     import { type } from 'arktype';
+    import { form } from '@rilaykit/forms';
 
-    const form = form.create(rilay, 'signup')
+    const signupForm = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -227,9 +230,10 @@ You can freely mix built-in validators and third-party schemas in the same `vali
 
 ```tsx
 import { required, minLength } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { z } from 'zod';
 
-const form = form.create(rilay, 'profile')
+const profileForm = form.create(rilay, 'profile')
   .add({
     id: 'username',
     type: 'input',
@@ -274,8 +278,9 @@ interface FieldValidationConfig<T = any> {
 
 ```tsx
 import { required, email } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 
-const form = form.create(rilay, 'contact')
+const contactForm = form.create(rilay, 'contact')
   .add({
     id: 'email',
     type: 'input',
@@ -322,6 +327,7 @@ interface FormValidationConfig<T> {
   <Tab value="Zod Object Schema">
     ```tsx
     import { z } from 'zod';
+    import { form } from '@rilaykit/forms';
 
     const passwordSchema = z.object({
       password: z.string().min(8, 'Password too short'),
@@ -334,8 +340,7 @@ interface FormValidationConfig<T> {
       }
     );
 
-    const form = rilay
-      .form('change-password')
+    const changePasswordForm = form.create(rilay, 'change-password')
       .add({
         id: 'password',
         type: 'password',
@@ -354,14 +359,14 @@ interface FormValidationConfig<T> {
   <Tab value="RilayKit Custom Validator">
     ```tsx
     import { custom } from '@rilaykit/core';
+    import { form } from '@rilaykit/forms';
 
     const passwordMatch = custom(
       (data: any) => data.password === data.confirmPassword,
       "Passwords don't match"
     );
 
-    const form = rilay
-      .form('change-password')
+    const changePasswordForm = form.create(rilay, 'change-password')
       .add({
         id: 'password',
         type: 'password',
@@ -401,6 +406,7 @@ Combines multiple Standard Schema objects into a single schema. Unlike passing a
 
 ```ts
 import { combineSchemas, required, email } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { z } from 'zod';
 
 const combinedEmailSchema = combineSchemas(
@@ -410,7 +416,7 @@ const combinedEmailSchema = combineSchemas(
 );
 
 // Use as a single schema
-const form = form.create(rilay, 'contact')
+const contactForm = form.create(rilay, 'contact')
   .add({
     id: 'email',
     type: 'input',

@@ -23,15 +23,15 @@ import { flow } from "@rilaykit/workflow";
 // Create a workflow with ID, name, and optional description
 const onboarding = flow
   .create(r, "onboarding", "User Onboarding", "Optional description")
-  .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
-  .addStep({ id: "step2", title: "Step 2", formConfig: form2 })
+  .step({ id: "step1", title: "Step 1", formConfig: form1 })
+  .step({ id: "step2", title: "Step 2", formConfig: form2 })
   .configure({ analytics: myAnalytics })
   .build();
 
 // Minimal workflow (ID and name only)
 const simpleFlow = flow
   .create(r, "onboarding", "User Onboarding")
-  .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
+  .step({ id: "step1", title: "Step 1", formConfig: form1 })
   .build();
 ```
 
@@ -41,8 +41,8 @@ const simpleFlow = flow
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `.addStep(config)` | new builder | Add a single step |
-| `.addStep([configs])` | new builder | Add multiple steps |
+| `.step(config)` | new builder | Add a single step |
+| `.step([configs])` | new builder | Add multiple steps |
 | `.updateStep(stepId, updates)` | new builder | Update step properties |
 | `.addStepConditions(stepId, conds)` | new builder | Add conditions to step |
 | `.removeStep(stepId)` | new builder | Remove a step |
@@ -87,7 +87,7 @@ interface StepDefinition {
 Available in `onAfterValidation` to read/write data across steps:
 
 ```typescript
-.addStep({
+.step({
   id: "siren",
   formConfig: sirenForm,
   onAfterValidation: async (stepData, helper, context) => {
@@ -531,8 +531,8 @@ const workflowConfig = useMemo(() => {
   let wf = flow.create(r, "quote", t("title"));
 
   wf = wf
-    .addStep({ id: "products", formConfig: productsForm })
-    .addStep({
+    .step({ id: "products", formConfig: productsForm })
+    .step({
       id: "company",
       formConfig: companyForm,
       conditions: { visible: when("products.requestedProducts").contains("provident") },
@@ -540,12 +540,12 @@ const workflowConfig = useMemo(() => {
 
   // Feature flag controlled step
   if (showCguStep) {
-    wf = wf.addStep({ id: "cgu", title: "CGU", formConfig: cguForm });
+    wf = wf.step({ id: "cgu", title: "CGU", formConfig: cguForm });
   }
 
   // Only add personal info if user is not authenticated
   if (!hasExistingClient) {
-    wf = wf.addStep(personalInfoStep(t, tCommon));
+    wf = wf.step(personalInfoStep(t, tCommon));
   }
 
   return wf.configure({ analytics: createFlowAnalytics() }).build();
@@ -617,7 +617,7 @@ const workflowConfig = useMemo(() => {
       });
     }
 
-    wf = wf.addStep({ id: section.key, title: section.title, formConfig: sectionForm });
+    wf = wf.step({ id: section.key, title: section.title, formConfig: sectionForm });
   }
 
   return wf.build();

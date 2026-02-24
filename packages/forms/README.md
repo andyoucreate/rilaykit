@@ -42,10 +42,11 @@ const rilay = ril.create()
 ### 2. Build a Form
 
 ```tsx
+import { form } from '@rilaykit/forms';
 import { required, email } from '@rilaykit/core';
 
-const loginForm = rilay
-  .form('login')
+const loginForm = form
+  .create(rilay, 'login')
   .add({
     id: 'email',
     type: 'input',
@@ -87,8 +88,10 @@ function LoginForm() {
 Construct forms with a chainable, type-safe API. Each field type and its props are validated at compile time.
 
 ```tsx
-const contactForm = rilay
-  .form('contact')
+import { form } from '@rilaykit/forms';
+
+const contactForm = form
+  .create(rilay, 'contact')
   .add(
     { id: 'firstName', type: 'input', props: { label: 'First Name' } },
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },

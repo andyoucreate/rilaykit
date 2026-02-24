@@ -262,7 +262,7 @@ profiler?.measure('full-validation', 'validation-start', 'validation-end');
 
 **Symptoms:** TypeScript does not suggest field IDs or types when using the form builder.
 
-- **Chain from the typed instance.** The typed `ril` instance is the one returned by `.addComponent()`. Ensure you are chaining `.form()` from that instance, not from a fresh `ril()` call.
+- **Pass the correct `rilay` instance to `form.create()`.** The typed `ril` instance is the one returned by `.addComponent()`. Ensure you are passing this instance to `form.create(rilay, ...)`, not a fresh `ril()` call.
 - **Reuse a single `rilay` instance.** If the instance is recreated on every call, TypeScript cannot accumulate the registered component types. Export it from a shared module and import it everywhere.
 - **Check TypeScript version.** Type-safe chaining requires TypeScript 5.0 or later.
 

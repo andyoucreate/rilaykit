@@ -20,19 +20,25 @@ Create multi-step workflows with the fluent builder API.
 ```typescript
 import { flow } from "@rilaykit/workflow";
 
-// Using ril instance shortcut
-const onboarding = r
-  .flow("onboarding", "User Onboarding", "Optional description")
-  .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
-  .addStep({ id: "step2", title: "Step 2", formConfig: form2 })
+// With explicit ID and name (recommended for production)
+const onboarding = flow
+  .create(r, "onboarding", "User Onboarding", "Optional description")
+  .step({ id: "step1", title: "Step 1", formConfig: form1 })
+  .step({ id: "step2", title: "Step 2", formConfig: form2 })
   .configure({ analytics: myAnalytics })
   .build();
 
-// Using flow.create() directly
-const onboarding = flow.create(r, "onboarding", "User Onboarding")
-  .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
+// With auto-generated ID and default name (useful for prototyping)
+const quickFlow = flow
+  .create(r) // workflowId and workflowName are optional
+  .step({ title: "Step 1", formConfig: form1 })
   .build();
 ```
+
+**Signature**: `flow.create(ril, workflowId?, workflowName?, description?)`
+- `workflowId` (optional): Unique identifier. Auto-generated if not provided.
+- `workflowName` (optional): Display name. Defaults to `"Workflow"` if not provided.
+- `description` (optional): Optional description.
 
 **Important**: Always call `.build()` on workflow configs before passing to `<Workflow>`.
 
@@ -40,8 +46,8 @@ const onboarding = flow.create(r, "onboarding", "User Onboarding")
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `.addStep(config)` | new builder | Add a single step |
-| `.addStep([configs])` | new builder | Add multiple steps |
+| `.step(config)` | new builder | Add a single step |
+| `.step([configs])` | new builder | Add multiple steps |
 | `.updateStep(stepId, updates)` | new builder | Update step properties |
 | `.addStepConditions(stepId, conds)` | new builder | Add conditions to step |
 | `.removeStep(stepId)` | new builder | Remove a step |
@@ -86,7 +92,7 @@ interface StepDefinition {
 Available in `onAfterValidation` to read/write data across steps:
 
 ```typescript
-.addStep({
+.step({
   id: "siren",
   formConfig: sirenForm,
   onAfterValidation: async (stepData, helper, context) => {
@@ -474,11 +480,13 @@ export function createFlowAnalytics(): WorkflowAnalytics {
 ### Reusable step definitions
 
 ```typescript
+import { form } from "@rilaykit/forms";
+
 export const personalInfoStep = (t: TranslationFn, tCommon: TranslationFn): StepDefinition => ({
   id: "personalInfo",
   title: t("steps.personalInfo.title"),
   metadata: { submitLabel: "Get my quote" },
-  formConfig: form.create(r)
+  formConfig: form.create(r, "personalInfo")
     .add({
       id: "civility",
       type: "toggle-group",
@@ -528,8 +536,8 @@ const workflowConfig = useMemo(() => {
   let wf = flow.create(r, "quote", t("title"));
 
   wf = wf
-    .addStep({ id: "products", formConfig: productsForm })
-    .addStep({
+    .step({ id: "products", formConfig: productsForm })
+    .step({
       id: "company",
       formConfig: companyForm,
       conditions: { visible: when("products.requestedProducts").contains("provident") },
@@ -537,12 +545,12 @@ const workflowConfig = useMemo(() => {
 
   // Feature flag controlled step
   if (showCguStep) {
-    wf = wf.addStep({ id: "cgu", title: "CGU", formConfig: cguForm });
+    wf = wf.step({ id: "cgu", title: "CGU", formConfig: cguForm });
   }
 
   // Only add personal info if user is not authenticated
   if (!hasExistingClient) {
-    wf = wf.addStep(personalInfoStep(t, tCommon));
+    wf = wf.step(personalInfoStep(t, tCommon));
   }
 
   return wf.configure({ analytics: createFlowAnalytics() }).build();
@@ -595,11 +603,14 @@ onWorkflowComplete={async (data) => {
 ### Dynamic workflow from external config
 
 ```typescript
+import { flow } from "@rilaykit/workflow";
+import { form } from "@rilaykit/forms";
+
 const workflowConfig = useMemo(() => {
   let wf = flow.create(r, "dynamic", "Dynamic Flow");
 
   for (const section of sortedSections) {
-    let sectionForm = form.create(r);
+    let sectionForm = form.create(r, section.key);
 
     for (const field of section.fields.filter((f) => !f.hidden)) {
       sectionForm = sectionForm.add({
@@ -611,7 +622,7 @@ const workflowConfig = useMemo(() => {
       });
     }
 
-    wf = wf.addStep({ id: section.key, title: section.title, formConfig: sectionForm });
+    wf = wf.step({ id: section.key, title: section.title, formConfig: sectionForm });
   }
 
   return wf.build();

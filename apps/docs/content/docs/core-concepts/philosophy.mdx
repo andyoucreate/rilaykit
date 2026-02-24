@@ -31,7 +31,9 @@ function TraditionalForm() {
 }
 
 // RilayKit: form is a data structure
-const form = form.create(rilay, 'contact')
+import { form } from '@rilaykit/forms';
+
+const contactForm = form.create(rilay, 'contact')
   .add({ id: 'name', type: 'input', props: { label: 'Name' }, validation: { validate: [required()] } })
   .add({ id: 'email', type: 'input', props: { label: 'Email' }, validation: { validate: [required(), email()] } });
 ```

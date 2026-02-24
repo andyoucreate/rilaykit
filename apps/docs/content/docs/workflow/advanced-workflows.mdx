@@ -13,12 +13,12 @@ You can modify steps after the builder is initialized. All methods are chainable
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const workflow = rilay.flow('onboarding', 'Onboarding')
-  .addStep({ id: 'step-1', title: 'Step 1', formConfig: step1Form });
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({ id: 'step-1', title: 'Step 1', formConfig: step1Form });
 
 // Add steps conditionally
 if (user.isAdmin) {
-  workflow.addStep({ id: 'admin', title: 'Admin Setup', formConfig: adminForm });
+  workflow.step({ id: 'admin', title: 'Admin Setup', formConfig: adminForm });
 }
 
 // Update a step's configuration
@@ -43,8 +43,8 @@ workflow.removeStep('admin');
 The most powerful feature for cross-step data management. This callback runs **after** a step's form validation passes but **before** navigation to the next step.
 
 ```tsx
-const workflow = rilay.flow('business-onboarding', 'Business Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'business-onboarding', 'Business Onboarding')
+  .step({
     id: 'registration',
     title: 'Business Registration',
     formConfig: registrationForm,
@@ -63,7 +63,7 @@ const workflow = rilay.flow('business-onboarding', 'Business Onboarding')
       });
     },
   })
-  .addStep({
+  .step({
     id: 'company-details',
     title: 'Company Details',
     formConfig: companyDetailsForm,
@@ -102,14 +102,14 @@ interface StepDataHelper {
 Create variations of a workflow with `.clone()`:
 
 ```tsx
-const baseWorkflow = rilay.flow('base', 'Base Onboarding')
-  .addStep({ id: 'welcome', title: 'Welcome', formConfig: welcomeForm })
-  .addStep({ id: 'profile', title: 'Profile', formConfig: profileForm });
+const baseWorkflow = flow.create(rilay, 'base', 'Base Onboarding')
+  .step({ id: 'welcome', title: 'Welcome', formConfig: welcomeForm })
+  .step({ id: 'profile', title: 'Profile', formConfig: profileForm });
 
 // Create a variant with an extra step
 const enterpriseWorkflow = baseWorkflow
   .clone('enterprise', 'Enterprise Onboarding')
-  .addStep({ id: 'billing', title: 'Billing', formConfig: billingForm });
+  .step({ id: 'billing', title: 'Billing', formConfig: billingForm });
 ```
 
 ## Serialization
@@ -118,14 +118,14 @@ Export and import workflow definitions as JSON for storage or visual editors.
 
 ```tsx
 // Export
-const workflow = rilay.flow('survey', 'Survey')
-  .addStep({ id: 'q1', title: 'Question 1', formConfig: q1Form });
+const workflow = flow.create(rilay, 'survey', 'Survey')
+  .step({ id: 'q1', title: 'Question 1', formConfig: q1Form });
 
 const json = workflow.toJSON();
 // Store in database, send to API, etc.
 
 // Import
-const restored = rilay.flow('survey-restored', 'Survey')
+const restored = flow.create(rilay, 'survey-restored', 'Survey')
   .fromJSON(json);
 
 const config = restored.build();
@@ -177,8 +177,8 @@ const preferencesForm = form.create(rilay, 'preferences')
   .add({ id: 'plan', type: 'select', props: { label: 'Plan', options: [{ value: 'free', label: 'Free' }, { value: 'pro', label: 'Pro' }] } });
 
 // Build workflow
-const onboarding = rilay.flow('onboarding', 'User Onboarding')
-  .addStep({
+const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .step({
     id: 'personal',
     title: 'Personal Info',
     formConfig: personalForm,
@@ -188,7 +188,7 @@ const onboarding = rilay.flow('onboarding', 'User Onboarding')
       if (exists) throw new Error('Email already registered');
     },
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,

@@ -126,14 +126,13 @@ Use the `when()` builder to create conditions based on data from any step in the
 ```tsx
 import { when } from '@rilaykit/core';
 
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({
     id: 'personal-info',
     title: 'Personal Info',
     formConfig: personalInfoForm,
   })
-  .addStep({
+  .step({
     id: 'company-info',
     title: 'Company Info',
     formConfig: companyInfoForm,
@@ -142,7 +141,7 @@ const workflow = rilay
       visible: when('accountType').equals('business').build(),
     },
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
@@ -156,14 +155,13 @@ const workflow = rilay
 </Tab>
 <Tab value="With addStepConditions">
 ```tsx
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({
     id: 'company-info',
     title: 'Company Info',
     formConfig: companyInfoForm,
   })
-  .addStepConditions('company-info', {
+  .stepConditions('company-info', {
     visible: when('accountType').equals('business').build(),
   });
 ```
@@ -190,7 +188,7 @@ The `onAfterValidation` callback is a powerful hook that runs **after** a step's
 - Custom validation that depends on external services
 
 ```tsx
-.addStep({
+.step({
   id: 'registration',
   title: 'Business Registration',
   formConfig: registrationForm,

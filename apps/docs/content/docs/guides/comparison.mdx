@@ -35,6 +35,7 @@ A simple login form implemented in both libraries:
     import { useForm } from 'react-hook-form';
     import { zodResolver } from '@hookform/resolvers/zod';
     import { z } from 'zod';
+    import { form } from '@rilaykit/forms';
 
     const schema = z.object({
       email: z.string().email(),
@@ -63,8 +64,7 @@ A simple login form implemented in both libraries:
     import { required, email, minLength } from '@rilaykit/core';
     import { Form, FormField } from '@rilaykit/forms';
 
-    const loginForm = rilay
-      .form('login')
+    const loginForm = form.create(rilay, 'login')
       .add({
         id: 'email',
         type: 'input',

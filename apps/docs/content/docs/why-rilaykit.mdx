@@ -23,12 +23,12 @@ RilayKit treats form configurations as plain, declarative, serializable objects 
 
 ```tsx
 import { ril, required, email } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 
 const rilay = ril.create()
   .addComponent('input', { renderer: YourInputComponent });
 
-const form = rilay
-  .form('onboarding')
+const onboardingForm = form.create(rilay, 'onboarding')
   .add({
     id: 'name',
     type: 'input',
@@ -43,7 +43,7 @@ const form = rilay
   });
 
 // The form config is just data -- serialize it, store it, version it
-const json = form.toJSON();
+const json = onboardingForm.toJSON();
 ```
 
 Because a form is data, it is:
@@ -59,6 +59,7 @@ The component registry separates component definitions from form configurations.
 
 ```tsx
 import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 
 // Design system A
 const rilayMaterial = ril.create()
@@ -69,8 +70,7 @@ const rilayShadcn = ril.create()
   .addComponent('input', { renderer: ShadcnInput });
 
 // Same form definition works with both
-const loginForm = rilayMaterial
-  .form('login')
+const loginForm = form.create(rilayMaterial, 'login')
   .add({ id: 'email', type: 'input', props: { label: 'Email' } });
 ```
 
@@ -239,7 +239,8 @@ The `@rilaykit/workflow` package is not a wizard with hidden divs. It is a workf
 ```tsx
 import { rilay } from '@/lib/rilay';
 import { required, email, minLength, custom } from '@rilaykit/core';
-import { LocalStorageAdapter } from '@rilaykit/workflow';
+import { form } from '@rilaykit/forms';
+import { flow, LocalStorageAdapter } from '@rilaykit/workflow';
 
 const accountForm = form.create(rilay, 'account')
   .add({
@@ -261,14 +262,13 @@ const profileForm = form.create(rilay, 'profile')
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
   );
 
-const onboarding = rilay
-  .flow('onboarding', 'User Onboarding')
-  .addStep({
+const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .step({
     id: 'account',
     title: 'Create Account',
     formConfig: accountForm,
   })
-  .addStep({
+  .step({
     id: 'profile',
     title: 'Your Profile',
     formConfig: profileForm,

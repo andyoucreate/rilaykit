@@ -7,11 +7,12 @@
  *
  * @example
  * ```typescript
+ * import { form } from '@rilaykit/forms';
  * import { required, email } from '@rilaykit/core';
  * import { z } from 'zod';
  *
  * // All validation uses the same unified API
- * const form = rilay.form('user')
+ * const userForm = form.create(rilay, 'user')
  *   .add({
  *     id: 'email',
  *     type: 'input',

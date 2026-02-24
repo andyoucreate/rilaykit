@@ -24,6 +24,7 @@ Each step has its own form configuration with validation and conditions.
 
 ```tsx title="config/onboarding-forms.ts"
 import { ril, required, email, minLength, when } from '@rilaykit/core';
+    import { form } from '@rilaykit/forms';
 
 // Assumes components are registered on the ril instance
 const rilay = ril.create()
@@ -32,8 +33,7 @@ const rilay = ril.create()
   .addComponent('textarea', { renderer: Textarea });
 
 // Step 1 - Account Setup
-const accountForm = rilay
-  .form('onboarding-account')
+const accountForm = form.create(rilay, 'onboarding-account')
   .add({
     id: 'name',
     type: 'input',
@@ -54,8 +54,7 @@ const accountForm = rilay
   });
 
 // Step 2 - Company Details
-const companyForm = rilay
-  .form('onboarding-company')
+const companyForm = form.create(rilay, 'onboarding-company')
   .add({
     id: 'companyName',
     type: 'input',
@@ -92,8 +91,7 @@ const companyForm = rilay
   });
 
 // Step 3 - Team Configuration
-const teamForm = rilay
-  .form('onboarding-team')
+const teamForm = form.create(rilay, 'onboarding-team')
   .add({
     id: 'teamName',
     type: 'input',
@@ -122,8 +120,7 @@ const teamForm = rilay
   });
 
 // Step 4 - Billing
-const billingForm = rilay
-  .form('onboarding-billing')
+const billingForm = form.create(rilay, 'onboarding-billing')
   .add({
     id: 'plan',
     type: 'select',
@@ -156,28 +153,27 @@ Chain the steps together and configure persistence to save progress in localStor
 ```tsx title="config/onboarding-workflow.ts"
 import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-const onboarding = rilay
-  .flow('saas-onboarding', 'SaaS Onboarding')
-  .addStep({
+const onboarding = flow.create(rilay, 'saas-onboarding', 'SaaS Onboarding')
+  .step({
     id: 'account',
     title: 'Account Setup',
     description: 'Create your account credentials',
     formConfig: accountForm,
   })
-  .addStep({
+  .step({
     id: 'company',
     title: 'Company Details',
     description: 'Tell us about your organization',
     formConfig: companyForm,
   })
-  .addStep({
+  .step({
     id: 'team',
     title: 'Team',
     description: 'Set up your first team',
     formConfig: teamForm,
     allowSkip: true,
   })
-  .addStep({
+  .step({
     id: 'billing',
     title: 'Billing',
     description: 'Choose a plan',
@@ -277,8 +273,7 @@ A 3-step verification workflow: personal details, document upload, and a final r
       .addComponent('checkbox', { renderer: Checkbox });
 
     // Step 1 - Personal Information
-    const personalInfoForm = rilay
-      .form('kyc-personal')
+    const personalInfoForm = form.create(rilay, 'kyc-personal')
       .add({
         id: 'firstName',
         type: 'input',
@@ -325,8 +320,7 @@ A 3-step verification workflow: personal details, document upload, and a final r
       });
 
     // Step 2 - Document Upload
-    const documentForm = rilay
-      .form('kyc-document')
+    const documentForm = form.create(rilay, 'kyc-document')
       .add({
         id: 'documentType',
         type: 'select',
@@ -358,8 +352,7 @@ A 3-step verification workflow: personal details, document upload, and a final r
       });
 
     // Step 3 - Review
-    const reviewForm = rilay
-      .form('kyc-review')
+    const reviewForm = form.create(rilay, 'kyc-review')
       .add({
         id: 'termsAccepted',
         type: 'checkbox',
@@ -405,21 +398,20 @@ A 3-step verification workflow: personal details, document upload, and a final r
     ```tsx title="config/kyc-workflow.ts"
     import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-    const kycWorkflow = rilay
-      .flow('kyc-verification', 'Identity Verification')
-      .addStep({
+    const kycWorkflow = flow.create(rilay, 'kyc-verification', 'Identity Verification')
+      .step({
         id: 'personal',
         title: 'Personal Information',
         description: 'Your legal name and nationality',
         formConfig: personalInfoForm,
       })
-      .addStep({
+      .step({
         id: 'document',
         title: 'Document Upload',
         description: 'Provide a valid identity document',
         formConfig: documentForm,
       })
-      .addStep({
+      .step({
         id: 'review',
         title: 'Review',
         description: 'Confirm and submit',
@@ -509,8 +501,7 @@ A single-page form (not a workflow) with multiple conditional fields that adapt 
       .addComponent('select', { renderer: Select })
       .addComponent('checkbox-group', { renderer: CheckboxGroup });
 
-    const pricingForm = rilay
-      .form('pricing-calculator')
+    const pricingForm = form.create(rilay, 'pricing-calculator')
       .add({
         id: 'serviceType',
         type: 'select',
