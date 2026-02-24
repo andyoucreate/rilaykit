@@ -1,4 +1,11 @@
 {
   "title": "Forms",
-  "pages": ["building-forms", "rendering-forms", "validation", "hooks", "advanced-forms"]
+  "pages": [
+    "building-forms",
+    "rendering-forms",
+    "repeatable-fields",
+    "validation",
+    "hooks",
+    "advanced-forms"
+  ]
 }

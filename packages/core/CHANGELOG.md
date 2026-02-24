@@ -1,5 +1,19 @@
 # @rilaykit/core
 
+## 0.1.3
+
+### Patch Changes
+
+- feat(forms): add submit options (force and skipInvalid)
+
+  Add `SubmitOptions` to control form submission behavior:
+
+  - `force`: bypass validation entirely and submit current values as-is
+  - `skipInvalid`: run validation but exclude invalid fields from submitted data
+
+  Options can be set at the builder level via `.setSubmitOptions()` as defaults,
+  or passed at submit-time via `submit({ force: true })` to override per call.
+
 ## 0.1.2
 
 ### Patch Changes

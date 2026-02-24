@@ -9,6 +9,7 @@ import {
   type FormValidationConfig,
   IdGenerator,
   type RepeatableFieldConfig,
+  type SubmitOptions,
   deepClone,
   ensureUnique,
   type ril,
@@ -100,6 +101,8 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   private idGenerator = new IdGenerator();
   /** Form-level validation configuration */
   private formValidation?: FormValidationConfig;
+  /** Default submit options for this form */
+  private _submitOptions?: SubmitOptions;
 
   /**
    * Creates a new form builder instance
@@ -608,6 +611,28 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
+   * Sets default submit options for this form
+   *
+   * These options can be overridden at submit-time by passing options to `submit()`.
+   *
+   * @param options - Submit options to use as defaults
+   * @returns The form builder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Always skip invalid fields on submit
+   * builder.setSubmitOptions({ skipInvalid: true });
+   *
+   * // Force submit by default (bypass validation)
+   * builder.setSubmitOptions({ force: true });
+   * ```
+   */
+  setSubmitOptions(options: SubmitOptions): this {
+    this._submitOptions = options;
+    return this;
+  }
+
+  /**
    * Adds validators to the form-level validation
    *
    * This method allows adding validators to an existing validation configuration
@@ -850,6 +875,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       config: this.config,
       renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
+      submitOptions: this._submitOptions,
     };
   }
 

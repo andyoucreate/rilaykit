@@ -1,4 +1,9 @@
-import type { FieldConditions, FormConfiguration, ValidationResult } from '@rilaykit/core';
+import type {
+  FieldConditions,
+  FormConfiguration,
+  SubmitOptions,
+  ValidationResult,
+} from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
@@ -16,7 +21,7 @@ export interface FormConfigContextValue {
   conditionsHelpers: Omit<UseFormConditionsReturn, 'fieldConditions'>;
   validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
-  submit: (event?: React.FormEvent) => Promise<boolean>;
+  submit: (eventOrOptions?: React.FormEvent | SubmitOptions) => Promise<boolean>;
 }
 
 const FormConfigContext = createContext<FormConfigContextValue | null>(null);
@@ -285,6 +290,7 @@ export function FormProvider({
     store,
     onSubmit,
     validateForm,
+    defaultSubmitOptions: formConfig.submitOptions,
   });
 
   // Memoize form config context

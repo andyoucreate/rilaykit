@@ -1,0 +1,277 @@
+---
+title: Repeatable Fields
+description: Add dynamic, repeatable field groups to your forms with min/max constraints, validation, and reordering.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Repeatable fields allow users to add, remove, and reorder groups of fields at runtime. Think "Add another item", "Add another contact", or any list-like structure within a form.
+
+## Defining Repeatable Fields
+
+Use `.addRepeatable()` on the form builder to define a repeatable group. It takes an ID and a callback that receives a `RepeatableBuilder`.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+import { required } from '@rilaykit/core';
+
+const orderForm = rilay
+  .form('order')
+  .add({ id: 'customerName', type: 'text', props: { label: 'Customer' } })
+  .addRepeatable('items', (r) => r
+    .add(
+      { id: 'name', type: 'text', props: { label: 'Item' }, validation: { validate: required() } },
+      { id: 'qty', type: 'number', props: { label: 'Qty' } }
+    )
+    .min(1)
+    .max(10)
+    .defaultValue({ name: '', qty: 1 })
+  );
+```
+
+### RepeatableBuilder API
+
+The callback receives a `RepeatableBuilder` with the following methods:
+
+| Method | Description |
+|--------|-------------|
+| `.add(...fields)` | Add fields to the template. Same API as `form.add()` — up to 3 fields per row. |
+| `.addSeparateRows(fields)` | Add fields each on their own row. |
+| `.min(n)` | Set minimum number of items (defaults to 0). |
+| `.max(n)` | Set maximum number of items (unlimited if not set). |
+| `.defaultValue(obj)` | Set default values used when appending new items. |
+| `.validation(config)` | Set group-level validation for the entire array. |
+
+All methods are chainable and return the builder instance.
+
+## Rendering Repeatable Fields
+
+### Automatic Rendering with `<FormBody>`
+
+If you use `<FormBody>`, repeatable fields are rendered automatically using your registered `repeatableRenderer` and `repeatableItemRenderer`.
+
+```tsx
+import { Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
+
+function OrderPage() {
+  return (
+    <Form formConfig={orderForm} onSubmit={(data) => console.log(data)}>
+      <FormBody />
+      <FormSubmitButton>Place Order</FormSubmitButton>
+    </Form>
+  );
+}
+```
+
+### Custom Rendering with `useRepeatableField`
+
+For full control over the layout, use the `useRepeatableField` hook.
+
+```tsx
+import { useRepeatableField, FormField } from '@rilaykit/forms';
+
+function ItemsList() {
+  const { items, append, remove, move, canAdd, canRemove, count } =
+    useRepeatableField('items');
+
+  return (
+    <div>
+      <h3>Items ({count})</h3>
+      {items.map((item) => (
+        <div key={item.key} className="flex gap-2 items-end">
+          {item.allFields.map((field) => (
+            <FormField key={field.id} fieldId={field.id} fieldConfig={field} />
+          ))}
+          {canRemove && (
+            <button type="button" onClick={() => remove(item.key)}>
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      {canAdd && (
+        <button type="button" onClick={() => append()}>
+          Add Item
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+### Hook Return Value
+
+```ts
+interface UseRepeatableFieldReturn {
+  items: RepeatableFieldItem[];  // Scoped items with composite field IDs
+  append: (defaultValue?: Record<string, unknown>) => void;
+  remove: (key: string) => void;
+  move: (fromIndex: number, toIndex: number) => void;
+  canAdd: boolean;    // false when count >= max
+  canRemove: boolean; // false when count <= min
+  count: number;
+}
+
+interface RepeatableFieldItem {
+  key: string;               // Unique stable key for React
+  index: number;             // Current position
+  rows: FormFieldRow[];      // Scoped row configs
+  allFields: FormFieldConfig[]; // Scoped field configs with composite IDs
+}
+```
+
+## Default Values
+
+When providing default values for a form with repeatables, pass arrays at the top level. RilayKit handles the internal flat-to-nested conversion automatically.
+
+```tsx
+<Form
+  formConfig={orderForm}
+  defaultValues={{
+    customerName: 'Acme Corp',
+    items: [
+      { name: 'Widget', qty: 5 },
+      { name: 'Gadget', qty: 2 },
+    ],
+  }}
+  onSubmit={handleSubmit}
+>
+  {/* ... */}
+</Form>
+```
+
+The `onSubmit` callback receives structured data with the same nested format:
+
+```ts
+// onSubmit receives:
+{
+  customerName: 'Acme Corp',
+  items: [
+    { name: 'Widget', qty: 5 },
+    { name: 'Gadget', qty: 2 },
+  ]
+}
+```
+
+## Validation
+
+### Per-Field Validation
+
+Fields within a repeatable group support the same validation as static fields. Validation is applied to each instance independently.
+
+```tsx
+.addRepeatable('contacts', (r) => r
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email' },
+    validation: {
+      validate: [required(), email('Invalid email')],
+      validateOnBlur: true,
+    },
+  })
+  .min(1)
+)
+```
+
+### Min/Max Constraints
+
+The `min` and `max` constraints are enforced at validation time. If the number of items is below `min`, a validation error with code `REPEATABLE_MIN_COUNT` is produced.
+
+At runtime, the `canAdd` and `canRemove` booleans from `useRepeatableField` reflect these constraints, so you can disable add/remove buttons accordingly.
+
+## Conditions
+
+Fields within repeatable groups support [conditional behavior](/docs/core-concepts/conditions). Conditions are automatically scoped to the current item instance, meaning a condition on `email` within a repeatable will reference that specific item's `email` value, not another item's.
+
+```tsx
+import { when } from '@rilaykit/core';
+
+.addRepeatable('contacts', (r) => r
+  .add(
+    { id: 'type', type: 'select', props: { label: 'Type', options: ['email', 'phone'] } },
+    {
+      id: 'email',
+      type: 'email',
+      props: { label: 'Email' },
+      conditions: {
+        visible: when('type').equals('email'),
+      },
+    },
+    {
+      id: 'phone',
+      type: 'tel',
+      props: { label: 'Phone' },
+      conditions: {
+        visible: when('type').equals('phone'),
+      },
+    },
+  )
+)
+```
+
+## Reordering
+
+The `move(fromIndex, toIndex)` function from `useRepeatableField` allows reordering items. This is useful for drag-and-drop implementations or simple up/down buttons.
+
+```tsx
+function ReorderableList() {
+  const { items, move } = useRepeatableField('items');
+
+  return items.map((item, index) => (
+    <div key={item.key}>
+      {/* fields... */}
+      <button
+        type="button"
+        disabled={index === 0}
+        onClick={() => move(index, index - 1)}
+      >
+        Move Up
+      </button>
+      <button
+        type="button"
+        disabled={index === items.length - 1}
+        onClick={() => move(index, index + 1)}
+      >
+        Move Down
+      </button>
+    </div>
+  ));
+}
+```
+
+## Custom Renderers
+
+You can register custom renderers for repeatable fields on your `ril` instance:
+
+```tsx
+const rilay = ril
+  .create()
+  .addComponent('text', { /* ... */ })
+  .configure({
+    repeatableRenderer: ({ repeatableId, items, canAdd, onAdd, min, max, children }) => (
+      <div className="space-y-4">
+        {children}
+        {canAdd && (
+          <button type="button" onClick={onAdd} className="btn-outline">
+            + Add another
+          </button>
+        )}
+      </div>
+    ),
+    repeatableItemRenderer: ({ item, onRemove, canRemove, onMoveUp, onMoveDown, children }) => (
+      <div className="border rounded p-4 flex gap-2">
+        <div className="flex-1">{children}</div>
+        <div className="flex flex-col gap-1">
+          <button type="button" onClick={onMoveUp}>↑</button>
+          <button type="button" onClick={onMoveDown}>↓</button>
+          {canRemove && <button type="button" onClick={onRemove}>×</button>}
+        </div>
+      </div>
+    ),
+  });
+```
+
+<Callout>
+Nested repeatables (a repeatable inside another repeatable) are not supported. Attempting to nest them will throw an error at build time.
+</Callout>

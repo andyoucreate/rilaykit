@@ -44,8 +44,25 @@ interface FormConfigContextValue {
   };
   validateField(fieldId: string, value?: unknown): Promise<ValidationResult>;
   validateForm(): Promise<ValidationResult>;
-  submit(event?: React.FormEvent): Promise<boolean>;
+  submit(eventOrOptions?: React.FormEvent | SubmitOptions): Promise<boolean>;
 }
+```
+
+The `submit` function accepts either a `React.FormEvent` (for `<form onSubmit>`) or a `SubmitOptions` object for programmatic control:
+
+```ts
+interface SubmitOptions {
+  force?: boolean;      // Skip validation, submit all values
+  skipInvalid?: boolean; // Run validation, exclude invalid fields
+}
+```
+
+```tsx
+const { submit } = useFormConfigContext();
+
+await submit();                      // Standard: validate then submit
+await submit({ force: true });       // Skip validation entirely
+await submit({ skipInvalid: true }); // Submit only valid fields
 ```
 
 <Callout type="warn">

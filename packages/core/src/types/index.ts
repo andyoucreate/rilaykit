@@ -349,7 +349,15 @@ export interface RepeatableItemRendererProps {
 export type RepeatableFieldRenderer = RendererChildrenFunction<RepeatableFieldRendererProps>;
 export type RepeatableItemRenderer = RendererChildrenFunction<RepeatableItemRendererProps>;
 
-// 5.4. Form Configuration
+// 5.4. Submit Options
+export interface SubmitOptions {
+  /** Skip validation entirely and force submit with current values */
+  readonly force?: boolean;
+  /** Run validation but exclude invalid fields from the submitted data */
+  readonly skipInvalid?: boolean;
+}
+
+// 5.5. Form Configuration
 export interface FormConfiguration<C extends Record<string, any> = Record<string, never>> {
   readonly id: string;
   readonly config: ril<C>;
@@ -358,6 +366,7 @@ export interface FormConfiguration<C extends Record<string, any> = Record<string
   readonly repeatableFields?: Record<string, RepeatableFieldConfig>;
   readonly renderConfig?: FormRenderConfig;
   readonly validation?: FormValidationConfig;
+  readonly submitOptions?: SubmitOptions;
 }
 
 export interface FormRenderConfig {
