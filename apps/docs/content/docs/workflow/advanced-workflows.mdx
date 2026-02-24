@@ -166,14 +166,14 @@ import { rilay, required, email, when } from '@rilaykit/core';
 import { Workflow, WorkflowBody, WorkflowStepper, WorkflowNextButton, WorkflowPreviousButton } from '@rilaykit/workflow';
 
 // Build forms
-const personalForm = rilay.form('personal')
+const personalForm = form.create(rilay, 'personal')
   .add(
     { id: 'firstName', type: 'text', props: { label: 'First Name' }, validation: { validate: [required()] } },
     { id: 'lastName', type: 'text', props: { label: 'Last Name' }, validation: { validate: [required()] } }
   )
   .add({ id: 'email', type: 'text', props: { label: 'Email' }, validation: { validate: [required(), email()] } });
 
-const preferencesForm = rilay.form('preferences')
+const preferencesForm = form.create(rilay, 'preferences')
   .add({ id: 'plan', type: 'select', props: { label: 'Plan', options: [{ value: 'free', label: 'Free' }, { value: 'pro', label: 'Pro' }] } });
 
 // Build workflow

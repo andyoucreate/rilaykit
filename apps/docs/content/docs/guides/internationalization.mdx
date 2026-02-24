@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'; // or your i18n library
 function useLocalizedForm() {
   const { t } = useTranslation();
 
-  return rilay.form('contact')
+  return form.create(rilay, 'contact')
     .add({
       id: 'name',
       type: 'input',
@@ -53,7 +53,7 @@ import { useTranslation } from 'react-i18next';
 function LocalizedContactForm() {
   const { t, i18n } = useTranslation();
 
-  const form = useMemo(() => rilay.form('contact')
+  const form = useMemo(() => form.create(rilay, 'contact')
     .add({
       id: 'name',
       type: 'input',
@@ -76,7 +76,7 @@ function LocalizedContactForm() {
 Because all component props flow through the schema, localizing labels, placeholders, and option lists is straightforward. Pass translated strings directly into the `props` object:
 
 ```tsx
-const form = rilay.form('signup')
+const form = form.create(rilay, 'signup')
   .add({
     id: 'country',
     type: 'select',
@@ -110,7 +110,7 @@ Because form configs are plain, serializable data, you can generate locale-speci
     ```tsx
     // client: deserialize and render
     const config = await fetch('/api/form?locale=fr').then(r => r.json());
-    const form = rilay.form('contact').fromJSON(config);
+    const form = form.create(rilay, 'contact').fromJSON(config);
     ```
   </Tab>
 </Tabs>

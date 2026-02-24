@@ -97,7 +97,7 @@ const rilay = ril.create()
 
 // TypeScript knows 'type' can only be 'text' | 'select'
 // and narrows 'props' accordingly
-rilay.form('example')
+form.create(rilay, 'example')
   .add({
     id: 'name',
     type: 'text',
@@ -197,7 +197,7 @@ Conditional logic is expressed declaratively with the `when()` function. No `use
 ```tsx
 import { when } from '@rilaykit/core';
 
-rilay.form('account')
+form.create(rilay, 'account')
   .add({
     id: 'accountType',
     type: 'select',
@@ -241,7 +241,7 @@ import { rilay } from '@/lib/rilay';
 import { required, email, minLength, custom } from '@rilaykit/core';
 import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-const accountForm = rilay.form('account')
+const accountForm = form.create(rilay, 'account')
   .add({
     id: 'email',
     type: 'input',
@@ -255,7 +255,7 @@ const accountForm = rilay.form('account')
     validation: { validate: [required(), minLength(8)] },
   });
 
-const profileForm = rilay.form('profile')
+const profileForm = form.create(rilay, 'profile')
   .add(
     { id: 'firstName', type: 'input', props: { label: 'First Name' } },
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },

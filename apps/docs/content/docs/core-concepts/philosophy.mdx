@@ -31,7 +31,7 @@ function TraditionalForm() {
 }
 
 // RilayKit: form is a data structure
-const form = rilay.form('contact')
+const form = form.create(rilay, 'contact')
   .add({ id: 'name', type: 'input', props: { label: 'Name' }, validation: { validate: [required()] } })
   .add({ id: 'email', type: 'input', props: { label: 'Email' }, validation: { validate: [required(), email()] } });
 ```
@@ -74,7 +74,7 @@ const rilay = ril.create()
   .addComponent('select', { renderer: Select });    // Type now knows about 'input' | 'select'
 
 // TypeScript enforces valid types
-rilay.form('test')
+form.create(rilay, 'test')
   .add({ id: 'field', type: 'input', props: { /* Input props autocompleted */ } })
   .add({ id: 'field2', type: 'unknown' }); // Compile error: 'unknown' is not assignable
 ```
@@ -86,14 +86,14 @@ Because the API is immutable, each `.addComponent()` call returns a new instance
 RilayKit has four distinct layers, each with a single responsibility:
 
 1. **Registry** (`ril.create().addComponent(...)`) -- Maps type names to renderers and default props. Configured once per application.
-2. **Builder** (`rilay.form().add(...)`) -- Constructs form and workflow configurations as data structures. Pure configuration, no React dependency.
+2. **Builder** (`form.create(rilay).add(...)`) -- Constructs form and workflow configurations as data structures. Pure configuration, no React dependency.
 3. **Provider** (`<Form formConfig={...}>`) -- React context that manages state, validation, and rendering orchestration.
 4. **Renderer** (your components) -- Receives props from the provider, renders UI. You own this layer completely.
 
 ```
 Registry (ril.create)
     | component definitions
-Builder (rilay.form / rilay.flow)
+Builder (form.create / flow.create)
     | form/workflow config
 Provider (<Form> / <Workflow>)
     | state + props
@@ -126,7 +126,7 @@ const json = myForm.toJSON();
 const jsonString = JSON.stringify(json);
 
 // Later, rehydrate it
-const restored = rilay.form().fromJSON(JSON.parse(jsonString));
+const restored = form.create(rilay).fromJSON(JSON.parse(jsonString));
 ```
 
 <Callout type="warn">

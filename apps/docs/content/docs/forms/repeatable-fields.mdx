@@ -16,7 +16,7 @@ import { rilay } from '@/lib/rilay';
 import { required } from '@rilaykit/core';
 
 const orderForm = rilay
-  .form('order')
+  .form_OLD('order')
   .add({ id: 'customerName', type: 'text', props: { label: 'Customer' } })
   .addRepeatable('items', (r) => r
     .add(

@@ -74,7 +74,7 @@ The `ril` instance provides convenient factory methods for creating builders:
 
 ```tsx
 // Create a form builder
-const myForm = rilay.form('my-form')
+const myForm = form.create(rilay, 'my-form')
   .add({ type: 'text', props: { label: 'Name' } });
 
 // Create a workflow builder

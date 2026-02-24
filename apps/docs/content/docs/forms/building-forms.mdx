@@ -5,7 +5,7 @@ description: How to use the fluent API to build form configurations.
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-Building a form configuration starts from your central `rilay` instance. By calling `rilay.form()`, you get a form builder that has access to all your pre-configured components and renderers.
+Building a form configuration starts from your central `rilay` instance. By calling `form.create(rilay)`, you get a form builder that has access to all your pre-configured components and renderers.
 
 <Callout>
 Before proceeding, make sure you have created and configured a shared `rilay` instance as shown in the [Your First Form](/docs/getting-started/your-first-form) guide.
@@ -17,12 +17,12 @@ Before proceeding, make sure you have created and configured a shared `rilay` in
 <Step>
 ### 1. Start with `form()`
 
-Call `.form()` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
+Call `form.create(rilay, ` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const loginForm = rilay.form('login');
+const loginForm = form.create(rilay, 'login');
 ```
 </Step>
 <Step>
@@ -36,7 +36,7 @@ The builder provides a powerful polymorphic `.add()` method that handles multipl
 
 ```tsx
 const registrationForm = rilay
-  .form('registration')
+  .form_OLD('registration')
   // Add multiple fields on the same row
   .add(
     {
@@ -62,7 +62,7 @@ You can also use the array syntax for explicit control over row options:
 
 ```tsx
 const formWithOptions = rilay
-  .form('styled-form')
+  .form_OLD('styled-form')
   .add([
     { id: 'field1', type: 'text', props: { label: 'Field 1' } },
     { id: 'field2', type: 'text', props: { label: 'Field 2' } },
@@ -81,7 +81,7 @@ One of the key improvements in the new API is automatic ID generation. If you do
 
 ```tsx
 const quickForm = rilay
-  .form('quick-form')
+  .form_OLD('quick-form')
   .add(
     { type: 'text', props: { label: 'Name' } }, // Will get id: 'field-1'
     { type: 'email', props: { label: 'Email' } }, // Will get id: 'field-2'
@@ -101,7 +101,7 @@ However, you should call `.build()` manually when you need the final, serializab
 
 ```tsx
 const formConfig = rilay
-  .form('my-form')
+  .form_OLD('my-form')
   .add({ id: 'field1', type: 'text' })
   .build(); // Manually build the config
 
@@ -129,7 +129,7 @@ import { rilay } from '@/lib/rilay';
 import { required } from '@rilaykit/core';
 
 const draftForm = rilay
-  .form('draft-form')
+  .form_OLD('draft-form')
   .add({ id: 'title', type: 'text', props: { label: 'Title' } })
   .add({
     id: 'content',
@@ -170,7 +170,7 @@ Let's tie everything together. Here is how you would build a complete login form
 import { rilay } from '@/lib/rilay';
 
 export const loginForm = rilay
-  .form('login-form')
+  .form_OLD('login-form')
   .add(
     {
       id: 'email',

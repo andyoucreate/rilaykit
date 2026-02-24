@@ -136,7 +136,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import { z } from 'zod';
 
-    const form = rilay.form('user')
+    const form = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -163,7 +163,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import * as yup from 'yup';
 
-    const form = rilay.form('user')
+    const form = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -180,7 +180,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import Joi from 'joi';
 
-    const form = rilay.form('user')
+    const form = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -222,7 +222,7 @@ export function containsRilay(message = 'Value must contain "rilay"'): StandardS
 }
 
 // Use it like any other validator
-const form = rilay.form('custom')
+const form = form.create(rilay, 'custom')
   .add({
     id: 'username',
     type: 'input',
@@ -335,7 +335,7 @@ import { z } from 'zod';
 import * as yup from 'yup';
 import { required, email } from '@rilaykit/core';
 
-const form = rilay.form('mixed')
+const form = form.create(rilay, 'mixed')
   .add({
     id: 'email',
     type: 'input',
@@ -371,7 +371,7 @@ const userSchema = z.object({
   path: ['companyName'],
 });
 
-const form = rilay.form('conditional')
+const form = form.create(rilay, 'conditional')
   .add({ id: 'userType', type: 'select', /* ... */ })
   .add({ id: 'email', type: 'input', /* ... */ })
   .add({ id: 'companyName', type: 'input', /* ... */ })

@@ -1,30 +1,155 @@
 ---
 title: Introduction
-description: The schema-first form and workflow engine for React. Define forms as data, get type safety, validation, conditions, and multi-step workflows with any UI library.
+description: RilayKit is a config-driven form and workflow engine for React. When your forms become data - not JSX - you unlock serialization, multi-tenancy, visual builders, and true UI/logic separation.
 ---
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { FileCode, BotMessageSquare, Settings2, Sparkles } from 'lucide-react';
+import { FileCode, BotMessageSquare, Settings2, Sparkles, Check, X } from 'lucide-react';
 import { Callout } from 'fumadocs-ui/components/callout';
 
 <RilayHero />
 
+## Is RilayKit for you?
+
+RilayKit is **not** a React Hook Form replacement for simple forms. It's a specialized tool for specific use cases.
+
+<Callout type="warn" title="Start here">
+**Building a login, contact, or settings form?** → Use [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/). It's simpler, battle-tested, and perfect for standard forms.
+
+**RilayKit is for you if** you're building one of these:
+</Callout>
+
+### ✅ You need RilayKit when:
+
+- **Forms are generated dynamically** from server config or database schemas
+- **Multi-tenant SaaS** where each client customizes form fields and workflows
+- **Visual form builder** for non-technical users to create forms
+- **Complex multi-step workflows** with cross-step conditional logic (onboarding, KYC, checkout)
+- **Same logic, multiple UIs** — one form schema across web, mobile, or different design systems
+- **Form versioning & A/B testing** — store forms as data, diff them, roll back changes
+
+### ❌ You don't need RilayKit when:
+
+- Building standard CRUD forms with static field sets
+- Forms are defined once and never change dynamically
+- Simple wizard flows with no cross-step dependencies
+- No need for serialization or form-as-data architecture
+
+---
+
+## The tipping point
+
+Here's when React Hook Form hits its limits and RilayKit shines:
+
+**Scenario:** Multi-step onboarding where Step 3 shows different fields based on selections from Step 1 and Step 2, and Step 4 is skipped entirely if revenue < $50k.
+
+### With React Hook Form
+
 ```tsx
-// Register components once
+// State machine sprawl
+const [step, setStep] = useState(1);
+const [userType, setUserType] = useState('');
+const [revenue, setRevenue] = useState(0);
+
+// Manual cross-step dependencies
+useEffect(() => {
+  if (userType === 'freelance' && revenue < 50000) {
+    setStep(5); // skip step 4
+  }
+}, [userType, revenue]);
+
+// 200+ lines of conditional rendering and navigation logic
+{step === 3 && userType === 'business' && <CompanyFields />}
+{step === 3 && userType === 'freelance' && <FreelanceFields />}
+```
+
+### With RilayKit
+
+```tsx
+import { form } from '@rilaykit/forms';
+import { flow } from '@rilaykit/workflow';
+
+// Create step forms
+const basicsForm = form.create(rilay, 'basics')
+  .add({ id: 'userType', type: 'select', props: { options: ['freelance', 'business'] } })
+  .add({ id: 'revenue', type: 'number', props: { label: 'Annual Revenue' } })
+  .build();
+
+const businessForm = form.create(rilay, 'business-details')
+  .add({ id: 'company', type: 'input', props: { label: 'Company Name' } })
+  .build();
+
+const freelanceForm = form.create(rilay, 'freelance-details')
+  .add({ id: 'skills', type: 'multi-select', props: { label: 'Skills' } })
+  .build();
+
+// Build workflow with conditional steps
+const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .addStep({
+    id: 'basics',
+    title: 'Basic Information',
+    formConfig: basicsForm
+  })
+  .addStep({
+    id: 'business',
+    title: 'Business Details',
+    formConfig: businessForm,
+    conditions: {
+      visible: when('basics.userType').equals('business'),
+      skippable: when('basics.revenue').lessThan(50000)
+    }
+  })
+  .addStep({
+    id: 'freelance',
+    title: 'Freelance Details',
+    formConfig: freelanceForm,
+    conditions: { visible: when('basics.userType').equals('freelance') }
+  })
+  .build();
+
+// Serialize to DB, version control, A/B test
+const json = onboarding.toJSON();
+```
+
+**The key difference:** RilayKit moves business logic out of your components and into declarative configuration. This configuration is data, so you can store it, diff it, version it, and generate it dynamically.
+
+---
+
+## Quick example
+
+```tsx
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Form, FormField } from '@rilaykit/forms';
+
+// 1. Register your components once (shadcn, MUI, custom — your choice)
 const rilay = ril.create()
   .addComponent('input', { renderer: YourInput })
   .addComponent('select', { renderer: YourSelect });
 
-// Define forms as data structures
-const onboarding = rilay.form('onboarding')
-  .add({ id: 'email', type: 'input', validation: { validate: [required(), email()] } })
-  .add({ id: 'plan', type: 'select', props: { options: plans } })
-  .add({ id: 'company', type: 'input', conditions: { visible: when('plan').equals('business') } });
+// 2. Define forms as data (not JSX)
+const signupForm = form.create(rilay, 'signup')
+  .add({
+    id: 'email',
+    type: 'input',
+    validation: { validate: [required(), email()] }
+  })
+  .add({
+    id: 'plan',
+    type: 'select',
+    props: { options: ['free', 'pro', 'enterprise'] }
+  })
+  .add({
+    id: 'company',
+    type: 'input',
+    conditions: { visible: when('plan').in(['pro', 'enterprise']) }
+  })
+  .build();
 
-// Render with full type safety — anywhere, with any design system
-<Form formConfig={onboarding} onSubmit={handleSubmit}>
+// 3. Render anywhere with full type safety
+<Form formConfig={signupForm} onSubmit={handleSubmit}>
   <FormField fieldId="email" />
   <FormField fieldId="plan" />
-  <FormField fieldId="company" />
+  <FormField fieldId="company" />  {/* auto-hidden unless plan is pro/enterprise */}
 </Form>
 ```
 
@@ -34,64 +159,111 @@ RilayKit is fully **headless** — it manages state, validation, and logic. You 
 
 ---
 
-## Why RilayKit
+## React Hook Form vs RilayKit
 
-Most form libraries are imperative: you write JSX, sprinkle in validation, and manually wire state. Every form is a one-off. Multi-step flows require custom state machines. Type safety is bolted on after the fact.
+An honest comparison to help you choose:
 
-RilayKit takes a different approach. Forms are **declarative data structures** — serializable, composable, and type-safe from registration to render.
-
-| | Traditional Libraries | RilayKit |
+| Criteria | React Hook Form | RilayKit |
 |---|---|---|
-| **Form definition** | Scattered across JSX | Centralized data structure |
-| **Type safety** | Manual type annotations | Automatic type propagation |
-| **Validation** | Library-specific adapters | Any Standard Schema library, directly |
-| **Conditions** | `useEffect` + state | Declarative `when()` API |
-| **Multi-step** | Build your own | Built-in workflow engine |
-| **Serialization** | Not possible | `.toJSON()` / `.fromJSON()` |
+| **Learning curve** | ✅ Simple, familiar patterns | ⚠️ Steeper (new concepts) |
+| **Simple forms** | ✅ Perfect fit | ❌ Overkill |
+| **Multi-step with conditions** | ⚠️ Requires custom state machine | ✅ Built-in workflow engine |
+| **Forms as data** | ❌ Not possible | ✅ Core feature (`.toJSON()`) |
+| **Dynamic form generation** | ❌ Challenging | ✅ Designed for it |
+| **Multiple design systems** | ⚠️ Requires refactoring | ✅ Swap renderers, logic stays |
+| **Ecosystem maturity** | ✅ Huge, battle-tested | ⚠️ Young but growing |
+| **Type safety** | ✅ Good (with Zod/TS) | ✅ Excellent (built-in propagation) |
 
-[Read the full story](/why-rilaykit)
+**Rule of thumb:** If you're not sure you need RilayKit, you probably don't. Start with React Hook Form. Migrate to RilayKit when you hit the limitations above.
+
+[Read the detailed comparison](/why-rilaykit)
 
 ---
 
-## Core Ideas
+## What makes RilayKit different
 
-### Type Propagation
+### 1. Forms are data, not JSX
 
-Register a component with `addComponent('input', { renderer: Input })` and TypeScript knows its props everywhere. Use `type: 'input'` in a form definition and your IDE autocompletes the right props. Use an unregistered type and the compiler catches it.
+This is the fundamental shift. Your form definition is a serializable data structure:
 
 ```tsx
-rilay.form('test')
+import { form } from '@rilaykit/forms';
+
+const pricingForm = form.create(rilay, 'pricing')
+  .add({ id: 'plan', type: 'select', props: { options: plans } })
+  .add({ id: 'seats', type: 'number', conditions: { visible: when('plan').equals('enterprise') } })
+  .build();
+
+// It's data — you can serialize it
+const json = pricingForm.toJSON();
+await db.forms.save(json);
+
+// Load it later, even from a different server
+const loaded = form.create(rilay).fromJSON(json).build();
+
+// Diff it for version control
+const diff = deepDiff(v1.toJSON(), v2.toJSON());
+```
+
+**Why this matters:**
+- **Multi-tenant SaaS:** Each tenant customizes their forms, stored in your DB
+- **Visual builders:** Non-technical users create forms through a UI, you render them
+- **A/B testing:** Switch form versions without deploying code
+- **Form versioning:** Track changes, roll back, audit who changed what
+
+### 2. Type propagation end-to-end
+
+Register a component once and TypeScript propagates its types everywhere:
+
+```tsx
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+
+// Register with typed props
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input }); // Input has InputProps
+
+// Now TypeScript knows
+form.create(rilay, 'test')
   .add({
-    type: 'input',       // Autocompletes from registry
-    props: { label: '' } // Typed as InputProps
+    type: 'input',        // ✅ Autocompletes from registry
+    props: { label: '' }  // ✅ Typed as InputProps
   })
   .add({
-    type: 'unknown',     // Compile error — not in registry
+    type: 'unknown',      // ❌ Compile error — not registered
+    props: { foo: 'bar' } // ❌ Won't even get here
   });
 ```
 
+**No `any` escape hatches.** Your registry becomes your single source of truth for types.
+
 [Learn more](/core-concepts/typescript-support)
 
-### Universal Validation
+### 3. Universal validation (Standard Schema)
 
-One `validate` field. Any validation library. No adapters.
+Any validation library, no adapters:
 
 ```tsx
 // Built-in validators
 validation: { validate: [required(), email(), minLength(8)] }
 
-// Zod — directly, no adapter needed
+// Zod — directly
 validation: { validate: z.string().email() }
+
+// Yup — directly
+validation: { validate: yup.string().email() }
 
 // Mix them
 validation: { validate: [required(), z.string().min(8)] }
 ```
 
+RilayKit implements the [Standard Schema spec](https://github.com/standard-schema/standard-schema), so any compliant library works out of the box.
+
 [Learn more](/core-concepts/validation)
 
-### Declarative Conditions
+### 4. Declarative conditions (no `useEffect`)
 
-Control field visibility and behavior without `useEffect`:
+Control field behavior based on other fields without manual state management:
 
 ```tsx
 .add({
@@ -100,69 +272,197 @@ Control field visibility and behavior without `useEffect`:
   conditions: {
     visible: when('accountType').equals('business'),
     required: when('plan').in(['pro', 'enterprise']),
+    disabled: when('revenue').lessThan(10000),
   }
 })
 ```
 
-[Learn more](/core-concepts/conditions)
-
-### Workflow Engine
-
-Not a wizard with hidden divs. A real engine with navigation guards, persistence, analytics, and plugins:
+**Cross-step conditions** work the same way in workflows:
 
 ```tsx
-const flow = rilay.flow('onboarding')
-  .addStep({ id: 'account', title: 'Account', formConfig: accountForm })
-  .addStep({ id: 'profile', title: 'Profile', formConfig: profileForm })
-  .configure({
-    persistence: { adapter: 'localStorage', key: 'onboarding' },
-    analytics: { onStepComplete: (id) => track('step_done', { step: id }) },
-  });
+.step('payment', (s) => s
+  .conditions({
+    skippable: when('plan.tier', 'eq', 'free'),          // from step "plan"
+    visible: when('details.country', 'in', ['US', 'CA'])  // from step "details"
+  })
+)
 ```
+
+[Learn more](/core-concepts/conditions)
+
+### 5. Production-ready workflow engine
+
+Multi-step flows with navigation, persistence, analytics, and plugins:
+
+```tsx
+import { flow } from '@rilaykit/workflow';
+import { localStorageAdapter } from '@rilaykit/workflow';
+
+const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .addStep({
+    id: 'account',
+    title: 'Account',
+    formConfig: accountForm
+  })
+  .addStep({
+    id: 'profile',
+    title: 'Profile',
+    formConfig: profileForm
+  })
+  .configure({
+    persistence: {
+      adapter: localStorageAdapter({ key: 'onboarding-v2' })
+    },
+    analytics: {
+      onStepComplete: (id) => analytics.track('step_done', { step: id })
+    }
+  })
+  .build();
+
+// Restore from localStorage on mount
+<WorkflowProvider workflowConfig={onboarding}>
+  <WorkflowStepper />
+</WorkflowProvider>
+```
+
+**Not just a wizard.** Real features:
+- Step skipping based on conditions
+- Progress persistence (localStorage, sessionStorage, custom adapter)
+- Navigation guards (prevent forward if validation fails)
+- Analytics hooks for tracking
+- Plugin system for custom behavior
 
 [Learn more](/workflow/building-workflows)
 
 ---
 
-## Packages
+## Architecture
 
-RilayKit is modular. Install only what you need.
+### Headless & renderer-agnostic
+
+RilayKit generates **zero HTML and zero CSS**. It's pure logic.
+
+You bring your own components:
+- shadcn/ui
+- Material UI
+- Chakra UI
+- Mantine
+- Your custom design system
+
+```tsx
+// Works with any component library
+const rilay = ril.create()
+  .addComponent('input', { renderer: ShadcnInput })
+  .addComponent('select', { renderer: ShadcnSelect });
+
+// Or switch to MUI without changing form logic
+const rilay = ril.create()
+  .addComponent('input', { renderer: MuiTextField })
+  .addComponent('select', { renderer: MuiSelect });
+```
+
+Same form config, different UI. This is why **multi-tenant SaaS** and **white-label products** love RilayKit — one form schema, N brands.
+
+### Modular packages
+
+Install only what you need:
 
 <Cards>
   <Card
     icon={<Settings2/>}
     title="@rilaykit/core"
-    description="Type system, component registry, validation engine, and conditional logic. Required as the foundation for all RilayKit usage."
+    description="Type system, component registry, validation engine, and conditional logic. Required foundation."
   />
   <Card
     icon={<FileCode/>}
     title="@rilaykit/forms"
-    description="Form builder with React hooks and components. Build single-page forms with fluent API and full type safety."
+    description="Single-page form builder with React hooks. Start here for simple forms."
   />
   <Card
     icon={<BotMessageSquare/>}
     title="@rilaykit/workflow"
-    description="Multi-step workflows with navigation, persistence, analytics, and plugin system. For onboarding flows and complex processes."
+    description="Multi-step workflows with navigation, persistence, analytics, and plugins. For complex flows."
   />
   <Card
     icon={<Sparkles/>}
-    title="Standard Schema Support"
-    description="Native support for Standard Schema — use Zod, Yup, Valibot, ArkType and other validation libraries directly without adapters."
+    title="Standard Schema"
+    description="Use Zod, Yup, Valibot, ArkType, and other Standard Schema libraries without adapters."
   />
 </Cards>
 
 ---
 
-## Design Principles
+## Real-world use cases
 
-### Headless Architecture
-RilayKit generates no HTML and no CSS. It connects to your existing components through a renderer system, giving you complete control over markup, styling, and accessibility. Works with any design system — Material UI, shadcn/ui, Chakra, or your own.
+### 1. Multi-tenant SaaS onboarding
 
-### Schema-First
-Forms and workflows are data structures, not JSX trees. Serialize them, store them in a database, generate them from a visual builder, diff them in version control.
+**Problem:** Each customer wants custom onboarding flows. Hardcoding every variation is unmaintainable.
 
-### Type Safety First
-Built from the ground up with TypeScript. The type accumulation pattern ensures autocompletion, compile-time validation, and zero runtime type errors across your entire form system.
+**Solution:** Store form configs per tenant in your database, render them dynamically.
+
+```tsx
+import { flow } from '@rilaykit/workflow';
+
+// Load tenant-specific config from DB
+const tenantConfigJson = await db.workflows.findOne({ tenantId, workflowId: 'onboarding' });
+
+// Recreate workflow from JSON
+const onboarding = flow.create(rilay, 'onboarding', 'Onboarding')
+  .fromJSON(tenantConfigJson)
+  .build();
+
+// Render the same way for all tenants
+<WorkflowProvider workflowConfig={onboarding}>
+  <WorkflowStepper />
+</WorkflowProvider>
+```
+
+### 2. Visual form builder
+
+**Problem:** Non-technical users need to create/edit forms without touching code.
+
+**Solution:** Build a drag-and-drop form builder that outputs RilayKit JSON.
+
+```tsx
+import { form } from '@rilaykit/forms';
+
+// Builder UI generates this
+const formJson = {
+  id: 'lead-capture',
+  rows: [
+    { kind: 'fields', fields: [{ id: 'email', type: 'input', componentId: 'input', validation: { ... } }] },
+    { kind: 'fields', fields: [{ id: 'source', type: 'select', componentId: 'select', conditions: { ... } }] }
+  ]
+};
+
+// Your app consumes it
+const leadForm = form.create(rilay)
+  .fromJSON(formJson)
+  .build();
+```
+
+### 3. Complex KYC workflows
+
+**Problem:** Know Your Customer flows have dozens of conditional branches based on country, business type, revenue, etc.
+
+**Solution:** Declarative conditions keep it manageable:
+
+```tsx
+.step('tax-info', (s) => s
+  .conditions({
+    visible: when('basics.country', 'in', ['US', 'CA']),
+    skippable: when('basics.revenue', 'lt', 10000)
+  })
+  .add({
+    id: 'ein',
+    type: 'input',
+    conditions: {
+      visible: when('basics.entityType', 'eq', 'corporation'),
+      required: when('basics.country', 'eq', 'US')
+    }
+  })
+)
+```
 
 ---
 
@@ -171,22 +471,28 @@ Built from the ground up with TypeScript. The type accumulation pattern ensures 
 <Cards>
   <Card
     title="Quick Start"
-    description="Get a working form in 5 minutes."
+    description="Working form in 5 minutes. Best for hands-on learners."
     href="/quickstart"
   />
   <Card
     title="Installation"
-    description="Install packages and system requirements."
+    description="Package installation and system requirements."
     href="/getting-started/installation"
   />
   <Card
     title="Your First Form"
-    description="Step-by-step tutorial with explanations."
+    description="Step-by-step tutorial with detailed explanations."
     href="/getting-started/your-first-form"
   />
   <Card
-    title="Why RilayKit"
-    description="The schema-first approach explained in depth."
+    title="Why RilayKit?"
+    description="Deep dive into the schema-first approach and when to use it."
     href="/why-rilaykit"
   />
 </Cards>
+
+---
+
+<Callout type="info" title="Still not sure if RilayKit fits?">
+Join our [Discord](https://discord.gg/rilaykit) or [open a discussion](https://github.com/rilaykit/rilaykit/discussions) — we'll help you decide if it's the right tool for your use case.
+</Callout>

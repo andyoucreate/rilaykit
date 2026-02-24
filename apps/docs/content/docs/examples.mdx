@@ -55,7 +55,7 @@ const rilay = ril.create()
 
 // Build the form
 const contactForm = rilay
-  .form('contact')
+  .form_OLD('contact')
   .add({
     id: 'name',
     type: 'input',
@@ -112,7 +112,7 @@ const rilay = ril.create()
   .addComponent('select', { renderer: Select });
 
 const registrationForm = rilay
-  .form('registration')
+  .form_OLD('registration')
   .add({
     id: 'email',
     type: 'input',
@@ -250,7 +250,7 @@ Integrate RilayKit with Material-UI by creating typed component renderers.
     import { muiRilay } from '@/lib/mui-rilay';
 
     const profileForm = muiRilay
-      .form('user-profile')
+      .form_OLD('user-profile')
       .add({
         id: 'name',
         type: 'input',
@@ -341,7 +341,7 @@ Integrate RilayKit with shadcn/ui components for a clean, accessible design syst
     import { shadcnRilay } from '@/lib/shadcn-rilay';
 
     const contactForm = shadcnRilay
-      .form('contact')
+      .form_OLD('contact')
       .add({
         id: 'name',
         type: 'input',
@@ -389,7 +389,7 @@ const rilay = ril.create()
 
 // Step 1: Account creation
 const accountForm = rilay
-  .form('account')
+  .form_OLD('account')
   .add({
     id: 'email',
     type: 'input',
@@ -405,7 +405,7 @@ const accountForm = rilay
 
 // Step 2: Profile details
 const profileForm = rilay
-  .form('profile')
+  .form_OLD('profile')
   .add(
     { id: 'firstName', type: 'input', props: { label: 'First Name' } },
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
@@ -413,7 +413,7 @@ const profileForm = rilay
 
 // Step 3: Confirmation
 const confirmForm = rilay
-  .form('confirm')
+  .form_OLD('confirm')
   .add({
     id: 'terms',
     type: 'checkbox',
@@ -483,7 +483,7 @@ const rilay = ril.create()
   .addComponent('input', { renderer: Input });
 
 const signupForm = rilay
-  .form('signup')
+  .form_OLD('signup')
   .add({
     id: 'email',
     type: 'input',
@@ -554,7 +554,7 @@ const rilay = ril.create()
   .addComponent('input', { renderer: Input });
 
 const contactForm = rilay
-  .form('contact')
+  .form_OLD('contact')
   .add({
     id: 'name',
     type: 'input',

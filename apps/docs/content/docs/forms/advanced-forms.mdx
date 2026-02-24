@@ -88,7 +88,7 @@ const jsonString = JSON.stringify(jsonDefinition);
 
 // 3. Later, or in another environment, rehydrate it
 const newJson = JSON.parse(jsonString);
-const rehydratedForm = rilay.form().fromJSON(newJson);
+const rehydratedForm = form.create(rilay).fromJSON(newJson);
 
 const formConfig = rehydratedForm.build();
 ```

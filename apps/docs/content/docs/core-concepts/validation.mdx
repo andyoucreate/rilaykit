@@ -178,7 +178,7 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
     ```tsx
     import { z } from 'zod';
 
-    const form = rilay.form('signup')
+    const form = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -193,7 +193,7 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
     ```tsx
     import * as v from 'valibot';
 
-    const form = rilay.form('signup')
+    const form = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -208,7 +208,7 @@ The [Standard Schema specification](https://standardschema.dev) defines a common
     ```tsx
     import { type } from 'arktype';
 
-    const form = rilay.form('signup')
+    const form = form.create(rilay, 'signup')
       .add({
         id: 'email',
         type: 'input',
@@ -229,7 +229,7 @@ You can freely mix built-in validators and third-party schemas in the same `vali
 import { required, minLength } from '@rilaykit/core';
 import { z } from 'zod';
 
-const form = rilay.form('profile')
+const form = form.create(rilay, 'profile')
   .add({
     id: 'username',
     type: 'input',
@@ -275,7 +275,7 @@ interface FieldValidationConfig<T = any> {
 ```tsx
 import { required, email } from '@rilaykit/core';
 
-const form = rilay.form('contact')
+const form = form.create(rilay, 'contact')
   .add({
     id: 'email',
     type: 'input',
@@ -410,7 +410,7 @@ const combinedEmailSchema = combineSchemas(
 );
 
 // Use as a single schema
-const form = rilay.form('contact')
+const form = form.create(rilay, 'contact')
   .add({
     id: 'email',
     type: 'input',

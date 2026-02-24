@@ -57,7 +57,7 @@ To understand the difference, compare building a form with manual typing versus 
     const rilay = ril.create()
       .addComponent('input', { renderer: TextInput });
 
-    const loginForm = rilay.form('login')
+    const loginForm = form.create(rilay, 'login')
       .add({
         id: 'email',
         type: 'input',         // Autocompleted from registry
@@ -160,7 +160,7 @@ RilayKit catches entire categories of bugs before your code runs.
 ### Invalid Component Type
 
 ```tsx
-rilay.form('test').add({
+form.create(rilay, 'test').add({
   type: 'checkbox',
   // Error: Type '"checkbox"' is not assignable to type '"text" | "select"'
   props: { label: 'Accept' },
@@ -172,7 +172,7 @@ rilay.form('test').add({
 ### Invalid Props for Component Type
 
 ```tsx
-rilay.form('test').add({
+form.create(rilay, 'test').add({
   id: 'email',
   type: 'text',
   props: {
@@ -188,7 +188,7 @@ rilay.form('test').add({
 ### Missing Required Props
 
 ```tsx
-rilay.form('test').add({
+form.create(rilay, 'test').add({
   id: 'category',
   type: 'select',
   props: {
@@ -262,7 +262,7 @@ const form = rilay
 Type safety extends to workflows. When building steps, the `formConfig` accepts both a `FormConfiguration` and a `form` builder instance:
 
 ```tsx
-const step1Form = rilay.form('personal-info')
+const step1Form = form.create(rilay, 'personal-info')
   .add({ id: 'name', type: 'text', props: { label: 'Name' } });
 
 const workflow = rilay.flow('onboarding', 'Onboarding')

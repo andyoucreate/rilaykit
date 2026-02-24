@@ -162,7 +162,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Visibility">
     ```typescript
     // Show/hide fields dynamically
-    rilay.form('my-form')
+    form.create(rilay, 'my-form')
       .add({
         id: 'phoneNumber',
         type: 'text',
@@ -185,7 +185,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Required">
     ```typescript
     // Make fields required conditionally
-    rilay.form('my-form')
+    form.create(rilay, 'my-form')
       .add({
         id: 'businessLicense',
         type: 'text',
@@ -208,7 +208,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Disabled">
     ```typescript
     // Disable fields based on conditions
-    rilay.form('my-form')
+    form.create(rilay, 'my-form')
       .add({
         id: 'email',
         type: 'email',
@@ -230,7 +230,7 @@ Control individual form field behavior with four types of conditions:
   <Tab value="Readonly">
     ```typescript
     // Make fields read-only conditionally
-    rilay.form('my-form')
+    form.create(rilay, 'my-form')
       .add({
         id: 'accountNumber',
         type: 'text',
@@ -324,7 +324,7 @@ const workflow = rilay.flow('loan-application')
 ### E-commerce Checkout Form
 
 ```typescript
-const checkoutForm = rilay.form('checkout')
+const checkoutForm = form.create(rilay, 'checkout')
   .add({
     id: 'billingAddress',
     type: 'address',
@@ -367,7 +367,7 @@ const checkoutForm = rilay.form('checkout')
 ### Survey with Skip Logic
 
 ```typescript
-const surveyForm = rilay.form('customer-survey')
+const surveyForm = form.create(rilay, 'customer-survey')
   .add({
     id: 'satisfaction',
     type: 'select',
@@ -462,7 +462,7 @@ const jobApplicationFlow = rilay.flow('job-application')
 Reveal fields progressively based on user choices:
 
 ```typescript
-rilay.form('progressive-form')
+form.create(rilay, 'progressive-form')
   .add({
     id: 'experience',
     type: 'select',
@@ -510,7 +510,7 @@ rilay.form('progressive-form')
 Combine conditions with validation for smart form behavior:
 
 ```typescript
-rilay.form('smart-validation')
+form.create(rilay, 'smart-validation')
   .add({
     id: 'email',
     type: 'email',
@@ -553,7 +553,7 @@ When a field is not visible due to conditions, its validation is automatically s
 
 ```typescript
 // This field's validation only runs when visible
-rilay.form('my-form')
+form.create(rilay, 'my-form')
   .add({
     id: 'businessTaxId',
     type: 'text',

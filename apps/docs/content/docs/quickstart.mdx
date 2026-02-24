@@ -75,10 +75,10 @@ export const rilay = ril.create()
 
 ```tsx title="forms/login.ts"
 import { required, email } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { rilay } from '../lib/rilay';
 
-export const loginForm = rilay
-  .form('login')
+export const loginForm = form.create(rilay, 'login')
   .add({
     id: 'email',
     type: 'input',
@@ -90,7 +90,8 @@ export const loginForm = rilay
     type: 'input',
     props: { label: 'Password', type: 'password' },
     validation: { validate: [required()] },
-  });
+  })
+  .build();
 ```
 
 ## 5. Render Form
@@ -187,7 +188,7 @@ export const rilay = ril.create()
 ```tsx
 import { z } from 'zod'; // Zod 3.24+ supports Standard Schema natively
 
-const form = rilay.form('user')
+const form = form.create(rilay, 'user')
   .add({
     id: 'email',
     type: 'input',
@@ -202,7 +203,7 @@ const form = rilay.form('user')
 ```tsx
 import { when } from '@rilaykit/core';
 
-const form = rilay.form('account')
+const form = form.create(rilay, 'account')
   .add({
     id: 'accountType',
     type: 'select',

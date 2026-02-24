@@ -20,9 +20,9 @@ First, you need a `formConfig` for each step of your workflow. You'll create the
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const personalInfoForm = rilay.form('personal-info').add(...).build();
-const preferencesForm = rilay.form('preferences').add(...).build();
-const reviewForm = rilay.form('review').add(...).build();
+const personalInfoForm = form.create(rilay, 'personal-info').add(...).build();
+const preferencesForm = form.create(rilay, 'preferences').add(...).build();
+const reviewForm = form.create(rilay, 'review').add(...).build();
 ```
 <Callout>
 You can also pass a `form` builder instance directly to a step. It will be built automatically.
