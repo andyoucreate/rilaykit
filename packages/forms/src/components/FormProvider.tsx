@@ -1,4 +1,9 @@
-import type { FieldConditions, FormConfiguration, SubmitOptions, ValidationResult } from '@rilaykit/core';
+import type {
+  FieldConditions,
+  FormConfiguration,
+  SubmitOptions,
+  ValidationResult,
+} from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
