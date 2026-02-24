@@ -120,6 +120,46 @@ interface FieldConfig {
 }
 ```
 
+## Submit Options
+
+You can configure default submission behavior at the builder level using `.setSubmitOptions()`. These options control how validation interacts with form submission.
+
+```tsx
+import { rilay } from '@/lib/rilay';
+import { required } from '@rilaykit/core';
+
+const draftForm = rilay
+  .form('draft-form')
+  .add({ id: 'title', type: 'text', props: { label: 'Title' } })
+  .add({
+    id: 'content',
+    type: 'textarea',
+    props: { label: 'Content' },
+    validation: { validate: required() },
+  })
+  .setSubmitOptions({ skipInvalid: true });
+```
+
+Two options are available:
+
+| Option | Behavior |
+|--------|----------|
+| `force` | Bypass validation entirely and submit all current values as-is. Useful for "save draft" scenarios. |
+| `skipInvalid` | Run validation (errors are still shown in the UI) but exclude invalid fields from the data passed to `onSubmit`. |
+
+These defaults can be overridden at submit-time:
+
+```tsx
+const { submit } = useFormConfigContext();
+
+await submit({ force: true });      // Bypass validation
+await submit({ skipInvalid: true }); // Submit without invalid fields
+```
+
+<Callout>
+When both `force` and `skipInvalid` are set, `force` takes priority (validation is skipped entirely).
+</Callout>
+
 ---
 
 ## Complete Example: Login Form
