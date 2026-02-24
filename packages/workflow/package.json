@@ -13,9 +13,7 @@
       "require": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "publishConfig": {
     "provenance": true
   },
@@ -30,13 +28,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "workflow",
-    "multi-step",
-    "forms",
-    "typescript"
-  ],
+  "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.dev",

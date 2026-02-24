@@ -97,7 +97,7 @@ export function createStepContext(
       all: <T = any>(): T => {
         return helper.getAllData() as T;
       },
-      goto: (stepId: string) => {
+      goto: (_stepId: string) => {
         // TODO: Implement goto logic
         // This needs to be wired up to the workflow navigation system
         console.warn('step.workflow.goto() not yet implemented');

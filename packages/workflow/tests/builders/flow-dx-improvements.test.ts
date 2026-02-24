@@ -535,11 +535,7 @@ describe('Flow Builder - DX Improvements', () => {
       };
 
       // Test business user type
-      config.steps[0].onAfterValidation?.(
-        { userType: 'business' },
-        mockHelper,
-        mockContext
-      );
+      config.steps[0].onAfterValidation?.({ userType: 'business' }, mockHelper, mockContext);
 
       expect(mockHelper.setNextStepFields).toHaveBeenCalledWith({
         companyName: '',
@@ -549,11 +545,7 @@ describe('Flow Builder - DX Improvements', () => {
       mockHelper.setNextStepFields.mockClear();
 
       // Test freelance user type
-      config.steps[0].onAfterValidation?.(
-        { userType: 'freelance' },
-        mockHelper,
-        mockContext
-      );
+      config.steps[0].onAfterValidation?.({ userType: 'freelance' }, mockHelper, mockContext);
 
       expect(mockHelper.setNextStepFields).toHaveBeenCalledWith({
         skills: [],
