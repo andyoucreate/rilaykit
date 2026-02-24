@@ -37,9 +37,6 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  beforeEach(() => {
     config = createConfig();
   });
 
@@ -171,7 +168,10 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       });
       const onSubmit = vi.fn().mockReturnValue(submitPromise);
 
-      const formConfig = form.create(config, 'force-double').add({ id: 'name', type: 'text' }).build();
+      const formConfig = form
+        .create(config, 'force-double')
+        .add({ id: 'name', type: 'text' })
+        .build();
 
       const TestChild = () => {
         const { submit } = useFormConfigContext();
@@ -257,10 +257,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const formConfig = form
         .create(config, 'force-repeatable')
         .addRepeatable('items', (r) =>
-          r
-            .add({ id: 'name', type: 'text' })
-            .min(1)
-            .defaultValue({ name: '' })
+          r.add({ id: 'name', type: 'text' }).min(1).defaultValue({ name: '' })
         )
         .build();
 
@@ -314,11 +311,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -365,11 +358,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -412,11 +401,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -459,11 +444,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -523,11 +504,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -565,11 +542,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -670,11 +643,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -712,11 +681,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -743,11 +708,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const { container } = render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: 'test' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: 'test' }} onSubmit={onSubmit}>
           <div>Content</div>
         </FormProvider>
       );
@@ -793,11 +754,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -829,11 +786,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: 'value' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: 'value' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -877,11 +830,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
@@ -910,11 +859,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       const TestChild = () => {
         const { submit } = useFormConfigContext();
         return (
-          <button
-            type="button"
-            onClick={() => submit({ skipInvalid: true })}
-            data-testid="submit"
-          >
+          <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
           </button>
         );
@@ -968,11 +913,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
       };
 
       render(
-        <FormProvider
-          formConfig={formConfig}
-          defaultValues={{ name: '' }}
-          onSubmit={onSubmit}
-        >
+        <FormProvider formConfig={formConfig} defaultValues={{ name: '' }} onSubmit={onSubmit}>
           <TestChild />
         </FormProvider>
       );
