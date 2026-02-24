@@ -58,16 +58,18 @@ const profileForm = form.create(rilay, 'profile')
 ### 2. Build the Workflow
 
 ```tsx
+import { flow } from '@rilaykit/workflow';
 import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-const onboarding = rilay
-  .flow('onboarding', 'User Onboarding')
-  .addStep({
+// Option 1: With explicit ID and name
+const onboarding = flow
+  .create(rilay, 'onboarding', 'User Onboarding')
+  .step({
     id: 'account',
     title: 'Create Account',
     formConfig: accountForm,
   })
-  .addStep({
+  .step({
     id: 'profile',
     title: 'Your Profile',
     formConfig: profileForm,
@@ -86,7 +88,14 @@ const onboarding = rilay
         trackEvent('workflow_complete', { id, totalTime });
       },
     },
-  });
+  })
+  .build();
+
+// Option 2: Auto-generated ID and default name
+const quickWorkflow = flow
+  .create(rilay) // ID and name are optional
+  .step({ title: 'Step 1', formConfig: accountForm })
+  .build();
 ```
 
 ### 3. Render It
@@ -125,13 +134,16 @@ function OnboardingFlow() {
 Chainable API for defining multi-step flows with step-level configuration.
 
 ```tsx
-const flow = rilay
-  .flow('checkout', 'Checkout Flow')
-  .addStep({ id: 'cart', title: 'Review Cart', formConfig: cartForm })
-  .addStep({ id: 'shipping', title: 'Shipping', formConfig: shippingForm })
-  .addStep({ id: 'payment', title: 'Payment', formConfig: paymentForm })
+import { flow } from '@rilaykit/workflow';
+
+const checkoutFlow = flow
+  .create(rilay, 'checkout', 'Checkout Flow')
+  .step({ id: 'cart', title: 'Review Cart', formConfig: cartForm })
+  .step({ id: 'shipping', title: 'Shipping', formConfig: shippingForm })
+  .step({ id: 'payment', title: 'Payment', formConfig: paymentForm })
   .configure({ persistence: { ... }, analytics: { ... } })
-  .use(myPlugin);
+  .use(myPlugin)
+  .build();
 ```
 
 ### Step Navigation
@@ -139,7 +151,7 @@ const flow = rilay
 Navigation with validation guards — users can't advance until the current step validates. Steps can be optional with `allowSkip: true`.
 
 ```tsx
-.addStep({
+.step({
   id: 'profile',
   title: 'Your Profile',
   formConfig: profileForm,
@@ -154,7 +166,7 @@ Use `when('stepId.fieldId')` to reference fields from other steps. Steps can be 
 ```tsx
 import { when } from '@rilaykit/core';
 
-.addStep({
+.step({
   id: 'business-details',
   title: 'Business Details',
   formConfig: businessForm,
@@ -169,7 +181,7 @@ import { when } from '@rilaykit/core';
 Use `onAfterValidation` to pre-populate fields in upcoming steps based on current step data.
 
 ```tsx
-.addStep({
+.step({
   id: 'account',
   title: 'Account',
   formConfig: accountForm,

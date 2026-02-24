@@ -75,20 +75,19 @@ interface WorkflowAnalytics {
 Pass an analytics object inside `.configure()` on your workflow builder:
 
 ```tsx
-const workflow = rilay
-  .flow('onboarding', 'User Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'User Onboarding')
+  .step({
     id: 'personal-info',
     title: 'Personal Info',
     formConfig: personalInfoForm,
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
     allowSkip: true,
   })
-  .addStep({
+  .step({
     id: 'review',
     title: 'Review',
     formConfig: reviewForm,

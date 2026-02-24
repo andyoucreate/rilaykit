@@ -794,13 +794,13 @@ const myWorkflow = new flow(rilConfig, 'onboarding', 'User Onboarding');
 - `workflowName: string` -- Display name
 - `description?: string` -- Optional description
 
-#### `.addStep(stepDef)` / `.addStep([stepDefs])`
+#### `.step(stepDef)` / `.step([stepDefs])`
 
 Adds one or multiple steps to the workflow.
 
 ```ts
 workflow
-  .addStep({
+  .step({
     id: 'personal-info',
     title: 'Personal Information',
     formConfig: personalForm,
@@ -811,7 +811,7 @@ workflow
       helper.setNextStepFields({ companyName: company.name });
     },
   })
-  .addStep([
+  .step([
     { title: 'Step 2', formConfig: form2 },
     { title: 'Step 3', formConfig: form3, allowSkip: true },
   ]);
@@ -887,12 +887,12 @@ Updates an existing step configuration.
 
 **Returns**: `this` (chainable)
 
-#### `.addStepConditions(id, conditions)`
+#### `.stepConditions(id, conditions)`
 
 Adds conditional behavior to a step after creation.
 
 ```ts
-workflow.addStepConditions('payment', {
+workflow.stepConditions('payment', {
   visible: when('hasPayment').equals(true).build(),
   skippable: when('balance').equals(0).build(),
 });

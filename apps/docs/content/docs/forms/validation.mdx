@@ -23,9 +23,9 @@ The `validation` property accepts:
     ```tsx
     import { z } from 'zod';
     import { rilay } from '@/lib/rilay';
+    import { form } from '@rilaykit/forms';
 
-    const registrationForm = rilay
-      .form('registration')
+    const registrationForm = form.create(rilay, 'registration')
       .add({
         id: 'email',
         type: 'email',
@@ -51,8 +51,7 @@ The `validation` property accepts:
     import { rilay } from '@/lib/rilay';
     import { required, minLength, email } from '@rilaykit/core';
 
-    const registrationForm = rilay
-      .form('registration')
+    const registrationForm = form.create(rilay, 'registration')
       .add({
         id: 'email',
         type: 'email',
@@ -79,8 +78,7 @@ The `validation` property accepts:
     import { rilay } from '@/lib/rilay';
     import { required } from '@rilaykit/core';
 
-    const registrationForm = rilay
-      .form('registration')
+    const registrationForm = form.create(rilay, 'registration')
       .add({
         id: 'email',
         type: 'email',
@@ -136,7 +134,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import { z } from 'zod';
 
-    const form = form.create(rilay, 'user')
+    const userForm = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -163,7 +161,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import * as yup from 'yup';
 
-    const form = form.create(rilay, 'user')
+    const userForm = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -180,7 +178,7 @@ All built-in validators implement Standard Schema and can be mixed with external
     ```tsx
     import Joi from 'joi';
 
-    const form = form.create(rilay, 'user')
+    const userForm = form.create(rilay, 'user')
       .add({
         id: 'email',
         type: 'input',
@@ -222,7 +220,7 @@ export function containsRilay(message = 'Value must contain "rilay"'): StandardS
 }
 
 // Use it like any other validator
-const form = form.create(rilay, 'custom')
+const userForm = form.create(rilay, 'custom')
   .add({
     id: 'username',
     type: 'input',
@@ -249,8 +247,7 @@ For cross-field validation, use Standard Schema object schemas with the `setVali
       path: ['confirmPassword'],
     });
 
-    const changePasswordForm = rilay
-      .form('change-password')
+    const changePasswordForm = form.create(rilay, 'change-password')
       .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
       .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
       .setValidation({
@@ -269,8 +266,7 @@ For cross-field validation, use Standard Schema object schemas with the `setVali
         .required(),
     });
 
-    const changePasswordForm = rilay
-      .form('change-password')
+    const changePasswordForm = form.create(rilay, 'change-password')
       .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
       .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
       .setValidation({
@@ -287,8 +283,7 @@ For cross-field validation, use Standard Schema object schemas with the `setVali
       "Passwords don't match"
     );
 
-    const changePasswordForm = rilay
-      .form('change-password')
+    const changePasswordForm = form.create(rilay, 'change-password')
       .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
       .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
       .setValidation({
@@ -335,7 +330,7 @@ import { z } from 'zod';
 import * as yup from 'yup';
 import { required, email } from '@rilaykit/core';
 
-const form = form.create(rilay, 'mixed')
+const userForm = form.create(rilay, 'mixed')
   .add({
     id: 'email',
     type: 'input',
@@ -371,7 +366,7 @@ const userSchema = z.object({
   path: ['companyName'],
 });
 
-const form = form.create(rilay, 'conditional')
+const userForm = form.create(rilay, 'conditional')
   .add({ id: 'userType', type: 'select', /* ... */ })
   .add({ id: 'email', type: 'input', /* ... */ })
   .add({ id: 'companyName', type: 'input', /* ... */ })

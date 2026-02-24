@@ -92,8 +92,8 @@ import { flow } from "@rilaykit/workflow";
 
 const onboarding = flow
   .create(r, "onboarding", "User Onboarding")
-  .addStep({ id: "personal", title: "Personal Info", formConfig: personalForm })
-  .addStep({
+  .step({ id: "personal", title: "Personal Info", formConfig: personalForm })
+  .step({
     id: "company",
     title: "Company",
     formConfig: companyForm,
@@ -190,13 +190,13 @@ export const personalInfoStep = (t: TranslationFn): StepDefinition => ({
 
 // Conditionally add steps
 if (!hasExistingClient) {
-  workflowFlow = workflowFlow.addStep(personalInfoStep(t));
+  workflowFlow = workflowFlow.step(personalInfoStep(t));
 }
 ```
 
 ## Critical Rules
 
-- **Immutable builders**: Every `.add()`, `.addStep()`, `.configure()` returns a new instance. Chain calls.
+- **Immutable builders**: Every `.add()`, `.step()`, `.configure()` returns a new instance. Chain calls.
 - **Headless architecture**: You provide ALL renderers. RilayKit handles state, validation, conditions, navigation.
 - **One ril instance per app**: Register all components and renderers once, reuse everywhere.
 - **Granular hooks over useFormConfigContext**: Prefer `useFieldValue`, `useFormSubmitting` etc. to avoid unnecessary re-renders.

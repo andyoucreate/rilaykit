@@ -187,8 +187,9 @@ export const rilay = ril.create()
 
 ```tsx
 import { z } from 'zod'; // Zod 3.24+ supports Standard Schema natively
+import { form } from '@rilaykit/forms';
 
-const form = form.create(rilay, 'user')
+const userForm = form.create(rilay, 'user')
   .add({
     id: 'email',
     type: 'input',
@@ -202,8 +203,9 @@ const form = form.create(rilay, 'user')
 
 ```tsx
 import { when } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 
-const form = form.create(rilay, 'account')
+const accountForm = form.create(rilay, 'account')
   .add({
     id: 'accountType',
     type: 'select',

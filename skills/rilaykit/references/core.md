@@ -318,7 +318,7 @@ condition.evaluate({ type: "premium" })    // → true
 ### Step-Level Conditions (Workflows)
 
 ```typescript
-.addStep({
+.step({
   id: "company-info",
   title: "Company Information",
   formConfig: companyForm,

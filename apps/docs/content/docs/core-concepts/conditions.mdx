@@ -256,13 +256,13 @@ Control individual form field behavior with four types of conditions:
 Control workflow step navigation with visibility and skip conditions:
 
 ```typescript
-const workflow = rilay.flow('user-onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'user-onboarding')
+  .step({
     id: 'personal-info',
     title: 'Personal Information',
     formConfig: personalInfoForm
   })
-  .addStep({
+  .step({
     id: 'company-info',
     title: 'Company Information',
     conditions: {
@@ -273,7 +273,7 @@ const workflow = rilay.flow('user-onboarding')
     },
     formConfig: companyInfoForm
   })
-  .addStep({
+  .step({
     id: 'payment-info',
     title: 'Payment Information',
     conditions: {
@@ -298,19 +298,19 @@ when('contact-details.email').contains('@company.com')
 when('preferences.notifications').equals(true)
 
 // Real-world example
-const workflow = rilay.flow('loan-application')
-  .addStep({
+const workflow = flow.create(rilay, 'loan-application')
+  .step({
     id: 'applicant-info',
     formConfig: applicantForm
   })
-  .addStep({
+  .step({
     id: 'employment-details',
     conditions: {
       visible: when('applicant-info.age').greaterThan(18)
         .and(when('applicant-info.citizenship').equals('US'))
     }
   })
-  .addStep({
+  .step({
     id: 'co-signer',
     conditions: {
       visible: when('applicant-info.creditScore').lessThan(650)
@@ -419,13 +419,13 @@ const surveyForm = form.create(rilay, 'customer-survey')
 ### Job Application Workflow
 
 ```typescript
-const jobApplicationFlow = rilay.flow('job-application')
-  .addStep({
+const jobApplicationFlow = flow.create(rilay, 'job-application')
+  .step({
     id: 'basic-info',
     title: 'Basic Information',
     formConfig: basicInfoForm
   })
-  .addStep({
+  .step({
     id: 'experience',
     title: 'Work Experience',
     conditions: {
@@ -434,7 +434,7 @@ const jobApplicationFlow = rilay.flow('job-application')
     },
     formConfig: experienceForm
   })
-  .addStep({
+  .step({
     id: 'portfolio',
     title: 'Portfolio',
     conditions: {
@@ -443,7 +443,7 @@ const jobApplicationFlow = rilay.flow('job-application')
     },
     formConfig: portfolioForm
   })
-  .addStep({
+  .step({
     id: 'references',
     title: 'References',
     conditions: {

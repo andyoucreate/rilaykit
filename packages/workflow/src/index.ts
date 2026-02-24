@@ -2,6 +2,10 @@
 export { flow } from './builders/flow';
 export type { StepDefinition } from './builders/flow';
 
+// Step context (for after callbacks)
+export type { StepContext, StepMetadata } from './context/step-context';
+export { createStepContext } from './context/step-context';
+
 // Components
 export { Workflow } from './components/Workflow';
 export { WorkflowBody } from './components/WorkflowBody';

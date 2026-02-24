@@ -83,13 +83,14 @@ const freelanceForm = form.create(rilay, 'freelance-details')
   .build();
 
 // Build workflow with conditional steps
+// Note: ID and name are optional (auto-generated if omitted)
 const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
-  .addStep({
+  .step({
     id: 'basics',
     title: 'Basic Information',
     formConfig: basicsForm
   })
-  .addStep({
+  .step({
     id: 'business',
     title: 'Business Details',
     formConfig: businessForm,
@@ -98,7 +99,7 @@ const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
       skippable: when('basics.revenue').lessThan(50000)
     }
   })
-  .addStep({
+  .step({
     id: 'freelance',
     title: 'Freelance Details',
     formConfig: freelanceForm,
@@ -299,12 +300,12 @@ import { flow } from '@rilaykit/workflow';
 import { localStorageAdapter } from '@rilaykit/workflow';
 
 const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
-  .addStep({
+  .step({
     id: 'account',
     title: 'Account',
     formConfig: accountForm
   })
-  .addStep({
+  .step({
     id: 'profile',
     title: 'Profile',
     formConfig: profileForm

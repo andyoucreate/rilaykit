@@ -125,8 +125,7 @@ export const rilay = ril
 When building forms, the accumulated types flow into `.add()`:
 
 ```tsx
-const form = rilay
-  .form('user-form')
+const userForm = form.create(rilay, 'user-form')
   .add({
     id: 'username',
     type: 'text',  // Autocompletes: 'text' | 'select'
@@ -207,7 +206,7 @@ const base = ril.create();
 base.addComponent('text', { renderer: TextInput });
 // 'base' still has no components — addComponent returns a NEW instance
 
-base.form('test').add({
+form.create(base, 'test').add({
   type: 'text',  // Error: no component 'text' registered
 });
 ```
@@ -241,8 +240,7 @@ Because the API is immutable, always chain your `.addComponent()` calls or assig
 Type safety is maintained when adding multiple fields to the same row:
 
 ```tsx
-const form = rilay
-  .form('registration')
+const registrationForm = form.create(rilay, 'registration')
   .add(
     {
       id: 'firstName',
@@ -265,8 +263,8 @@ Type safety extends to workflows. When building steps, the `formConfig` accepts 
 const step1Form = form.create(rilay, 'personal-info')
   .add({ id: 'name', type: 'text', props: { label: 'Name' } });
 
-const workflow = rilay.flow('onboarding', 'Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({
     id: 'personal',
     title: 'Personal Information',
     formConfig: step1Form,  // Type-checked

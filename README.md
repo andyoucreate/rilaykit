@@ -76,10 +76,11 @@ const rilay = ril.create()
 ### 2. Build a Form
 
 ```tsx
+import { form } from '@rilaykit/forms';
 import { required, email } from '@rilaykit/core';
 
-const loginForm = rilay
-  .form('login')
+const loginForm = form
+  .create(rilay, 'login')
   .add({
     id: 'email',
     type: 'input',
@@ -147,12 +148,13 @@ conditions: {
 ### Multi-Step Workflows
 
 ```tsx
+import { flow } from '@rilaykit/workflow';
 import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-const onboarding = rilay
-  .flow('onboarding', 'User Onboarding')
-  .addStep({ id: 'account', title: 'Create Account', formConfig: accountForm })
-  .addStep({
+const onboarding = flow
+  .create(rilay, 'onboarding', 'User Onboarding')
+  .step({ id: 'account', title: 'Create Account', formConfig: accountForm })
+  .step({
     id: 'profile',
     title: 'Your Profile',
     formConfig: profileForm,

@@ -37,15 +37,14 @@ Install a plugin by calling `.use()` on the `flow` builder. Plugins are installe
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
   .use(myPlugin)
-  .addStep({
+  .step({
     id: 'personal-info',
     title: 'Personal Info',
     formConfig: personalInfoForm,
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
@@ -56,12 +55,11 @@ const workflow = rilay
 You can chain multiple `.use()` calls:
 
 ```tsx
-const workflow = rilay
-  .flow('checkout', 'Checkout')
+const workflow = flow.create(rilay, 'checkout', 'Checkout')
   .use(loggingPlugin)
   .use(validationPlugin)
   .use(analyticsPlugin)
-  .addStep(...)
+  .step(...)
   .build();
 ```
 
@@ -111,14 +109,13 @@ const loggingPlugin: WorkflowPlugin = {
 Usage:
 
 ```tsx
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
-  .addStep({
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
+  .step({
     id: 'personal-info',
     title: 'Personal Info',
     formConfig: personalInfoForm,
   })
-  .addStep({
+  .step({
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
@@ -128,7 +125,7 @@ const workflow = rilay
 ```
 
 <Callout type="warn">
-Since `install` is called immediately, the plugin only sees steps that have been added **before** `.use()` is called. If you need the plugin to affect all steps, install it after all `.addStep()` calls.
+Since `install` is called immediately, the plugin only sees steps that have been added **before** `.use()` is called. If you need the plugin to affect all steps, install it after all `.step()` calls.
 </Callout>
 
 ### Example: Analytics Integration Plugin
@@ -168,9 +165,8 @@ function createAnalyticsPlugin(trackFn: (event: string, data: any) => void): Wor
 }
 
 // Usage
-const workflow = rilay
-  .flow('checkout', 'Checkout')
-  .addStep(...)
+const workflow = flow.create(rilay, 'checkout', 'Checkout')
+  .step(...)
   .use(createAnalyticsPlugin(posthog.capture))
   .build();
 ```
@@ -190,7 +186,7 @@ const premiumStepsPlugin: WorkflowPlugin = {
   install(builder) {
     // Make the "advanced-settings" step visible only for premium users
     try {
-      builder.addStepConditions('advanced-settings', {
+      builder.stepConditions('advanced-settings', {
         visible: when('userPlan').equals('premium').build(),
       });
     } catch {
@@ -255,13 +251,13 @@ Once all dependencies are satisfied, the plugin's `install` method is called.
 
 ```tsx
 // This works -- step-logger is installed before enhanced-logger
-rilay.flow('test', 'Test')
+flow.create(rilay, 'test', 'Test')
   .use(loggingPlugin)          // name: 'step-logger'
   .use(enhancedLoggingPlugin)  // depends on 'step-logger'
   .build();
 
 // This throws -- enhanced-logger's dependency is not satisfied
-rilay.flow('test', 'Test')
+flow.create(rilay, 'test', 'Test')
   .use(enhancedLoggingPlugin)  // Error: Plugin "enhanced-logger" requires missing dependencies: step-logger
   .build();
 ```
@@ -277,10 +273,9 @@ The error message includes the names of all missing dependencies so you know exa
 Use `.removePlugin(pluginName)` to remove a plugin from the builder. Note that this only removes the plugin from the internal registry -- any modifications the plugin made during `install` (added steps, configured analytics, etc.) are **not** rolled back.
 
 ```tsx
-const workflow = rilay
-  .flow('onboarding', 'Onboarding')
+const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
   .use(loggingPlugin)
-  .addStep(...)
+  .step(...)
   .removePlugin('step-logger')
   .build();
 ```
@@ -288,10 +283,9 @@ const workflow = rilay
 This is primarily useful when cloning a workflow and wanting to swap plugins:
 
 ```tsx
-const baseWorkflow = rilay
-  .flow('base', 'Base Workflow')
+const baseWorkflow = flow.create(rilay, 'base', 'Base Workflow')
   .use(productionAnalytics)
-  .addStep(...);
+  .step(...);
 
 const testWorkflow = baseWorkflow
   .clone('test', 'Test Workflow')
