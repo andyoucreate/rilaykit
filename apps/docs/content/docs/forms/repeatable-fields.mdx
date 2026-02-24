@@ -12,11 +12,12 @@ Repeatable fields allow users to add, remove, and reorder groups of fields at ru
 Use `.addRepeatable()` on the form builder to define a repeatable group. It takes an ID and a callback that receives a `RepeatableBuilder`.
 
 ```tsx
+import { form } from '@rilaykit/forms';
 import { rilay } from '@/lib/rilay';
 import { required } from '@rilaykit/core';
 
-const orderForm = rilay
-  .form_OLD('order')
+const orderForm = form
+  .create(rilay, 'order')
   .add({ id: 'customerName', type: 'text', props: { label: 'Customer' } })
   .addRepeatable('items', (r) => r
     .add(

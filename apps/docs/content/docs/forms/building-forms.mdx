@@ -35,8 +35,11 @@ The builder provides a powerful polymorphic `.add()` method that handles multipl
 - **Array syntax**: `.add([field1, field2], options)` - Explicit row control with options
 
 ```tsx
-const registrationForm = rilay
-  .form_OLD('registration')
+import { form } from '@rilaykit/forms';
+import { rilay } from '@/lib/rilay';
+
+const registrationForm = form
+  .create(rilay, 'registration')
   // Add multiple fields on the same row
   .add(
     {
@@ -61,14 +64,17 @@ const registrationForm = rilay
 You can also use the array syntax for explicit control over row options:
 
 ```tsx
-const formWithOptions = rilay
-  .form_OLD('styled-form')
+import { form } from '@rilaykit/forms';
+import { rilay } from '@/lib/rilay';
+
+const formWithOptions = form
+  .create(rilay, 'styled-form')
   .add([
     { id: 'field1', type: 'text', props: { label: 'Field 1' } },
     { id: 'field2', type: 'text', props: { label: 'Field 2' } },
-  ], { 
-    spacing: 'loose', 
-    alignment: 'center' 
+  ], {
+    spacing: 'loose',
+    alignment: 'center'
   });
 ```
 </Step>
@@ -80,8 +86,11 @@ const formWithOptions = rilay
 One of the key improvements in the new API is automatic ID generation. If you don't provide an `id` field, one will be generated for you:
 
 ```tsx
-const quickForm = rilay
-  .form_OLD('quick-form')
+import { form } from '@rilaykit/forms';
+import { rilay } from '@/lib/rilay';
+
+const quickForm = form
+  .create(rilay, 'quick-form')
   .add(
     { type: 'text', props: { label: 'Name' } }, // Will get id: 'field-1'
     { type: 'email', props: { label: 'Email' } }, // Will get id: 'field-2'
@@ -100,8 +109,11 @@ However, you should call `.build()` manually when you need the final, serializab
 - For debugging purposes, to inspect the generated configuration.
 
 ```tsx
-const formConfig = rilay
-  .form_OLD('my-form')
+import { form } from '@rilaykit/forms';
+import { rilay } from '@/lib/rilay';
+
+const formConfig = form
+  .create(rilay, 'my-form')
   .add({ id: 'field1', type: 'text' })
   .build(); // Manually build the config
 
@@ -125,11 +137,12 @@ interface FieldConfig {
 You can configure default submission behavior at the builder level using `.setSubmitOptions()`. These options control how validation interacts with form submission.
 
 ```tsx
+import { form } from '@rilaykit/forms';
 import { rilay } from '@/lib/rilay';
 import { required } from '@rilaykit/core';
 
-const draftForm = rilay
-  .form_OLD('draft-form')
+const draftForm = form
+  .create(rilay, 'draft-form')
   .add({ id: 'title', type: 'text', props: { label: 'Title' } })
   .add({
     id: 'content',
@@ -167,10 +180,11 @@ When both `force` and `skipInvalid` are set, `force` takes priority (validation 
 Let's tie everything together. Here is how you would build a complete login form configuration, assuming you have a configured `rilay` instance. This definition can be passed directly to the `<Form>` component.
 
 ```tsx
+import { form } from '@rilaykit/forms';
 import { rilay } from '@/lib/rilay';
 
-export const loginForm = rilay
-  .form_OLD('login-form')
+export const loginForm = form
+  .create(rilay, 'login-form')
   .add(
     {
       id: 'email',
