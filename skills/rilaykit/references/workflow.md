@@ -20,16 +20,17 @@ Create multi-step workflows with the fluent builder API.
 ```typescript
 import { flow } from "@rilaykit/workflow";
 
-// Using ril instance shortcut
-const onboarding = r
-  .flow("onboarding", "User Onboarding", "Optional description")
+// Create a workflow with ID, name, and optional description
+const onboarding = flow
+  .create(r, "onboarding", "User Onboarding", "Optional description")
   .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
   .addStep({ id: "step2", title: "Step 2", formConfig: form2 })
   .configure({ analytics: myAnalytics })
   .build();
 
-// Using flow.create() directly
-const onboarding = flow.create(r, "onboarding", "User Onboarding")
+// Minimal workflow (ID and name only)
+const simpleFlow = flow
+  .create(r, "onboarding", "User Onboarding")
   .addStep({ id: "step1", title: "Step 1", formConfig: form1 })
   .build();
 ```
@@ -474,11 +475,13 @@ export function createFlowAnalytics(): WorkflowAnalytics {
 ### Reusable step definitions
 
 ```typescript
+import { form } from "@rilaykit/forms";
+
 export const personalInfoStep = (t: TranslationFn, tCommon: TranslationFn): StepDefinition => ({
   id: "personalInfo",
   title: t("steps.personalInfo.title"),
   metadata: { submitLabel: "Get my quote" },
-  formConfig: form.create(r)
+  formConfig: form.create(r, "personalInfo")
     .add({
       id: "civility",
       type: "toggle-group",
@@ -595,11 +598,14 @@ onWorkflowComplete={async (data) => {
 ### Dynamic workflow from external config
 
 ```typescript
+import { flow } from "@rilaykit/workflow";
+import { form } from "@rilaykit/forms";
+
 const workflowConfig = useMemo(() => {
   let wf = flow.create(r, "dynamic", "Dynamic Flow");
 
   for (const section of sortedSections) {
-    let sectionForm = form.create(r);
+    let sectionForm = form.create(r, section.key);
 
     for (const field of section.fields.filter((f) => !f.hidden)) {
       sectionForm = sectionForm.add({

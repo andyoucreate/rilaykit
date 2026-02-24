@@ -18,15 +18,17 @@ Create forms with the fluent builder API. All builder methods return new instanc
 ```typescript
 import { form } from "@rilaykit/forms";
 
-// Using ril instance shortcut
-const loginForm = r.form("login")
+// Create a form with an ID
+const loginForm = form
+  .create(r, "login")
   .add(
     { id: "email", type: "input", props: { label: "Email" }, validation: { validate: [required(), email()] } },
     { id: "password", type: "input", props: { type: "password" }, validation: { validate: [required()] } },
   );
 
-// Using form.create() directly
-const loginForm = form.create(r)
+// Create a form without specifying an ID (auto-generated)
+const simpleForm = form
+  .create(r)
   .add({ id: "email", type: "input" });
 ```
 
@@ -36,7 +38,7 @@ const loginForm = form.create(r)
 - Separate `.add()` calls create **separate rows**.
 
 ```typescript
-r.form("example")
+form.create(r, "example")
   .add(field1)                         // Row 1: field1 alone
   .add(field2, field3)                 // Row 2: field2 + field3 side by side
   .add(field4, field5, field6);        // Row 3: three fields side by side
@@ -357,8 +359,10 @@ export const ToggleGroupRenderer = (renderProps: FieldProps) => {
 ### Dynamic form from external configuration
 
 ```typescript
+import { form } from "@rilaykit/forms";
+
 // Transform external field config into RilayKit form
-let sectionForm = form.create(r);
+let sectionForm = form.create(r, "dynamic-section");
 
 for (const field of sortedFields) {
   sectionForm = sectionForm.add({

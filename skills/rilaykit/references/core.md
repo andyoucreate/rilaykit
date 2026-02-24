@@ -38,8 +38,6 @@ export const r = ril
 | `.clone()` | new instance | Deep copy the instance |
 | `.validate()` | `string[]` | Return validation errors |
 | `.getStats()` | `{ total, byType, hasCustomRenderers }` | Instance statistics |
-| `.form(id)` | `FormBuilder` | Create a form builder |
-| `.flow(id, title, description?)` | `FlowBuilder` | Create a workflow builder |
 
 ### addComponent Config
 
@@ -198,7 +196,10 @@ combineSchemas(schema1, schema2)               // Merge StandardSchema instances
 Cross-field validation using Zod or any Standard Schema:
 
 ```typescript
-const form = r.form("password-change")
+import { form } from "@rilaykit/forms";
+
+const passwordForm = form
+  .create(r, "password-change")
   .add({ id: "password", type: "input" })
   .add({ id: "confirm", type: "input" })
   .setValidation({

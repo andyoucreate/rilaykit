@@ -61,8 +61,10 @@ type ComponentRenderer<T = any> = (props: ComponentRenderProps<T>) => React.Reac
 ### 2. Build forms with the fluent builder
 
 ```typescript
-const loginForm = r
-  .form("login")
+import { form } from "@rilaykit/forms";
+
+const loginForm = form
+  .create(r, "login")
   .add(
     { id: "email", type: "input", props: { label: "Email" }, validation: { validate: [required(), email()] } },
     { id: "password", type: "input", props: { type: "password" }, validation: { validate: [required()] } },
@@ -86,8 +88,10 @@ import { Form, FormBody, FormSubmitButton } from "@rilaykit/forms";
 ### 4. Build multi-step workflows
 
 ```typescript
-const onboarding = r
-  .flow("onboarding", "User Onboarding")
+import { flow } from "@rilaykit/workflow";
+
+const onboarding = flow
+  .create(r, "onboarding", "User Onboarding")
   .addStep({ id: "personal", title: "Personal Info", formConfig: personalForm })
   .addStep({
     id: "company",
@@ -175,11 +179,13 @@ const { reset } = useFormActions();
 ### Reusable step definitions
 
 ```typescript
+import { form } from "@rilaykit/forms";
+
 // Define once, use across multiple flows
 export const personalInfoStep = (t: TranslationFn): StepDefinition => ({
   id: "personalInfo",
   title: t("steps.personalInfo.title"),
-  formConfig: form.create(r).add(/* fields */),
+  formConfig: form.create(r, "personalInfo").add(/* fields */),
 });
 
 // Conditionally add steps
