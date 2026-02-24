@@ -152,7 +152,7 @@ Combined with `@rilaykit/core`'s condition system, fields show/hide reactively b
 ```tsx
 import { when } from '@rilaykit/core';
 
-rilay.form('account')
+form.create(rilay, 'account')
   .add({
     id: 'accountType',
     type: 'select',

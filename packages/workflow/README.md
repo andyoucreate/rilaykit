@@ -34,7 +34,7 @@ bun add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 ```tsx
 import { required, email, minLength } from '@rilaykit/core';
 
-const accountForm = rilay.form('account')
+const accountForm = form.create(rilay, 'account')
   .add({
     id: 'email',
     type: 'input',
@@ -48,7 +48,7 @@ const accountForm = rilay.form('account')
     validation: { validate: [required(), minLength(8)] },
   });
 
-const profileForm = rilay.form('profile')
+const profileForm = form.create(rilay, 'profile')
   .add(
     { id: 'firstName', type: 'input', props: { label: 'First Name' } },
     { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
