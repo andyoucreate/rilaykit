@@ -1,11 +1,12 @@
 {
   "name": "@rilaykit/workflow",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": false,
   "description": "Workflow and multi-step form utilities for RilayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
