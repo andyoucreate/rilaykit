@@ -1,16 +1,16 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
 import {
-  ril,
-  form,
-  flow,
   Form,
-  Workflow,
-  required,
-  type RilayKit,
   type FormConfiguration,
+  type RilayKit,
+  Workflow,
   type WorkflowConfig,
+  flow,
+  form,
+  required,
+  ril,
 } from 'rilaykit';
+import { describe, expect, it } from 'vitest';
 
 const MockInput = ({ id, value, onChange, props }: any) =>
   React.createElement('input', {
@@ -20,7 +20,7 @@ const MockInput = ({ id, value, onChange, props }: any) =>
     onChange: (e: any) => onChange?.(e.target.value),
   });
 
-const MockSelect = ({ id, value, onChange, props }: any) =>
+const MockSelect = ({ id, value, onChange }: any) =>
   React.createElement('select', {
     id,
     value: value || '',
@@ -51,15 +51,17 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should support the full all-in-one API', () => {
-    const r = ril.create()
+    const r = ril
+      .create()
       .addComponent('input', { name: 'Input', renderer: MockInput })
       .addComponent('select', { name: 'Select', renderer: MockSelect });
 
     // Build a form using r.form()
-    const contactForm = r.form('contact')
+    const contactForm = r
+      .form('contact')
       .add(
         { id: 'firstName', type: 'input', props: { label: 'First Name' } },
-        { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
+        { id: 'lastName', type: 'input', props: { label: 'Last Name' } }
       )
       .add({ id: 'email', type: 'input', props: { label: 'Email' } })
       .build();
@@ -68,7 +70,8 @@ describe('rilaykit - all-in-one integration', () => {
     expect(contactForm.allFields).toHaveLength(3);
 
     // Build a workflow using r.flow()
-    const onboarding = r.flow('onboarding', 'User Onboarding')
+    const onboarding = r
+      .flow('onboarding', 'User Onboarding')
       .step({ id: 'contact', title: 'Contact Info', formConfig: contactForm })
       .build();
 
@@ -78,11 +81,11 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should allow mixing r.form() with standalone form.create()', () => {
-    const r = ril.create()
-      .addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
 
     // Using the enhanced API
-    const form1 = r.form('enhanced')
+    const form1 = r
+      .form('enhanced')
       .add({ type: 'input', props: { label: 'Name' } })
       .build();
 
@@ -92,10 +95,10 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should work with validation', () => {
-    const r = ril.create()
-      .addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
 
-    const formConfig = r.form('validated')
+    const formConfig = r
+      .form('validated')
       .add({
         id: 'email',
         type: 'input',
@@ -108,19 +111,23 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should support multi-step workflow with multiple forms', () => {
-    const r = ril.create()
+    const r = ril
+      .create()
       .addComponent('input', { name: 'Input', renderer: MockInput })
       .addComponent('select', { name: 'Select', renderer: MockSelect });
 
-    const step1Form = r.form('step1')
+    const step1Form = r
+      .form('step1')
       .add({ id: 'name', type: 'input', props: { label: 'Name' } })
       .build();
 
-    const step2Form = r.form('step2')
+    const step2Form = r
+      .form('step2')
       .add({ id: 'role', type: 'select', props: { label: 'Role' } })
       .build();
 
-    const workflow = r.flow('onboarding', 'Onboarding', 'Multi-step onboarding')
+    const workflow = r
+      .flow('onboarding', 'Onboarding', 'Multi-step onboarding')
       .step({ id: 'personal', title: 'Personal Info', formConfig: step1Form })
       .step({ id: 'professional', title: 'Professional Info', formConfig: step2Form })
       .build();

@@ -1,8 +1,8 @@
-import React from 'react';
-import { describe, expect, it } from 'vitest';
-import { ril, type RilayKit } from 'rilaykit';
 import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
+import React from 'react';
+import { type RilayKit, ril } from 'rilaykit';
+import { describe, expect, it } from 'vitest';
 
 const MockRenderer = () => React.createElement('input');
 const MockSelectRenderer = () => React.createElement('select');
@@ -37,8 +37,7 @@ describe('rilaykit - enhanced ril', () => {
 
   describe('passthrough methods', () => {
     it('should addComponent and retrieve it', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const component = r.getComponent('text');
       expect(component).toBeDefined();
@@ -47,7 +46,8 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should support method chaining with addComponent', () => {
-      const r = ril.create()
+      const r = ril
+        .create()
         .addComponent('text', { name: 'Text', renderer: MockRenderer })
         .addComponent('select', { name: 'Select', renderer: MockSelectRenderer });
 
@@ -58,16 +58,14 @@ describe('rilaykit - enhanced ril', () => {
 
     it('should configure render config', () => {
       const CustomRow = () => React.createElement('div');
-      const r = ril.create()
-        .configure({ rowRenderer: CustomRow });
+      const r = ril.create().configure({ rowRenderer: CustomRow });
 
       const formConfig = r.getFormRenderConfig();
       expect(formConfig.rowRenderer).toBe(CustomRow);
     });
 
     it('should return stats', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const stats = r.getStats();
       expect(stats.total).toBe(1);
@@ -75,16 +73,14 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should validate', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const errors = r.validate();
       expect(errors).toHaveLength(0);
     });
 
     it('should validateAsync', async () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const result = await r.validateAsync();
       expect(result.isValid).toBe(true);
@@ -93,15 +89,15 @@ describe('rilaykit - enhanced ril', () => {
 
   describe('immutable methods preserve .form() and .flow()', () => {
     it('addComponent returns RilayKit with .form() and .flow()', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       expect(r.form).toBeTypeOf('function');
       expect(r.flow).toBeTypeOf('function');
     });
 
     it('configure returns RilayKit with .form() and .flow()', () => {
-      const r = ril.create()
+      const r = ril
+        .create()
         .addComponent('text', { name: 'Text', renderer: MockRenderer })
         .configure({});
 
@@ -110,9 +106,7 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('clone returns RilayKit with .form() and .flow()', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer })
-        .clone();
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer }).clone();
 
       expect(r.form).toBeTypeOf('function');
       expect(r.flow).toBeTypeOf('function');
@@ -120,7 +114,8 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('removeComponent returns RilayKit with .form() and .flow()', () => {
-      const r = ril.create()
+      const r = ril
+        .create()
         .addComponent('text', { name: 'Text', renderer: MockRenderer })
         .removeComponent('text');
 
@@ -130,9 +125,7 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('clear returns RilayKit with .form() and .flow()', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer })
-        .clear();
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer }).clear();
 
       expect(r.form).toBeTypeOf('function');
       expect(r.flow).toBeTypeOf('function');
@@ -142,8 +135,7 @@ describe('rilaykit - enhanced ril', () => {
 
   describe('.form()', () => {
     it('should return a form builder instance', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const f = r.form('my-form');
 
@@ -151,10 +143,10 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should pass formId correctly', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
-      const config = r.form('contact-form')
+      const config = r
+        .form('contact-form')
         .add({ type: 'text', props: { label: 'Name' } })
         .build();
 
@@ -162,10 +154,10 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should work without formId (auto-generated)', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
-      const config = r.form()
+      const config = r
+        .form()
         .add({ type: 'text', props: { label: 'Name' } })
         .build();
 
@@ -173,11 +165,13 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should build a functional form with fields', () => {
-      const r = ril.create()
+      const r = ril
+        .create()
         .addComponent('text', { name: 'Text', renderer: MockRenderer })
         .addComponent('select', { name: 'Select', renderer: MockSelectRenderer });
 
-      const config = r.form('test')
+      const config = r
+        .form('test')
         .add({ id: 'name', type: 'text', props: { label: 'Name' } })
         .add({ id: 'role', type: 'select', props: { label: 'Role' } })
         .build();
@@ -190,8 +184,7 @@ describe('rilaykit - enhanced ril', () => {
 
   describe('.flow()', () => {
     it('should return a flow builder instance', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
       const f = r.flow('my-flow', 'My Flow');
 
@@ -199,14 +192,15 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should pass all parameters correctly', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
-      const formConfig = r.form('step-form')
+      const formConfig = r
+        .form('step-form')
         .add({ type: 'text', props: { label: 'Name' } })
         .build();
 
-      const config = r.flow('onboarding', 'User Onboarding', 'Onboarding flow')
+      const config = r
+        .flow('onboarding', 'User Onboarding', 'Onboarding flow')
         .step({ id: 'step1', title: 'Step 1', formConfig })
         .build();
 
@@ -216,18 +210,20 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should build a functional workflow with steps', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
-      const form1 = r.form('step1-form')
+      const form1 = r
+        .form('step1-form')
         .add({ type: 'text', props: { label: 'First' } })
         .build();
 
-      const form2 = r.form('step2-form')
+      const form2 = r
+        .form('step2-form')
         .add({ type: 'text', props: { label: 'Second' } })
         .build();
 
-      const config = r.flow('wizard', 'Wizard')
+      const config = r
+        .flow('wizard', 'Wizard')
         .step({ id: 's1', title: 'Step 1', formConfig: form1 })
         .step({ id: 's2', title: 'Step 2', formConfig: form2 })
         .build();
@@ -240,7 +236,8 @@ describe('rilaykit - enhanced ril', () => {
 
   describe('full chaining', () => {
     it('should support end-to-end chaining: create → addComponent → form → build', () => {
-      const config = ril.create()
+      const config = ril
+        .create()
         .addComponent('text', { name: 'Text', renderer: MockRenderer })
         .form('test')
         .add({ type: 'text', props: { label: 'Name' } })
@@ -251,16 +248,14 @@ describe('rilaykit - enhanced ril', () => {
     });
 
     it('should support end-to-end chaining: create → addComponent → flow → build', () => {
-      const r = ril.create()
-        .addComponent('text', { name: 'Text', renderer: MockRenderer });
+      const r = ril.create().addComponent('text', { name: 'Text', renderer: MockRenderer });
 
-      const formConfig = r.form('f1')
+      const formConfig = r
+        .form('f1')
         .add({ type: 'text', props: { label: 'Name' } })
         .build();
 
-      const workflowConfig = r.flow('w1', 'Workflow')
-        .step({ title: 'Step 1', formConfig })
-        .build();
+      const workflowConfig = r.flow('w1', 'Workflow').step({ title: 'Step 1', formConfig }).build();
 
       expect(workflowConfig.id).toBe('w1');
       expect(workflowConfig.steps).toHaveLength(1);
