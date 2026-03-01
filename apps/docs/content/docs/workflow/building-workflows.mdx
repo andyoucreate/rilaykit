@@ -19,11 +19,10 @@ First, you need a `formConfig` for each step of your workflow. You'll create the
 
 ```tsx
 import { rilay } from '@/lib/rilay';
-    import { form } from '@rilaykit/forms';
 
-const personalInfoForm = form.create(rilay, 'personal-info').add(...).build();
-const preferencesForm = form.create(rilay, 'preferences').add(...).build();
-const reviewForm = form.create(rilay, 'review').add(...).build();
+const personalInfoForm = rilay.form('personal-info').add(...).build();
+const preferencesForm = rilay.form('preferences').add(...).build();
+const reviewForm = rilay.form('review').add(...).build();
 ```
 <Callout>
 You can also pass a `form` builder instance directly to a step. It will be built automatically.
@@ -32,20 +31,20 @@ You can also pass a `form` builder instance directly to a step. It will be built
 <Step>
 ### 2. Start the Flow Builder
 
-Use `flow.create()` to begin building your workflow. The workflow ID and name are optional — if not provided, they will be auto-generated.
+Use `.flow()` on your `rilay` instance to begin building your workflow. The workflow ID and name are optional — if not provided, they will be auto-generated.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
 // With explicit ID and name (recommended for production)
-const workflowBuilder = flow.create(rilay,
+const workflowBuilder = rilay.flow(
     'user-onboarding',
     'User Onboarding Workflow',
     'A multi-step workflow to onboard new users' // Optional description
   )
 
 // With auto-generated ID and default name (useful for prototyping)
-const quickWorkflow = flow.create(rilay)
+const quickWorkflow = rilay.flow()
 ```
 </Step>
 <Step>
@@ -99,7 +98,7 @@ You can configure the overall workflow behavior with the unified `.configure()` 
 Finally, call `.build()` to get the final `workflowConfig` object.
 
 ```tsx
-const workflowConfig = flow.create(rilay, ...)
+const workflowConfig = rilay.flow(...)
   .step(...)
   .step(...)
   .configure(...)
@@ -140,19 +139,19 @@ First, we define the forms for each step:
 
 ```tsx
 // 1. Define the forms for each step
-const accountForm = form.create(rilay, 'account-form')
+const accountForm = rilay.form('account-form')
   .add(
     { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()] } },
     { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } }
   );
 
-const profileForm = form.create(rilay, 'profile-form')
+const profileForm = rilay.form('profile-form')
   .add(
     { id: 'firstName', type: 'text', props: { label: 'First Name' } },
     { id: 'lastName', type: 'text', props: { label: 'Last Name' } }
   );
 
-const confirmationForm = form.create(rilay, 'confirmation-form')
+const confirmationForm = rilay.form('confirmation-form')
   .add({
     id: 'terms',
     type: 'checkbox', // Assumes a 'checkbox' component is registered
@@ -175,7 +174,7 @@ Now, we use the `flow` builder to chain them together into a workflow:
 
 ```tsx
 // 2. Build the workflow
-export const onboardingWorkflow = flow.create(rilay,
+export const onboardingWorkflow = rilay.flow(
     'onboarding',
     'New User Onboarding'
   )

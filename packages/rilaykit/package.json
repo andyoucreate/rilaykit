@@ -1,0 +1,50 @@
+{
+  "name": "rilaykit",
+  "version": "0.1.4",
+  "private": false,
+  "description": "All-in-one package for RilayKit — headless forms and workflows for React",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["react", "forms", "workflows", "typescript", "validation", "builder-pattern"],
+  "author": "AND YOU CREATE <contact@andyoucreate.com>",
+  "license": "MIT",
+  "homepage": "https://rilay.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilaykit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilaykit/issues"
+  },
+  "dependencies": {
+    "@rilaykit/core": "workspace:*",
+    "@rilaykit/forms": "workspace:*",
+    "@rilaykit/workflow": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  }
+}

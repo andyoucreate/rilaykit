@@ -14,17 +14,17 @@ Get a working form in 5 minutes. This guide skips explanations and focuses on ge
 <Tabs items={['pnpm', 'npm', 'yarn']}>
   <Tab value="pnpm">
     ```bash
-    pnpm add @rilaykit/core @rilaykit/forms
+    pnpm add rilaykit
     ```
   </Tab>
   <Tab value="npm">
     ```bash
-    npm install @rilaykit/core @rilaykit/forms
+    npm install rilaykit
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn add @rilaykit/core @rilaykit/forms
+    yarn add rilaykit
     ```
   </Tab>
 </Tabs>
@@ -32,7 +32,7 @@ Get a working form in 5 minutes. This guide skips explanations and focuses on ge
 ## 2. Create Components
 
 ```tsx title="components/Input.tsx"
-import { ComponentRenderer } from '@rilaykit/core';
+import { ComponentRenderer } from 'rilaykit';
 
 interface InputProps {
   label: string;
@@ -64,7 +64,7 @@ export const Input: ComponentRenderer<InputProps> = ({
 ## 3. Configure RilayKit
 
 ```tsx title="lib/rilay.ts"
-import { ril } from '@rilaykit/core';
+import { ril } from 'rilaykit';
 import { Input } from '../components/Input';
 
 export const rilay = ril.create()
@@ -74,11 +74,10 @@ export const rilay = ril.create()
 ## 4. Build Form
 
 ```tsx title="forms/login.ts"
-import { required, email } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { required, email } from 'rilaykit';
 import { rilay } from '../lib/rilay';
 
-export const loginForm = form.create(rilay, 'login')
+export const loginForm = rilay.form('login')
   .add({
     id: 'email',
     type: 'input',
@@ -97,7 +96,7 @@ export const loginForm = form.create(rilay, 'login')
 ## 5. Render Form
 
 ```tsx title="components/LoginForm.tsx"
-import { Form, FormField } from '@rilaykit/forms';
+import { Form, FormField } from 'rilaykit';
 import { loginForm } from '../forms/login';
 
 export function LoginForm() {
@@ -187,9 +186,8 @@ export const rilay = ril.create()
 
 ```tsx
 import { z } from 'zod'; // Zod 3.24+ supports Standard Schema natively
-import { form } from '@rilaykit/forms';
 
-const userForm = form.create(rilay, 'user')
+const userForm = rilay.form('user')
   .add({
     id: 'email',
     type: 'input',
@@ -202,10 +200,9 @@ const userForm = form.create(rilay, 'user')
 ### Conditional Fields
 
 ```tsx
-import { when } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { when } from 'rilaykit';
 
-const accountForm = form.create(rilay, 'account')
+const accountForm = rilay.form('account')
   .add({
     id: 'accountType',
     type: 'select',
@@ -221,7 +218,7 @@ const accountForm = form.create(rilay, 'account')
 ### Custom Validator
 
 ```tsx
-import { custom } from '@rilaykit/core';
+import { custom } from 'rilaykit';
 
 const passwordMatch = custom(
   (value, context) => value === context?.formData?.password,
@@ -249,21 +246,21 @@ Clone ready-to-use templates:
     ```bash
     npx create-next-app@latest my-app --typescript
     cd my-app
-    pnpm add @rilaykit/core @rilaykit/forms
+    pnpm add rilaykit
     ```
   </Tab>
   <Tab value="Vite">
     ```bash
     npm create vite@latest my-app -- --template react-ts
     cd my-app
-    pnpm add @rilaykit/core @rilaykit/forms
+    pnpm add rilaykit
     ```
   </Tab>
   <Tab value="Remix">
     ```bash
     npx create-remix@latest my-app --typescript
     cd my-app
-    pnpm add @rilaykit/core @rilaykit/forms
+    pnpm add rilaykit
     ```
   </Tab>
 </Tabs>

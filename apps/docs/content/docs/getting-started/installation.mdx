@@ -5,11 +5,70 @@ description: Install RilayKit packages in your React project with step-by-step i
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-RilayKit is modular by design. Install only the packages you need. `@rilaykit/core` is always required as the foundation.
+## Quick Start (Recommended)
 
-## Quick Start
+The easiest way to get started is with the all-in-one `rilaykit` package. It includes core, forms, and workflows in a single install:
 
-For most use cases, start with the core and forms packages:
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add rilaykit
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install rilaykit
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add rilaykit
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun add rilaykit
+    ```
+  </Tab>
+</Tabs>
+
+Everything is available from a single import:
+
+```tsx
+import { ril, Form, FormField, Workflow, required, when } from 'rilaykit';
+```
+
+The all-in-one package also adds convenience methods `.form()` and `.flow()` directly on the `ril` instance:
+
+```tsx
+const r = ril.create()
+  .addComponent('input', { renderer: MyInput });
+
+// Create forms directly from the ril instance
+const myForm = r.form('contact')
+  .add({ type: 'input', props: { label: 'Name' } })
+  .build();
+
+// Create workflows directly from the ril instance
+const myFlow = r.flow('onboarding', 'Onboarding')
+  .step({ title: 'Step 1', formConfig: myForm })
+  .build();
+```
+
+## Package Overview
+
+| Package | License | Description | Use Case |
+|---------|---------|-------------|----------|
+| `rilaykit` | MIT | All-in-one package with enhanced API | **Recommended** - Everything you need |
+| `@rilaykit/core` | MIT | Core engine, types, validation system | Modular install - foundation only |
+| `@rilaykit/forms` | MIT | Form builder and React components | Modular install - forms only |
+| `@rilaykit/workflow` | MIT | Multi-step workflows with advanced features | Modular install - workflows only |
+
+## Modular Installation
+
+If you prefer to install only the packages you need (for optimal tree-shaking), you can use the individual packages. `@rilaykit/core` is always required as the foundation.
+
+### Forms Only
 
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
@@ -34,19 +93,7 @@ For most use cases, start with the core and forms packages:
   </Tab>
 </Tabs>
 
-## Package Overview
-
-| Package | License | Description | Use Case |
-|---------|---------|-------------|----------|
-| `@rilaykit/core` | MIT | Core engine, types, validation system | **Required** - Foundation for all RilayKit usage |
-| `@rilaykit/forms` | MIT | Form builder and React components | Single-page forms, basic workflows |
-| `@rilaykit/workflow` | MIT | Multi-step workflows with advanced features | Complex onboarding, multi-page forms, analytics |
-
-## Advanced Installation
-
-### Multi-Step Workflows
-
-For complex workflows with step navigation, persistence, and analytics:
+### Forms + Workflows
 
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
@@ -179,11 +226,10 @@ RilayKit works with any React-based framework:
 
 ## Verification
 
-Verify your installation by importing the core package:
+Verify your installation by importing the package:
 
 ```tsx title="test-installation.tsx"
-import { ril } from '@rilaykit/core';
-import { Form } from '@rilaykit/forms';
+import { ril, Form } from 'rilaykit';
 
 // If this imports without errors, you're ready to go!
 console.log('RilayKit is ready!');
