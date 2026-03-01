@@ -65,26 +65,25 @@ useEffect(() => {
 ### With RilayKit
 
 ```tsx
-import { form } from '@rilaykit/forms';
-import { flow } from '@rilaykit/workflow';
+import { ril } from 'rilaykit';
 
 // Create step forms
-const basicsForm = form.create(rilay, 'basics')
+const basicsForm = rilay.form('basics')
   .add({ id: 'userType', type: 'select', props: { options: ['freelance', 'business'] } })
   .add({ id: 'revenue', type: 'number', props: { label: 'Annual Revenue' } })
   .build();
 
-const businessForm = form.create(rilay, 'business-details')
+const businessForm = rilay.form('business-details')
   .add({ id: 'company', type: 'input', props: { label: 'Company Name' } })
   .build();
 
-const freelanceForm = form.create(rilay, 'freelance-details')
+const freelanceForm = rilay.form('freelance-details')
   .add({ id: 'skills', type: 'multi-select', props: { label: 'Skills' } })
   .build();
 
 // Build workflow with conditional steps
 // Note: ID and name are optional (auto-generated if omitted)
-const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+const onboarding = rilay.flow('onboarding', 'User Onboarding')
   .step({
     id: 'basics',
     title: 'Basic Information',
@@ -118,9 +117,7 @@ const json = onboarding.toJSON();
 ## Quick example
 
 ```tsx
-import { ril } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
-import { Form, FormField } from '@rilaykit/forms';
+import { ril, Form, FormField } from 'rilaykit';
 
 // 1. Register your components once (shadcn, MUI, custom — your choice)
 const rilay = ril.create()
@@ -128,7 +125,7 @@ const rilay = ril.create()
   .addComponent('select', { renderer: YourSelect });
 
 // 2. Define forms as data (not JSX)
-const signupForm = form.create(rilay, 'signup')
+const signupForm = rilay.form('signup')
   .add({
     id: 'email',
     type: 'input',
@@ -188,9 +185,7 @@ An honest comparison to help you choose:
 This is the fundamental shift. Your form definition is a serializable data structure:
 
 ```tsx
-import { form } from '@rilaykit/forms';
-
-const pricingForm = form.create(rilay, 'pricing')
+const pricingForm = rilay.form('pricing')
   .add({ id: 'plan', type: 'select', props: { options: plans } })
   .add({ id: 'seats', type: 'number', conditions: { visible: when('plan').equals('enterprise') } })
   .build();
@@ -200,7 +195,7 @@ const json = pricingForm.toJSON();
 await db.forms.save(json);
 
 // Load it later, even from a different server
-const loaded = form.create(rilay).fromJSON(json).build();
+const loaded = rilay.form().fromJSON(json).build();
 
 // Diff it for version control
 const diff = deepDiff(v1.toJSON(), v2.toJSON());
@@ -217,15 +212,14 @@ const diff = deepDiff(v1.toJSON(), v2.toJSON());
 Register a component once and TypeScript propagates its types everywhere:
 
 ```tsx
-import { ril } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { ril } from 'rilaykit';
 
 // Register with typed props
 const rilay = ril.create()
   .addComponent('input', { renderer: Input }); // Input has InputProps
 
 // Now TypeScript knows
-form.create(rilay, 'test')
+rilay.form('test')
   .add({
     type: 'input',        // ✅ Autocompletes from registry
     props: { label: '' }  // ✅ Typed as InputProps
@@ -296,10 +290,9 @@ Control field behavior based on other fields without manual state management:
 Multi-step flows with navigation, persistence, analytics, and plugins:
 
 ```tsx
-import { flow } from '@rilaykit/workflow';
-import { localStorageAdapter } from '@rilaykit/workflow';
+import { localStorageAdapter } from 'rilaykit';
 
-const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
+const onboarding = rilay.flow('onboarding', 'User Onboarding')
   .step({
     id: 'account',
     title: 'Account',
@@ -320,7 +313,7 @@ const onboarding = flow.create(rilay, 'onboarding', 'User Onboarding')
   })
   .build();
 
-// Restore from localStorage on mount
+// Render the workflow
 <WorkflowProvider workflowConfig={onboarding}>
   <WorkflowStepper />
 </WorkflowProvider>
@@ -364,32 +357,15 @@ const rilay = ril.create()
 
 Same form config, different UI. This is why **multi-tenant SaaS** and **white-label products** love RilayKit — one form schema, N brands.
 
-### Modular packages
+### One package, everything included
 
-Install only what you need:
+Install `rilaykit` and you're ready to go — forms, workflows, validation, and conditions all in one:
 
-<Cards>
-  <Card
-    icon={<Settings2/>}
-    title="@rilaykit/core"
-    description="Type system, component registry, validation engine, and conditional logic. Required foundation."
-  />
-  <Card
-    icon={<FileCode/>}
-    title="@rilaykit/forms"
-    description="Single-page form builder with React hooks. Start here for simple forms."
-  />
-  <Card
-    icon={<BotMessageSquare/>}
-    title="@rilaykit/workflow"
-    description="Multi-step workflows with navigation, persistence, analytics, and plugins. For complex flows."
-  />
-  <Card
-    icon={<Sparkles/>}
-    title="Standard Schema"
-    description="Use Zod, Yup, Valibot, ArkType, and other Standard Schema libraries without adapters."
-  />
-</Cards>
+```bash
+pnpm add rilaykit
+```
+
+For more granular control, individual packages are also available (`@rilaykit/core`, `@rilaykit/forms`, `@rilaykit/workflow`). See [Installation](/getting-started/installation) for details.
 
 ---
 
@@ -402,13 +378,11 @@ Install only what you need:
 **Solution:** Store form configs per tenant in your database, render them dynamically.
 
 ```tsx
-import { flow } from '@rilaykit/workflow';
-
 // Load tenant-specific config from DB
 const tenantConfigJson = await db.workflows.findOne({ tenantId, workflowId: 'onboarding' });
 
 // Recreate workflow from JSON
-const onboarding = flow.create(rilay, 'onboarding', 'Onboarding')
+const onboarding = rilay.flow('onboarding', 'Onboarding')
   .fromJSON(tenantConfigJson)
   .build();
 
@@ -425,8 +399,6 @@ const onboarding = flow.create(rilay, 'onboarding', 'Onboarding')
 **Solution:** Build a drag-and-drop form builder that outputs RilayKit JSON.
 
 ```tsx
-import { form } from '@rilaykit/forms';
-
 // Builder UI generates this
 const formJson = {
   id: 'lead-capture',
@@ -437,7 +409,7 @@ const formJson = {
 };
 
 // Your app consumes it
-const leadForm = form.create(rilay)
+const leadForm = rilay.form()
   .fromJSON(formJson)
   .build();
 ```

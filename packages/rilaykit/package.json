@@ -1,12 +1,11 @@
 {
-  "name": "@rilaykit/workflow",
+  "name": "rilaykit",
   "version": "0.1.5",
   "private": false,
-  "description": "Workflow and multi-step form utilities for RilayKit",
+  "description": "All-in-one package for RilayKit — headless forms and workflows for React",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,13 +22,12 @@
     "dev": "tsup --watch",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
+  "keywords": ["react", "forms", "workflows", "typescript", "validation", "builder-pattern"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.dev",
@@ -43,17 +41,10 @@
   "dependencies": {
     "@rilaykit/core": "workspace:*",
     "@rilaykit/forms": "workspace:*",
-    "zustand": "^5.0.9"
+    "@rilaykit/workflow": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typescript": "^5.8.3"
   }
 }

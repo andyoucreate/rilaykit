@@ -32,7 +32,7 @@ A **renderer** is a React component that receives props from RilayKit (value, on
 </Callout>
 
 ```tsx title="lib/components.tsx"
-import { ComponentRenderer, ComponentRenderProps } from '@rilaykit/core';
+import { ComponentRenderer, ComponentRenderProps } from 'rilaykit';
 
 // Define the props interface for our input component
 interface InputProps {
@@ -94,7 +94,7 @@ export const InputRenderer: ComponentRenderer<InputProps> = ({
 Now let's configure RilayKit with our renderer:
 
 ```tsx title="lib/rilay.ts"
-import { ril } from '@rilaykit/core';
+import { ril } from 'rilaykit';
 import { InputRenderer } from './components';
 
 // Create and configure the RilayKit instance
@@ -118,12 +118,11 @@ export const rilay = ril
 Now we'll use RilayKit's **fluent API** to build our form. This declarative approach makes forms easy to read and modify.
 
 ```tsx title="lib/contactForm.ts"
-import { required, email, minLength, when } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { required, email, minLength, when } from 'rilaykit';
 import { rilay } from './rilay';
 
-export const contactForm = form
-  .create(rilay, 'contact-us') // Unique form ID
+export const contactForm = rilay
+  .form('contact-us') // Unique form ID
   .add({
     id: 'name',
     type: 'input',
@@ -194,7 +193,7 @@ Finally, let's create a React component that renders our form using RilayKit's `
 
 ```tsx title="components/ContactForm.tsx"
 import React from 'react';
-import { Form, FormField } from '@rilaykit/forms';
+import { Form, FormField } from 'rilaykit';
 import { contactForm } from '@/lib/contactForm';
 
 export function ContactForm() {

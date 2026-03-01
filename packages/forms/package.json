@@ -1,11 +1,12 @@
 {
   "name": "@rilaykit/forms",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": false,
   "description": "Form building utilities and components for RilayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "sideEffects": ["src/builders/form.ts"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -22,7 +22,7 @@ The `ril` instance has two primary roles:
 You create an instance by calling `ril.create()` and then chain configuration methods to it.
 
 ```tsx title="lib/rilay.ts"
-import { ril } from '@rilaykit/core';
+import { ril } from 'rilaykit';
 import { MyTextInput } from '@/components/MyTextInput';
 import { myRowRenderer, mySubmitButtonRenderer, myBodyRenderer } from '@/renderers';
 
@@ -68,19 +68,36 @@ const componentNames = rilay.getAllComponents().map(c => c.name);
 // -> ['Text Input']
 ```
 
-## Factory Methods
+## Builder Methods
 
-The `ril` instance provides convenient factory methods for creating builders:
+When using the `rilaykit` package, the `ril` instance has convenience methods to create builders directly:
 
 ```tsx
-// Create a form builder
-const myForm = form.create(rilay, 'my-form')
+import { ril } from 'rilaykit';
+
+const rilay = ril.create()
+  .addComponent('text', { name: 'Text', renderer: MyTextInput });
+
+// Create a form builder directly from the ril instance
+const myForm = rilay.form('my-form')
   .add({ type: 'text', props: { label: 'Name' } });
 
-// Create a workflow builder
-const myWorkflow = flow.create(rilay, 'my-workflow', 'My Workflow')
+// Create a workflow builder directly from the ril instance
+const myWorkflow = rilay.flow('my-workflow', 'My Workflow')
   .step({ title: 'Step 1', formConfig: myForm });
 ```
+
+### `.form(formId?)`
+
+Creates a new form builder bound to this `ril` instance. Equivalent to `form.create(rilay, formId)`.
+
+### `.flow(workflowId?, name?, description?)`
+
+Creates a new workflow builder bound to this `ril` instance. Equivalent to `flow.create(rilay, workflowId, name, description)`.
+
+<Callout>
+When using the modular packages (`@rilaykit/core`, `@rilaykit/forms`, `@rilaykit/workflow`), use `form.create(rilay)` and `flow.create(rilay)` instead.
+</Callout>
 
 ## Introspection & Debugging
 
