@@ -1,5 +1,4 @@
 import type {
-  AsyncValidationResult,
   ComponentConfig,
   FormRenderConfig,
   RilayInstance,
@@ -13,7 +12,7 @@ import { flow } from '@rilaykit/workflow';
  * Enhanced RilayKit interface with convenience .form() and .flow() methods.
  * Available when using the all-in-one `rilaykit` package.
  */
-export interface RilayKit<C> {
+export interface RilayKit<C extends Record<string, any>> {
   addComponent<NewType extends string, TProps = any>(
     type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
@@ -32,7 +31,7 @@ export interface RilayKit<C> {
   getStats(): ReturnType<RilayInstance<C>['getStats']>;
 
   validate(): string[];
-  validateAsync(): Promise<AsyncValidationResult>;
+  validateAsync(): Promise<{ isValid: boolean; errors: string[]; warnings?: string[] }>;
 
   clone(): RilayKit<C>;
   removeComponent(id: string): RilayKit<C>;
@@ -42,7 +41,7 @@ export interface RilayKit<C> {
   flow(workflowId?: string, name?: string, description?: string): flow;
 }
 
-function wrapRil<C>(inner: OriginalRil<C>): RilayKit<C> {
+function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit<C> {
   return {
     addComponent<NewType extends string, TProps = any>(
       type: NewType,
@@ -94,7 +93,7 @@ function wrapRil<C>(inner: OriginalRil<C>): RilayKit<C> {
  * also have `.form()` and `.flow()` methods.
  */
 export const ril = {
-  create<CT = Record<string, never>>(): RilayKit<CT> {
+  create<CT extends Record<string, any> = Record<string, never>>(): RilayKit<CT> {
     return wrapRil(OriginalRil.create<CT>());
   },
 } as const;
