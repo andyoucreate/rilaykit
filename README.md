@@ -22,6 +22,7 @@ RilayKit treats forms as **data structures**, not JSX trees. You describe what a
 
 | Package | Version | Description |
 |---------|---------|-------------|
+| [`rilaykit`](./packages/rilaykit) | ![npm](https://img.shields.io/npm/v/rilaykit) | **All-in-one** — single install with enhanced `ril.form()` / `ril.flow()` API |
 | [`@rilaykit/core`](./packages/core) | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Component registry, types, validation, conditions, monitoring |
 | [`@rilaykit/forms`](./packages/forms) | ![npm](https://img.shields.io/npm/v/@rilaykit/forms) | Form builder and headless React components |
 | [`@rilaykit/workflow`](./packages/workflow) | ![npm](https://img.shields.io/npm/v/@rilaykit/workflow) | Multi-step workflows with persistence, analytics, plugins |
@@ -31,10 +32,13 @@ All packages are MIT licensed and open source.
 ## Installation
 
 ```bash
-# Core + Forms (most use cases)
+# All-in-one (recommended)
+pnpm add rilaykit
+
+# Or individual packages — Core + Forms
 pnpm add @rilaykit/core @rilaykit/forms
 
-# With multi-step workflows
+# Or with multi-step workflows
 pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 ```
 
@@ -113,6 +117,27 @@ function LoginForm() {
     </Form>
   );
 }
+```
+
+## All-in-One Package
+
+The [`rilaykit`](./packages/rilaykit) package re-exports everything and provides an enhanced `ril` with `.form()` and `.flow()` methods — no separate builder imports needed:
+
+```tsx
+import { ril, required, email, Form, FormField } from 'rilaykit';
+
+const rilay = ril.create()
+  .addComponent('input', { renderer: Input });
+
+// .form() and .flow() are available directly on the ril instance
+const loginForm = rilay
+  .form('login')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email' },
+    validation: { validate: [required(), email()] },
+  });
 ```
 
 ## Key Features
