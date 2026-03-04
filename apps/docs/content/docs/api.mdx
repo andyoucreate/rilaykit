@@ -302,6 +302,69 @@ when('address.country').equals('FR')
 
 ---
 
+### Field Effects
+
+#### `onChange(fieldId, handler)`
+
+Creates a declarative field effect that reacts to value changes. Place it in a field's `effects` array to define reactive logic without `useEffect`.
+
+```ts
+import { onChange } from '@rilaykit/core';
+
+onChange('country', async (value, { setValue, setProps }) => {
+  setValue('city', '');
+  setProps('city', { options: await fetchCities(value) });
+});
+```
+
+**Parameters**:
+- `fieldId: string` -- The field ID to watch for changes
+- `handler: FieldEffectHandler` -- Callback invoked when the watched field's value changes
+
+**Returns**: `FieldEffect`
+
+<Callout type="info">
+The `fieldId` in `onChange()` is the field being **watched**, not the field the effect is declared on. This lets you place an effect on `total` that watches `price`.
+</Callout>
+
+#### FieldEffect Types
+
+```ts
+interface FieldEffectContext {
+  readonly setValue: (fieldId: string, value: unknown) => void;
+  readonly setProps: (fieldId: string, props: Record<string, unknown>) => void;
+  readonly getValues: () => Record<string, unknown>;
+  readonly getFieldValue: (fieldId: string) => unknown;
+}
+
+type FieldEffectHandler = (
+  newValue: unknown,
+  context: FieldEffectContext
+) => void | Promise<void>;
+
+interface FieldEffect {
+  readonly trigger: 'change';
+  readonly watchFieldId: string;
+  readonly handler: FieldEffectHandler;
+}
+
+type FieldEffects = readonly FieldEffect[];
+```
+
+| Context method | Description |
+|---|---|
+| `setValue(fieldId, value)` | Set another field's value (triggers cascading effects) |
+| `setProps(fieldId, props)` | Merge dynamic props into a field (e.g., `{ options: [...] }`) |
+| `getValues()` | Get all current form values |
+| `getFieldValue(fieldId)` | Get a specific field's current value |
+
+**Protections built into the EffectEngine:**
+- **Cascade depth limit** — max 10 levels of chained effects before warning and stopping
+- **Cycle detection** — warns if a field triggers itself through a circular chain
+- **Async abort** — rapid changes abort previous async handlers; only the latest takes effect
+
+---
+
 ### Error Classes
 
 ```ts
@@ -458,6 +521,19 @@ builder.add([
   { id: 'email', type: 'email', props: { label: 'Email' } },
   { id: 'phone', type: 'phone', props: { label: 'Phone' } },
 ]);
+
+// Field with effects
+builder.add({
+  id: 'country',
+  type: 'select',
+  props: { label: 'Country' },
+  effects: [
+    onChange('country', async (value, { setValue, setProps }) => {
+      setValue('city', '');
+      setProps('city', { options: await fetchCities(value) });
+    })
+  ],
+});
 
 // More than 3 fields (variadic) -- auto-split into separate rows
 builder.add(field1, field2, field3, field4);
@@ -616,6 +692,7 @@ Field-level hooks re-render only when their specific field's data changes, not o
 | `useFieldValidationState` | `useFieldValidationState(fieldId: string)` | `ValidationState` |
 | `useFieldConditions` | `useFieldConditions(fieldId: string)` | `FieldConditions` |
 | `useFieldState` | `useFieldState(fieldId: string)` | `FieldState` |
+| `useFieldProps` | `useFieldProps(fieldId: string)` | `Record<string, unknown>` |
 | `useFieldActions` | `useFieldActions(fieldId: string)` | `UseFieldActionsResult` |
 
 ```ts

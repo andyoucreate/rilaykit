@@ -171,8 +171,8 @@ All other `ril` methods (`addComponent`, `configure`, `getComponent`, `clone`, e
 
 Everything from all three packages:
 
-- **From `@rilaykit/core`** — `ril`, `when`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), monitoring, condition utilities
-- **From `@rilaykit/forms`** — `form`, `Form`, `FormField`, `FormBody`, `FormRow`, `FormProvider`, `FormSubmitButton`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFormValues`, `useFormActions`, etc.)
+- **From `@rilaykit/core`** — `ril`, `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), monitoring, condition utilities
+- **From `@rilaykit/forms`** — `form`, `Form`, `FormField`, `FormBody`, `FormRow`, `FormProvider`, `FormSubmitButton`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.)
 - **From `@rilaykit/workflow`** — `flow`, `Workflow`, `WorkflowBody`, `WorkflowStepper`, `WorkflowNextButton`, `WorkflowPreviousButton`, `WorkflowSkipButton`, `LocalStorageAdapter`, persistence, analytics, plugin hooks
 
 ## Documentation

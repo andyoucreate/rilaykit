@@ -14,41 +14,11 @@ Want to influence the roadmap? [Open a discussion](https://github.com/andyoucrea
 
 ---
 
-## Phase 1 — Field Reactivity & Side Effects
-
-**Status:** Next up
-
-The most requested capability: declarative reactions to field value changes. Today, the condition system handles `visible` / `disabled` / `required` / `readonly`, but there's no first-class way to express **side effects** like cascading field values, dynamic option loading, or cross-field prefilling.
-
-### `onFieldChange` — Declarative Field Effects
-
-A new `effects` property on field configuration, enabling reactive field-to-field logic without `useEffect`:
-
-```tsx
-.add({
-  id: 'country',
-  type: 'select',
-  props: { label: 'Country' },
-  effects: [
-    onChange('country', async (value, { setValue, setProps }) => {
-      setValue('city', '');
-      setProps('city', { options: await fetchCities(value) });
-    })
-  ]
-})
-```
-
-**What this unlocks:**
-- Cascading dropdowns (country → city → district)
-- Dynamic option loading based on sibling field values
-- Cross-field value resets and prefilling
-- Calculated fields (e.g., total = price × quantity)
-
----
+## Phase 2 — Data Transform Pipeline
 
 ## Phase 2 — Data Transform Pipeline
 
-**Status:** Planned
+**Status:** Next up
 
 A declarative transform layer that processes form data before and after submission. No more boilerplate in `onSubmit` handlers.
 
@@ -283,3 +253,6 @@ Features already shipped in the current release (v0.1.x):
 | Workflow analytics hooks | `@rilaykit/workflow` | Shipped |
 | Step conditions (visible, skipable) | `@rilaykit/workflow` | Shipped |
 | All-in-one `rilaykit` package with `.form()` / `.flow()` | `rilaykit` | Shipped |
+| Field effects with `onChange()` — cascading values, dynamic props, calculated fields | `@rilaykit/core` + `@rilaykit/forms` | Shipped |
+| EffectEngine with cascade protection & async abort | `@rilaykit/forms` | Shipped |
+| `useFieldProps` hook for dynamic field props | `@rilaykit/forms` | Shipped |

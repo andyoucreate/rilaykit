@@ -125,6 +125,7 @@ interface FieldConfig {
   id?: string; // Optional - auto-generated if not provided
   type: string; // The component type to render from your registry
   props?: Record<string, any>; // Props passed to your component renderer
+  effects?: FieldEffect[]; // Reactive side effects (see below)
 }
 ```
 
@@ -166,6 +167,120 @@ await submit({ skipInvalid: true }); // Submit without invalid fields
 
 <Callout>
 When both `force` and `skipInvalid` are set, `force` takes priority (validation is skipped entirely).
+</Callout>
+
+---
+
+## Field Effects
+
+Field effects let you declare reactive side effects directly in your field configuration. No `useEffect` needed — RilayKit handles subscriptions, cascading, and cleanup automatically.
+
+Use the `onChange()` helper from `@rilaykit/core` (or `rilaykit`) to create effects:
+
+```tsx
+import { onChange } from 'rilaykit';
+```
+
+### Cascading Dropdowns
+
+The most common use case: when a parent field changes, reset and reload a child field's options.
+
+```tsx
+const addressForm = rilay
+  .form('address')
+  .add({
+    id: 'country',
+    type: 'select',
+    props: { label: 'Country', options: countries },
+    effects: [
+      onChange('country', async (value, { setValue, setProps }) => {
+        // Reset city when country changes
+        setValue('city', '');
+        // Load new options dynamically
+        const cities = await fetchCities(value);
+        setProps('city', { options: cities });
+      })
+    ]
+  })
+  .add({
+    id: 'city',
+    type: 'select',
+    props: { label: 'City', options: [] },
+  });
+```
+
+### Calculated Fields
+
+Derive a field's value from other fields:
+
+```tsx
+const invoiceForm = rilay
+  .form('invoice')
+  .add({ id: 'price', type: 'number', props: { label: 'Price' } })
+  .add({ id: 'quantity', type: 'number', props: { label: 'Quantity' } })
+  .add({
+    id: 'total',
+    type: 'number',
+    props: { label: 'Total', readOnly: true },
+    effects: [
+      onChange('price', (value, { setValue, getFieldValue }) => {
+        const qty = getFieldValue('quantity') as number ?? 0;
+        setValue('total', (value as number ?? 0) * qty);
+      }),
+      onChange('quantity', (value, { setValue, getFieldValue }) => {
+        const price = getFieldValue('price') as number ?? 0;
+        setValue('total', price * (value as number ?? 0));
+      }),
+    ]
+  });
+```
+
+### Cross-Field Watch
+
+The `fieldId` in `onChange()` is the field being **watched**, not the field the effect is declared on. This lets you place effects on the target field that react to changes on a source field:
+
+```tsx
+.add({
+  id: 'total',
+  type: 'number',
+  effects: [
+    // This effect is on 'total' but watches 'price'
+    onChange('price', (priceValue, { setValue, getFieldValue }) => {
+      const qty = getFieldValue('quantity') as number;
+      setValue('total', (priceValue as number) * qty);
+    })
+  ]
+})
+```
+
+### Default Values & Initial Effects
+
+Effects are automatically executed at mount for fields that have non-undefined default values. This enables initial data loading:
+
+```tsx
+<Form
+  formConfig={addressForm}
+  defaultValues={{ country: 'France' }}
+  onSubmit={handleSubmit}
+>
+  {/* The country effect fires at mount, loading cities for France */}
+  <FormBody />
+</Form>
+```
+
+### Context API
+
+Every effect handler receives the current value and a context object:
+
+| Method | Description |
+|--------|-------------|
+| `setValue(fieldId, value)` | Set another field's value |
+| `setProps(fieldId, props)` | Merge dynamic props into a field |
+| `getValues()` | Get all current form values |
+| `getFieldValue(fieldId)` | Get a specific field's value |
+
+<Callout type="warn">
+The effect engine includes built-in protections: cascade depth limit (10 levels), cycle detection, and async abort on rapid changes. You don't need to handle these manually.
 </Callout>
 
 ---
