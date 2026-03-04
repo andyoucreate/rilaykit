@@ -1,6 +1,6 @@
 # rilaykit
 
-The all-in-one package for [RilayKit](https://rilay.dev) — headless forms and multi-step workflows for React in a single import.
+The all-in-one package for [RilayKit](https://rilay.dev) - headless forms and multi-step workflows for React in a single import.
 
 `rilaykit` re-exports everything from `@rilaykit/core`, `@rilaykit/forms`, and `@rilaykit/workflow`, and provides an enhanced `ril` instance with `.form()` and `.flow()` convenience methods. One install, one import, zero wiring.
 

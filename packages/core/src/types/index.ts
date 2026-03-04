@@ -286,6 +286,7 @@ export interface FormFieldConfig {
   readonly props: Record<string, any>;
   readonly validation?: FieldValidationConfig;
   readonly conditions?: ConditionalBehavior;
+  readonly effects?: FieldEffects;
 }
 
 export interface FormFieldRow {
@@ -367,6 +368,7 @@ export interface FormConfiguration<C extends Record<string, any> = Record<string
   readonly renderConfig?: FormRenderConfig;
   readonly validation?: FormValidationConfig;
   readonly submitOptions?: SubmitOptions;
+  readonly effectsMap?: Record<string, FieldEffect[]>;
 }
 
 export interface FormRenderConfig {
@@ -736,7 +738,51 @@ export interface EnhancedFormAnalytics {
 }
 
 // =================================================================
-// 8. UNIFIED CONTEXT TYPES (V2)
+// 9. FIELD EFFECTS SYSTEM
+// =================================================================
+
+/**
+ * Context passed to effect handlers.
+ * Provides access to store actions without coupling to React.
+ */
+export interface FieldEffectContext {
+  /** Set a field value */
+  readonly setValue: (fieldId: string, value: unknown) => void;
+  /** Override dynamic props for a field */
+  readonly setProps: (fieldId: string, props: Record<string, unknown>) => void;
+  /** Get all current form values (snapshot) */
+  readonly getValues: () => Record<string, unknown>;
+  /** Get a single field value */
+  readonly getFieldValue: (fieldId: string) => unknown;
+}
+
+/**
+ * Handler function for a field effect.
+ * Can be async (e.g. fetch remote options).
+ */
+export type FieldEffectHandler = (
+  newValue: unknown,
+  context: FieldEffectContext
+) => void | Promise<void>;
+
+/**
+ * A single field effect declaration.
+ * Created by the onChange() helper function.
+ */
+export interface FieldEffect {
+  /** The type of trigger */
+  readonly trigger: 'change';
+  /** The field ID to watch for changes */
+  readonly watchFieldId: string;
+  /** The handler to execute when the watched field changes */
+  readonly handler: FieldEffectHandler;
+}
+
+/** Array of field effect declarations */
+export type FieldEffects = readonly FieldEffect[];
+
+// =================================================================
+// 10. UNIFIED CONTEXT TYPES (V2)
 // =================================================================
 
 export * from './context';

@@ -1,6 +1,12 @@
 import type { ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
-import { useFieldActions, useFieldConditions, useFieldState, useFieldValue } from '../stores';
+import {
+  useFieldActions,
+  useFieldConditions,
+  useFieldProps,
+  useFieldState,
+  useFieldValue,
+} from '../stores';
 import { parseCompositeKey } from '../utils/repeatable-data';
 import { useFormConfigContext } from './FormProvider';
 
@@ -29,6 +35,7 @@ export const FormField = React.memo(function FormField({
   const value = useFieldValue(fieldId);
   const fieldState = useFieldState(fieldId);
   const conditions = useFieldConditions(fieldId);
+  const dynamicProps = useFieldProps(fieldId);
   const { setValue, setTouched } = useFieldActions(fieldId);
 
   // Get field config — use prop if provided, otherwise lookup
@@ -109,10 +116,12 @@ export const FormField = React.memo(function FormField({
   ]);
 
   // Memoize merged props
+  // Precedence: defaultProps < fieldConfig.props < dynamicProps (effects) < customProps < conditions
   const mergedProps = useMemo(
     () => ({
       ...(componentConfig.defaultProps ?? {}),
       ...fieldConfig.props,
+      ...dynamicProps,
       ...customProps,
       disabled: effectiveConditions.isFieldDisabled,
       required: effectiveConditions.isFieldRequired,
@@ -121,6 +130,7 @@ export const FormField = React.memo(function FormField({
     [
       componentConfig.defaultProps,
       fieldConfig.props,
+      dynamicProps,
       customProps,
       effectiveConditions.isFieldDisabled,
       effectiveConditions.isFieldRequired,

@@ -19,3 +19,6 @@ export * from './monitoring/adapters';
 
 // Export condition system
 export * from './conditions';
+
+// Export effects system
+export * from './effects';

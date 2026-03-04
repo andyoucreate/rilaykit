@@ -6,6 +6,7 @@ import type {
 } from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { EffectEngine } from '../effects/effect-engine';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
 import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
@@ -120,6 +121,29 @@ export function FormProvider({
 
     return s;
   });
+
+  // Effect engine lifecycle
+  const effectEngineRef = useRef<EffectEngine | null>(null);
+
+  useEffect(() => {
+    effectEngineRef.current?.stop();
+    effectEngineRef.current = null;
+
+    if (formConfig.effectsMap && Object.keys(formConfig.effectsMap).length > 0) {
+      const engine = new EffectEngine({
+        effectsMap: formConfig.effectsMap,
+        store,
+      });
+      engine.start();
+      engine.runInitialEffects();
+      effectEngineRef.current = engine;
+    }
+
+    return () => {
+      effectEngineRef.current?.stop();
+      effectEngineRef.current = null;
+    };
+  }, [formConfig.effectsMap, store]);
 
   // Track form ID changes
   const prevFormIdRef = useRef(formConfig.id);

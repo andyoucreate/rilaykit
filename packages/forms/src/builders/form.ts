@@ -1,5 +1,7 @@
 import {
   type ConditionalBehavior,
+  type FieldEffect,
+  type FieldEffects,
   type FieldValidationConfig,
   type FormConfiguration,
   type FormFieldConfig,
@@ -46,6 +48,8 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
   validation?: FieldValidationConfig;
   /** Conditional behavior configuration for this field */
   conditions?: ConditionalBehavior;
+  /** Field effects configuration for reactive field-to-field behaviors */
+  effects?: FieldEffects;
 };
 
 /**
@@ -206,6 +210,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: combinedValidation,
       conditions: fieldConfig.conditions,
+      effects: fieldConfig.effects,
     };
   }
 
@@ -867,15 +872,47 @@ export class form<C extends Record<string, any> = Record<string, never>> {
         ? Object.fromEntries(repeatableRows.map((row) => [row.repeatable.id, row.repeatable]))
         : undefined;
 
+    const allFields = this.getFields();
+
+    // Build effectsMap: watchFieldId -> FieldEffect[]
+    const effectsMap: Record<string, FieldEffect[]> = {};
+    for (const field of allFields) {
+      if (field.effects) {
+        for (const effect of field.effects) {
+          const key = effect.watchFieldId;
+          if (!effectsMap[key]) {
+            effectsMap[key] = [];
+          }
+          effectsMap[key].push(effect);
+        }
+      }
+    }
+    // Also process repeatable fields
+    if (repeatableFields) {
+      for (const config of Object.values(repeatableFields)) {
+        for (const field of config.allFields) {
+          if (field.effects) {
+            for (const effect of field.effects) {
+              if (!effectsMap[effect.watchFieldId]) {
+                effectsMap[effect.watchFieldId] = [];
+              }
+              effectsMap[effect.watchFieldId].push(effect);
+            }
+          }
+        }
+      }
+    }
+
     return {
       id: this.formId,
       rows: [...this.rows],
-      allFields: this.getFields(),
+      allFields,
       repeatableFields,
       config: this.config,
       renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
       submitOptions: this._submitOptions,
+      effectsMap: Object.keys(effectsMap).length > 0 ? effectsMap : undefined,
     };
   }
 

@@ -12,6 +12,7 @@ export {
   useFieldTouched,
   useFieldValidationState,
   useFieldConditions,
+  useFieldProps,
   useFieldState,
   // Form selectors
   useFormSubmitting,

@@ -19,6 +19,8 @@ export interface FormStoreState extends FormState {
   // Internal state
   _defaultValues: Record<string, unknown>;
   _fieldConditions: Record<string, FieldConditions>;
+  // Dynamic props overrides (set by field effects via setProps)
+  _fieldProps: Record<string, Record<string, unknown>>;
 
   // Repeatable state
   _repeatableConfigs: Record<string, RepeatableFieldConfig>;
@@ -34,6 +36,7 @@ export interface FormStoreState extends FormState {
   _setSubmitting: (isSubmitting: boolean) => void;
   _reset: (values?: Record<string, unknown>) => void;
   _setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
+  _setFieldProps: (fieldId: string, props: Record<string, unknown>) => void;
   _updateIsValid: () => void;
 
   // Repeatable actions
@@ -72,6 +75,7 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
       // Internal state
       _defaultValues: { ...initialValues },
       _fieldConditions: {},
+      _fieldProps: {},
 
       // Repeatable state
       _repeatableConfigs: {},
@@ -153,6 +157,7 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
           isDirty: false,
           isSubmitting: false,
           isValid: true,
+          _fieldProps: {},
           _repeatableOrder: {},
           _repeatableNextKey: {},
         });
@@ -163,6 +168,15 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
           _fieldConditions: {
             ...state._fieldConditions,
             [fieldId]: conditions,
+          },
+        }));
+      },
+
+      _setFieldProps: (fieldId, props) => {
+        set((state) => ({
+          _fieldProps: {
+            ...state._fieldProps,
+            [fieldId]: { ...(state._fieldProps[fieldId] ?? {}), ...props },
           },
         }));
       },
@@ -399,6 +413,19 @@ const DEFAULT_FIELD_CONDITIONS: FieldConditions = {
 export function useFieldConditions(fieldId: string): FieldConditions {
   const store = useFormStore();
   return useStore(store, (state) => state._fieldConditions[fieldId] ?? DEFAULT_FIELD_CONDITIONS);
+}
+
+/**
+ * Stable empty object for field props
+ */
+const EMPTY_FIELD_PROPS: Record<string, unknown> = {};
+
+/**
+ * Select dynamic props for a field - re-renders only when this field's dynamic props change
+ */
+export function useFieldProps(fieldId: string): Record<string, unknown> {
+  const store = useFormStore();
+  return useStore(store, (state) => state._fieldProps[fieldId] ?? EMPTY_FIELD_PROPS);
 }
 
 /**
