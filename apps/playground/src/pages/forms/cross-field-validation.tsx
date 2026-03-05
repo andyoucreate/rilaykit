@@ -1,9 +1,17 @@
-import { useState } from 'react';
-import { Form, FormBody, FormSubmitButton, required, minLength, custom, useFormStoreApi } from 'rilaykit';
-import { r } from '@/lib/ril-config';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { r } from '@/lib/ril-config';
+import { useState } from 'react';
+import {
+  Form,
+  FormBody,
+  FormSubmitButton,
+  custom,
+  minLength,
+  required,
+  useFormStoreApi,
+} from 'rilaykit';
 
 const crossValidationForm = r
   .form('cross-validation')
@@ -19,7 +27,7 @@ const crossValidationForm = r
       type: 'text',
       props: { label: 'Confirm Password', placeholder: 'Re-enter password' },
       validation: { validate: [required()], validateOnBlur: true },
-    },
+    }
   )
   .add(
     {
@@ -33,7 +41,7 @@ const crossValidationForm = r
       type: 'date',
       props: { label: 'End Date' },
       validation: { validate: [required()], validateOnBlur: true },
-    },
+    }
   )
   .add(
     {
@@ -44,8 +52,12 @@ const crossValidationForm = r
     {
       id: 'contactPhone',
       type: 'text',
-      props: { label: 'Phone (optional)', description: 'Provide at least one contact method', placeholder: '+1 555-0000' },
-    },
+      props: {
+        label: 'Phone (optional)',
+        description: 'Provide at least one contact method',
+        placeholder: '+1 555-0000',
+      },
+    }
   )
   .setValidation({
     validate: custom<Record<string, unknown>>((data) => {

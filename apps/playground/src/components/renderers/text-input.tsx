@@ -1,5 +1,5 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import { Input } from '@/components/ui/input';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface TextInputProps {
   label?: string;
@@ -9,7 +9,16 @@ interface TextInputProps {
   readOnly?: boolean;
 }
 
-export function TextInput({ id, props, value, onChange, onBlur, disabled, error, touched }: ComponentRenderProps<TextInputProps>) {
+export function TextInput({
+  id,
+  props,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<TextInputProps>) {
   const hasError = touched && error && error.length > 0;
 
   return (

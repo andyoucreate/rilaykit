@@ -1,14 +1,14 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { InspectorPanel } from '@/components/shared/inspector-panel';
-import { HomePage } from '@/pages/home';
-import { SimpleFormPage } from '@/pages/forms/simple-form';
 import { ConditionalFieldsPage } from '@/pages/forms/conditional-fields';
+import { CrossFieldValidationPage } from '@/pages/forms/cross-field-validation';
 import { FieldEffectsPage } from '@/pages/forms/field-effects';
 import { RepeatableFieldsPage } from '@/pages/forms/repeatable-fields';
-import { CrossFieldValidationPage } from '@/pages/forms/cross-field-validation';
-import { MultiStepOnboardingPage } from '@/pages/workflows/multi-step-onboarding';
+import { SimpleFormPage } from '@/pages/forms/simple-form';
+import { HomePage } from '@/pages/home';
 import { ConditionalStepsPage } from '@/pages/workflows/conditional-steps';
+import { MultiStepOnboardingPage } from '@/pages/workflows/multi-step-onboarding';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 export function App() {
   return (

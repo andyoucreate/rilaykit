@@ -1,18 +1,33 @@
-import { useState } from 'react';
-import { Form, FormBody, FormSubmitButton, required, email, useFormStoreApi } from 'rilaykit';
-import { r } from '@/lib/ril-config';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { r } from '@/lib/ril-config';
+import { useState } from 'react';
+import { Form, FormBody, FormSubmitButton, email, required, useFormStoreApi } from 'rilaykit';
 
 const teamForm = r
   .form('team')
-  .add({ id: 'teamName', type: 'text', props: { label: 'Team Name', placeholder: 'Engineering Team' }, validation: { validate: [required()], validateOnBlur: true } })
+  .add({
+    id: 'teamName',
+    type: 'text',
+    props: { label: 'Team Name', placeholder: 'Engineering Team' },
+    validation: { validate: [required()], validateOnBlur: true },
+  })
   .addRepeatable('members', (rep) =>
     rep
       .add(
-        { id: 'name', type: 'text', props: { label: 'Name', placeholder: 'Jane Doe' }, validation: { validate: [required()], validateOnBlur: true } },
-        { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()], validateOnBlur: true } },
+        {
+          id: 'name',
+          type: 'text',
+          props: { label: 'Name', placeholder: 'Jane Doe' },
+          validation: { validate: [required()], validateOnBlur: true },
+        },
+        {
+          id: 'email',
+          type: 'email',
+          props: { label: 'Email' },
+          validation: { validate: [required(), email()], validateOnBlur: true },
+        }
       )
       .add({
         id: 'role',
@@ -29,7 +44,7 @@ const teamForm = r
       })
       .min(1)
       .max(5)
-      .defaultValue({ name: '', email: '', role: 'member' }),
+      .defaultValue({ name: '', email: '', role: 'member' })
   )
   .build();
 
@@ -70,7 +85,9 @@ export function RepeatableFieldsPage() {
             <CardTitle>Submitted Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="rounded-md bg-muted p-4 text-sm">{JSON.stringify(submittedData, null, 2)}</pre>
+            <pre className="rounded-md bg-muted p-4 text-sm">
+              {JSON.stringify(submittedData, null, 2)}
+            </pre>
           </CardContent>
         </Card>
       )}

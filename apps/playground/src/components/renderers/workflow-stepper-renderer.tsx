@@ -1,5 +1,5 @@
-import type { WorkflowStepperRendererProps } from 'rilaykit';
 import { cn } from '@/lib/utils';
+import type { WorkflowStepperRendererProps } from 'rilaykit';
 
 export function WorkflowStepperRenderer({
   steps,
@@ -27,7 +27,7 @@ export function WorkflowStepperRenderer({
                 'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
                 isActive && 'bg-primary text-primary-foreground',
                 isCompleted && 'bg-primary/10 text-primary',
-                !isActive && !isCompleted && 'bg-muted text-muted-foreground',
+                !isActive && !isCompleted && 'bg-muted text-muted-foreground'
               )}
             >
               <span className="flex size-6 items-center justify-center rounded-full border text-xs">

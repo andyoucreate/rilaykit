@@ -1,5 +1,5 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import { Input } from '@/components/ui/input';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface EmailInputProps {
   label?: string;
@@ -8,7 +8,16 @@ interface EmailInputProps {
   required?: boolean;
 }
 
-export function EmailInput({ id, props, value, onChange, onBlur, disabled, error, touched }: ComponentRenderProps<EmailInputProps>) {
+export function EmailInput({
+  id,
+  props,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<EmailInputProps>) {
   const hasError = touched && error && error.length > 0;
 
   return (

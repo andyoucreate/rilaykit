@@ -1,4 +1,3 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import {
   Select,
   SelectContent,
@@ -6,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface SelectOption {
   label: string;
@@ -20,7 +20,15 @@ interface SelectInputProps {
   options?: SelectOption[];
 }
 
-export function SelectInput({ id, props, value, onChange, disabled, error, touched }: ComponentRenderProps<SelectInputProps>) {
+export function SelectInput({
+  id,
+  props,
+  value,
+  onChange,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<SelectInputProps>) {
   const hasError = touched && error && error.length > 0;
   const options = props.options ?? [];
 

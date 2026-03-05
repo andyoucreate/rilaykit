@@ -1,6 +1,6 @@
-import type { FieldRendererProps } from 'rilaykit';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import type { FieldRendererProps } from 'rilaykit';
 
 export function FieldWrapper({
   children,
@@ -24,15 +24,9 @@ export function FieldWrapper({
         </Label>
       )}
       {children}
-      {description && !hasError && (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      )}
-      {hasError && (
-        <p className="text-sm text-destructive">{error[0].message}</p>
-      )}
-      {isValidating && (
-        <p className="text-sm text-muted-foreground">Validating...</p>
-      )}
+      {description && !hasError && <p className="text-sm text-muted-foreground">{description}</p>}
+      {hasError && <p className="text-sm text-destructive">{error[0].message}</p>}
+      {isValidating && <p className="text-sm text-muted-foreground">Validating...</p>}
     </div>
   );
 }

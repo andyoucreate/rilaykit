@@ -1,35 +1,65 @@
+import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { r } from '@/lib/ril-config';
 import { useState } from 'react';
 import {
+  LocalStorageAdapter,
   Workflow,
   WorkflowBody,
-  WorkflowStepper,
   WorkflowNextButton,
   WorkflowPreviousButton,
-  required,
+  WorkflowStepper,
   email,
   minLength,
-  LocalStorageAdapter,
+  required,
 } from 'rilaykit';
-import { r } from '@/lib/ril-config';
-import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 
 const personalInfoForm = r
   .form('personal-info')
   .add(
-    { id: 'firstName', type: 'text', props: { label: 'First Name', placeholder: 'John' }, validation: { validate: [required(), minLength(2)], validateOnBlur: true } },
-    { id: 'lastName', type: 'text', props: { label: 'Last Name', placeholder: 'Doe' }, validation: { validate: [required(), minLength(2)], validateOnBlur: true } },
+    {
+      id: 'firstName',
+      type: 'text',
+      props: { label: 'First Name', placeholder: 'John' },
+      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+    },
+    {
+      id: 'lastName',
+      type: 'text',
+      props: { label: 'Last Name', placeholder: 'Doe' },
+      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+    }
   )
-  .add({ id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()], validateOnBlur: true } })
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email' },
+    validation: { validate: [required(), email()], validateOnBlur: true },
+  })
   .build();
 
 const accountSetupForm = r
   .form('account-setup')
-  .add({ id: 'username', type: 'text', props: { label: 'Username', placeholder: 'johndoe' }, validation: { validate: [required(), minLength(3)], validateOnBlur: true } })
+  .add({
+    id: 'username',
+    type: 'text',
+    props: { label: 'Username', placeholder: 'johndoe' },
+    validation: { validate: [required(), minLength(3)], validateOnBlur: true },
+  })
   .add(
-    { id: 'password', type: 'text', props: { label: 'Password', placeholder: '••••••••' }, validation: { validate: [required(), minLength(8)], validateOnBlur: true } },
-    { id: 'confirmPassword', type: 'text', props: { label: 'Confirm Password' }, validation: { validate: [required()], validateOnBlur: true } },
+    {
+      id: 'password',
+      type: 'text',
+      props: { label: 'Password', placeholder: '••••••••' },
+      validation: { validate: [required(), minLength(8)], validateOnBlur: true },
+    },
+    {
+      id: 'confirmPassword',
+      type: 'text',
+      props: { label: 'Confirm Password' },
+      validation: { validate: [required()], validateOnBlur: true },
+    }
   )
   .build();
 
@@ -65,16 +95,34 @@ const preferencesForm = r
   })
   .build();
 
-const reviewForm = r
-  .form('review')
-  .build();
+const reviewForm = r.form('review').build();
 
 const onboardingFlow = r
   .flow('onboarding', 'User Onboarding', 'Complete your account setup')
-  .step({ id: 'personal', title: 'Personal Info', description: 'Tell us about yourself', formConfig: personalInfoForm })
-  .step({ id: 'account', title: 'Account Setup', description: 'Create your credentials', formConfig: accountSetupForm })
-  .step({ id: 'preferences', title: 'Preferences', description: 'Customize your experience', formConfig: preferencesForm })
-  .step({ id: 'review', title: 'Review', description: 'Confirm your details', formConfig: reviewForm })
+  .step({
+    id: 'personal',
+    title: 'Personal Info',
+    description: 'Tell us about yourself',
+    formConfig: personalInfoForm,
+  })
+  .step({
+    id: 'account',
+    title: 'Account Setup',
+    description: 'Create your credentials',
+    formConfig: accountSetupForm,
+  })
+  .step({
+    id: 'preferences',
+    title: 'Preferences',
+    description: 'Customize your experience',
+    formConfig: preferencesForm,
+  })
+  .step({
+    id: 'review',
+    title: 'Review',
+    description: 'Confirm your details',
+    formConfig: reviewForm,
+  })
   .configure({
     persistence: {
       adapter: new LocalStorageAdapter({ keyPrefix: 'rilaykit_playground_' }),
@@ -88,16 +136,15 @@ export function MultiStepOnboardingPage() {
   if (completedData) {
     return (
       <div className="mx-auto max-w-2xl">
-        <PageHeader
-          title="Multi-step Onboarding"
-          description="Workflow completed successfully!"
-        />
+        <PageHeader title="Multi-step Onboarding" description="Workflow completed successfully!" />
         <Card>
           <CardHeader>
             <CardTitle>Onboarding Complete</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="rounded-md bg-muted p-4 text-sm">{JSON.stringify(completedData, null, 2)}</pre>
+            <pre className="rounded-md bg-muted p-4 text-sm">
+              {JSON.stringify(completedData, null, 2)}
+            </pre>
             <Button className="mt-4" onClick={() => setCompletedData(null)}>
               Start Over
             </Button>

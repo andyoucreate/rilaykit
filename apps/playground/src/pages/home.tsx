@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   FileText,
   GitBranch,
@@ -8,8 +9,7 @@ import {
   Sparkles,
   ToggleLeft,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 
 interface DemoCard {
   title: string;
@@ -22,7 +22,8 @@ interface DemoCard {
 const DEMOS: DemoCard[] = [
   {
     title: 'Simple Form',
-    description: 'Contact form with field validation — required, email, minLength. The basics of the builder API.',
+    description:
+      'Contact form with field validation — required, email, minLength. The basics of the builder API.',
     href: '/forms/simple',
     icon: <FileText className="size-5" />,
     category: 'Forms',
@@ -64,7 +65,8 @@ const DEMOS: DemoCard[] = [
   },
   {
     title: 'Conditional Steps',
-    description: 'Workflow steps that show/hide based on previous answers. Dynamic step visibility.',
+    description:
+      'Workflow steps that show/hide based on previous answers. Dynamic step visibility.',
     href: '/workflows/conditional',
     icon: <GitBranch className="size-5" />,
     category: 'Workflows',
@@ -77,7 +79,8 @@ export function HomePage() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold tracking-tight">RilayKit Playground</h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          Interactive demos showcasing RilayKit's form builder, workflow engine, and reactive features — powered by shadcn/ui.
+          Interactive demos showcasing RilayKit's form builder, workflow engine, and reactive
+          features — powered by shadcn/ui.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,7 +91,9 @@ export function HomePage() {
                 <div className="rounded-md bg-muted p-2">{demo.icon}</div>
                 <div>
                   <CardTitle className="text-base">{demo.title}</CardTitle>
-                  <Badge variant="secondary" className="mt-1 text-xs">{demo.category}</Badge>
+                  <Badge variant="secondary" className="mt-1 text-xs">
+                    {demo.category}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>

@@ -1,5 +1,5 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import { Input } from '@/components/ui/input';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface NumberInputProps {
   label?: string;
@@ -12,7 +12,16 @@ interface NumberInputProps {
   readOnly?: boolean;
 }
 
-export function NumberInput({ id, props, value, onChange, onBlur, disabled, error, touched }: ComponentRenderProps<NumberInputProps>) {
+export function NumberInput({
+  id,
+  props,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<NumberInputProps>) {
   const hasError = touched && error && error.length > 0;
 
   return (

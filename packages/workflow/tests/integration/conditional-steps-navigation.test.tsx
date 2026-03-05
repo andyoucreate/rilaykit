@@ -161,14 +161,8 @@ describe('Conditional steps - navigation bug', () => {
 
   // Test helper component
   function WorkflowTestHarness() {
-    const {
-      workflowState,
-      workflowConfig,
-      conditionsHelpers,
-      goNext,
-      setValue,
-      currentStep,
-    } = useWorkflowContext();
+    const { workflowState, workflowConfig, conditionsHelpers, goNext, setValue, currentStep } =
+      useWorkflowContext();
 
     return (
       <div>
@@ -183,11 +177,7 @@ describe('Conditional steps - navigation bug', () => {
           </div>
         ))}
 
-        <button
-          type="button"
-          data-testid="go-next"
-          onClick={() => goNext()}
-        >
+        <button type="button" data-testid="go-next" onClick={() => goNext()}>
           Next
         </button>
 
@@ -522,12 +512,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
    * which triggers onFieldChange → workflow store update. Both stores stay in sync.
    */
   function FormSubmitTestHarness() {
-    const {
-      workflowState,
-      workflowConfig,
-      conditionsHelpers,
-      currentStep,
-    } = useWorkflowContext();
+    const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useWorkflowContext();
 
     // Access submit from FormProvider — same as WorkflowNextButton
     const { submit } = useFormConfigContext();
@@ -558,16 +543,60 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
         ))}
 
         {/* Submit button — triggers full form submission flow like WorkflowNextButton */}
-        <button type="button" data-testid="fs-submit" onClick={() => submit()}>Submit (Next)</button>
+        <button type="button" data-testid="fs-submit" onClick={() => submit()}>
+          Submit (Next)
+        </button>
 
         {/* Value setters: update form store directly (like real form components do) */}
-        <button type="button" data-testid="fs-set-enterprise" onClick={() => setFormValue('accountType', 'enterprise')}>Set Enterprise</button>
-        <button type="button" data-testid="fs-set-business" onClick={() => setFormValue('accountType', 'business')}>Set Business</button>
-        <button type="button" data-testid="fs-set-fullname" onClick={() => setFormValue('fullName', 'Karl MAZIER')}>Set Full Name</button>
-        <button type="button" data-testid="fs-set-company-name" onClick={() => setFormValue('companyName', 'Tech Innovation SAS')}>Set Company Name</button>
-        <button type="button" data-testid="fs-set-company-size" onClick={() => setFormValue('companySize', '11-50')}>Set Company Size</button>
-        <button type="button" data-testid="fs-set-contract-id" onClick={() => setFormValue('contractId', 'ENT-001')}>Set Contract ID</button>
-        <button type="button" data-testid="fs-set-agree-terms" onClick={() => setFormValue('agreeTerms', true)}>Agree Terms</button>
+        <button
+          type="button"
+          data-testid="fs-set-enterprise"
+          onClick={() => setFormValue('accountType', 'enterprise')}
+        >
+          Set Enterprise
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-business"
+          onClick={() => setFormValue('accountType', 'business')}
+        >
+          Set Business
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-fullname"
+          onClick={() => setFormValue('fullName', 'Karl MAZIER')}
+        >
+          Set Full Name
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-company-name"
+          onClick={() => setFormValue('companyName', 'Tech Innovation SAS')}
+        >
+          Set Company Name
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-company-size"
+          onClick={() => setFormValue('companySize', '11-50')}
+        >
+          Set Company Size
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-contract-id"
+          onClick={() => setFormValue('contractId', 'ENT-001')}
+        >
+          Set Contract ID
+        </button>
+        <button
+          type="button"
+          data-testid="fs-set-agree-terms"
+          onClick={() => setFormValue('agreeTerms', true)}
+        >
+          Agree Terms
+        </button>
       </div>
     );
   }

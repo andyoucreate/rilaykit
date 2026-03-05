@@ -1,5 +1,5 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import { Textarea } from '@/components/ui/textarea';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface TextareaInputProps {
   label?: string;
@@ -9,7 +9,16 @@ interface TextareaInputProps {
   rows?: number;
 }
 
-export function TextareaInput({ id, props, value, onChange, onBlur, disabled, error, touched }: ComponentRenderProps<TextareaInputProps>) {
+export function TextareaInput({
+  id,
+  props,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<TextareaInputProps>) {
   const hasError = touched && error && error.length > 0;
 
   return (

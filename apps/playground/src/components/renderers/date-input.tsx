@@ -1,5 +1,5 @@
-import type { ComponentRenderProps } from 'rilaykit';
 import { Input } from '@/components/ui/input';
+import type { ComponentRenderProps } from 'rilaykit';
 
 interface DateInputProps {
   label?: string;
@@ -9,7 +9,16 @@ interface DateInputProps {
   max?: string;
 }
 
-export function DateInput({ id, props, value, onChange, onBlur, disabled, error, touched }: ComponentRenderProps<DateInputProps>) {
+export function DateInput({
+  id,
+  props,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  error,
+  touched,
+}: ComponentRenderProps<DateInputProps>) {
   const hasError = touched && error && error.length > 0;
 
   return (

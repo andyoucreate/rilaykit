@@ -1,5 +1,5 @@
-import type { WorkflowPreviousButtonRendererProps } from 'rilaykit';
 import { Button } from '@/components/ui/button';
+import type { WorkflowPreviousButtonRendererProps } from 'rilaykit';
 
 export function WorkflowPreviousButtonRenderer({
   canGoPrevious,

@@ -1,5 +1,5 @@
-import type { WorkflowSkipButtonRendererProps } from 'rilaykit';
 import { Button } from '@/components/ui/button';
+import type { WorkflowSkipButtonRendererProps } from 'rilaykit';
 
 export function WorkflowSkipButtonRenderer({
   canSkip,

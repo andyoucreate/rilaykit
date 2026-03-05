@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils';
 import {
   FileText,
   GitBranch,
@@ -11,7 +12,6 @@ import {
   Workflow,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 
 interface NavItem {
   title: string;
@@ -27,25 +27,43 @@ interface NavSection {
 const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Getting Started',
-    items: [
-      { title: 'Home', href: '/', icon: <Home className="size-4" /> },
-    ],
+    items: [{ title: 'Home', href: '/', icon: <Home className="size-4" /> }],
   },
   {
     label: 'Forms',
     items: [
       { title: 'Simple Form', href: '/forms/simple', icon: <FileText className="size-4" /> },
-      { title: 'Conditional Fields', href: '/forms/conditional', icon: <ToggleLeft className="size-4" /> },
+      {
+        title: 'Conditional Fields',
+        href: '/forms/conditional',
+        icon: <ToggleLeft className="size-4" />,
+      },
       { title: 'Field Effects', href: '/forms/effects', icon: <Sparkles className="size-4" /> },
-      { title: 'Repeatable Fields', href: '/forms/repeatable', icon: <Repeat className="size-4" /> },
-      { title: 'Cross-field Validation', href: '/forms/cross-validation', icon: <ShieldCheck className="size-4" /> },
+      {
+        title: 'Repeatable Fields',
+        href: '/forms/repeatable',
+        icon: <Repeat className="size-4" />,
+      },
+      {
+        title: 'Cross-field Validation',
+        href: '/forms/cross-validation',
+        icon: <ShieldCheck className="size-4" />,
+      },
     ],
   },
   {
     label: 'Workflows',
     items: [
-      { title: 'Multi-step Onboarding', href: '/workflows/onboarding', icon: <Layers className="size-4" /> },
-      { title: 'Conditional Steps', href: '/workflows/conditional', icon: <GitBranch className="size-4" /> },
+      {
+        title: 'Multi-step Onboarding',
+        href: '/workflows/onboarding',
+        icon: <Layers className="size-4" />,
+      },
+      {
+        title: 'Conditional Steps',
+        href: '/workflows/conditional',
+        icon: <GitBranch className="size-4" />,
+      },
     ],
   },
 ];
@@ -74,7 +92,7 @@ export function AppSidebar() {
                     className={cn(
                       'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       location.pathname === item.href &&
-                        'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
+                        'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
                     )}
                   >
                     {item.icon}
@@ -86,9 +104,7 @@ export function AppSidebar() {
           </div>
         ))}
       </nav>
-      <div className="border-t px-4 py-3 text-xs text-muted-foreground">
-        v0.1.5
-      </div>
+      <div className="border-t px-4 py-3 text-xs text-muted-foreground">v0.1.5</div>
     </aside>
   );
 }
