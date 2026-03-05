@@ -282,6 +282,55 @@ describe('dataFlattening utilities', () => {
       expect(result['legalForm.legalForm']).toBe('sarl');
       expect(result['legalForm.otherField']).toBe('value');
     });
+
+    it('should expose field values from all steps by field name (conditional steps bug)', () => {
+      // Bug scenario: User selects accountType on step "type", then navigates to step "company".
+      // stepData becomes company fields, and accountType is only in allData.type.
+      // Conditions using when('accountType') must still find the value.
+      const allData = {
+        type: {
+          accountType: 'enterprise',
+          fullName: 'Karl MAZIER',
+        },
+        company: {
+          companyName: 'Tech Innovation SAS',
+          companySize: '11-50',
+        },
+      };
+
+      // stepData is now the company step's data (accountType no longer present)
+      const stepData = {
+        companyName: 'Tech Innovation SAS',
+        companySize: '11-50',
+      };
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // Field values from ALL steps must be accessible by field name
+      expect(result.accountType).toBe('enterprise');
+      expect(result.fullName).toBe('Karl MAZIER');
+      expect(result.companyName).toBe('Tech Innovation SAS');
+
+      // Dot-notation paths must also work
+      expect(result['type.accountType']).toBe('enterprise');
+      expect(result['company.companyName']).toBe('Tech Innovation SAS');
+    });
+
+    it('should let current stepData override allFieldValues on conflicts', () => {
+      // If two steps have the same field name, current step takes precedence
+      const allData = {
+        step1: { sharedField: 'old-value' },
+        step2: { sharedField: 'new-value' },
+      };
+
+      // stepData is step2's data
+      const stepData = { sharedField: 'new-value' };
+
+      const result = combineWorkflowDataForConditions(allData, stepData);
+
+      // stepData should win for direct field access
+      expect(result.sharedField).toBe('new-value');
+    });
   });
 
   describe('extractStepData', () => {

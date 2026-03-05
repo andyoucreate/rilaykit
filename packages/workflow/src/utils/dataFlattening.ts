@@ -61,6 +61,17 @@ export function combineWorkflowDataForConditions(
   allData: Record<string, any>,
   stepData: Record<string, any>
 ): Record<string, any> {
+  // Extract field-level values from ALL steps so conditions can reference
+  // fields by name (e.g., when('accountType')) regardless of current step.
+  // allData structure: { stepId: { fieldId: value, ... }, ... }
+  const allFieldValues: Record<string, any> = {};
+  for (const key in allData) {
+    const value = allData[key];
+    if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      Object.assign(allFieldValues, value);
+    }
+  }
+
   // Flatten allData FIRST to preserve nested paths like "legalForm.legalForm"
   // This is critical when step ID matches field ID (e.g., step "legalForm" with field "legalForm")
   const flattenedAllData = flattenObject(allData);
@@ -68,18 +79,16 @@ export function combineWorkflowDataForConditions(
   // Flatten stepData for dot-notation access to current step values
   const flattenedStepData = flattenObject(stepData);
 
-  // Combine nested structures (stepData takes precedence for nested keys)
-  const combined = {
+  // Build result with correct priority:
+  // 1. allFieldValues: field-level values from ALL steps (e.g., accountType from step "type")
+  // 2. allData: step-level nested objects for traversal
+  // 3. stepData: current step values override allFieldValues for conflicts
+  // 4. flattenedAllData: dot-notation paths (e.g., "type.accountType")
+  // 5. flattenedStepData: dot-notation for current step (override)
+  return {
+    ...allFieldValues,
     ...allData,
     ...stepData,
-  };
-
-  // Build result with correct priority for flattened keys:
-  // 1. flattenedAllData first (provides paths like "legalForm.legalForm")
-  // 2. flattenedStepData can override for truly updated values
-  // This ensures when("stepId.fieldId") works even when stepId === fieldId
-  return {
-    ...combined,
     ...flattenedAllData,
     ...flattenedStepData,
   };

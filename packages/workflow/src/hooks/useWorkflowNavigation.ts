@@ -116,8 +116,15 @@ export function useWorkflowNavigation({
           onStepChangeRef.current(workflowState.currentStepIndex, stepIndex, workflowContext);
         }
 
+        const newStepId = workflowConfig.steps[stepIndex].id;
+
         setCurrentStep(stepIndex);
-        markStepVisited(stepIndex, workflowConfig.steps[stepIndex].id);
+        markStepVisited(stepIndex, newStepId);
+
+        // Reset stepData to the target step's existing data to prevent
+        // leaking fields from the previous step into the new step's data
+        const existingStepData = (workflowState.allData[newStepId] || {}) as Record<string, any>;
+        setStepData(existingStepData, newStepId);
 
         return true;
       } catch (error) {
@@ -135,10 +142,12 @@ export function useWorkflowNavigation({
       workflowConfig.analytics,
       conditionsHelpers,
       workflowState.currentStepIndex,
+      workflowState.allData,
       workflowContext,
       setTransitioning,
       setCurrentStep,
       markStepVisited,
+      setStepData,
     ]
   );
 
