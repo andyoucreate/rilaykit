@@ -1,21 +1,49 @@
-import { useState } from 'react';
-import { Form, FormBody, FormSubmitButton, required, email, minLength, useFormStoreApi } from 'rilaykit';
-import { r } from '@/lib/ril-config';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { r } from '@/lib/ril-config';
+import { useState } from 'react';
+import {
+  Form,
+  FormBody,
+  FormSubmitButton,
+  email,
+  minLength,
+  required,
+  useFormStoreApi,
+} from 'rilaykit';
 
 const contactForm = r
   .form('contact')
   .add(
-    { id: 'firstName', type: 'text', props: { label: 'First Name', placeholder: 'John' }, validation: { validate: [required(), minLength(2)], validateOnBlur: true } },
-    { id: 'lastName', type: 'text', props: { label: 'Last Name', placeholder: 'Doe' }, validation: { validate: [required(), minLength(2)], validateOnBlur: true } },
+    {
+      id: 'firstName',
+      type: 'text',
+      props: { label: 'First Name', placeholder: 'John' },
+      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+    },
+    {
+      id: 'lastName',
+      type: 'text',
+      props: { label: 'Last Name', placeholder: 'Doe' },
+      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+    }
   )
-  .add({ id: 'email', type: 'email', props: { label: 'Email', placeholder: 'john@example.com' }, validation: { validate: [required(), email()], validateOnBlur: true } })
-  .add({ id: 'message', type: 'textarea', props: { label: 'Message', placeholder: 'Your message...', rows: 5 }, validation: { validate: [required(), minLength(10)], validateOnBlur: true } })
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email', placeholder: 'john@example.com' },
+    validation: { validate: [required(), email()], validateOnBlur: true },
+  })
+  .add({
+    id: 'message',
+    type: 'textarea',
+    props: { label: 'Message', placeholder: 'Your message...', rows: 5 },
+    validation: { validate: [required(), minLength(10)], validateOnBlur: true },
+  })
   .build();
 
-function FormInner({ onSubmitData }: { onSubmitData: (data: Record<string, unknown>) => void }) {
+function FormInner() {
   const storeApi = useFormStoreApi();
 
   return (
@@ -48,7 +76,7 @@ export function SimpleFormPage() {
               setSubmittedData(data);
             }}
           >
-            <FormInner onSubmitData={setSubmittedData} />
+            <FormInner />
           </Form>
         </CardContent>
       </Card>
@@ -58,7 +86,9 @@ export function SimpleFormPage() {
             <CardTitle>Submitted Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="rounded-md bg-muted p-4 text-sm">{JSON.stringify(submittedData, null, 2)}</pre>
+            <pre className="rounded-md bg-muted p-4 text-sm">
+              {JSON.stringify(submittedData, null, 2)}
+            </pre>
           </CardContent>
         </Card>
       )}

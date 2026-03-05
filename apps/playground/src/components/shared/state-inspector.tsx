@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface StateInspectorProps {
   data: Record<string, unknown>;
@@ -9,7 +9,11 @@ interface StateInspectorProps {
 export function StateInspector({ data, label }: StateInspectorProps) {
   return (
     <div>
-      {label && <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>}
+      {label && (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+      )}
       <div className="rounded-md bg-muted/50 p-3 font-mono text-xs">
         <JsonTree data={data} />
       </div>
@@ -40,16 +44,27 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
     if (data.length === 0) return <span className="text-muted-foreground">[]</span>;
     if (collapsed) {
       return (
-        <span className="cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(false)}>
+        <button
+          type="button"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(false)}
+        >
           [...] <span className="text-muted-foreground/60">{data.length} items</span>
-        </span>
+        </button>
       );
     }
     return (
       <span>
-        <span className="cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(true)}>[</span>
+        <button
+          type="button"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(true)}
+        >
+          [
+        </button>
         <div className="ml-4">
           {data.map((item, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: JSON tree items have no stable ID
             <div key={i}>
               <JsonTree data={item} depth={depth + 1} />
               {i < data.length - 1 && ','}
@@ -66,14 +81,24 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
     if (entries.length === 0) return <span className="text-muted-foreground">{'{}'}</span>;
     if (collapsed) {
       return (
-        <span className="cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(false)}>
+        <button
+          type="button"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(false)}
+        >
           {'{'} ... {'}'} <span className="text-muted-foreground/60">{entries.length} keys</span>
-        </span>
+        </button>
       );
     }
     return (
       <span>
-        <span className="cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(true)}>{'{'}</span>
+        <button
+          type="button"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(true)}
+        >
+          {'{'}
+        </button>
         <div className="ml-4">
           {entries.map(([key, val], i) => (
             <div key={key}>
