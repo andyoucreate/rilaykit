@@ -33,7 +33,7 @@ function validSchema(overrides = {}) {
 // =================================================================
 
 describe('validateSchema', () => {
-  let rilConfig;
+  let rilConfig: any;
 
   beforeEach(() => {
     rilConfig = ril
@@ -116,10 +116,7 @@ describe('validateSchema', () => {
 
   describe('field validation', () => {
     it('should reject a field without id', () => {
-      const err = expectSchemaError(
-        validSchema({ fields: [{ type: 'text' }] }),
-        rilConfig,
-      );
+      const err = expectSchemaError(validSchema({ fields: [{ type: 'text' }] }), rilConfig);
       expect(err.issues.some((i) => i.path === 'fields[0].id')).toBe(true);
     });
 
@@ -133,17 +130,14 @@ describe('validateSchema', () => {
     });
 
     it('should reject a field without type', () => {
-      const err = expectSchemaError(
-        validSchema({ fields: [{ id: 'name' }] }),
-        rilConfig,
-      );
+      const err = expectSchemaError(validSchema({ fields: [{ id: 'name' }] }), rilConfig);
       expect(err.issues.some((i) => i.path.endsWith('.type'))).toBe(true);
     });
 
     it('should reject a field with unknown component type', () => {
       const err = expectSchemaError(
         validSchema({ fields: [{ id: 'name', type: 'unknown-widget' }] }),
-        rilConfig,
+        rilConfig
       );
       expect(err.issues.some((i) => i.message.includes('unknown-widget'))).toBe(true);
     });
@@ -235,7 +229,9 @@ describe('validateSchema', () => {
     it('should pass with a custom validator type found in registry', () => {
       const registry: SchemaRegistry = {
         validators: {
-          customValidator: () => ({ '~standard': { version: 1, vendor: 'test', validate: () => ({ value: '' }) } }),
+          customValidator: () => ({
+            '~standard': { version: 1, vendor: 'test', validate: () => ({ value: '' }) },
+          }),
         },
       };
       const schema = validSchema({
@@ -253,7 +249,9 @@ describe('validateSchema', () => {
     it('should reject a custom validator type not found in registry', () => {
       const registry: SchemaRegistry = {
         validators: {
-          otherValidator: () => ({ '~standard': { version: 1, vendor: 'test', validate: () => ({ value: '' }) } }),
+          otherValidator: () => ({
+            '~standard': { version: 1, vendor: 'test', validate: () => ({ value: '' }) },
+          }),
         },
       };
       const schema = validSchema({
@@ -398,7 +396,9 @@ describe('validateSchema', () => {
         ],
       };
       const err = expectSchemaError(schema, rilConfig);
-      expect(err.issues.some((i) => i.message.includes('min') && i.message.includes('max'))).toBe(true);
+      expect(err.issues.some((i) => i.message.includes('min') && i.message.includes('max'))).toBe(
+        true
+      );
     });
 
     it('should reject a repeatable with empty rows', () => {
@@ -489,9 +489,7 @@ describe('validateSchema', () => {
         ],
       };
       const err = expectSchemaError(schemaWithError, rilConfig);
-      const warning = err.issues.find(
-        (i) => i.severity === 'warning' && i.path.includes('field'),
-      );
+      const warning = err.issues.find((i) => i.severity === 'warning' && i.path.includes('field'));
       expect(warning).toBeDefined();
     });
   });

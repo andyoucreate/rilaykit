@@ -1,7 +1,7 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
-import { ril, required, email, type FormConfiguration } from '@rilaykit/core';
+import { type FormConfiguration, email, required, ril } from '@rilaykit/core';
 import React from 'react';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fromSchema, isFormSchema } from '../../src/schema/from-schema';
 import { SchemaValidationError } from '../../src/schema/types';
 import type { FormSchema, SchemaRegistry } from '../../src/schema/types';
@@ -10,7 +10,7 @@ import type { FormSchema, SchemaRegistry } from '../../src/schema/types';
 // SHARED SETUP
 // =================================================================
 
-let rilConfig;
+let rilConfig: any;
 
 beforeEach(() => {
   rilConfig = ril
@@ -239,9 +239,9 @@ describe('fromSchema', () => {
       const result = fromSchema(schema, rilConfig);
 
       expect(result.formConfig.repeatableFields).toBeDefined();
-      expect(result.formConfig.repeatableFields['addresses']).toBeDefined();
-      expect(result.formConfig.repeatableFields['addresses'].min).toBe(1);
-      expect(result.formConfig.repeatableFields['addresses'].max).toBe(3);
+      expect(result.formConfig.repeatableFields.addresses).toBeDefined();
+      expect(result.formConfig.repeatableFields.addresses.min).toBe(1);
+      expect(result.formConfig.repeatableFields.addresses.max).toBe(3);
     });
   });
 
@@ -253,9 +253,7 @@ describe('fromSchema', () => {
     it('resolves string shortcut "required" into a field with validation', () => {
       const schema: FormSchema = {
         id: 'validation-form',
-        fields: [
-          { id: 'name', type: 'text', validation: { rules: 'required' } },
-        ],
+        fields: [{ id: 'name', type: 'text', validation: { rules: 'required' } }],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -268,9 +266,7 @@ describe('fromSchema', () => {
     it('resolves multiple rules into a validation array', () => {
       const schema: FormSchema = {
         id: 'multi-validation-form',
-        fields: [
-          { id: 'emailField', type: 'text', validation: { rules: ['required', 'email'] } },
-        ],
+        fields: [{ id: 'emailField', type: 'text', validation: { rules: ['required', 'email'] } }],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -381,9 +377,7 @@ describe('fromSchema', () => {
           {
             id: 'city',
             type: 'text',
-            effects: [
-              { trigger: 'change', watch: 'country', handler: 'loadCities' },
-            ],
+            effects: [{ trigger: 'change', watch: 'country', handler: 'loadCities' }],
           },
         ],
       };
@@ -391,8 +385,8 @@ describe('fromSchema', () => {
       const result = fromSchema(schema, rilConfig, registry);
 
       expect(result.formConfig.effectsMap).toBeDefined();
-      expect(result.formConfig.effectsMap['country']).toBeDefined();
-      expect(result.formConfig.effectsMap['country']).toHaveLength(1);
+      expect(result.formConfig.effectsMap.country).toBeDefined();
+      expect(result.formConfig.effectsMap.country).toHaveLength(1);
     });
 
     it('curries params into the effect handler', () => {
@@ -421,16 +415,12 @@ describe('fromSchema', () => {
       };
 
       const result = fromSchema(schema, rilConfig, registry);
-      const effect = result.formConfig.effectsMap['country'][0];
+      const effect = result.formConfig.effectsMap.country[0];
 
       const mockContext = { setValue: vi.fn(), setProps: vi.fn() };
       effect.handler('France', mockContext);
 
-      expect(handler).toHaveBeenCalledWith(
-        'France',
-        mockContext,
-        { apiUrl: '/api/cities' },
-      );
+      expect(handler).toHaveBeenCalledWith('France', mockContext, { apiUrl: '/api/cities' });
     });
   });
 
@@ -463,7 +453,7 @@ describe('fromSchema', () => {
       };
 
       const result = fromSchema(schema, rilConfig);
-      const rep = result.formConfig.repeatableFields['items'];
+      const rep = result.formConfig.repeatableFields.items;
 
       expect(rep.min).toBe(1);
       expect(rep.max).toBe(5);
@@ -478,9 +468,7 @@ describe('fromSchema', () => {
             kind: 'repeatable',
             repeatable: {
               id: 'items',
-              rows: [
-                { fields: [{ id: 'itemName', type: 'text' }] },
-              ],
+              rows: [{ fields: [{ id: 'itemName', type: 'text' }] }],
               defaultValue: { itemName: 'New item' },
             },
           },
@@ -488,7 +476,7 @@ describe('fromSchema', () => {
       };
 
       const result = fromSchema(schema, rilConfig);
-      const rep = result.formConfig.repeatableFields['items'];
+      const rep = result.formConfig.repeatableFields.items;
 
       expect(rep.defaultValue).toEqual({ itemName: 'New item' });
     });

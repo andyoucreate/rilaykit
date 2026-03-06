@@ -1,9 +1,6 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
 import { describe, expect, it } from 'vitest';
-import {
-  resolveFieldValidation,
-  resolveValidationDescriptor,
-} from '../../src/schema/from-schema';
+import { resolveFieldValidation, resolveValidationDescriptor } from '../../src/schema/from-schema';
 import type { CustomValidatorFactory, SchemaRegistry } from '../../src/schema/types';
 
 // =================================================================
@@ -202,10 +199,7 @@ describe('resolveValidationDescriptor', () => {
         validators: { forbidden: customValidator },
       };
 
-      const schema = resolveValidationDescriptor(
-        { type: 'forbidden' },
-        registry,
-      );
+      const schema = resolveValidationDescriptor({ type: 'forbidden' }, registry);
 
       const invalid = validateValue(schema, 'forbidden');
       expectInvalid(invalid);
@@ -236,7 +230,7 @@ describe('resolveValidationDescriptor', () => {
 
       resolveValidationDescriptor(
         { type: 'custom', params: { threshold: 42 }, message: 'Too low' },
-        registry,
+        registry
       );
 
       expect(receivedParams).toEqual({ threshold: 42 });
@@ -254,19 +248,19 @@ describe('resolveValidationDescriptor', () => {
     });
 
     it('throws for unknown type without registry', () => {
-      expect(() =>
-        resolveValidationDescriptor({ type: 'custom' }),
-      ).toThrow('Unknown validator type: "custom"');
+      expect(() => resolveValidationDescriptor({ type: 'custom' })).toThrow(
+        'Unknown validator type: "custom"'
+      );
     });
 
     it('throws for unknown type not found in registry', () => {
       const registry: SchemaRegistry = {
-        validators: { other: () => ({} as any) },
+        validators: { other: () => ({}) as any },
       };
 
-      expect(() =>
-        resolveValidationDescriptor({ type: 'custom' }, registry),
-      ).toThrow('Unknown validator type: "custom"');
+      expect(() => resolveValidationDescriptor({ type: 'custom' }, registry)).toThrow(
+        'Unknown validator type: "custom"'
+      );
     });
   });
 });
@@ -339,7 +333,7 @@ describe('resolveFieldValidation', () => {
       {
         rules: { type: 'alwaysFail', message: 'Nope' },
       },
-      registry,
+      registry
     );
 
     expect(config.validate).toBeDefined();

@@ -1,4 +1,10 @@
-export { fromSchema, isFormSchema, resolveFieldValidation, resolveValidationDescriptor, validateSchema } from './from-schema';
+export {
+  fromSchema,
+  isFormSchema,
+  resolveFieldValidation,
+  resolveValidationDescriptor,
+  validateSchema,
+} from './from-schema';
 export type {
   CustomValidatorFactory,
   FieldSchemaEffect,

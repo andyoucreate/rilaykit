@@ -1,15 +1,15 @@
 import {
-  type ConditionalBehavior,
   type ConditionConfig,
+  type ConditionalBehavior,
   type FieldEffect,
   type FieldValidationConfig,
   type FormValidationConfig,
   type StandardSchema,
   email as emailValidator,
-  max as maxValidator,
   maxLength as maxLengthValidator,
-  min as minValidator,
+  max as maxValidator,
   minLength as minLengthValidator,
+  min as minValidator,
   number as numberValidator,
   onChange,
   pattern as patternValidator,
@@ -96,7 +96,7 @@ const VALID_CONDITION_OPERATORS = new Set([
 export function fromSchema<C extends Record<string, any>>(
   schema: FormSchema,
   config: ril<C>,
-  registry?: SchemaRegistry,
+  registry?: SchemaRegistry
 ): FormSchemaResult<C> {
   // 1. Validate schema structure
   validateSchema(schema, config, registry);
@@ -182,13 +182,17 @@ export function isFormSchema(value: unknown): value is FormSchema {
 export function validateSchema<C extends Record<string, any>>(
   schema: FormSchema,
   config: ril<C>,
-  registry?: SchemaRegistry,
+  registry?: SchemaRegistry
 ): void {
   const issues: SchemaIssue[] = [];
 
   // Top-level structure
   if (!schema.id || typeof schema.id !== 'string') {
-    issues.push({ path: 'id', message: 'Form schema must have a non-empty "id"', severity: 'error' });
+    issues.push({
+      path: 'id',
+      message: 'Form schema must have a non-empty "id"',
+      severity: 'error',
+    });
   }
 
   if (schema.version !== undefined && schema.version !== 1) {
@@ -239,12 +243,7 @@ export function validateSchema<C extends Record<string, any>>(
 
   // Validate form-level validation
   if (schema.validation?.rules) {
-    validateValidationDescriptors(
-      schema.validation.rules,
-      'validation.rules',
-      registry,
-      issues,
-    );
+    validateValidationDescriptors(schema.validation.rules, 'validation.rules', registry, issues);
   }
 
   // Throw if any errors
@@ -263,14 +262,18 @@ function validateRow<C extends Record<string, any>>(
   path: string,
   config: ril<C>,
   registry: SchemaRegistry | undefined,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   if (isRepeatableRow(row)) {
     validateRepeatable(row, path, config, registry, issues);
   } else {
     const fieldRow = row as FormSchemaFieldRow;
     if (!Array.isArray(fieldRow.fields) || fieldRow.fields.length === 0) {
-      issues.push({ path: `${path}.fields`, message: 'Row must have at least one field', severity: 'error' });
+      issues.push({
+        path: `${path}.fields`,
+        message: 'Row must have at least one field',
+        severity: 'error',
+      });
       return;
     }
     for (let i = 0; i < fieldRow.fields.length; i++) {
@@ -284,18 +287,26 @@ function validateRepeatable<C extends Record<string, any>>(
   path: string,
   config: ril<C>,
   registry: SchemaRegistry | undefined,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   const rep = row.repeatable;
   const repPath = `${path}.repeatable`;
 
   if (!rep || typeof rep !== 'object') {
-    issues.push({ path: repPath, message: 'Repeatable row must have a "repeatable" object', severity: 'error' });
+    issues.push({
+      path: repPath,
+      message: 'Repeatable row must have a "repeatable" object',
+      severity: 'error',
+    });
     return;
   }
 
   if (!rep.id || typeof rep.id !== 'string') {
-    issues.push({ path: `${repPath}.id`, message: 'Repeatable must have a non-empty "id"', severity: 'error' });
+    issues.push({
+      path: `${repPath}.id`,
+      message: 'Repeatable must have a non-empty "id"',
+      severity: 'error',
+    });
   }
 
   if (rep.min !== undefined && rep.min < 0) {
@@ -323,7 +334,11 @@ function validateRepeatable<C extends Record<string, any>>(
   }
 
   if (!Array.isArray(rep.rows) || rep.rows.length === 0) {
-    issues.push({ path: `${repPath}.rows`, message: 'Repeatable must have at least one row', severity: 'error' });
+    issues.push({
+      path: `${repPath}.rows`,
+      message: 'Repeatable must have at least one row',
+      severity: 'error',
+    });
     return;
   }
 
@@ -338,28 +353,53 @@ function validateRepeatable<C extends Record<string, any>>(
       continue;
     }
     for (let j = 0; j < fieldRow.fields.length; j++) {
-      validateField(fieldRow.fields[j], `${repPath}.rows[${i}].fields[${j}]`, config, registry, issues);
+      validateField(
+        fieldRow.fields[j],
+        `${repPath}.rows[${i}].fields[${j}]`,
+        config,
+        registry,
+        issues
+      );
     }
   }
 
   if (rep.validation?.rules) {
-    validateValidationDescriptors(rep.validation.rules, `${repPath}.validation.rules`, registry, issues);
+    validateValidationDescriptors(
+      rep.validation.rules,
+      `${repPath}.validation.rules`,
+      registry,
+      issues
+    );
   }
 }
 
 function validateField<C extends Record<string, any>>(
-  field: { id?: string; type?: string; validation?: FieldSchemaValidation; effects?: FieldSchemaEffect[]; conditions?: ConditionalBehavior },
+  field: {
+    id?: string;
+    type?: string;
+    validation?: FieldSchemaValidation;
+    effects?: FieldSchemaEffect[];
+    conditions?: ConditionalBehavior;
+  },
   path: string,
   config: ril<C>,
   registry: SchemaRegistry | undefined,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   if (!field.id || typeof field.id !== 'string') {
-    issues.push({ path: `${path}.id`, message: 'Field must have a non-empty "id"', severity: 'error' });
+    issues.push({
+      path: `${path}.id`,
+      message: 'Field must have a non-empty "id"',
+      severity: 'error',
+    });
   }
 
   if (!field.type || typeof field.type !== 'string') {
-    issues.push({ path: `${path}.type`, message: 'Field must have a non-empty "type"', severity: 'error' });
+    issues.push({
+      path: `${path}.type`,
+      message: 'Field must have a non-empty "type"',
+      severity: 'error',
+    });
   } else if (!config.hasComponent(field.type)) {
     issues.push({
       path: `${path}.type`,
@@ -369,7 +409,12 @@ function validateField<C extends Record<string, any>>(
   }
 
   if (field.validation?.rules) {
-    validateValidationDescriptors(field.validation.rules, `${path}.validation.rules`, registry, issues);
+    validateValidationDescriptors(
+      field.validation.rules,
+      `${path}.validation.rules`,
+      registry,
+      issues
+    );
   }
 
   if (field.effects) {
@@ -387,7 +432,7 @@ function validateValidationDescriptors(
   rules: ValidationDescriptor | ValidationDescriptor[],
   path: string,
   registry: SchemaRegistry | undefined,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   const descriptors = Array.isArray(rules) ? rules : [rules];
 
@@ -407,7 +452,11 @@ function validateValidationDescriptors(
       const { type, params } = descriptor;
 
       if (!type || typeof type !== 'string') {
-        issues.push({ path: `${descPath}.type`, message: 'Validation descriptor must have a "type"', severity: 'error' });
+        issues.push({
+          path: `${descPath}.type`,
+          message: 'Validation descriptor must have a "type"',
+          severity: 'error',
+        });
         continue;
       }
 
@@ -460,14 +509,22 @@ function validateEffect(
   effect: FieldSchemaEffect,
   path: string,
   registry: SchemaRegistry | undefined,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   if (!effect.watch || typeof effect.watch !== 'string') {
-    issues.push({ path: `${path}.watch`, message: 'Effect must have a non-empty "watch" field ID', severity: 'error' });
+    issues.push({
+      path: `${path}.watch`,
+      message: 'Effect must have a non-empty "watch" field ID',
+      severity: 'error',
+    });
   }
 
   if (!effect.handler || typeof effect.handler !== 'string') {
-    issues.push({ path: `${path}.handler`, message: 'Effect must have a non-empty "handler" registry key', severity: 'error' });
+    issues.push({
+      path: `${path}.handler`,
+      message: 'Effect must have a non-empty "handler" registry key',
+      severity: 'error',
+    });
   } else if (!registry?.effects?.[effect.handler]) {
     issues.push({
       path: `${path}.handler`,
@@ -480,7 +537,7 @@ function validateEffect(
 function validateConditions(
   conditions: ConditionalBehavior,
   path: string,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   const behaviorKeys = ['visible', 'disabled', 'required', 'readonly'] as const;
 
@@ -494,7 +551,7 @@ function validateConditions(
 function validateConditionConfig(
   condition: ConditionConfig,
   path: string,
-  issues: SchemaIssue[],
+  issues: SchemaIssue[]
 ): void {
   // Composite condition (has sub-conditions)
   if (condition.conditions && condition.conditions.length > 0) {
@@ -549,8 +606,15 @@ function isRepeatableRow(row: FormSchemaRow): row is FormSchemaRepeatableRow {
  * Resolves validation descriptors and effect references.
  */
 function resolveFields(
-  fields: { id: string; type: string; props?: Record<string, unknown>; validation?: FieldSchemaValidation; conditions?: ConditionalBehavior; effects?: FieldSchemaEffect[] }[],
-  registry?: SchemaRegistry,
+  fields: {
+    id: string;
+    type: string;
+    props?: Record<string, unknown>;
+    validation?: FieldSchemaValidation;
+    conditions?: ConditionalBehavior;
+    effects?: FieldSchemaEffect[];
+  }[],
+  registry?: SchemaRegistry
 ): FieldConfig<Record<string, any>, string>[] {
   return fields.map((field) => {
     const resolved: FieldConfig<Record<string, any>, string> = {
@@ -580,7 +644,7 @@ function resolveFields(
  */
 export function resolveFieldValidation(
   validation: FieldSchemaValidation,
-  registry?: SchemaRegistry,
+  registry?: SchemaRegistry
 ): FieldValidationConfig {
   const config: FieldValidationConfig = {
     validateOnChange: validation.validateOnChange,
@@ -603,7 +667,7 @@ export function resolveFieldValidation(
  */
 function resolveFormValidation(
   validation: FormSchemaValidationConfig,
-  registry?: SchemaRegistry,
+  registry?: SchemaRegistry
 ): FormValidationConfig {
   const config: FormValidationConfig = {
     validateOnSubmit: validation.validateOnSubmit,
@@ -625,7 +689,7 @@ function resolveFormValidation(
  */
 export function resolveValidationDescriptor(
   descriptor: ValidationDescriptor,
-  registry?: SchemaRegistry,
+  registry?: SchemaRegistry
 ): StandardSchema {
   // String shortcut
   if (typeof descriptor === 'string') {
@@ -654,7 +718,7 @@ export function resolveValidationDescriptor(
 function resolveBuiltinValidator(
   type: string,
   params?: Record<string, unknown>,
-  message?: string,
+  message?: string
 ): StandardSchema {
   switch (type) {
     case 'required':
@@ -678,11 +742,13 @@ function resolveBuiltinValidator(
         const regex = new RegExp(params?.pattern as string);
         return patternValidator(regex, message);
       } catch {
-        throw new SchemaValidationError([{
-          path: 'validation.rules',
-          message: `Invalid regex pattern: "${params?.pattern}"`,
-          severity: 'error',
-        }]);
+        throw new SchemaValidationError([
+          {
+            path: 'validation.rules',
+            message: `Invalid regex pattern: "${params?.pattern}"`,
+            severity: 'error',
+          },
+        ]);
       }
     }
     default:
@@ -694,10 +760,7 @@ function resolveBuiltinValidator(
  * Resolves effect descriptors into FieldEffect objects.
  * Curries params into the handler signature.
  */
-function resolveEffects(
-  effects: FieldSchemaEffect[],
-  registry?: SchemaRegistry,
-): FieldEffect[] {
+function resolveEffects(effects: FieldSchemaEffect[], registry?: SchemaRegistry): FieldEffect[] {
   return effects.map((effect) => {
     const registryHandler = registry?.effects?.[effect.handler];
     if (!registryHandler) {
@@ -707,7 +770,7 @@ function resolveEffects(
     // Curry params into a standard FieldEffectHandler (2 args)
     const params = effect.params;
     return onChange(effect.watch, (newValue, context) =>
-      registryHandler(newValue, context, params),
+      registryHandler(newValue, context, params)
     );
   });
 }

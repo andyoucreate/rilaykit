@@ -279,9 +279,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   add<T extends keyof C & string>(...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[]]): this {
     // Check if first argument is an array (explicit array syntax)
     const fieldConfigs: FieldConfig<C, T>[] =
-      args.length === 1 && Array.isArray(args[0])
-        ? args[0]
-        : (args as FieldConfig<C, T>[]);
+      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfig<C, T>[]);
 
     if (fieldConfigs.length === 0) {
       throw new Error('At least one field is required');

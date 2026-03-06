@@ -1,16 +1,27 @@
 // @ts-nocheck — generic constraints bypass for test flexibility
-import { ril, required, email, minLength, custom } from '@rilaykit/core';
+import { custom, email, minLength, required, ril } from '@rilaykit/core';
 import React from 'react';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { fromSchema, isFormSchema, validateSchema, resolveValidationDescriptor, resolveFieldValidation } from '../../src/schema/from-schema';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  fromSchema,
+  isFormSchema,
+  resolveFieldValidation,
+  resolveValidationDescriptor,
+  validateSchema,
+} from '../../src/schema/from-schema';
 import { SchemaValidationError } from '../../src/schema/types';
-import type { FormSchema, SchemaRegistry, FormSchemaField, FieldSchemaValidation } from '../../src/schema/types';
+import type {
+  FieldSchemaValidation,
+  FormSchema,
+  FormSchemaField,
+  SchemaRegistry,
+} from '../../src/schema/types';
 
 // =================================================================
 // SHARED SETUP
 // =================================================================
 
-let rilConfig;
+let rilConfig: any;
 
 beforeEach(() => {
   rilConfig = ril
@@ -75,15 +86,21 @@ describe('isFormSchema — edge cases', () => {
   });
 
   it('returns true with explicit version: 1', () => {
-    expect(isFormSchema({ id: 'form', version: 1, fields: [{ id: 'x', type: 'text' }] })).toBe(true);
+    expect(isFormSchema({ id: 'form', version: 1, fields: [{ id: 'x', type: 'text' }] })).toBe(
+      true
+    );
   });
 
   it('returns false for version: 0', () => {
-    expect(isFormSchema({ id: 'form', version: 0, fields: [{ id: 'x', type: 'text' }] })).toBe(false);
+    expect(isFormSchema({ id: 'form', version: 0, fields: [{ id: 'x', type: 'text' }] })).toBe(
+      false
+    );
   });
 
   it('returns false for version: null', () => {
-    expect(isFormSchema({ id: 'form', version: null, fields: [{ id: 'x', type: 'text' }] })).toBe(false);
+    expect(isFormSchema({ id: 'form', version: null, fields: [{ id: 'x', type: 'text' }] })).toBe(
+      false
+    );
   });
 
   it('returns false for arrays', () => {
@@ -104,7 +121,9 @@ describe('isFormSchema — edge cases', () => {
   });
 
   it('accepts extra unknown properties gracefully', () => {
-    expect(isFormSchema({ id: 'form', fields: [{ id: 'x', type: 'text' }], someExtra: true, meta: {} })).toBe(true);
+    expect(
+      isFormSchema({ id: 'form', fields: [{ id: 'x', type: 'text' }], someExtra: true, meta: {} })
+    ).toBe(true);
   });
 });
 
@@ -248,13 +267,20 @@ describe('validateSchema — edge cases', () => {
     it('validates mixed rules array with valid and invalid entries', () => {
       const schema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: {
-            rules: ['required', 'BOGUS', { type: 'minLength', params: { min: 3 } }, { type: 'nope' }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: {
+              rules: [
+                'required',
+                'BOGUS',
+                { type: 'minLength', params: { min: 3 } },
+                { type: 'nope' },
+              ],
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       try {
@@ -263,8 +289,10 @@ describe('validateSchema — edge cases', () => {
       } catch (e) {
         expect(e).toBeInstanceOf(SchemaValidationError);
         // 'BOGUS' and { type: 'nope' } should be errors
-        const validatorErrors = e.issues.filter((i) =>
-          i.message.includes('Unknown validation shortcut') || i.message.includes('Unknown validator type'),
+        const validatorErrors = e.issues.filter(
+          (i) =>
+            i.message.includes('Unknown validation shortcut') ||
+            i.message.includes('Unknown validator type')
         );
         expect(validatorErrors).toHaveLength(2);
       }
@@ -273,13 +301,15 @@ describe('validateSchema — edge cases', () => {
     it('accepts parameterized built-in with extra params beyond required ones', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: {
-            rules: { type: 'minLength', params: { min: 3, extra: 'ignored' } },
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: {
+              rules: { type: 'minLength', params: { min: 3, extra: 'ignored' } },
+            },
           },
-        }],
+        ],
       };
 
       // Extra params should not cause validation to fail
@@ -289,13 +319,15 @@ describe('validateSchema — edge cases', () => {
     it('rejects minLength with params.min = undefined explicitly', () => {
       const schema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: {
-            rules: { type: 'minLength', params: { min: undefined } },
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: {
+              rules: { type: 'minLength', params: { min: undefined } },
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       expect(() => validateSchema(schema, rilConfig)).toThrow(SchemaValidationError);
@@ -314,22 +346,24 @@ describe('validateSchema — edge cases', () => {
     it('validates nested composite conditions', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          conditions: {
-            visible: {
-              field: '',
-              operator: 'equals',
-              value: 'root',
-              conditions: [
-                { field: 'a', operator: 'equals', value: 1 },
-                { field: '', operator: 'invalidOp' as any, value: 2 },
-              ],
-              logicalOperator: 'and',
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            conditions: {
+              visible: {
+                field: '',
+                operator: 'equals',
+                value: 'root',
+                conditions: [
+                  { field: 'a', operator: 'equals', value: 1 },
+                  { field: '', operator: 'invalidOp' as any, value: 2 },
+                ],
+                logicalOperator: 'and',
+              },
             },
           },
-        }],
+        ],
       };
 
       try {
@@ -346,16 +380,18 @@ describe('validateSchema — edge cases', () => {
     it('validates all four condition behavior keys', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          conditions: {
-            visible: { field: 'a', operator: 'equals', value: 1 },
-            disabled: { field: 'b', operator: 'notEquals', value: 2 },
-            required: { field: 'c', operator: 'exists' },
-            readonly: { field: 'd', operator: 'greaterThan', value: 10 },
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            conditions: {
+              visible: { field: 'a', operator: 'equals', value: 1 },
+              disabled: { field: 'b', operator: 'notEquals', value: 2 },
+              required: { field: 'c', operator: 'exists' },
+              readonly: { field: 'd', operator: 'greaterThan', value: 10 },
+            },
           },
-        }],
+        ],
       };
       expect(() => validateSchema(schema, rilConfig)).not.toThrow();
     });
@@ -365,11 +401,13 @@ describe('validateSchema — edge cases', () => {
     it('rejects effects when registry is undefined', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
+          },
+        ],
       };
 
       expect(() => validateSchema(schema, rilConfig)).toThrow(SchemaValidationError);
@@ -378,11 +416,13 @@ describe('validateSchema — edge cases', () => {
     it('rejects effects when registry exists but has no effects key', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
+          },
+        ],
       };
 
       const registry: SchemaRegistry = { validators: {} };
@@ -392,11 +432,13 @@ describe('validateSchema — edge cases', () => {
     it('rejects effects when registry.effects is empty', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
+          },
+        ],
       };
 
       const registry: SchemaRegistry = { effects: {} };
@@ -408,15 +450,17 @@ describe('validateSchema — edge cases', () => {
     it('accepts min: 0 and max: 0', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            min: 0,
-            max: 0,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              min: 0,
+              max: 0,
+            },
           },
-        }],
+        ],
       };
       expect(() => validateSchema(schema, rilConfig)).not.toThrow();
     });
@@ -424,14 +468,16 @@ describe('validateSchema — edge cases', () => {
     it('accepts min without max', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            min: 5,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              min: 5,
+            },
           },
-        }],
+        ],
       };
       expect(() => validateSchema(schema, rilConfig)).not.toThrow();
     });
@@ -439,14 +485,16 @@ describe('validateSchema — edge cases', () => {
     it('accepts max without min', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            max: 10,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              max: 10,
+            },
           },
-        }],
+        ],
       };
       expect(() => validateSchema(schema, rilConfig)).not.toThrow();
     });
@@ -454,14 +502,16 @@ describe('validateSchema — edge cases', () => {
     it('rejects negative min', () => {
       const schema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            min: -1,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              min: -1,
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       try {
@@ -476,14 +526,16 @@ describe('validateSchema — edge cases', () => {
     it('rejects negative max', () => {
       const schema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            max: -5,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              max: -5,
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       try {
@@ -498,15 +550,17 @@ describe('validateSchema — edge cases', () => {
     it('rejects both negative min and max', () => {
       const schema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            min: -3,
-            max: -1,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              min: -3,
+              max: -1,
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       try {
@@ -524,15 +578,17 @@ describe('validateSchema — edge cases', () => {
     it('rejects repeatable with min: 5 and max: 2', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            min: 5,
-            max: 2,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              min: 5,
+              max: 2,
+            },
           },
-        }],
+        ],
       };
 
       try {
@@ -540,20 +596,24 @@ describe('validateSchema — edge cases', () => {
         expect.fail('should have thrown');
       } catch (e) {
         expect(e).toBeInstanceOf(SchemaValidationError);
-        expect(e.issues.some((i) => i.message.includes('min (5) cannot be greater than max (2)'))).toBe(true);
+        expect(
+          e.issues.some((i) => i.message.includes('min (5) cannot be greater than max (2)'))
+        ).toBe(true);
       }
     });
 
     it('validates fields inside repeatable rows', () => {
       const schema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: '', type: 'nonexistent' }] }],
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: '', type: 'nonexistent' }] }],
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       try {
@@ -568,14 +628,16 @@ describe('validateSchema — edge cases', () => {
     it('validates repeatable-level validation rules', () => {
       const schema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'x', type: 'text' }] }],
-            validation: { rules: 'BOGUS' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'x', type: 'text' }] }],
+              validation: { rules: 'BOGUS' },
+            },
           },
-        }],
+        ],
       } as unknown as FormSchema;
 
       expect(() => validateSchema(schema, rilConfig)).toThrow(SchemaValidationError);
@@ -592,11 +654,13 @@ describe('fromSchema — hardcore integration', () => {
     it('throws SchemaValidationError for invalid regex at validateSchema level', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: { rules: { type: 'pattern', params: { pattern: '[invalid' } } },
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: { rules: { type: 'pattern', params: { pattern: '[invalid' } } },
+          },
+        ],
       };
 
       // validateSchema now catches invalid regex patterns
@@ -606,11 +670,13 @@ describe('fromSchema — hardcore integration', () => {
     it('throws SchemaValidationError (not SyntaxError) for invalid regex in fromSchema', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: { rules: { type: 'pattern', params: { pattern: '(unclosed' } } },
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: { rules: { type: 'pattern', params: { pattern: '(unclosed' } } },
+          },
+        ],
       };
 
       // fromSchema wraps the SyntaxError into SchemaValidationError
@@ -620,11 +686,13 @@ describe('fromSchema — hardcore integration', () => {
     it('accepts valid regex patterns', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          validation: { rules: { type: 'pattern', params: { pattern: '^[a-z]+$' } } },
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            validation: { rules: { type: 'pattern', params: { pattern: '^[a-z]+$' } } },
+          },
+        ],
       };
 
       expect(() => validateSchema(schema, rilConfig)).not.toThrow();
@@ -648,7 +716,7 @@ describe('fromSchema — hardcore integration', () => {
 
       // The builder might or might not handle this — test current behavior
       // If it throws, we document it; if it doesn't, we document that too
-      let result;
+      let result: any;
       let threw = false;
       try {
         result = fromSchema(schema, rilConfig);
@@ -749,9 +817,7 @@ describe('fromSchema — hardcore integration', () => {
     it('handles rows with explicit kind: "fields"', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [
-          { kind: 'fields', fields: [{ id: 'name', type: 'text' }] },
-        ],
+        rows: [{ kind: 'fields', fields: [{ id: 'name', type: 'text' }] }],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -761,12 +827,14 @@ describe('fromSchema — hardcore integration', () => {
     it('handles multi-field rows (2 fields in one row)', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          fields: [
-            { id: 'first', type: 'text' },
-            { id: 'last', type: 'text' },
-          ],
-        }],
+        rows: [
+          {
+            fields: [
+              { id: 'first', type: 'text' },
+              { id: 'last', type: 'text' },
+            ],
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -778,13 +846,15 @@ describe('fromSchema — hardcore integration', () => {
     it('handles 3 fields in one row', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          fields: [
-            { id: 'a', type: 'text' },
-            { id: 'b', type: 'text' },
-            { id: 'c', type: 'text' },
-          ],
-        }],
+        rows: [
+          {
+            fields: [
+              { id: 'a', type: 'text' },
+              { id: 'b', type: 'text' },
+              { id: 'c', type: 'text' },
+            ],
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -794,14 +864,16 @@ describe('fromSchema — hardcore integration', () => {
     it('keeps >3 fields in the same row', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          fields: [
-            { id: 'a', type: 'text' },
-            { id: 'b', type: 'text' },
-            { id: 'c', type: 'text' },
-            { id: 'd', type: 'text' },
-          ],
-        }],
+        rows: [
+          {
+            fields: [
+              { id: 'a', type: 'text' },
+              { id: 'b', type: 'text' },
+              { id: 'c', type: 'text' },
+              { id: 'd', type: 'text' },
+            ],
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -815,11 +887,13 @@ describe('fromSchema — hardcore integration', () => {
     it('component validation + field validation produces combined array', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'emailField',
-          type: 'email', // has component-level email validator
-          validation: { rules: 'required' }, // adds required
-        }],
+        fields: [
+          {
+            id: 'emailField',
+            type: 'email', // has component-level email validator
+            validation: { rules: 'required' }, // adds required
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -836,14 +910,16 @@ describe('fromSchema — hardcore integration', () => {
     it('field validation overrides component validateOnChange', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'emailField',
-          type: 'email', // has validateOnChange: true
-          validation: {
-            rules: 'required',
-            validateOnChange: false, // override
+        fields: [
+          {
+            id: 'emailField',
+            type: 'email', // has validateOnChange: true
+            validation: {
+              rules: 'required',
+              validateOnChange: false, // override
+            },
           },
-        }],
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -897,7 +973,7 @@ describe('fromSchema — hardcore integration', () => {
       const result = fromSchema(schema, rilConfig, registry);
 
       expect(result.formConfig.effectsMap).toBeDefined();
-      expect(result.formConfig.effectsMap['trigger']).toHaveLength(2);
+      expect(result.formConfig.effectsMap.trigger).toHaveLength(2);
     });
 
     it('effect without params curries undefined correctly', () => {
@@ -906,22 +982,24 @@ describe('fromSchema — hardcore integration', () => {
 
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething' }],
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig, registry);
-      const effect = result.formConfig.effectsMap['y'][0];
+      const effect = result.formConfig.effectsMap.y[0];
 
       effect.handler('newVal', { setValue: vi.fn(), setProps: vi.fn() });
 
       expect(handler).toHaveBeenCalledWith(
         'newVal',
         expect.any(Object),
-        undefined, // no params
+        undefined // no params
       );
     });
 
@@ -931,15 +1009,17 @@ describe('fromSchema — hardcore integration', () => {
 
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'x',
-          type: 'text',
-          effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething', params: {} }],
-        }],
+        fields: [
+          {
+            id: 'x',
+            type: 'text',
+            effects: [{ trigger: 'change', watch: 'y', handler: 'doSomething', params: {} }],
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig, registry);
-      const effect = result.formConfig.effectsMap['y'][0];
+      const effect = result.formConfig.effectsMap.y[0];
 
       effect.handler('value', { setValue: vi.fn(), setProps: vi.fn() });
 
@@ -951,21 +1031,23 @@ describe('fromSchema — hardcore integration', () => {
     it('repeatable with validation gets resolved validation', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text' }] }],
-            validation: {
-              rules: 'required',
-              validateOnChange: true,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text' }] }],
+              validation: {
+                rules: 'required',
+                validateOnChange: true,
+              },
             },
           },
-        }],
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
-      const rep = result.formConfig.repeatableFields['items'];
+      const rep = result.formConfig.repeatableFields.items;
 
       expect(rep.validation).toBeDefined();
       expect(rep.validation.validate).toBeDefined();
@@ -975,20 +1057,27 @@ describe('fromSchema — hardcore integration', () => {
     it('repeatable with multiple template rows', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [
-              { fields: [{ id: 'name', type: 'text' }] },
-              { fields: [{ id: 'desc', type: 'text' }, { id: 'qty', type: 'number' }] },
-            ],
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [
+                { fields: [{ id: 'name', type: 'text' }] },
+                {
+                  fields: [
+                    { id: 'desc', type: 'text' },
+                    { id: 'qty', type: 'number' },
+                  ],
+                },
+              ],
+            },
           },
-        }],
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
-      const rep = result.formConfig.repeatableFields['items'];
+      const rep = result.formConfig.repeatableFields.items;
 
       expect(rep.allFields).toHaveLength(3); // name + desc + qty
       expect(rep.rows).toHaveLength(2);
@@ -997,35 +1086,39 @@ describe('fromSchema — hardcore integration', () => {
     it('repeatable with min: 0', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text' }] }],
-            min: 0,
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text' }] }],
+              min: 0,
+            },
           },
-        }],
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
-      expect(result.formConfig.repeatableFields['items'].min).toBe(0);
+      expect(result.formConfig.repeatableFields.items.min).toBe(0);
     });
 
     it('repeatable with empty defaultValue object', () => {
       const schema: FormSchema = {
         id: 'form',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text' }] }],
-            defaultValue: {},
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text' }] }],
+              defaultValue: {},
+            },
           },
-        }],
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
-      expect(result.formConfig.repeatableFields['items'].defaultValue).toEqual({});
+      expect(result.formConfig.repeatableFields.items.defaultValue).toEqual({});
     });
 
     it('multiple repeatables in the same form', () => {
@@ -1052,8 +1145,8 @@ describe('fromSchema — hardcore integration', () => {
 
       const result = fromSchema(schema, rilConfig);
 
-      expect(result.formConfig.repeatableFields['addresses']).toBeDefined();
-      expect(result.formConfig.repeatableFields['phones']).toBeDefined();
+      expect(result.formConfig.repeatableFields.addresses).toBeDefined();
+      expect(result.formConfig.repeatableFields.phones).toBeDefined();
       expect(Object.keys(result.formConfig.repeatableFields)).toHaveLength(2);
     });
   });
@@ -1180,11 +1273,13 @@ describe('fromSchema — hardcore integration', () => {
     it('schema props override component defaultProps', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'name',
-          type: 'text',
-          props: { placeholder: 'Custom placeholder', label: 'Custom label' },
-        }],
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            props: { placeholder: 'Custom placeholder', label: 'Custom label' },
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -1197,11 +1292,13 @@ describe('fromSchema — hardcore integration', () => {
     it('preserves defaultProps not overridden by schema', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'name',
-          type: 'text',
-          props: { label: 'Name' }, // doesn't override placeholder
-        }],
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            props: { label: 'Name' }, // doesn't override placeholder
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -1229,11 +1326,13 @@ describe('fromSchema — hardcore integration', () => {
     it('passes through validateOnChange without rules', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'name',
-          type: 'text',
-          validation: { validateOnChange: true },
-        }],
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            validation: { validateOnChange: true },
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -1247,11 +1346,13 @@ describe('fromSchema — hardcore integration', () => {
     it('passes through debounceMs without rules', () => {
       const schema: FormSchema = {
         id: 'form',
-        fields: [{
-          id: 'name',
-          type: 'text',
-          validation: { debounceMs: 300 },
-        }],
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            validation: { debounceMs: 300 },
+          },
+        ],
       };
 
       const result = fromSchema(schema, rilConfig);
@@ -1263,10 +1364,11 @@ describe('fromSchema — hardcore integration', () => {
 
   describe('complex real-world schema', () => {
     it('handles a complete signup form schema', () => {
-      const passwordStrength = (_params, message) => custom(
-        (v: string) => v && v.length >= 8 && /[A-Z]/.test(v) && /[0-9]/.test(v),
-        message || 'Password must be 8+ chars with uppercase and number',
-      );
+      const passwordStrength = (_params, message) =>
+        custom(
+          (v: string) => v && v.length >= 8 && /[A-Z]/.test(v) && /[0-9]/.test(v),
+          message || 'Password must be 8+ chars with uppercase and number'
+        );
 
       const loadCitiesHandler = vi.fn();
 
@@ -1283,8 +1385,18 @@ describe('fromSchema — hardcore integration', () => {
           {
             kind: 'fields',
             fields: [
-              { id: 'firstName', type: 'text', props: { label: 'First Name' }, validation: { rules: 'required' } },
-              { id: 'lastName', type: 'text', props: { label: 'Last Name' }, validation: { rules: 'required' } },
+              {
+                id: 'firstName',
+                type: 'text',
+                props: { label: 'First Name' },
+                validation: { rules: 'required' },
+              },
+              {
+                id: 'lastName',
+                type: 'text',
+                props: { label: 'Last Name' },
+                validation: { rules: 'required' },
+              },
             ],
           },
           {
@@ -1300,20 +1412,22 @@ describe('fromSchema — hardcore integration', () => {
           },
           {
             kind: 'fields',
-            fields: [{
-              id: 'password',
-              type: 'text',
-              props: { label: 'Password' },
-              validation: {
-                rules: [
-                  'required',
-                  { type: 'minLength', params: { min: 8 } },
-                  { type: 'passwordStrength' },
-                ],
-                validateOnChange: true,
-                debounceMs: 300,
+            fields: [
+              {
+                id: 'password',
+                type: 'text',
+                props: { label: 'Password' },
+                validation: {
+                  rules: [
+                    'required',
+                    { type: 'minLength', params: { min: 8 } },
+                    { type: 'passwordStrength' },
+                  ],
+                  validateOnChange: true,
+                  debounceMs: 300,
+                },
               },
-            }],
+            ],
           },
           {
             kind: 'fields',
@@ -1330,12 +1444,14 @@ describe('fromSchema — hardcore integration', () => {
                 conditions: {
                   visible: { field: 'country', operator: 'exists' },
                 },
-                effects: [{
-                  trigger: 'change',
-                  watch: 'country',
-                  handler: 'loadCities',
-                  params: { endpoint: '/api/cities' },
-                }],
+                effects: [
+                  {
+                    trigger: 'change',
+                    watch: 'country',
+                    handler: 'loadCities',
+                    params: { endpoint: '/api/cities' },
+                  },
+                ],
               },
             ],
           },
@@ -1347,7 +1463,11 @@ describe('fromSchema — hardcore integration', () => {
                 { fields: [{ id: 'street', type: 'text', validation: { rules: 'required' } }] },
                 {
                   fields: [
-                    { id: 'zip', type: 'text', validation: { rules: { type: 'pattern', params: { pattern: '^\\d{5}$' } } } },
+                    {
+                      id: 'zip',
+                      type: 'text',
+                      validation: { rules: { type: 'pattern', params: { pattern: '^\\d{5}$' } } },
+                    },
                     { id: 'addrCity', type: 'text', validation: { rules: 'required' } },
                   ],
                 },
@@ -1390,13 +1510,13 @@ describe('fromSchema — hardcore integration', () => {
 
       // Effects map
       expect(result.formConfig.effectsMap).toBeDefined();
-      expect(result.formConfig.effectsMap['country']).toBeDefined();
+      expect(result.formConfig.effectsMap.country).toBeDefined();
 
       // Repeatables
-      expect(result.formConfig.repeatableFields['addresses']).toBeDefined();
-      expect(result.formConfig.repeatableFields['addresses'].min).toBe(1);
-      expect(result.formConfig.repeatableFields['addresses'].max).toBe(5);
-      expect(result.formConfig.repeatableFields['addresses'].allFields).toHaveLength(3);
+      expect(result.formConfig.repeatableFields.addresses).toBeDefined();
+      expect(result.formConfig.repeatableFields.addresses.min).toBe(1);
+      expect(result.formConfig.repeatableFields.addresses.max).toBe(5);
+      expect(result.formConfig.repeatableFields.addresses.allFields).toHaveLength(3);
 
       // Submit options
       expect(result.formConfig.submitOptions.skipInvalid).toBe(false);
@@ -1413,9 +1533,10 @@ describe('fromSchema — hardcore integration', () => {
 
 describe('resolveValidationDescriptor — edge cases', () => {
   it('built-in validator "required" with custom message propagates message', () => {
-    const schema = resolveValidationDescriptor(
-      { type: 'required', message: 'Please fill this in' },
-    );
+    const schema = resolveValidationDescriptor({
+      type: 'required',
+      message: 'Please fill this in',
+    });
 
     const result = validateValue(schema, '');
     expect(result.issues[0].message).toBe('Please fill this in');
@@ -1466,7 +1587,7 @@ describe('resolveValidationDescriptor — edge cases', () => {
 
   it('throws for completely unknown type', () => {
     expect(() => resolveValidationDescriptor({ type: 'doesNotExist' })).toThrow(
-      'Unknown validator type: "doesNotExist"',
+      'Unknown validator type: "doesNotExist"'
     );
   });
 
@@ -1476,7 +1597,7 @@ describe('resolveValidationDescriptor — edge cases', () => {
 
     resolveValidationDescriptor(
       { type: 'myValidator', params: { threshold: 5 }, message: 'Custom' },
-      registry,
+      registry
     );
 
     expect(factory).toHaveBeenCalledWith({ threshold: 5 }, 'Custom');
@@ -1571,9 +1692,7 @@ describe('SchemaValidationError', () => {
   });
 
   it('is instanceof Error', () => {
-    const error = new SchemaValidationError([
-      { path: '', message: 'test', severity: 'error' },
-    ]);
+    const error = new SchemaValidationError([{ path: '', message: 'test', severity: 'error' }]);
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe('SchemaValidationError');
   });
