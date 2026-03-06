@@ -25,3 +25,6 @@ export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
 
 // Export repeatable utilities
 export { structureFormValues, flattenRepeatableValues } from './utils/repeatable-data';
+
+// Export server-driven forms (fromSchema)
+export * from './schema';

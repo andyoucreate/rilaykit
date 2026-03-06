@@ -1,0 +1,237 @@
+import type {
+  ConditionalBehavior,
+  FieldEffectContext,
+  FieldValidationConfig,
+  FormConfiguration,
+  FormValidationConfig,
+  StandardSchema,
+  SubmitOptions,
+} from '@rilaykit/core';
+
+// =================================================================
+// SCHEMA TYPES — JSON-serializable form definitions
+// =================================================================
+
+/**
+ * JSON schema that backends send to describe a form.
+ * Fully JSON-serializable — no functions, no class instances.
+ *
+ * Supports two layout formats:
+ * - `fields` (flat): each field gets its own row — simple and covers most cases
+ * - `rows` (advanced): explicit row layout with multi-field rows and repeatables
+ *
+ * Must have exactly one of `fields` or `rows`.
+ */
+export interface FormSchema {
+  /** Schema version for future compatibility (defaults to 1) */
+  readonly version?: 1;
+  /** Unique form identifier */
+  readonly id: string;
+  /** Initial field values for pre-filling the form */
+  readonly defaultValues?: Record<string, unknown>;
+  /** Flat field list — each field on its own row (simple format) */
+  readonly fields?: FormSchemaField[];
+  /** Explicit row layout with multi-field rows and repeatables (advanced format) */
+  readonly rows?: FormSchemaRow[];
+  /** Form-level validation descriptors */
+  readonly validation?: FormSchemaValidationConfig;
+  /** Default submit options */
+  readonly submitOptions?: SubmitOptions;
+}
+
+// =================================================================
+// ROW TYPES
+// =================================================================
+
+export type FormSchemaRow = FormSchemaFieldRow | FormSchemaRepeatableRow;
+
+export interface FormSchemaFieldRow {
+  /** Discriminant — defaults to 'fields' if absent */
+  readonly kind?: 'fields';
+  /** Row ID (auto-generated if omitted) */
+  readonly id?: string;
+  /** 1 to 3 fields in this row */
+  readonly fields: FormSchemaField[];
+  /** Maximum columns for this row */
+  readonly maxColumns?: number;
+}
+
+export interface FormSchemaRepeatableRow {
+  readonly kind: 'repeatable';
+  /** Row ID (auto-generated if omitted) */
+  readonly id?: string;
+  readonly repeatable: FormSchemaRepeatable;
+}
+
+// =================================================================
+// FIELD TYPES
+// =================================================================
+
+export interface FormSchemaField {
+  /** Unique field identifier (required — backend must know IDs) */
+  readonly id: string;
+  /** Component type — must match a registered component in ril config */
+  readonly type: string;
+  /** Component props (JSON-serializable) */
+  readonly props?: Record<string, unknown>;
+  /** Validation descriptors */
+  readonly validation?: FieldSchemaValidation;
+  /** Conditions — pass-through (already JSON-serializable ConditionConfig) */
+  readonly conditions?: ConditionalBehavior;
+  /** Effect descriptors — references to registered effect handlers */
+  readonly effects?: FieldSchemaEffect[];
+}
+
+// =================================================================
+// REPEATABLE TYPES
+// =================================================================
+
+export interface FormSchemaRepeatable {
+  /** Unique repeatable group identifier */
+  readonly id: string;
+  /** Template rows for each repeatable item */
+  readonly rows: FormSchemaFieldRow[];
+  /** Minimum number of items */
+  readonly min?: number;
+  /** Maximum number of items */
+  readonly max?: number;
+  /** Default values for new items */
+  readonly defaultValue?: Record<string, unknown>;
+  /** Group-level validation */
+  readonly validation?: FieldSchemaValidation;
+}
+
+// =================================================================
+// VALIDATION DESCRIPTORS
+// =================================================================
+
+export interface FieldSchemaValidation {
+  /** One or more validation descriptors */
+  readonly rules?: ValidationDescriptor | ValidationDescriptor[];
+  readonly validateOnChange?: boolean;
+  readonly validateOnBlur?: boolean;
+  readonly debounceMs?: number;
+}
+
+/**
+ * A validation descriptor — string shortcut or parameterized object.
+ *
+ * String shortcuts: "required", "email", "url", "number"
+ * Object descriptors: { type: "minLength", params: { min: 3 }, message?: "..." }
+ */
+export type ValidationDescriptor = ValidationShortcut | ValidationDescriptorObject;
+
+/** Zero-parameter built-in validator shortcuts */
+export type ValidationShortcut = 'required' | 'email' | 'url' | 'number';
+
+export interface ValidationDescriptorObject {
+  /** Built-in validator name or registry key */
+  readonly type: string;
+  /** Custom error message */
+  readonly message?: string;
+  /** Validator-specific parameters */
+  readonly params?: Record<string, unknown>;
+}
+
+/**
+ * Form-level validation descriptors.
+ * Note: string shortcuts (required, email, etc.) are meaningless at form level
+ * since they validate individual values. Use registry validators for cross-field logic.
+ */
+export interface FormSchemaValidationConfig {
+  readonly rules?: ValidationDescriptor | ValidationDescriptor[];
+  readonly validateOnSubmit?: boolean;
+  readonly validateOnStepChange?: boolean;
+}
+
+// =================================================================
+// EFFECT DESCRIPTORS
+// =================================================================
+
+export interface FieldSchemaEffect {
+  readonly trigger: 'change';
+  /** Field ID to watch for changes */
+  readonly watch: string;
+  /** Registry key for the handler function */
+  readonly handler: string;
+  /** Parameters passed to the handler (enables handler reuse) */
+  readonly params?: Record<string, unknown>;
+}
+
+// =================================================================
+// REGISTRY — resolves non-serializable logic
+// =================================================================
+
+/**
+ * Registry for custom validators and effect handlers.
+ * Provided by the consumer alongside the ril config.
+ */
+export interface SchemaRegistry {
+  /** Custom validators indexed by key */
+  readonly validators?: Record<string, CustomValidatorFactory>;
+  /** Effect handlers indexed by key */
+  readonly effects?: Record<string, SchemaEffectHandler>;
+}
+
+/**
+ * Factory that creates a StandardSchema validator from descriptor params.
+ * Allows parameterized custom validators.
+ */
+export type CustomValidatorFactory = (
+  params?: Record<string, unknown>,
+  message?: string
+) => StandardSchema;
+
+/**
+ * Effect handler with optional params (3rd argument).
+ * The fromSchema resolver curries params into a standard FieldEffectHandler.
+ */
+export type SchemaEffectHandler = (
+  newValue: unknown,
+  context: FieldEffectContext,
+  params?: Record<string, unknown>
+) => void | Promise<void>;
+
+// =================================================================
+// RESULT TYPE
+// =================================================================
+
+/**
+ * Result of fromSchema() — separates formConfig from defaultValues
+ * because FormConfiguration does not have a defaultValues field.
+ * defaultValues is a separate prop on FormProvider / Form.
+ */
+export interface FormSchemaResult<C extends Record<string, any>> {
+  readonly formConfig: FormConfiguration<C>;
+  readonly defaultValues?: Record<string, unknown>;
+}
+
+// =================================================================
+// ERROR TYPES
+// =================================================================
+
+export interface SchemaIssue {
+  /** JSON path to the invalid element (e.g. "rows[0].fields[1].validation") */
+  readonly path: string;
+  /** Human-readable error message */
+  readonly message: string;
+  /** Error severity */
+  readonly severity: 'error' | 'warning';
+}
+
+/**
+ * Thrown when a form schema has structural errors.
+ * Contains a detailed list of issues with JSON paths.
+ */
+export class SchemaValidationError extends Error {
+  readonly code = 'SCHEMA_VALIDATION_ERROR' as const;
+  readonly issues: SchemaIssue[];
+
+  constructor(issues: SchemaIssue[]) {
+    const errors = issues.filter((i) => i.severity === 'error');
+    const summary = errors.map((i) => `[${i.path}] ${i.message}`).join('; ');
+    super(`Invalid form schema: ${summary}`);
+    this.name = 'SchemaValidationError';
+    this.issues = issues;
+  }
+}
