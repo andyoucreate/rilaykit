@@ -3,7 +3,7 @@ import { custom, required } from '@rilaykit/core';
 import { FormBody, FormProvider, fromSchema } from '@rilaykit/forms';
 import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   FieldErrorDisplay,
@@ -20,7 +20,7 @@ import { createTestRilConfig } from '../_setup/test-ril-config';
 // SHARED SETUP
 // =================================================================
 
-let rilConfig;
+let rilConfig: ReturnType<typeof createTestRilConfig>;
 
 beforeEach(() => {
   rilConfig = createTestRilConfig();
@@ -33,19 +33,15 @@ function renderSchema(
     registry?: SchemaRegistry;
     onSubmit?: (data: any) => void | Promise<void>;
     extraChildren?: React.ReactNode;
-  } = {},
+  } = {}
 ) {
   const { formConfig, defaultValues } = fromSchema(schema, rilConfig, options.registry);
 
   return render(
-    <FormProvider
-      formConfig={formConfig}
-      defaultValues={defaultValues}
-      onSubmit={options.onSubmit}
-    >
+    <FormProvider formConfig={formConfig} defaultValues={defaultValues} onSubmit={options.onSubmit}>
       <FormBody />
       {options.extraChildren}
-    </FormProvider>,
+    </FormProvider>
   );
 }
 
@@ -108,9 +104,7 @@ describe('fromSchema e2e — rendering', () => {
   it('merges schema props with component defaultProps', () => {
     renderSchema({
       id: 'merge-props',
-      fields: [
-        { id: 'name', type: 'text', props: { label: 'Custom Label' } },
-      ],
+      fields: [{ id: 'name', type: 'text', props: { label: 'Custom Label' } }],
     });
 
     // Component has defaultProps { label: '', placeholder: '' }
@@ -121,15 +115,17 @@ describe('fromSchema e2e — rendering', () => {
   it('renders >3 fields in a single row without splitting', () => {
     renderSchema({
       id: 'wide-row',
-      rows: [{
-        fields: [
-          { id: 'a', type: 'text' },
-          { id: 'b', type: 'text' },
-          { id: 'c', type: 'text' },
-          { id: 'd', type: 'text' },
-          { id: 'e', type: 'text' },
-        ],
-      }],
+      rows: [
+        {
+          fields: [
+            { id: 'a', type: 'text' },
+            { id: 'b', type: 'text' },
+            { id: 'c', type: 'text' },
+            { id: 'd', type: 'text' },
+            { id: 'e', type: 'text' },
+          ],
+        },
+      ],
     });
 
     expect(screen.getByTestId('input-a')).toBeInTheDocument();
@@ -149,9 +145,7 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-required',
-        fields: [
-          { id: 'name', type: 'text', validation: { rules: 'required' } },
-        ],
+        fields: [{ id: 'name', type: 'text', validation: { rules: 'required' } }],
       },
       {
         extraChildren: (
@@ -160,7 +154,7 @@ describe('fromSchema e2e — validation', () => {
             <FieldErrorDisplay fieldId="name" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -175,9 +169,7 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-email',
-        fields: [
-          { id: 'email', type: 'text', validation: { rules: ['required', 'email'] } },
-        ],
+        fields: [{ id: 'email', type: 'text', validation: { rules: ['required', 'email'] } }],
         defaultValues: { email: 'not-an-email' },
       },
       {
@@ -187,7 +179,7 @@ describe('fromSchema e2e — validation', () => {
             <FieldErrorDisplay fieldId="email" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -202,11 +194,13 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-minlength',
-        fields: [{
-          id: 'username',
-          type: 'text',
-          validation: { rules: { type: 'minLength', params: { min: 3 } } },
-        }],
+        fields: [
+          {
+            id: 'username',
+            type: 'text',
+            validation: { rules: { type: 'minLength', params: { min: 3 } } },
+          },
+        ],
         defaultValues: { username: 'ab' },
       },
       {
@@ -216,7 +210,7 @@ describe('fromSchema e2e — validation', () => {
             <FieldErrorDisplay fieldId="username" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -238,13 +232,19 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-pattern',
-        fields: [{
-          id: 'zip',
-          type: 'text',
-          validation: {
-            rules: { type: 'pattern', params: { pattern: '^\\d{5}$' }, message: 'Must be 5 digits' },
+        fields: [
+          {
+            id: 'zip',
+            type: 'text',
+            validation: {
+              rules: {
+                type: 'pattern',
+                params: { pattern: '^\\d{5}$' },
+                message: 'Must be 5 digits',
+              },
+            },
           },
-        }],
+        ],
         defaultValues: { zip: 'abc' },
       },
       {
@@ -254,7 +254,7 @@ describe('fromSchema e2e — validation', () => {
             <FieldErrorDisplay fieldId="zip" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -277,7 +277,7 @@ describe('fromSchema e2e — validation', () => {
     const passwordStrength = (_params, message) =>
       custom(
         (v: string) => !!v && v.length >= 8 && /[A-Z]/.test(v) && /[0-9]/.test(v),
-        message || 'Password must be 8+ chars with uppercase and number',
+        message || 'Password must be 8+ chars with uppercase and number'
       );
 
     const registry: SchemaRegistry = { validators: { passwordStrength } };
@@ -285,16 +285,15 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-registry',
-        fields: [{
-          id: 'password',
-          type: 'text',
-          validation: {
-            rules: [
-              'required',
-              { type: 'passwordStrength', message: 'Weak password' },
-            ],
+        fields: [
+          {
+            id: 'password',
+            type: 'text',
+            validation: {
+              rules: ['required', { type: 'passwordStrength', message: 'Weak password' }],
+            },
           },
-        }],
+        ],
         defaultValues: { password: 'weak' },
       },
       {
@@ -305,7 +304,7 @@ describe('fromSchema e2e — validation', () => {
             <FieldErrorDisplay fieldId="password" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -330,15 +329,17 @@ describe('fromSchema e2e — validation', () => {
     renderSchema(
       {
         id: 'val-blur',
-        fields: [{
-          id: 'name',
-          type: 'text',
-          validation: { rules: 'required', validateOnBlur: true },
-        }],
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            validation: { rules: 'required', validateOnBlur: true },
+          },
+        ],
       },
       {
         extraChildren: <FieldErrorDisplay fieldId="name" />,
-      },
+      }
     );
 
     const input = screen.getByTestId('input-name');
@@ -362,7 +363,7 @@ describe('fromSchema e2e — validation', () => {
         ],
         defaultValues: { name: 'Karl', email: 'karl@example.com' },
       },
-      { extraChildren: <ValidationTrigger /> },
+      { extraChildren: <ValidationTrigger /> }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -407,7 +408,7 @@ describe('fromSchema e2e — conditions', () => {
       },
       {
         extraChildren: <FormValuesDisplay />,
-      },
+      }
     );
 
     // Hidden initially
@@ -446,7 +447,7 @@ describe('fromSchema e2e — conditions', () => {
       },
       {
         extraChildren: <SetValueButton fieldId="locked" value={true} />,
-      },
+      }
     );
 
     expect(screen.getByTestId('input-lockedField')).not.toBeDisabled();
@@ -490,7 +491,7 @@ describe('fromSchema e2e — conditions', () => {
             <SetValueButton fieldId="level" value={10} />
           </>
         ),
-      },
+      }
     );
 
     // Hidden initially (both conditions not met)
@@ -526,7 +527,7 @@ describe('fromSchema e2e — conditions', () => {
         ],
         defaultValues: { showExtra: false },
       },
-      { extraChildren: <ValidationTrigger /> },
+      { extraChildren: <ValidationTrigger /> }
     );
 
     // extraField is hidden — should not block validation
@@ -548,7 +549,10 @@ describe('fromSchema e2e — effects', () => {
   it('effect handler with params sets field props dynamically', async () => {
     const loadOptions = vi.fn((_value, context, params) => {
       const options = {
-        france: [{ value: 'paris', label: 'Paris' }, { value: 'lyon', label: 'Lyon' }],
+        france: [
+          { value: 'paris', label: 'Paris' },
+          { value: 'lyon', label: 'Lyon' },
+        ],
         spain: [{ value: 'madrid', label: 'Madrid' }],
       };
       context.setProps(params.target, { options: options[_value] ?? [] });
@@ -576,16 +580,18 @@ describe('fromSchema e2e — effects', () => {
             id: 'city',
             type: 'select',
             props: { label: 'City', options: [] },
-            effects: [{
-              trigger: 'change',
-              watch: 'country',
-              handler: 'loadOptions',
-              params: { target: 'city' },
-            }],
+            effects: [
+              {
+                trigger: 'change',
+                watch: 'country',
+                handler: 'loadOptions',
+                params: { target: 'city' },
+              },
+            ],
           },
         ],
       },
-      { registry },
+      { registry }
     );
 
     // City select starts empty
@@ -626,11 +632,13 @@ describe('fromSchema e2e — effects', () => {
           {
             id: 'city',
             type: 'text',
-            effects: [{
-              trigger: 'change',
-              watch: 'country',
-              handler: 'clearCity',
-            }],
+            effects: [
+              {
+                trigger: 'change',
+                watch: 'country',
+                handler: 'clearCity',
+              },
+            ],
           },
         ],
       },
@@ -642,7 +650,7 @@ describe('fromSchema e2e — effects', () => {
             <FormValuesDisplay />
           </>
         ),
-      },
+      }
     );
 
     // Set city manually
@@ -673,16 +681,18 @@ describe('fromSchema e2e — effects', () => {
           {
             id: 'target',
             type: 'text',
-            effects: [{
-              trigger: 'change',
-              watch: 'trigger',
-              handler: 'handler',
-              params: { endpoint: '/api/data', format: 'json' },
-            }],
+            effects: [
+              {
+                trigger: 'change',
+                watch: 'trigger',
+                handler: 'handler',
+                params: { endpoint: '/api/data', format: 'json' },
+              },
+            ],
           },
         ],
       },
-      { registry },
+      { registry }
     );
 
     fireEvent.change(screen.getByTestId('input-trigger'), { target: { value: 'hello' } });
@@ -691,7 +701,7 @@ describe('fromSchema e2e — effects', () => {
       expect(handler).toHaveBeenCalledWith(
         'hello',
         expect.objectContaining({ setValue: expect.any(Function) }),
-        { endpoint: '/api/data', format: 'json' },
+        { endpoint: '/api/data', format: 'json' }
       );
     });
   });
@@ -706,21 +716,23 @@ describe('fromSchema e2e — repeatables', () => {
     renderSchema(
       {
         id: 'rep-basic',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text', props: { label: 'Item Name' } }] }],
-            defaultValue: { name: '' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text', props: { label: 'Item Name' } }] }],
+              defaultValue: { name: '' },
+            },
           },
-        }],
+        ],
         defaultValues: {
           items: [{ name: 'Widget' }, { name: 'Gadget' }],
         },
       },
       {
         extraChildren: <RepeatableControls repeatableId="items" />,
-      },
+      }
     );
 
     expect(screen.getByTestId('input-items[k0].name')).toHaveValue('Widget');
@@ -732,19 +744,21 @@ describe('fromSchema e2e — repeatables', () => {
     renderSchema(
       {
         id: 'rep-crud',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text' }] }],
-            defaultValue: { name: '' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text' }] }],
+              defaultValue: { name: '' },
+            },
           },
-        }],
+        ],
         defaultValues: { items: [{ name: 'First' }] },
       },
       {
         extraChildren: <RepeatableControls repeatableId="items" />,
-      },
+      }
     );
 
     expect(screen.getByTestId('repeatable-count-items')).toHaveTextContent('1');
@@ -769,21 +783,23 @@ describe('fromSchema e2e — repeatables', () => {
     renderSchema(
       {
         id: 'rep-minmax',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{ id: 'name', type: 'text' }] }],
-            min: 1,
-            max: 2,
-            defaultValue: { name: '' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [{ fields: [{ id: 'name', type: 'text' }] }],
+              min: 1,
+              max: 2,
+              defaultValue: { name: '' },
+            },
           },
-        }],
+        ],
         defaultValues: { items: [{ name: 'One' }] },
       },
       {
         extraChildren: <RepeatableControls repeatableId="items" />,
-      },
+      }
     );
 
     // At min — can't remove
@@ -806,21 +822,29 @@ describe('fromSchema e2e — repeatables', () => {
     renderSchema(
       {
         id: 'rep-validation',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{ fields: [{
-              id: 'name',
-              type: 'text',
-              validation: { rules: 'required' },
-            }] }],
-            defaultValue: { name: '' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [
+                {
+                  fields: [
+                    {
+                      id: 'name',
+                      type: 'text',
+                      validation: { rules: 'required' },
+                    },
+                  ],
+                },
+              ],
+              defaultValue: { name: '' },
+            },
           },
-        }],
+        ],
         defaultValues: { items: [{ name: '' }] },
       },
-      { extraChildren: <ValidationTrigger /> },
+      { extraChildren: <ValidationTrigger /> }
     );
 
     fireEvent.click(screen.getByTestId('validate-btn'));
@@ -834,10 +858,10 @@ describe('fromSchema e2e — repeatables', () => {
   });
 
   it('renders repeatable with multiple template rows', () => {
-    renderSchema(
-      {
-        id: 'rep-multi-rows',
-        rows: [{
+    renderSchema({
+      id: 'rep-multi-rows',
+      rows: [
+        {
           kind: 'repeatable',
           repeatable: {
             id: 'addresses',
@@ -852,12 +876,12 @@ describe('fromSchema e2e — repeatables', () => {
             ],
             defaultValue: { street: '', city: '', zip: '' },
           },
-        }],
-        defaultValues: {
-          addresses: [{ street: '123 Main St', city: 'Paris', zip: '75001' }],
         },
+      ],
+      defaultValues: {
+        addresses: [{ street: '123 Main St', city: 'Paris', zip: '75001' }],
       },
-    );
+    });
 
     expect(screen.getByTestId('input-addresses[k0].street')).toHaveValue('123 Main St');
     expect(screen.getByTestId('input-addresses[k0].city')).toHaveValue('Paris');
@@ -882,7 +906,7 @@ describe('fromSchema e2e — submission', () => {
         ],
         defaultValues: { name: 'Karl', email: 'karl@example.com' },
       },
-      { onSubmit, extraChildren: <SubmitButton /> },
+      { onSubmit, extraChildren: <SubmitButton /> }
     );
 
     fireEvent.click(screen.getByTestId('submit-btn'));
@@ -901,9 +925,7 @@ describe('fromSchema e2e — submission', () => {
     renderSchema(
       {
         id: 'submit-blocked',
-        fields: [
-          { id: 'name', type: 'text', validation: { rules: 'required' } },
-        ],
+        fields: [{ id: 'name', type: 'text', validation: { rules: 'required' } }],
       },
       {
         onSubmit,
@@ -913,7 +935,7 @@ describe('fromSchema e2e — submission', () => {
             <FieldErrorDisplay fieldId="name" />
           </>
         ),
-      },
+      }
     );
 
     fireEvent.click(screen.getByTestId('submit-btn'));
@@ -930,12 +952,10 @@ describe('fromSchema e2e — submission', () => {
     renderSchema(
       {
         id: 'submit-force',
-        fields: [
-          { id: 'name', type: 'text', validation: { rules: 'required' } },
-        ],
+        fields: [{ id: 'name', type: 'text', validation: { rules: 'required' } }],
         submitOptions: { force: true },
       },
-      { onSubmit, extraChildren: <SubmitButton /> },
+      { onSubmit, extraChildren: <SubmitButton /> }
     );
 
     fireEvent.click(screen.getByTestId('submit-btn'));
@@ -951,21 +971,17 @@ describe('fromSchema e2e — submission', () => {
     renderSchema(
       {
         id: 'submit-modified',
-        fields: [
-          { id: 'name', type: 'text' },
-        ],
+        fields: [{ id: 'name', type: 'text' }],
         defaultValues: { name: 'Original' },
       },
-      { onSubmit, extraChildren: <SubmitButton /> },
+      { onSubmit, extraChildren: <SubmitButton /> }
     );
 
     fireEvent.change(screen.getByTestId('input-name'), { target: { value: 'Modified' } });
     fireEvent.click(screen.getByTestId('submit-btn'));
 
     await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Modified' }),
-      );
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Modified' }));
     });
   });
 
@@ -975,19 +991,23 @@ describe('fromSchema e2e — submission', () => {
     renderSchema(
       {
         id: 'submit-repeatable',
-        rows: [{
-          kind: 'repeatable',
-          repeatable: {
-            id: 'items',
-            rows: [{
-              fields: [
-                { id: 'name', type: 'text' },
-                { id: 'qty', type: 'number' },
+        rows: [
+          {
+            kind: 'repeatable',
+            repeatable: {
+              id: 'items',
+              rows: [
+                {
+                  fields: [
+                    { id: 'name', type: 'text' },
+                    { id: 'qty', type: 'number' },
+                  ],
+                },
               ],
-            }],
-            defaultValue: { name: '', qty: 0 },
+              defaultValue: { name: '', qty: 0 },
+            },
           },
-        }],
+        ],
         defaultValues: {
           items: [
             { name: 'Widget', qty: 3 },
@@ -995,7 +1015,7 @@ describe('fromSchema e2e — submission', () => {
           ],
         },
       },
-      { onSubmit, extraChildren: <SubmitButton /> },
+      { onSubmit, extraChildren: <SubmitButton /> }
     );
 
     fireEvent.click(screen.getByTestId('submit-btn'));
@@ -1018,7 +1038,10 @@ describe('fromSchema e2e — full integration', () => {
   it('renders, validates, applies conditions, triggers effects, and submits a complete signup form', async () => {
     const loadCities = vi.fn((_value, context, params) => {
       const cities = {
-        france: [{ value: 'paris', label: 'Paris' }, { value: 'lyon', label: 'Lyon' }],
+        france: [
+          { value: 'paris', label: 'Paris' },
+          { value: 'lyon', label: 'Lyon' },
+        ],
         spain: [{ value: 'madrid', label: 'Madrid' }],
       };
       context.setValue(params.target, '');
@@ -1036,18 +1059,30 @@ describe('fromSchema e2e — full integration', () => {
         {
           kind: 'fields',
           fields: [
-            { id: 'firstName', type: 'text', props: { label: 'First Name' }, validation: { rules: 'required' } },
-            { id: 'lastName', type: 'text', props: { label: 'Last Name' }, validation: { rules: 'required' } },
+            {
+              id: 'firstName',
+              type: 'text',
+              props: { label: 'First Name' },
+              validation: { rules: 'required' },
+            },
+            {
+              id: 'lastName',
+              type: 'text',
+              props: { label: 'Last Name' },
+              validation: { rules: 'required' },
+            },
           ],
         },
         {
           kind: 'fields',
-          fields: [{
-            id: 'email',
-            type: 'text',
-            props: { label: 'Email' },
-            validation: { rules: ['required', 'email'] },
-          }],
+          fields: [
+            {
+              id: 'email',
+              type: 'text',
+              props: { label: 'Email' },
+              validation: { rules: ['required', 'email'] },
+            },
+          ],
         },
         {
           kind: 'fields',
@@ -1071,12 +1106,14 @@ describe('fromSchema e2e — full integration', () => {
               conditions: {
                 visible: { field: 'country', operator: 'notEquals', value: '' },
               },
-              effects: [{
-                trigger: 'change',
-                watch: 'country',
-                handler: 'loadCities',
-                params: { target: 'city' },
-              }],
+              effects: [
+                {
+                  trigger: 'change',
+                  watch: 'country',
+                  handler: 'loadCities',
+                  params: { target: 'city' },
+                },
+              ],
             },
           ],
         },
@@ -1085,11 +1122,30 @@ describe('fromSchema e2e — full integration', () => {
           repeatable: {
             id: 'addresses',
             rows: [
-              { fields: [{ id: 'street', type: 'text', props: { label: 'Street' }, validation: { rules: 'required' } }] },
               {
                 fields: [
-                  { id: 'zip', type: 'text', props: { label: 'ZIP' }, validation: { rules: { type: 'pattern', params: { pattern: '^\\d{5}$' } } } },
-                  { id: 'addrCity', type: 'text', props: { label: 'City' }, validation: { rules: 'required' } },
+                  {
+                    id: 'street',
+                    type: 'text',
+                    props: { label: 'Street' },
+                    validation: { rules: 'required' },
+                  },
+                ],
+              },
+              {
+                fields: [
+                  {
+                    id: 'zip',
+                    type: 'text',
+                    props: { label: 'ZIP' },
+                    validation: { rules: { type: 'pattern', params: { pattern: '^\\d{5}$' } } },
+                  },
+                  {
+                    id: 'addrCity',
+                    type: 'text',
+                    props: { label: 'City' },
+                    validation: { rules: 'required' },
+                  },
                 ],
               },
             ],
@@ -1145,11 +1201,7 @@ describe('fromSchema e2e — full integration', () => {
       expect(cityOptions[0]).toHaveTextContent('Paris');
     });
 
-    expect(loadCities).toHaveBeenCalledWith(
-      'france',
-      expect.any(Object),
-      { target: 'city' },
-    );
+    expect(loadCities).toHaveBeenCalledWith('france', expect.any(Object), { target: 'city' });
 
     // Select a city
     fireEvent.change(screen.getByTestId('input-city'), { target: { value: 'paris' } });
