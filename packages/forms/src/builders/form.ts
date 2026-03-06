@@ -87,9 +87,8 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  *   the `type` and `props` of `.add({ ... })` are fully typed.
  *
  * Adding fields:
- * - Variadic: .add(fieldA, fieldB) => same row (max 3 per row)
+ * - Variadic: .add(fieldA, fieldB) => same row
  * - Array:    .add([fieldA, fieldB]) => explicit single row
- * - >3 fields (variadic) => split across multiple rows automatically
  *
  * Output of .build(): FormConfiguration<C>
  * - id, rows, allFields, renderConfig (from ril), optional validation
@@ -223,17 +222,13 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * @template T - The component type
    * @param fieldConfigs - Array of field configurations for the row
    * @returns A complete FormFieldRow configuration
-   * @throws Error if no fields provided or more than 3 fields specified
+   * @throws Error if no fields provided
    *
    * @internal
    */
   private createRow<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): FormFieldRow {
     if (fieldConfigs.length === 0) {
       throw new Error('At least one field is required');
-    }
-
-    if (fieldConfigs.length > 3) {
-      throw new Error('Maximum 3 fields per row');
     }
 
     const fields = fieldConfigs.map((config) => this.createFormField(config));
@@ -253,8 +248,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * usage patterns for maximum flexibility:
    *
    * - Single field: Creates a new row with one field
-   * - Multiple fields (≤3): Creates one row with all fields
-   * - Multiple fields (>3): Creates separate rows for each field
+   * - Multiple fields: Creates one row with all fields
    * - Array with options: Explicit control over row configuration
    *
    * @template T - The component type
@@ -267,7 +261,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * // Single field on its own row
    * builder.add({ type: 'text', props: { label: 'Name' } });
    *
-   * // Multiple fields on same row (max 3)
+   * // Multiple fields on same row
    * builder.add(
    *   { type: 'text', props: { label: 'First Name' } },
    *   { type: 'text', props: { label: 'Last Name' } }
@@ -283,47 +277,16 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   add<T extends keyof C & string>(...fields: FieldConfig<C, T>[]): this;
   add<T extends keyof C & string>(fields: FieldConfig<C, T>[]): this;
   add<T extends keyof C & string>(...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[]]): this {
-    let fieldConfigs: FieldConfig<C, T>[];
-    let isExplicitArray = false;
-
     // Check if first argument is an array (explicit array syntax)
-    if (args.length === 1 && Array.isArray(args[0])) {
-      fieldConfigs = args[0];
-      isExplicitArray = true;
-    } else {
-      // Variadic arguments - all arguments should be field configs
-      fieldConfigs = args as FieldConfig<C, T>[];
-    }
+    const fieldConfigs: FieldConfig<C, T>[] =
+      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfig<C, T>[]);
 
     if (fieldConfigs.length === 0) {
       throw new Error('At least one field is required');
     }
 
-    // If explicit array syntax with more than 3 fields, throw error
-    if (isExplicitArray && fieldConfigs.length > 3) {
-      throw new Error('Maximum 3 fields per row');
-    }
-
-    // If only one field, create its own row
-    if (fieldConfigs.length === 1) {
-      const row = this.createRow(fieldConfigs);
-      this.rows.push(row);
-      return this;
-    }
-
-    // If multiple fields and they fit in one row (≤3), put them together
-    if (fieldConfigs.length <= 3) {
-      const row = this.createRow(fieldConfigs);
-      this.rows.push(row);
-      return this;
-    }
-
-    // If more than 3 fields (variadic only), create separate rows for each
-    for (const config of fieldConfigs) {
-      const row = this.createRow([config]);
-      this.rows.push(row);
-    }
-
+    const row = this.createRow(fieldConfigs);
+    this.rows.push(row);
     return this;
   }
 
@@ -803,10 +766,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     // Check row constraints (only for field rows)
     for (const row of this.rows) {
       if (row.kind === 'fields') {
-        if (row.fields.length > 3) {
-          errors.push(`Row "${row.id}" has ${row.fields.length} fields, maximum is 3`);
-        }
-
         if (row.fields.length === 0) {
           errors.push(`Row "${row.id}" is empty`);
         }
