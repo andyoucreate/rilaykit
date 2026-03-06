@@ -278,21 +278,23 @@ describe('Form Builder', () => {
         expect(config.rows[0].fields).toHaveLength(3);
       });
 
-      it('should throw error when array syntax used with more than 3 fields', () => {
-        const builder = form.create(rilConfig);
-
-        expect(() => {
-          builder.add([
+      it('should add more than 3 fields to the same row using array syntax', () => {
+        const config = form
+          .create(rilConfig)
+          .add([
             { type: 'text', props: { label: 'Field 1' } },
             { type: 'text', props: { label: 'Field 2' } },
             { type: 'text', props: { label: 'Field 3' } },
             { type: 'text', props: { label: 'Field 4' } },
-          ]);
-        }).toThrow('Maximum 3 fields per row');
+          ])
+          .build();
+
+        expect(config.rows).toHaveLength(1);
+        expect(config.rows[0].fields).toHaveLength(4);
       });
 
-      it('should create separate rows when variadic arguments exceed 3 fields', () => {
-        const builder = form
+      it('should add more than 3 fields to the same row using variadic syntax', () => {
+        const config = form
           .create(rilConfig)
           .add(
             { type: 'text', props: { label: 'Field 1' } },
@@ -300,17 +302,11 @@ describe('Form Builder', () => {
             { type: 'text', props: { label: 'Field 3' } },
             { type: 'text', props: { label: 'Field 4' } },
             { type: 'text', props: { label: 'Field 5' } }
-          );
+          )
+          .build();
 
-        const config = builder.build();
-
-        // Should create 5 separate rows since > 3 fields
-        expect(config.rows).toHaveLength(5);
-        expect(config.rows[0].fields).toHaveLength(1);
-        expect(config.rows[1].fields).toHaveLength(1);
-        expect(config.rows[2].fields).toHaveLength(1);
-        expect(config.rows[3].fields).toHaveLength(1);
-        expect(config.rows[4].fields).toHaveLength(1);
+        expect(config.rows).toHaveLength(1);
+        expect(config.rows[0].fields).toHaveLength(5);
       });
 
       it('should throw error when no fields provided', () => {

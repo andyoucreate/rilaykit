@@ -775,7 +775,7 @@ describe('fromSchema — hardcore integration', () => {
       expect(result.formConfig.rows[0].fields).toHaveLength(2);
     });
 
-    it('handles 3 fields in one row (maximum per builder)', () => {
+    it('handles 3 fields in one row', () => {
       const schema: FormSchema = {
         id: 'form',
         rows: [{
@@ -791,7 +791,7 @@ describe('fromSchema — hardcore integration', () => {
       expect(result.formConfig.rows[0].fields).toHaveLength(3);
     });
 
-    it('builder creates separate rows when >3 fields are passed variadically', () => {
+    it('keeps >3 fields in the same row', () => {
       const schema: FormSchema = {
         id: 'form',
         rows: [{
@@ -804,9 +804,9 @@ describe('fromSchema — hardcore integration', () => {
         }],
       };
 
-      // The builder's add() with >3 variadic args creates separate rows for each field
-      // This is the documented builder behavior — NOT an error
       const result = fromSchema(schema, rilConfig);
+      expect(result.formConfig.rows).toHaveLength(1);
+      expect(result.formConfig.rows[0].fields).toHaveLength(4);
       expect(result.formConfig.allFields).toHaveLength(4);
     });
   });

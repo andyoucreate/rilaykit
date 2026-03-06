@@ -50,7 +50,7 @@ export interface FormSchemaFieldRow {
   readonly kind?: 'fields';
   /** Row ID (auto-generated if omitted) */
   readonly id?: string;
-  /** 1 to 3 fields in this row */
+  /** Fields in this row (at least one) */
   readonly fields: FormSchemaField[];
   /** Maximum columns for this row */
   readonly maxColumns?: number;
