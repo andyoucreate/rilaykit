@@ -510,7 +510,7 @@ Adds fields to the form. Supports multiple calling patterns:
 // Single field -- own row
 builder.add({ id: 'name', type: 'input', props: { label: 'Name' } });
 
-// Multiple fields (max 3) -- same row
+// Multiple fields -- same row
 builder.add(
   { id: 'firstName', type: 'input', props: { label: 'First' } },
   { id: 'lastName', type: 'input', props: { label: 'Last' } },
@@ -535,7 +535,7 @@ builder.add({
   ],
 });
 
-// More than 3 fields (variadic) -- auto-split into separate rows
+// Many fields -- all in one row
 builder.add(field1, field2, field3, field4);
 ```
 
@@ -755,6 +755,135 @@ interface FormConfigContextValue {
   validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
   submit: (event?: React.FormEvent) => Promise<boolean>;
+}
+```
+
+---
+
+### Server-Driven Forms (fromSchema)
+
+Convert JSON schemas into fully functional `FormConfiguration` objects — with validation, conditions, effects, and repeatables.
+
+#### `fromSchema(schema, config, registry?)`
+
+Converts a `FormSchema` into a `FormSchemaResult` containing the built `FormConfiguration` and optional default values.
+
+```ts
+import { fromSchema } from '@rilaykit/forms';
+import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+
+const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+```
+
+**Parameters**:
+- `schema: FormSchema` -- The JSON schema definition
+- `config: ril<C>` -- Your ril configuration with registered components
+- `registry?: SchemaRegistry` -- Custom validators and effect handlers
+
+**Returns**: `FormSchemaResult<C>`
+
+```ts
+interface FormSchemaResult<C extends Record<string, any>> {
+  readonly formConfig: FormConfiguration<C>;
+  readonly defaultValues?: Record<string, unknown>;
+}
+```
+
+#### `validateSchema(schema, config, registry?)`
+
+Validates a schema structure and throws `SchemaValidationError` if invalid.
+
+```ts
+import { validateSchema } from '@rilaykit/forms';
+
+validateSchema(schema, rilConfig, registry); // throws on error
+```
+
+#### `isFormSchema(value)`
+
+Type guard that checks whether a value is a valid `FormSchema` shape.
+
+```ts
+import { isFormSchema } from '@rilaykit/forms';
+
+if (isFormSchema(data)) {
+  const { formConfig } = fromSchema(data, rilConfig);
+}
+```
+
+**Returns**: `value is FormSchema`
+
+#### Schema Types
+
+```ts
+interface FormSchema {
+  readonly version?: 1;
+  readonly id: string;
+  readonly defaultValues?: Record<string, unknown>;
+  readonly fields?: FormSchemaField[];       // flat layout
+  readonly rows?: FormSchemaRow[];           // row-based layout
+  readonly validation?: FormSchemaValidationConfig;
+  readonly submitOptions?: SubmitOptions;
+}
+
+interface FormSchemaField {
+  readonly id: string;
+  readonly type: string;
+  readonly props?: Record<string, unknown>;
+  readonly validation?: FieldSchemaValidation;
+  readonly conditions?: ConditionalBehavior;
+  readonly effects?: FieldSchemaEffect[];
+}
+
+interface FieldSchemaValidation {
+  readonly rules?: ValidationDescriptor | ValidationDescriptor[];
+  readonly validateOnChange?: boolean;
+  readonly validateOnBlur?: boolean;
+  readonly debounceMs?: number;
+}
+
+type ValidationDescriptor = ValidationShortcut | ValidationDescriptorObject;
+type ValidationShortcut = 'required' | 'email' | 'url' | 'number';
+
+interface ValidationDescriptorObject {
+  readonly type: string;
+  readonly message?: string;
+  readonly params?: Record<string, unknown>;
+}
+```
+
+#### SchemaRegistry
+
+```ts
+interface SchemaRegistry {
+  readonly validators?: Record<string, CustomValidatorFactory>;
+  readonly effects?: Record<string, SchemaEffectHandler>;
+}
+
+type CustomValidatorFactory = (
+  params?: Record<string, unknown>,
+  message?: string
+) => StandardSchema;
+
+type SchemaEffectHandler = (
+  newValue: unknown,
+  context: FieldEffectContext,
+  params?: Record<string, unknown>
+) => void | Promise<void>;
+```
+
+#### SchemaValidationError
+
+```ts
+class SchemaValidationError extends Error {
+  readonly code = 'SCHEMA_VALIDATION_ERROR';
+  readonly issues: SchemaIssue[];
+}
+
+interface SchemaIssue {
+  readonly path: string;
+  readonly message: string;
+  readonly severity: 'error' | 'warning';
 }
 ```
 

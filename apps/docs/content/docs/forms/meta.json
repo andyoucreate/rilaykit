@@ -6,6 +6,7 @@
     "repeatable-fields",
     "validation",
     "hooks",
-    "advanced-forms"
+    "advanced-forms",
+    "server-driven-forms"
   ]
 }

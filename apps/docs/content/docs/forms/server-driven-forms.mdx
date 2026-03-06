@@ -1,0 +1,486 @@
+---
+title: Server-Driven Forms
+description: Generate fully functional forms from JSON schemas sent by the backend. No frontend redeployment needed.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Server-Driven Forms
+
+RilayKit can generate fully functional forms from a JSON schema — including validation, conditions, effects, and repeatable groups. The backend defines what the form looks like, and the frontend renders it instantly.
+
+<Callout type="info">
+Server-driven forms use the same builder internals as the programmatic API. A `fromSchema()` call produces the exact same `FormConfiguration` you would get from the `form` builder.
+</Callout>
+
+## Quick Start
+
+```tsx
+import { fromSchema } from '@rilaykit/forms';
+import type { FormSchema } from '@rilaykit/forms';
+
+// 1. Fetch the schema from your backend
+const schema: FormSchema = await fetch('/api/forms/contact').then(r => r.json());
+
+// 2. Convert it to a FormConfiguration
+const { formConfig, defaultValues } = fromSchema(schema, rilConfig);
+
+// 3. Render it like any other form
+<FormProvider formConfig={formConfig} defaultValues={defaultValues} onSubmit={handleSubmit}>
+  <FormBody />
+  <FormSubmitButton />
+</FormProvider>
+```
+
+---
+
+## Schema Format
+
+A `FormSchema` is a plain JSON object with the following structure:
+
+```json
+{
+  "id": "contact",
+  "defaultValues": { "country": "FR" },
+  "fields": [
+    {
+      "id": "name",
+      "type": "text",
+      "props": { "label": "Full Name" },
+      "validation": { "rules": "required" }
+    },
+    {
+      "id": "email",
+      "type": "text",
+      "props": { "label": "Email" },
+      "validation": { "rules": ["required", "email"] }
+    }
+  ]
+}
+```
+
+### Two Layout Modes
+
+<Tabs items={['Flat fields (simple)', 'Explicit rows (advanced)']}>
+<Tab value="Flat fields (simple)">
+
+Each field gets its own row — the simplest format for most use cases.
+
+```json
+{
+  "id": "login",
+  "fields": [
+    { "id": "email", "type": "text", "props": { "label": "Email" } },
+    { "id": "password", "type": "text", "props": { "label": "Password" } }
+  ]
+}
+```
+
+</Tab>
+<Tab value="Explicit rows (advanced)">
+
+Full control over row layout — place multiple fields on the same row, mix with repeatable groups.
+
+```json
+{
+  "id": "address",
+  "rows": [
+    {
+      "kind": "fields",
+      "fields": [
+        { "id": "firstName", "type": "text", "props": { "label": "First" } },
+        { "id": "lastName", "type": "text", "props": { "label": "Last" } }
+      ]
+    },
+    {
+      "kind": "fields",
+      "fields": [
+        { "id": "city", "type": "text", "props": { "label": "City" } }
+      ]
+    }
+  ]
+}
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="warn">
+A schema must have exactly **one** of `fields` or `rows` — not both.
+</Callout>
+
+---
+
+## Validation Descriptors
+
+Validation is declared as string shortcuts or parameterized objects. No functions in the JSON — just data.
+
+### String Shortcuts
+
+```json
+{ "validation": { "rules": "required" } }
+{ "validation": { "rules": ["required", "email"] } }
+```
+
+Available shortcuts: `"required"`, `"email"`, `"url"`, `"number"`
+
+### Parameterized Validators
+
+```json
+{
+  "validation": {
+    "rules": [
+      "required",
+      { "type": "minLength", "params": { "min": 3 } },
+      { "type": "maxLength", "params": { "max": 100 }, "message": "Too long!" }
+    ],
+    "validateOnBlur": true,
+    "debounceMs": 300
+  }
+}
+```
+
+Built-in parameterized validators:
+
+| Type | Params | Description |
+|------|--------|-------------|
+| `minLength` | `{ min: number }` | Minimum string length |
+| `maxLength` | `{ max: number }` | Maximum string length |
+| `min` | `{ min: number }` | Minimum numeric value |
+| `max` | `{ max: number }` | Maximum numeric value |
+| `pattern` | `{ pattern: string }` | Regex pattern match |
+
+### Custom Validators via Registry
+
+For validation logic that can't be expressed as JSON, use the **schema registry**:
+
+```tsx
+import { fromSchema } from '@rilaykit/forms';
+import type { SchemaRegistry } from '@rilaykit/forms';
+import { custom } from '@rilaykit/core';
+
+const registry: SchemaRegistry = {
+  validators: {
+    // Custom validator factory — receives params and message from the schema
+    postalCode: (params, message) =>
+      custom((v: string) => /^\d{5}$/.test(v), message ?? 'Invalid postal code'),
+  },
+};
+
+const schema = {
+  id: 'address',
+  fields: [
+    {
+      id: 'zip',
+      type: 'text',
+      props: { label: 'ZIP Code' },
+      validation: {
+        rules: { type: 'postalCode', message: 'Enter a 5-digit ZIP code' },
+      },
+    },
+  ],
+};
+
+const { formConfig } = fromSchema(schema, rilConfig, registry);
+```
+
+---
+
+## Conditions
+
+Conditions use the same `ConditionConfig` format as the programmatic API — they're already JSON-serializable.
+
+```json
+{
+  "id": "companyName",
+  "type": "text",
+  "props": { "label": "Company Name" },
+  "conditions": {
+    "visible": { "field": "accountType", "operator": "equals", "value": "business" },
+    "required": { "field": "accountType", "operator": "equals", "value": "business" }
+  }
+}
+```
+
+All condition operators are supported: `equals`, `notEquals`, `greaterThan`, `lessThan`, `contains`, `in`, `exists`, `matches`, etc.
+
+---
+
+## Effects
+
+Effects let fields react to other field changes. In a schema, effects reference **handler keys** from the registry — no inline functions.
+
+### Schema Definition
+
+```json
+{
+  "id": "city",
+  "type": "select",
+  "props": { "label": "City", "options": [] },
+  "effects": [
+    {
+      "trigger": "change",
+      "watch": "country",
+      "handler": "loadCities"
+    }
+  ]
+}
+```
+
+### Registry Handler
+
+```tsx
+const registry: SchemaRegistry = {
+  effects: {
+    loadCities: async (newValue, { setValue, setProps }) => {
+      setValue('city', '');
+      const cities = await fetchCities(newValue as string);
+      setProps('city', { options: cities });
+    },
+  },
+};
+```
+
+Effect handlers receive the same `FieldEffectContext` as programmatic effects — `setValue`, `setProps`, `getValues`, `getFieldValue`.
+
+You can also pass parameters to reuse handlers across fields:
+
+```json
+{
+  "effects": [
+    {
+      "trigger": "change",
+      "watch": "country",
+      "handler": "clearField",
+      "params": { "target": "city" }
+    }
+  ]
+}
+```
+
+```tsx
+const registry: SchemaRegistry = {
+  effects: {
+    clearField: (newValue, { setValue }, params) => {
+      setValue(params?.target as string, '');
+    },
+  },
+};
+```
+
+---
+
+## Repeatable Groups
+
+Schemas support repeatable field groups via the `rows` format:
+
+```json
+{
+  "id": "team-form",
+  "rows": [
+    {
+      "kind": "repeatable",
+      "repeatable": {
+        "id": "members",
+        "min": 1,
+        "max": 5,
+        "defaultValue": { "role": "member" },
+        "rows": [
+          {
+            "fields": [
+              { "id": "name", "type": "text", "props": { "label": "Name" } },
+              { "id": "role", "type": "select", "props": { "label": "Role", "options": [] } }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Schema Validation
+
+`fromSchema()` validates the schema structure before building. If the schema is invalid, it throws a `SchemaValidationError` with detailed issues:
+
+```tsx
+import { fromSchema, SchemaValidationError } from '@rilaykit/forms';
+
+try {
+  const { formConfig } = fromSchema(schema, rilConfig, registry);
+} catch (error) {
+  if (error instanceof SchemaValidationError) {
+    console.log(error.issues);
+    // [{ path: "fields[0]", message: "Unknown component type: 'foo'", severity: "error" }]
+  }
+}
+```
+
+### Pre-validation
+
+You can also validate a schema without building it:
+
+```tsx
+import { validateSchema } from '@rilaykit/forms';
+
+// Throws SchemaValidationError if invalid
+validateSchema(schema, rilConfig, registry);
+```
+
+### Type Guard
+
+```tsx
+import { isFormSchema } from '@rilaykit/forms';
+
+if (isFormSchema(data)) {
+  // data is narrowed to FormSchema
+  const { formConfig } = fromSchema(data, rilConfig);
+}
+```
+
+---
+
+## API Reference
+
+### `fromSchema(schema, config, registry?)`
+
+Converts a `FormSchema` into a `FormSchemaResult`.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `schema` | `FormSchema` | The JSON schema definition |
+| `config` | `ril<C>` | Your ril configuration with registered components |
+| `registry?` | `SchemaRegistry` | Custom validators and effect handlers |
+
+**Returns:** `FormSchemaResult<C>`
+
+```ts
+interface FormSchemaResult<C> {
+  readonly formConfig: FormConfiguration<C>;
+  readonly defaultValues?: Record<string, unknown>;
+}
+```
+
+### `validateSchema(schema, config, registry?)`
+
+Validates a schema and throws `SchemaValidationError` if invalid.
+
+### `isFormSchema(value)`
+
+Type guard that checks whether a value is a valid `FormSchema` shape.
+
+### `SchemaRegistry`
+
+```ts
+interface SchemaRegistry {
+  readonly validators?: Record<string, CustomValidatorFactory>;
+  readonly effects?: Record<string, SchemaEffectHandler>;
+}
+
+type CustomValidatorFactory = (
+  params?: Record<string, unknown>,
+  message?: string
+) => StandardSchema;
+
+type SchemaEffectHandler = (
+  newValue: unknown,
+  context: FieldEffectContext,
+  params?: Record<string, unknown>
+) => void | Promise<void>;
+```
+
+### `SchemaValidationError`
+
+```ts
+class SchemaValidationError extends Error {
+  readonly code = 'SCHEMA_VALIDATION_ERROR';
+  readonly issues: SchemaIssue[];
+}
+
+interface SchemaIssue {
+  readonly path: string;
+  readonly message: string;
+  readonly severity: 'error' | 'warning';
+}
+```
+
+---
+
+## Full Example
+
+```tsx
+import { ril, required } from '@rilaykit/core';
+import { fromSchema, Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
+import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+
+// 1. Set up your ril config
+const rilConfig = ril.create()
+  .addComponent('text', { renderer: TextInput })
+  .addComponent('select', { renderer: SelectInput });
+
+// 2. Define the registry
+const registry: SchemaRegistry = {
+  validators: {
+    postalCode: (params, msg) =>
+      custom((v: string) => /^\d{5}$/.test(v), msg ?? 'Invalid'),
+  },
+  effects: {
+    loadCities: async (country, { setValue, setProps }) => {
+      setValue('city', '');
+      setProps('city', { options: await fetchCities(country) });
+    },
+  },
+};
+
+// 3. Schema from backend
+const schema: FormSchema = {
+  id: 'onboarding',
+  defaultValues: { country: 'FR' },
+  fields: [
+    {
+      id: 'name',
+      type: 'text',
+      props: { label: 'Full Name' },
+      validation: { rules: 'required' },
+    },
+    {
+      id: 'country',
+      type: 'select',
+      props: { label: 'Country', options: countries },
+    },
+    {
+      id: 'city',
+      type: 'select',
+      props: { label: 'City', options: [] },
+      effects: [{ trigger: 'change', watch: 'country', handler: 'loadCities' }],
+      conditions: {
+        visible: { field: 'country', operator: 'notEquals', value: '' },
+      },
+    },
+    {
+      id: 'zip',
+      type: 'text',
+      props: { label: 'ZIP Code' },
+      validation: { rules: [{ type: 'postalCode' }] },
+    },
+  ],
+};
+
+// 4. Convert and render
+const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+
+function OnboardingForm() {
+  return (
+    <Form
+      formConfig={formConfig}
+      defaultValues={defaultValues}
+      onSubmit={(data) => console.log(data)}
+    >
+      <FormBody />
+      <FormSubmitButton />
+    </Form>
+  );
+}
+```

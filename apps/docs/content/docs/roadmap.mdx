@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: What's coming next for RilayKit. Our public roadmap organized by priority phases, from field-level reactivity to AI-powered form filling.
+description: What's coming next for RilayKit. Our public roadmap organized by priority phases, from AI-powered form filling to visual DevTools.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 
@@ -14,11 +14,45 @@ Want to influence the roadmap? [Open a discussion](https://github.com/andyoucrea
 
 ---
 
-## Phase 2 — Data Transform Pipeline
-
-## Phase 2 — Data Transform Pipeline
+## Phase 5 — AI-Assisted Form Filling
 
 **Status:** Next up
+
+Leverage the schema-first architecture to let LLMs intelligently pre-fill forms from unstructured text. Since RilayKit forms are data, the AI has full knowledge of every field's type, constraints, and validation rules.
+
+### `useAIFormFill()` — Text-to-Form Mapping
+
+```tsx
+const { fillFromText, isProcessing } = useAIFormFill(formConfig, {
+  provider: 'openai', // or 'anthropic', 'custom'
+  model: 'gpt-4o-mini',
+});
+
+// User pastes unstructured text
+await fillFromText(
+  "My name is Karl, I live in Paris, my email is karl@example.com"
+);
+// → setValue('name', 'Karl')
+// → setValue('city', 'Paris')
+// → setValue('email', 'karl@example.com')
+```
+
+**What this unlocks:**
+- Paste-to-fill from emails, documents, or chat transcripts
+- Voice-to-form via speech-to-text + AI mapping
+- Bulk data import from unstructured sources
+- Intelligent defaults based on context
+- Accessibility improvement for complex forms
+
+<Callout type="warn">
+This feature will be opt-in and provider-agnostic. RilayKit will not bundle any AI SDK — you bring your own provider.
+</Callout>
+
+---
+
+## Phase 2 — Data Transform Pipeline
+
+**Status:** Planned
 
 A declarative transform layer that processes form data before and after submission. No more boilerplate in `onSubmit` handlers.
 
@@ -78,59 +112,7 @@ flow.create(r, 'checkout', 'Checkout')
 
 ---
 
-## Phase 4 — Server-Driven Forms
-
-**Status:** Planned
-
-Generate fully functional forms from a JSON schema sent by the backend. RilayKit is already schema-first and headless — this is the natural next step.
-
-### `fromSchema()` — JSON to FormConfig
-
-```tsx
-// Backend sends the form definition
-const schema = await fetch('/api/forms/onboarding');
-
-// Client hydrates it into a fully typed FormConfig
-const formConfig = ril.fromSchema(schema);
-
-// Render it like any other form
-<FormProvider formConfig={formConfig} onSubmit={handleSubmit}>
-  <Form />
-</FormProvider>
-```
-
-### JSON Schema Format
-
-```json
-{
-  "id": "onboarding",
-  "fields": [
-    {
-      "id": "email",
-      "type": "input",
-      "props": { "label": "Email", "type": "email" },
-      "validation": [{ "rule": "required" }, { "rule": "email" }],
-      "conditions": {
-        "visible": { "when": "accountType", "equals": "personal" }
-      }
-    }
-  ],
-  "transform": {
-    "before": ["trim", "lowercase:email"]
-  }
-}
-```
-
-**What this unlocks:**
-- Forms deployed without frontend redeployment
-- Multi-tenant SaaS with per-client form customization
-- CMS-driven form generation
-- Visual form builder backends
-- A/B testing of form variants from the server
-
----
-
-## Phase 5 — DevTools
+## Phase 6 — DevTools
 
 **Status:** Planned
 
@@ -159,7 +141,7 @@ The monitoring system in `@rilaykit/core` already tracks events, performance met
 
 ---
 
-## Phase 6 — Plugin System
+## Phase 7 — Plugin System
 
 **Status:** Exploring
 
@@ -197,45 +179,9 @@ flow.create(r, 'onboarding', 'Onboarding')
 
 ---
 
-## Phase 7 — AI-Assisted Form Filling
-
-**Status:** Exploring
-
-Leverage the schema-first architecture to let LLMs intelligently pre-fill forms from unstructured text. Since RilayKit forms are data, the AI has full knowledge of every field's type, constraints, and validation rules.
-
-### `useAIFormFill()` — Text-to-Form Mapping
-
-```tsx
-const { fillFromText, isProcessing } = useAIFormFill(formConfig, {
-  provider: 'openai', // or 'anthropic', 'custom'
-  model: 'gpt-4o-mini',
-});
-
-// User pastes unstructured text
-await fillFromText(
-  "My name is Karl, I live in Paris, my email is karl@example.com"
-);
-// → setValue('name', 'Karl')
-// → setValue('city', 'Paris')
-// → setValue('email', 'karl@example.com')
-```
-
-**What this unlocks:**
-- Paste-to-fill from emails, documents, or chat transcripts
-- Voice-to-form via speech-to-text + AI mapping
-- Bulk data import from unstructured sources
-- Intelligent defaults based on context
-- Accessibility improvement for complex forms
-
-<Callout type="warn">
-This feature will be opt-in and provider-agnostic. RilayKit will not bundle any AI SDK — you bring your own provider.
-</Callout>
-
----
-
 ## Completed
 
-Features already shipped in the current release (v0.1.x):
+Features already shipped in the current release:
 
 | Feature | Package | Status |
 |---------|---------|--------|
@@ -256,3 +202,7 @@ Features already shipped in the current release (v0.1.x):
 | Field effects with `onChange()` — cascading values, dynamic props, calculated fields | `@rilaykit/core` + `@rilaykit/forms` | Shipped |
 | EffectEngine with cascade protection & async abort | `@rilaykit/forms` | Shipped |
 | `useFieldProps` hook for dynamic field props | `@rilaykit/forms` | Shipped |
+| Server-driven forms with `fromSchema()` — JSON to FormConfig | `@rilaykit/forms` | Shipped |
+| Schema validation (`validateSchema`) and type guard (`isFormSchema`) | `@rilaykit/forms` | Shipped |
+| Schema registry for custom validators and effect handlers | `@rilaykit/forms` | Shipped |
+| Flat and row-based schema layouts with repeatable support | `@rilaykit/forms` | Shipped |

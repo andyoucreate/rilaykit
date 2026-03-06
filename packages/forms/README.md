@@ -190,7 +190,7 @@ validation: {
 | Method | Description |
 |--------|-------------|
 | `form.create(ril, id?)` | Create a new form builder |
-| `.add(...fields)` | Add fields (1-3 per row) |
+| `.add(...fields)` | Add fields to the form |
 | `.addSeparateRows(fields)` | Each field on its own row |
 | `.updateField(id, updates)` | Update a field definition |
 | `.removeField(id)` | Remove a field |
@@ -226,6 +226,18 @@ validation: {
 @rilaykit/workflow      (multi-step workflows)
 ```
 
+### Server-Driven Forms
+
+Generate forms from JSON schemas sent by the backend — no frontend redeployment needed.
+
+```tsx
+import { fromSchema } from '@rilaykit/forms';
+
+const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+```
+
+Supports validation descriptors, conditions, effects via registry handlers, and repeatable groups. See the [Server-Driven Forms guide](https://rilay.dev/forms/server-driven-forms) for details.
+
 ## Documentation
 
 Full documentation at [rilay.dev](https://rilay.dev):
@@ -234,6 +246,7 @@ Full documentation at [rilay.dev](https://rilay.dev):
 - [Rendering Forms](https://rilay.dev/forms/rendering-forms)
 - [Form Validation](https://rilay.dev/forms/validation)
 - [Advanced Forms](https://rilay.dev/forms/advanced-forms)
+- [Server-Driven Forms](https://rilay.dev/forms/server-driven-forms)
 - [Form Hooks](https://rilay.dev/forms/hooks)
 - [API Reference](https://rilay.dev/api)
 

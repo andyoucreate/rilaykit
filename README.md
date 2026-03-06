@@ -170,6 +170,27 @@ conditions: {
 }
 ```
 
+### Server-Driven Forms
+
+Generate forms from JSON schemas — no frontend redeployment needed.
+
+```tsx
+import { fromSchema } from '@rilaykit/forms';
+import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+
+// Backend sends the schema
+const schema: FormSchema = await fetch('/api/forms/onboarding').then(r => r.json());
+
+// Registry provides custom validators and effect handlers
+const registry: SchemaRegistry = {
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(v), msg) },
+  effects: { loadCities: async (country, { setValue, setProps }) => { /* ... */ } },
+};
+
+// Convert to FormConfiguration
+const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+```
+
 ### Multi-Step Workflows
 
 ```tsx
