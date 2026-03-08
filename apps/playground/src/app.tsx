@@ -4,6 +4,7 @@ import { ConditionalFieldsPage } from '@/pages/forms/conditional-fields';
 import { CrossFieldValidationPage } from '@/pages/forms/cross-field-validation';
 import { FieldEffectsPage } from '@/pages/forms/field-effects';
 import { RepeatableFieldsPage } from '@/pages/forms/repeatable-fields';
+import { ServerDrivenFormPage } from '@/pages/forms/server-driven-form';
 import { SimpleFormPage } from '@/pages/forms/simple-form';
 import { HomePage } from '@/pages/home';
 import { ConditionalStepsPage } from '@/pages/workflows/conditional-steps';
@@ -23,6 +24,7 @@ export function App() {
             <Route path="/forms/effects" element={<FieldEffectsPage />} />
             <Route path="/forms/repeatable" element={<RepeatableFieldsPage />} />
             <Route path="/forms/cross-validation" element={<CrossFieldValidationPage />} />
+            <Route path="/forms/server-driven" element={<ServerDrivenFormPage />} />
             <Route path="/workflows/onboarding" element={<MultiStepOnboardingPage />} />
             <Route path="/workflows/conditional" element={<ConditionalStepsPage />} />
           </Routes>

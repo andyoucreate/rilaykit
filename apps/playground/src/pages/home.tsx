@@ -5,6 +5,7 @@ import {
   GitBranch,
   Layers,
   Repeat,
+  Server,
   ShieldCheck,
   Sparkles,
   ToggleLeft,
@@ -54,6 +55,14 @@ const DEMOS: DemoCard[] = [
     description: 'Form-level rules — password match, date ordering, "at least one" constraints.',
     href: '/forms/cross-validation',
     icon: <ShieldCheck className="size-5" />,
+    category: 'Forms',
+  },
+  {
+    title: 'Server-Driven Form',
+    description:
+      'Form generated from a JSON schema using fromSchema(). Validation, conditions, and effects — all from JSON.',
+    href: '/forms/server-driven',
+    icon: <Server className="size-5" />,
     category: 'Forms',
   },
   {
