@@ -2,6 +2,7 @@ import type {
   FieldValidationConfig,
   FormFieldRow,
   RepeatableFieldConfig,
+  RilayInstance,
   ril,
 } from '@rilaykit/core';
 import { type FieldConfig, form } from './form';
@@ -35,7 +36,7 @@ export class RepeatableBuilder<C extends Record<string, any>> {
   private _defaultValue?: Record<string, unknown>;
   private _validation?: FieldValidationConfig;
 
-  constructor(config: ril<C>) {
+  constructor(config: RilayInstance<C> | ril<C>) {
     this.innerForm = new form<C>(config, '__repeatable_template__');
   }
 

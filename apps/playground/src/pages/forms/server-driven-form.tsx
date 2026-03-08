@@ -163,7 +163,7 @@ const registry: SchemaRegistry = {
 // 3. Build the form from the schema
 // ---------------------------------------------------------------------------
 
-const { formConfig, defaultValues } = fromSchema(onboardingSchema, r as any, registry);
+const { formConfig, defaultValues } = fromSchema(onboardingSchema, r, registry);
 
 // ---------------------------------------------------------------------------
 // 4. Schema JSON viewer

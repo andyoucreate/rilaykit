@@ -14,7 +14,7 @@ import {
   onChange,
   pattern as patternValidator,
   required as requiredValidator,
-  type ril,
+  type RilayInstance,
   url as urlValidator,
 } from '@rilaykit/core';
 import type { FieldConfig } from '../builders/form';
@@ -95,7 +95,7 @@ const VALID_CONDITION_OPERATORS = new Set([
  */
 export function fromSchema<C extends Record<string, any>>(
   schema: FormSchema,
-  config: ril<C>,
+  config: RilayInstance<C>,
   registry?: SchemaRegistry
 ): FormSchemaResult<C> {
   // 1. Validate schema structure
@@ -181,7 +181,7 @@ export function isFormSchema(value: unknown): value is FormSchema {
  */
 export function validateSchema<C extends Record<string, any>>(
   schema: FormSchema,
-  config: ril<C>,
+  config: RilayInstance<C>,
   registry?: SchemaRegistry
 ): void {
   const issues: SchemaIssue[] = [];
@@ -260,7 +260,7 @@ export function validateSchema<C extends Record<string, any>>(
 function validateRow<C extends Record<string, any>>(
   row: FormSchemaRow,
   path: string,
-  config: ril<C>,
+  config: RilayInstance<C>,
   registry: SchemaRegistry | undefined,
   issues: SchemaIssue[]
 ): void {
@@ -285,7 +285,7 @@ function validateRow<C extends Record<string, any>>(
 function validateRepeatable<C extends Record<string, any>>(
   row: FormSchemaRepeatableRow,
   path: string,
-  config: ril<C>,
+  config: RilayInstance<C>,
   registry: SchemaRegistry | undefined,
   issues: SchemaIssue[]
 ): void {
@@ -382,7 +382,7 @@ function validateField<C extends Record<string, any>>(
     conditions?: ConditionalBehavior;
   },
   path: string,
-  config: ril<C>,
+  config: RilayInstance<C>,
   registry: SchemaRegistry | undefined,
   issues: SchemaIssue[]
 ): void {

@@ -11,6 +11,7 @@ import {
   type FormValidationConfig,
   IdGenerator,
   type RepeatableFieldConfig,
+  type RilayInstance,
   type SubmitOptions,
   deepClone,
   ensureUnique,
@@ -95,7 +96,7 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  */
 export class form<C extends Record<string, any> = Record<string, never>> {
   /** The ril configuration instance containing component definitions */
-  private config: ril<C>;
+  private config: RilayInstance<C>;
   /** Array of form rows containing field configurations */
   private rows: FormRowEntry[] = [];
   /** Unique identifier for this form */
@@ -118,7 +119,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * const builder = new form(rilConfig, 'my-form');
    * ```
    */
-  constructor(config: ril<C>, formId?: string) {
+  constructor(config: RilayInstance<C> | ril<C>, formId?: string) {
     this.config = config;
     this.formId = formId || `form-${Math.random().toString(36).substring(2, 15)}`;
   }
@@ -138,7 +139,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * - Consistent with other builder APIs
    */
   static create<Cm extends Record<string, any> = Record<string, never>>(
-    config: ril<Cm>,
+    config: RilayInstance<Cm> | ril<Cm>,
     formId?: string
   ): form<Cm> {
     return new form<Cm>(config, formId);

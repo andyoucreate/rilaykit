@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type React from 'react';
 import type { ConditionConfig } from '../conditions';
-import type { ril } from '../config/ril';
+import type { RilayInstance, ril } from '../config/ril';
 
 // =================================================================
 // 1. CORE
@@ -361,7 +361,7 @@ export interface SubmitOptions {
 // 5.5. Form Configuration
 export interface FormConfiguration<C extends Record<string, any> = Record<string, never>> {
   readonly id: string;
-  readonly config: ril<C>;
+  readonly config: RilayInstance<C>;
   readonly rows: FormRowEntry[];
   readonly allFields: FormFieldConfig[];
   readonly repeatableFields?: Record<string, RepeatableFieldConfig>;
