@@ -6,8 +6,8 @@ import { useState } from 'react';
 import {
   Form,
   FormBody,
-  FormSubmitButton,
   type FormSchema,
+  FormSubmitButton,
   type SchemaRegistry,
   fromSchema,
   useFormStoreApi,
@@ -174,10 +174,7 @@ function SchemaViewer({ schema }: { schema: FormSchema }) {
 
   return (
     <Card className="mb-6">
-      <CardHeader
-        className="cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
+      <CardHeader className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <CardTitle className="flex items-center justify-between text-base">
           <span>JSON Schema</span>
           <span className="text-sm font-normal text-muted-foreground">

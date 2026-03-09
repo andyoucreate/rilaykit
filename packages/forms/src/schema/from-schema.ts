@@ -4,6 +4,7 @@ import {
   type FieldEffect,
   type FieldValidationConfig,
   type FormValidationConfig,
+  type RilayInstance,
   type StandardSchema,
   email as emailValidator,
   maxLength as maxLengthValidator,
@@ -14,7 +15,6 @@ import {
   onChange,
   pattern as patternValidator,
   required as requiredValidator,
-  type RilayInstance,
   url as urlValidator,
 } from '@rilaykit/core';
 import type { FieldConfig } from '../builders/form';
