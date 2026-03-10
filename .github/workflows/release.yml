@@ -22,6 +22,11 @@ on:
         required: false
         default: 'alpha'
 
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
 env:
   NODE_VERSION: '24'
   PNPM_VERSION: '8'
