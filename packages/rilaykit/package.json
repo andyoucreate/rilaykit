@@ -1,6 +1,6 @@
 {
   "name": "rilaykit",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": false,
   "description": "All-in-one package for RilayKit — headless forms and workflows for React",
   "main": "dist/index.js",
@@ -13,7 +13,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "provenance": true
   },
@@ -27,7 +29,14 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "forms", "workflows", "typescript", "validation", "builder-pattern"],
+  "keywords": [
+    "react",
+    "forms",
+    "workflows",
+    "typescript",
+    "validation",
+    "builder-pattern"
+  ],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.dev",
