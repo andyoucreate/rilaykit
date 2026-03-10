@@ -6,9 +6,7 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "sideEffects": [
-    "src/builders/form.ts"
-  ],
+  "sideEffects": ["src/builders/form.ts"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -16,9 +14,7 @@
       "require": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "publishConfig": {
     "provenance": true
   },
@@ -33,12 +29,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": [
-    "react",
-    "forms",
-    "form-builder",
-    "typescript"
-  ],
+  "keywords": ["react", "forms", "form-builder", "typescript"],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.dev",
