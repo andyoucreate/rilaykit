@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
   "changelog": ["@changesets/changelog-github", { "repo": "andyoucreate/rilaykit" }],
   "commit": false,
-  "fixed": [["@rilaykit/core", "@rilaykit/forms", "@rilaykit/workflow"]],
+  "fixed": [["@rilaykit/core", "@rilaykit/forms", "@rilaykit/workflow", "rilaykit"]],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
