@@ -109,9 +109,7 @@ Thumbs.db
 storybook-static/
 
 # Changeset
-.changeset/*.md
-!.changeset/config.json
-!.changeset/README.md
+!.changeset/
 
 # Local development
 .local/
