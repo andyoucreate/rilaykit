@@ -1,10 +1,10 @@
-import type {
-  ComponentConfig,
-  FormRenderConfig,
-  RilayInstance,
-  WorkflowRenderConfig,
+import {
+  type ComponentConfig,
+  type FormRenderConfig,
+  ril as OriginalRil,
+  type RilayInstance,
+  type WorkflowRenderConfig,
 } from '@rilaykit/core';
-import { ril as OriginalRil } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
 

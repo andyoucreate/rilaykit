@@ -1,15 +1,19 @@
-import type {
-  CustomStepRenderer,
-  FormConfiguration,
-  StepConditionalBehavior,
-  StepConfig,
-  StepDataHelper,
-  WorkflowAnalytics,
-  WorkflowConfig,
-  WorkflowContext,
-  WorkflowPlugin,
+import {
+  type CustomStepRenderer,
+  type FormConfiguration,
+  IdGenerator,
+  type StepConditionalBehavior,
+  type StepConfig,
+  type StepDataHelper,
+  type WorkflowAnalytics,
+  type WorkflowConfig,
+  type WorkflowContext,
+  type WorkflowPlugin,
+  deepClone,
+  ensureUnique,
+  normalizeToArray,
+  type ril,
 } from '@rilaykit/core';
-import { IdGenerator, deepClone, ensureUnique, normalizeToArray, type ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import type { StepContext, StepMetadata } from '../context/step-context';
 import { createStepContext } from '../context/step-context';
