@@ -1,5 +1,4 @@
-import type { ConditionalBehavior } from '@rilaykit/core';
-import type { ConditionConfig } from '@rilaykit/core';
+import type { ConditionConfig, ConditionalBehavior } from '@rilaykit/core';
 
 // =================================================================
 // SCOPE CONDITIONS
@@ -33,42 +32,20 @@ export function scopeConditions(
   itemKey: string,
   templateFieldIds: Set<string>
 ): ConditionalBehavior {
-  const result: ConditionalBehavior = {};
-
-  if (conditions.visible) {
-    result.visible = scopeConditionConfig(
-      conditions.visible,
-      repeatableId,
-      itemKey,
-      templateFieldIds
-    );
-  }
-  if (conditions.disabled) {
-    result.disabled = scopeConditionConfig(
-      conditions.disabled,
-      repeatableId,
-      itemKey,
-      templateFieldIds
-    );
-  }
-  if (conditions.required) {
-    result.required = scopeConditionConfig(
-      conditions.required,
-      repeatableId,
-      itemKey,
-      templateFieldIds
-    );
-  }
-  if (conditions.readonly) {
-    result.readonly = scopeConditionConfig(
-      conditions.readonly,
-      repeatableId,
-      itemKey,
-      templateFieldIds
-    );
-  }
-
-  return result;
+  return {
+    ...(conditions.visible && {
+      visible: scopeConditionConfig(conditions.visible, repeatableId, itemKey, templateFieldIds),
+    }),
+    ...(conditions.disabled && {
+      disabled: scopeConditionConfig(conditions.disabled, repeatableId, itemKey, templateFieldIds),
+    }),
+    ...(conditions.required && {
+      required: scopeConditionConfig(conditions.required, repeatableId, itemKey, templateFieldIds),
+    }),
+    ...(conditions.readonly && {
+      readonly: scopeConditionConfig(conditions.readonly, repeatableId, itemKey, templateFieldIds),
+    }),
+  };
 }
 
 /**
