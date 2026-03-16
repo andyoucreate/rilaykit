@@ -1,5 +1,9 @@
-import type { WorkflowConfig, WorkflowContext, WorkflowPerformanceMetrics } from '@rilaykit/core';
-import { getGlobalMonitor } from '@rilaykit/core';
+import {
+  type WorkflowConfig,
+  type WorkflowContext,
+  type WorkflowPerformanceMetrics,
+  getGlobalMonitor,
+} from '@rilaykit/core';
 import { useCallback, useEffect, useRef } from 'react';
 import type { WorkflowState } from './useWorkflowState';
 

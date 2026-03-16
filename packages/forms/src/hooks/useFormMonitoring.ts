@@ -1,10 +1,10 @@
-import type {
-  FormConfiguration,
-  FormPerformanceMetrics,
-  MonitoringConfig,
-  PerformanceProfiler,
+import {
+  type FormConfiguration,
+  type FormPerformanceMetrics,
+  type MonitoringConfig,
+  type PerformanceProfiler,
+  getGlobalMonitor,
 } from '@rilaykit/core';
-import { getGlobalMonitor } from '@rilaykit/core';
 import { useCallback, useEffect, useRef } from 'react';
 
 export interface UseFormMonitoringProps {

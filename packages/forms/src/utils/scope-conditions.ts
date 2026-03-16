@@ -1,5 +1,4 @@
-import type { ConditionalBehavior } from '@rilaykit/core';
-import type { ConditionConfig } from '@rilaykit/core';
+import type { ConditionConfig, ConditionalBehavior } from '@rilaykit/core';
 
 // =================================================================
 // SCOPE CONDITIONS
