@@ -303,5 +303,3 @@ export class DevelopmentAdapter implements MonitoringAdapter {
     console.groupEnd();
   }
 }
-
-// Classes are already exported above

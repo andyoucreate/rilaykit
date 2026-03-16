@@ -445,5 +445,3 @@ export async function destroyGlobalMonitoring(): Promise<void> {
     globalMonitor = null;
   }
 }
-
-// RilayMonitor is already exported above
