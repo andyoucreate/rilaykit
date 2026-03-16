@@ -84,9 +84,11 @@ export function createStepContext(
         helper.setNextStepFields(fields);
       },
       skip: () => {
-        // TODO: Implement skip logic
-        // This needs to be wired up to the workflow navigation system
-        console.warn('step.next.skip() not yet implemented');
+        // NOTE: Cannot be implemented with current architecture.
+        // The after() callback runs BEFORE navigation (in goNext()),
+        // so we cannot skip the next step from within this callback.
+        // To skip steps dynamically, use step conditions with `when()`.
+        console.warn('step.next.skip() is not supported. Use step conditions with when() instead.');
       },
     },
 
@@ -98,9 +100,13 @@ export function createStepContext(
         return helper.getAllData() as T;
       },
       goto: (_stepId: string) => {
-        // TODO: Implement goto logic
-        // This needs to be wired up to the workflow navigation system
-        console.warn('step.workflow.goto() not yet implemented');
+        // NOTE: Cannot be implemented with current architecture.
+        // The after() callback runs BEFORE navigation (in goNext()),
+        // so we cannot redirect to a different step from within this callback.
+        // To conditionally show/hide steps, use step conditions with `when()`.
+        console.warn(
+          'step.workflow.goto() is not supported. Use step conditions with when() instead.'
+        );
       },
     },
 
