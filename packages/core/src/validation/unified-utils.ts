@@ -270,8 +270,6 @@ export function combineSchemas<T>(...schemas: StandardSchemaV1<T>[]): StandardSc
   };
 }
 
-// contextAware function removed - use form-level validation for context-dependent validation
-
 /**
  * Utility to create a Standard Schema from any validation function
  * This helps migrate existing validators to Standard Schema

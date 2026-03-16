@@ -602,25 +602,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   }
 
   /**
-   * Adds validators to the form-level validation
-   *
-   * This method allows adding validators to an existing validation configuration
-   * without replacing the entire configuration.
-   *
-   * @param validators - Array of form validators to add
-   * @returns The form builder instance for method chaining
-   *
-   * @example
-   * ```typescript
-   * builder.addValidators([
-   *   customFormValidator,
-   *   anotherFormValidator
-   * ]);
-   * ```
-   */
-  // addValidators method removed - use setValidation with 'validate' property
-
-  /**
    * Adds validation to a specific field by ID
    *
    * This method allows adding validation to a field after it has been created,

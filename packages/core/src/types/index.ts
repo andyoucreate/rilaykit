@@ -99,8 +99,6 @@ export interface FormValidationConfig<T extends Record<string, any> = Record<str
   readonly validateOnStepChange?: boolean;
 }
 
-// Legacy types completely removed - use unified Standard Schema API
-
 // =================================================================
 // 3. COMPONENT SYSTEM
 // =================================================================
