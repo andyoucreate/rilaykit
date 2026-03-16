@@ -601,8 +601,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
     );
   }
 
-  // TODO: flaky in CI — timing issue with form submission data propagation
-  it.skip('should keep enterprise steps visible through form submission flow (enterprise full path)', async () => {
+  it('should keep enterprise steps visible through form submission flow (enterprise full path)', async () => {
     render(
       <WorkflowProvider workflowConfig={conditionalFlow}>
         <FormSubmitTestHarness />
@@ -621,13 +620,12 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
     // Submit form (like WorkflowNextButton) — goes through handleSubmit → setStepDataAction → goNext
     fireEvent.click(screen.getByTestId('fs-submit'));
 
+    // Wait for navigation AND verify conditional steps are still visible
     await waitFor(() => {
       expect(screen.getByTestId('fs-current-step-id')).toHaveTextContent('company');
+      expect(screen.getByTestId('fs-step-company-visible')).toHaveTextContent('true');
+      expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
     });
-
-    // Verify conditional steps are STILL visible after form submission navigation
-    expect(screen.getByTestId('fs-step-company-visible')).toHaveTextContent('true');
-    expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
 
     // Step 1 (company): Fill company details
     fireEvent.click(screen.getByTestId('fs-set-company-name'));
@@ -643,20 +641,20 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
     // In the real app, this calls: submit() → handleSubmit({ companyName, companySize }) → setStepDataAction → goNext
     fireEvent.click(screen.getByTestId('fs-submit'));
 
+    // Wait for navigation AND verify step visibility atomically
     await waitFor(() => {
-      // Should navigate to enterprise step, NOT skip to confirmation
       expect(screen.getByTestId('fs-current-step-id')).toHaveTextContent('enterprise');
+      expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
+      expect(screen.getByTestId('fs-step-company-visible')).toHaveTextContent('true');
     });
 
-    // Verify enterprise step is STILL visible (conditions still evaluate correctly)
-    expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
-    expect(screen.getByTestId('fs-step-company-visible')).toHaveTextContent('true');
-
     // Verify allData integrity
-    const allData = JSON.parse(screen.getByTestId('fs-all-data').textContent || '{}');
-    expect(allData.type?.accountType).toBe('enterprise');
-    expect(allData.company?.companyName).toBe('Tech Innovation SAS');
-    expect(allData.company?.accountType).toBeUndefined();
+    await waitFor(() => {
+      const allData = JSON.parse(screen.getByTestId('fs-all-data').textContent || '{}');
+      expect(allData.type?.accountType).toBe('enterprise');
+      expect(allData.company?.companyName).toBe('Tech Innovation SAS');
+      expect(allData.company?.accountType).toBeUndefined();
+    });
   });
 
   it('should complete full enterprise flow via form submission without losing conditions', async () => {
