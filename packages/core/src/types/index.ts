@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type React from 'react';
 import type { ConditionConfig } from '../conditions';
-import type { RilayInstance, ril } from '../config/ril';
+import type { RilayInstance } from '../config/ril';
 
 // =================================================================
 // 1. CORE

@@ -28,22 +28,20 @@ export function flattenObject(obj: Record<string, any>, prefix = ''): Record<str
   const flattened: Record<string, any> = {};
 
   for (const key in obj) {
-    if (key in obj) {
-      const value = obj[key];
-      const newKey = prefix ? `${prefix}.${key}` : key;
+    const value = obj[key];
+    const newKey = prefix ? `${prefix}.${key}` : key;
 
-      if (
-        value !== null &&
-        typeof value === 'object' &&
-        !Array.isArray(value) &&
-        !(value instanceof Date)
-      ) {
-        // Recursively flatten nested objects, but preserve arrays and dates
-        Object.assign(flattened, flattenObject(value, newKey));
-      } else {
-        // Keep primitive values, arrays, dates, and null as-is
-        flattened[newKey] = value;
-      }
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date)
+    ) {
+      // Recursively flatten nested objects, but preserve arrays and dates
+      Object.assign(flattened, flattenObject(value, newKey));
+    } else {
+      // Keep primitive values, arrays, dates, and null as-is
+      flattened[newKey] = value;
     }
   }
 
