@@ -7,10 +7,15 @@ export interface ValidationIssue {
   readonly code?: string;
 }
 
+const SAFE_JSON_PATH_KEY = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
 export function formatJsonPath(path: JsonPath): string {
   return path.reduce<string>((acc, segment) => {
     if (typeof segment === 'number') {
       return `${acc}[${segment}]`;
+    }
+    if (!SAFE_JSON_PATH_KEY.test(segment)) {
+      return `${acc}[${JSON.stringify(segment)}]`;
     }
     if (acc.length === 0) {
       return segment;

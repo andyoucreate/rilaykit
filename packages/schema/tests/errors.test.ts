@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ManifestValidationError,
+  RilaySchemaError,
   RuntimeExecutionError,
   SchemaValidationError,
   formatJsonPath,
@@ -16,6 +17,14 @@ describe('formatJsonPath', () => {
       'steps[2].nodes[0].props.options[3].value'
     );
   });
+
+  it('formats unsafe string keys with bracket notation', () => {
+    expect(formatJsonPath(['props', 'foo.bar'])).toBe('props["foo.bar"]');
+    expect(formatJsonPath(['props', '0'])).toBe('props["0"]');
+    expect(formatJsonPath(['props', 'with space'])).toBe('props["with space"]');
+    expect(formatJsonPath(['props', ''])).toBe('props[""]');
+    expect(formatJsonPath(['props', 'quote"key'])).toBe('props["quote\\"key"]');
+  });
 });
 
 describe('structured errors', () => {
@@ -25,6 +34,8 @@ describe('structured errors', () => {
     ]);
 
     expect(error.name).toBe('SchemaValidationError');
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(RilaySchemaError);
     expect(error.code).toBe('SCHEMA_VALIDATION_ERROR');
     expect(error.issues[0].path).toEqual(['mode']);
     expect(error.message).toContain('[mode] Required');
@@ -36,6 +47,8 @@ describe('structured errors', () => {
     ]);
 
     expect(error.name).toBe('ManifestValidationError');
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(RilaySchemaError);
     expect(error.code).toBe('MANIFEST_VALIDATION_ERROR');
     expect(error.message).toContain('[steps[0].nodes[0].type]');
   });
