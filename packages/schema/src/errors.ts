@@ -44,9 +44,22 @@ export class RilaySchemaError extends Error {
   }
 }
 
+export type SchemaValidationTarget = 'surface' | 'manifest';
+
+export interface SchemaValidationErrorOptions {
+  readonly target?: SchemaValidationTarget;
+}
+
 export class SchemaValidationError extends RilaySchemaError {
-  constructor(issues: readonly ValidationIssue[]) {
-    super(`Invalid surface schema: ${formatIssues(issues)}`, 'SCHEMA_VALIDATION_ERROR', issues);
+  constructor(
+    issues: readonly ValidationIssue[],
+    options: SchemaValidationErrorOptions = {}
+  ) {
+    const target = options.target ?? 'surface';
+    const messagePrefix =
+      target === 'manifest' ? 'Invalid registry manifest' : 'Invalid surface schema';
+
+    super(`${messagePrefix}: ${formatIssues(issues)}`, 'SCHEMA_VALIDATION_ERROR', issues);
     this.name = 'SchemaValidationError';
   }
 }

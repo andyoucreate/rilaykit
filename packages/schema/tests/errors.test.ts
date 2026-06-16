@@ -38,7 +38,22 @@ describe('structured errors', () => {
     expect(error).toBeInstanceOf(RilaySchemaError);
     expect(error.code).toBe('SCHEMA_VALIDATION_ERROR');
     expect(error.issues[0].path).toEqual(['mode']);
+    expect(error.message).toContain('Invalid surface schema:');
     expect(error.message).toContain('[mode] Required');
+  });
+
+  it('creates manifest-targeted schema validation errors with code and issues', () => {
+    const error = new SchemaValidationError(
+      [{ path: ['manifest', 'version'], message: 'Expected 1', code: 'invalid_literal' }],
+      { target: 'manifest' }
+    );
+
+    expect(error.name).toBe('SchemaValidationError');
+    expect(error).toBeInstanceOf(RilaySchemaError);
+    expect(error.code).toBe('SCHEMA_VALIDATION_ERROR');
+    expect(error.issues[0].path).toEqual(['manifest', 'version']);
+    expect(error.message).toContain('Invalid registry manifest:');
+    expect(error.message).toContain('[manifest.version] Expected 1');
   });
 
   it('creates manifest validation errors with code and issues', () => {

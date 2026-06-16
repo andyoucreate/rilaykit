@@ -177,9 +177,17 @@ describe('compileSurface', () => {
   });
 
   it('throws SchemaValidationError when the surface shape is invalid', () => {
-    expect(() => compileSurface({ kind: 'surface', mode: 'screen' }, manifest)).toThrow(
-      SchemaValidationError
-    );
+    const call = () => compileSurface({ kind: 'surface', mode: 'screen' }, manifest);
+
+    expect(call).toThrow(SchemaValidationError);
+    expect(call).toThrow('Invalid surface schema:');
+
+    try {
+      call();
+    } catch (error) {
+      expect(error).toBeInstanceOf(SchemaValidationError);
+      expect((error as SchemaValidationError).issues[0].path[0]).toBe('surface');
+    }
   });
 
   it('throws SchemaValidationError when the manifest shape is invalid', () => {
@@ -191,7 +199,17 @@ describe('compileSurface', () => {
       nodes: [],
     } satisfies SurfaceSchema;
 
-    expect(() => compileSurface(surface, { version: 2 })).toThrow(SchemaValidationError);
+    const call = () => compileSurface(surface, { version: 2 });
+
+    expect(call).toThrow(SchemaValidationError);
+    expect(call).toThrow('Invalid registry manifest:');
+
+    try {
+      call();
+    } catch (error) {
+      expect(error).toBeInstanceOf(SchemaValidationError);
+      expect((error as SchemaValidationError).issues[0].path).toEqual(['manifest', 'version']);
+    }
   });
 
   it('throws ManifestValidationError when the surface does not match the manifest', () => {
