@@ -161,7 +161,13 @@ describe('assertSurfaceMatchesManifest', () => {
 
     const error = captureManifestError(() => assertSurfaceMatchesManifest(surface, manifest));
 
-    expect(error.issues[0].path).toEqual(['nodes', 0, 'validation', 0, 'type']);
+    expect(error.issues).toEqual([
+      {
+        path: ['nodes', 0, 'validation', 0, 'type'],
+        message: 'Validation type "required" is not allowed for field type "readonly"',
+        code: 'manifest_unknown_validation',
+      },
+    ]);
   });
 
   it('reports missing required action handlers', () => {
@@ -210,5 +216,54 @@ describe('assertSurfaceMatchesManifest', () => {
 
     expect(error.issues[0].path).toEqual(['nodes', 0, 'nodes', 0, 'validation', 0, 'type']);
     expect(error.message).toContain('[nodes[0].nodes[0].validation[0].type]');
+  });
+
+  it('accumulates flow issues across steps and nested groups', () => {
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'flow',
+      id: 'quote',
+      steps: [
+        {
+          id: 'details',
+          nodes: [
+            {
+              kind: 'group',
+              type: 'section',
+              nodes: [
+                {
+                  kind: 'field',
+                  id: 'website',
+                  type: 'text',
+                  validation: [{ type: 'url' }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'submit',
+          nodes: [{ kind: 'action', type: 'submit' }],
+        },
+      ],
+    } satisfies SurfaceSchema;
+
+    const error = captureManifestError(() => assertSurfaceMatchesManifest(surface, manifest));
+
+    expect(error.issues).toEqual([
+      {
+        path: ['steps', 0, 'nodes', 0, 'nodes', 0, 'validation', 0, 'type'],
+        message: 'Validation type "url" is not allowed for field type "text"',
+        code: 'manifest_unknown_validation',
+      },
+      {
+        path: ['steps', 1, 'nodes', 0, 'handler'],
+        message: 'Action type "submit" requires a handler',
+        code: 'manifest_missing_handler',
+      },
+    ]);
+    expect(error.message).toContain('[steps[0].nodes[0].nodes[0].validation[0].type]');
+    expect(error.message).toContain('[steps[1].nodes[0].handler]');
   });
 });

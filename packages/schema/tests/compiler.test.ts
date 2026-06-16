@@ -145,6 +145,41 @@ describe('normalizeSurface', () => {
     expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[1]']).toBeUndefined();
     expect(graph.indexes.fields).toEqual({ firstName: originalField });
   });
+
+  it('uses the last field or action when duplicate ids are normalized', () => {
+    const firstEmail = { kind: 'field', id: 'email', type: 'text' } as const;
+    const secondEmail = { kind: 'field', id: 'email', type: 'email' } as const;
+    const firstSubmit = { kind: 'action', id: 'submit', type: 'button' } as const;
+    const secondSubmit = { kind: 'action', id: 'submit', type: 'submit' } as const;
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'duplicates',
+      nodes: [firstEmail, firstSubmit, secondEmail, secondSubmit],
+    } satisfies SurfaceSchema;
+
+    const graph = normalizeSurface(surface);
+
+    expect(graph.indexes.fields.email).toBe(secondEmail);
+    expect(graph.indexes.actions.submit).toBe(secondSubmit);
+  });
+
+  it('does not index actions without an id', () => {
+    const anonymousAction = { kind: 'action', type: 'submit', handler: 'submitLead' } as const;
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'anonymous-action',
+      nodes: [anonymousAction],
+    } satisfies SurfaceSchema;
+
+    const graph = normalizeSurface(surface);
+
+    expect(graph.indexes.actions).toEqual({});
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0]']).toBe(anonymousAction);
+  });
 });
 
 describe('compileSurface', () => {
