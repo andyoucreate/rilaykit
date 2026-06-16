@@ -91,8 +91,56 @@ describe('normalizeSurface', () => {
 
     expect(graph.indexes.fields.firstName).toBe(firstName);
     expect(graph.indexes.actions.saveDraft).toBe(saveDraft);
-    expect(graph.indexes.nodesByPath['steps[0].nodes[0]']).toBe(group);
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0]']).toEqual(group);
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0]']).not.toBe(group);
     expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[1]']).toBe(firstName);
     expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[2]']).toBe(saveDraft);
+  });
+
+  it('keeps the normalized graph stable when the source structure is mutated later', () => {
+    const originalField: SurfaceNode = { kind: 'field', id: 'firstName', type: 'text' };
+    const addedField: SurfaceNode = { kind: 'field', id: 'lastName', type: 'text' };
+    const group: SurfaceNode = {
+      kind: 'group',
+      type: 'section',
+      nodes: [originalField],
+    };
+    const surface: SurfaceSchema = {
+      version: 2,
+      kind: 'surface',
+      mode: 'flow',
+      id: 'stable',
+      steps: [
+        {
+          id: 'details',
+          nodes: [group],
+        },
+        {
+          id: 'confirm',
+          nodes: [{ kind: 'action', id: 'submit', type: 'submit' }],
+        },
+      ],
+    };
+
+    const graph = normalizeSurface(surface);
+    const firstStep = graph.steps[0];
+    const normalizedGroup = graph.indexes.nodesByPath['steps[0].nodes[0]'] as Extract<
+      SurfaceNode,
+      { kind: 'group' }
+    >;
+
+    surface.steps.reverse();
+    surface.steps[1].nodes.push(addedField);
+    group.nodes.push(addedField);
+
+    expect(graph.steps.map((step) => step.id)).toEqual(['details', 'confirm']);
+    expect(graph.steps[0]).toBe(firstStep);
+    expect(graph.steps[0].nodes).toHaveLength(1);
+    expect(normalizedGroup.nodes).toEqual([originalField]);
+    expect(graph.indexes.nodesByPath['steps[0]']).toBe(firstStep);
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0]']).toBe(normalizedGroup);
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[0]']).toBe(originalField);
+    expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[1]']).toBeUndefined();
+    expect(graph.indexes.fields).toEqual({ firstName: originalField });
   });
 });

@@ -1,7 +1,5 @@
 import { formatJsonPath, type JsonPath } from './errors';
 import type {
-  ActionNode,
-  FieldNode,
   RuntimeGraph,
   RuntimeGraphIndexes,
   RuntimeStep,
@@ -31,13 +29,31 @@ function normalizeSteps(surface: SurfaceSchema): RuntimeStep[] {
         title: surface.title,
         description: surface.description,
         metadata: surface.metadata,
-        nodes: surface.nodes,
+        nodes: cloneNodes(surface.nodes),
         implicit: true,
       },
     ];
   }
 
-  return surface.steps;
+  return surface.steps.map((step) => ({
+    ...step,
+    nodes: cloneNodes(step.nodes),
+  }));
+}
+
+function cloneNodes(nodes: readonly SurfaceNode[]): SurfaceNode[] {
+  return nodes.map(cloneNode);
+}
+
+function cloneNode(node: SurfaceNode): SurfaceNode {
+  if (node.kind === 'group') {
+    return {
+      ...node,
+      nodes: cloneNodes(node.nodes),
+    };
+  }
+
+  return node;
 }
 
 function buildIndexes(steps: readonly RuntimeStep[]): RuntimeGraphIndexes {
@@ -77,11 +93,11 @@ function indexNodes(
 function indexNodeByKind(node: SurfaceNode, indexes: RuntimeGraphIndexes): void {
   switch (node.kind) {
     case 'field':
-      indexes.fields[node.id] = node as FieldNode;
+      indexes.fields[node.id] = node;
       return;
     case 'action':
       if (node.id) {
-        indexes.actions[node.id] = node as ActionNode;
+        indexes.actions[node.id] = node;
       }
       return;
     case 'content':
