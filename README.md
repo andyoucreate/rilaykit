@@ -23,6 +23,7 @@ RilayKit treats forms as **data structures**, not JSX trees. You describe what a
 | Package | Version | Description |
 |---------|---------|-------------|
 | [`rilaykit`](./packages/rilaykit) | ![npm](https://img.shields.io/npm/v/rilaykit) | **All-in-one** — single install with enhanced `ril.form()` / `ril.flow()` API |
+| [`@rilaykit/schema`](./packages/schema) | ![npm](https://img.shields.io/npm/v/@rilaykit/schema) | **V2 schema** — portable JSON surfaces, registry manifests, structured validation, and runtime graph compilation |
 | [`@rilaykit/core`](./packages/core) | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Component registry, types, validation, conditions, monitoring |
 | [`@rilaykit/forms`](./packages/forms) | ![npm](https://img.shields.io/npm/v/@rilaykit/forms) | Form builder and headless React components |
 | [`@rilaykit/workflow`](./packages/workflow) | ![npm](https://img.shields.io/npm/v/@rilaykit/workflow) | Multi-step workflows with persistence, analytics, plugins |
@@ -141,6 +142,20 @@ const loginForm = rilay
 ```
 
 ## Key Features
+
+### V2 Portable Surface Schema
+
+`@rilaykit/schema` introduces the Rilay v2 JSON contract for generated interfaces. It validates strict `SurfaceSchema` JSON against a portable `RegistryManifest`, then compiles both single-screen and multi-step surfaces into one React-free `RuntimeGraph`.
+
+```ts
+import { compileSurface } from '@rilaykit/schema';
+
+const compiled = compileSurface(surfaceJson, registryManifest);
+
+console.log(compiled.graph.steps);
+```
+
+This package is intentionally renderer-free so backend services, builders, and AI tooling can share the same schema contract as the frontend runtime.
 
 ### Universal Validation
 

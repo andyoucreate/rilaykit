@@ -1,4 +1,4 @@
-import { formatJsonPath, type JsonPath } from './errors';
+import { type JsonPath, formatJsonPath } from './errors';
 import type {
   RuntimeGraph,
   RuntimeGraphIndexes,
@@ -106,7 +106,7 @@ function indexNodeByKind(node: SurfaceNode, indexes: RuntimeGraphIndexes): void 
       return;
     default: {
       const exhaustive: never = node;
-      return exhaustive;
+      void exhaustive;
     }
   }
 }

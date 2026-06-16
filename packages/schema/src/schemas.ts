@@ -9,7 +9,7 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.null(),
     z.array(jsonValueSchema),
     z.record(z.string(), jsonValueSchema),
-  ]),
+  ])
 );
 
 export const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
@@ -86,7 +86,7 @@ export const surfaceNodeSchema: z.ZodType<SurfaceNode> = z.lazy(() =>
       })
       .strict(),
     baseNodeSchema.extend({ kind: z.literal('slot') }).strict(),
-  ]),
+  ])
 );
 
 export const surfaceStepSchema = z
@@ -123,10 +123,7 @@ export const flowSurfaceSchema = baseSurfaceSchema
   })
   .strict();
 
-export const surfaceSchema = z.discriminatedUnion('mode', [
-  screenSurfaceSchema,
-  flowSurfaceSchema,
-]);
+export const surfaceSchema = z.discriminatedUnion('mode', [screenSurfaceSchema, flowSurfaceSchema]);
 
 export function isSurfaceSchema(value: unknown): value is SurfaceSchema {
   return surfaceSchema.safeParse(value).success;
@@ -171,16 +168,10 @@ export const registryManifestSchema = z
   .object({
     version: z.literal(1),
     fields: z.record(fieldManifestEntrySchema).optional(),
-    content: z
-      .record(nodeManifestEntrySchema.extend({ kind: z.literal('content') }))
-      .optional(),
+    content: z.record(nodeManifestEntrySchema.extend({ kind: z.literal('content') })).optional(),
     actions: z.record(actionManifestEntrySchema).optional(),
-    groups: z
-      .record(nodeManifestEntrySchema.extend({ kind: z.literal('group') }))
-      .optional(),
-    slots: z
-      .record(nodeManifestEntrySchema.extend({ kind: z.literal('slot') }))
-      .optional(),
+    groups: z.record(nodeManifestEntrySchema.extend({ kind: z.literal('group') })).optional(),
+    slots: z.record(nodeManifestEntrySchema.extend({ kind: z.literal('slot') })).optional(),
   })
   .strict();
 

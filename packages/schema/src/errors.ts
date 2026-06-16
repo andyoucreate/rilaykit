@@ -51,10 +51,7 @@ export interface SchemaValidationErrorOptions {
 }
 
 export class SchemaValidationError extends RilaySchemaError {
-  constructor(
-    issues: readonly ValidationIssue[],
-    options: SchemaValidationErrorOptions = {}
-  ) {
+  constructor(issues: readonly ValidationIssue[], options: SchemaValidationErrorOptions = {}) {
     const target = options.target ?? 'surface';
     const messagePrefix =
       target === 'manifest' ? 'Invalid registry manifest' : 'Invalid surface schema';

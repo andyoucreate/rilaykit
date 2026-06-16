@@ -160,7 +160,12 @@ describe('compileSurface', () => {
 
   it('validates and compiles a surface with indexed fields and actions', () => {
     const email = { kind: 'field', id: 'email', type: 'text' } as const;
-    const submit = { kind: 'action', id: 'submitSignup', type: 'submit', handler: 'submit' } as const;
+    const submit = {
+      kind: 'action',
+      id: 'submitSignup',
+      type: 'submit',
+      handler: 'submit',
+    } as const;
     const surface = {
       version: 2,
       kind: 'surface',

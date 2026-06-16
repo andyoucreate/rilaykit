@@ -16,7 +16,7 @@ describe('SurfaceSchema validation', () => {
             props: { text: 'Hello' },
           },
         ],
-      }),
+      })
     ).toBe(true);
   });
 
@@ -34,7 +34,7 @@ describe('SurfaceSchema validation', () => {
             nodes: [{ kind: 'field', id: 'email', type: 'text' }],
           },
         ],
-      }),
+      })
     ).toBe(true);
   });
 
@@ -46,7 +46,7 @@ describe('SurfaceSchema validation', () => {
         mode: 'screen',
         id: 'bad',
         steps: [],
-      }),
+      })
     ).toBe(false);
   });
 
@@ -58,7 +58,7 @@ describe('SurfaceSchema validation', () => {
         mode: 'flow',
         id: 'bad',
         nodes: [],
-      }),
+      })
     ).toBe(false);
   });
 
@@ -76,7 +76,7 @@ describe('SurfaceSchema validation', () => {
             props: { render: () => 'Hello' },
           },
         ],
-      }),
+      })
     ).toBe(false);
   });
 
@@ -89,7 +89,7 @@ describe('SurfaceSchema validation', () => {
         id: 'bad',
         metadata: { symbol: Symbol('bad') },
         nodes: [],
-      }),
+      })
     ).toBe(false);
   });
 
@@ -108,7 +108,7 @@ describe('SurfaceSchema validation', () => {
             defaultValue: new Date(),
           },
         ],
-      }),
+      })
     ).toBe(false);
   });
 
@@ -133,7 +133,7 @@ describe('SurfaceSchema validation', () => {
             },
           },
         ],
-      }),
+      })
     ).toBe(false);
   });
 });
@@ -149,7 +149,7 @@ describe('RegistryManifest validation', () => {
             examples: [{ props: { normalize: () => 'bad' } }],
           },
         },
-      }),
+      })
     ).toBe(false);
   });
 
@@ -163,7 +163,7 @@ describe('RegistryManifest validation', () => {
             capabilities: { run: () => undefined },
           },
         },
-      }),
+      })
     ).toBe(false);
   });
 });

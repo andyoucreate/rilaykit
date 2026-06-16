@@ -1,4 +1,4 @@
-import { ManifestValidationError, type JsonPath, type ValidationIssue } from './errors';
+import { type JsonPath, ManifestValidationError, type ValidationIssue } from './errors';
 import type {
   ActionManifestEntry,
   ContentManifestEntry,
