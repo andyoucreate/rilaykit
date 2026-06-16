@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { compileSurface } from '../src/compiler';
+import { ManifestValidationError, SchemaValidationError } from '../src/errors';
 import { normalizeSurface } from '../src/normalize';
-import type { SurfaceNode, SurfaceSchema } from '../src/types';
+import type { RegistryManifest, SurfaceNode, SurfaceSchema } from '../src/types';
 
 describe('normalizeSurface', () => {
   it('normalizes a screen to one implicit step and indexes fields and node paths', () => {
@@ -142,5 +144,77 @@ describe('normalizeSurface', () => {
     expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[0]']).toBe(originalField);
     expect(graph.indexes.nodesByPath['steps[0].nodes[0].nodes[1]']).toBeUndefined();
     expect(graph.indexes.fields).toEqual({ firstName: originalField });
+  });
+});
+
+describe('compileSurface', () => {
+  const manifest = {
+    version: 1,
+    fields: {
+      text: { kind: 'field' },
+    },
+    actions: {
+      submit: { kind: 'action', handlerRequired: true },
+    },
+  } satisfies RegistryManifest;
+
+  it('validates and compiles a surface with indexed fields and actions', () => {
+    const email = { kind: 'field', id: 'email', type: 'text' } as const;
+    const submit = { kind: 'action', id: 'submitSignup', type: 'submit', handler: 'submit' } as const;
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'signup',
+      nodes: [email, submit],
+    } satisfies SurfaceSchema;
+
+    const compiled = compileSurface(surface, manifest);
+
+    expect(compiled.graph.surfaceId).toBe('signup');
+    expect(compiled.graph.indexes.fields.email).toEqual(email);
+    expect(compiled.graph.indexes.actions.submitSignup).toEqual(submit);
+  });
+
+  it('throws SchemaValidationError when the surface shape is invalid', () => {
+    expect(() => compileSurface({ kind: 'surface', mode: 'screen' }, manifest)).toThrow(
+      SchemaValidationError
+    );
+  });
+
+  it('throws SchemaValidationError when the manifest shape is invalid', () => {
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'signup',
+      nodes: [],
+    } satisfies SurfaceSchema;
+
+    expect(() => compileSurface(surface, { version: 2 })).toThrow(SchemaValidationError);
+  });
+
+  it('throws ManifestValidationError when the surface does not match the manifest', () => {
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'signup',
+      nodes: [{ kind: 'field', id: 'email', type: 'unknown' }],
+    } satisfies SurfaceSchema;
+
+    expect(() => compileSurface(surface, manifest)).toThrow(ManifestValidationError);
+  });
+
+  it('returns the normalized graph without duplicating normalization behavior', () => {
+    const surface = {
+      version: 2,
+      kind: 'surface',
+      mode: 'screen',
+      id: 'signup',
+      nodes: [{ kind: 'field', id: 'email', type: 'text' }],
+    } satisfies SurfaceSchema;
+
+    expect(compileSurface(surface, manifest).graph).toEqual(normalizeSurface(surface));
   });
 });
