@@ -1,6 +1,9 @@
 export type SurfaceMode = 'screen' | 'flow';
 export type SurfaceNodeKind = 'field' | 'content' | 'action' | 'group' | 'slot';
-export type JsonObject = Record<string, unknown>;
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+export type JsonObject = { readonly [key: string]: JsonValue };
+export type JsonArray = readonly JsonValue[];
 
 export interface BaseSurfaceSchema {
   readonly version: 2;
@@ -47,7 +50,7 @@ export interface FieldNode extends BaseNode {
   readonly kind: 'field';
   readonly id: string;
   readonly validation?: ValidationDescriptor[];
-  readonly defaultValue?: unknown;
+  readonly defaultValue?: JsonValue;
 }
 
 export interface ContentNode extends BaseNode {
@@ -91,7 +94,7 @@ export interface ConditionDescriptor {
     | 'exists'
     | 'notExists'
     | 'matches';
-  readonly value?: unknown;
+  readonly value?: JsonValue;
 }
 
 export interface ConditionsDescriptor {
@@ -102,25 +105,27 @@ export interface ConditionsDescriptor {
   readonly skippable?: ConditionDescriptor;
 }
 
-export interface JsonSchemaObject {
-  readonly [key: string]: unknown;
-}
+export type JsonSchemaObject = JsonObject;
 
 export interface RegistryManifest {
   readonly version: 1;
   readonly fields?: Record<string, FieldManifestEntry>;
-  readonly content?: Record<string, NodeManifestEntry>;
+  readonly content?: Record<string, ContentManifestEntry>;
   readonly actions?: Record<string, ActionManifestEntry>;
-  readonly groups?: Record<string, NodeManifestEntry>;
-  readonly slots?: Record<string, NodeManifestEntry>;
+  readonly groups?: Record<string, GroupManifestEntry>;
+  readonly slots?: Record<string, SlotManifestEntry>;
 }
 
 export interface NodeManifestEntry {
   readonly kind: SurfaceNodeKind;
   readonly propsSchema?: JsonSchemaObject;
   readonly description?: string;
-  readonly examples?: unknown[];
+  readonly examples?: JsonValue[];
   readonly capabilities?: JsonObject;
+}
+
+export interface ContentManifestEntry extends NodeManifestEntry {
+  readonly kind: 'content';
 }
 
 export interface FieldManifestEntry extends NodeManifestEntry {
@@ -132,6 +137,14 @@ export interface FieldManifestEntry extends NodeManifestEntry {
 export interface ActionManifestEntry extends NodeManifestEntry {
   readonly kind: 'action';
   readonly handlerRequired?: boolean;
+}
+
+export interface GroupManifestEntry extends NodeManifestEntry {
+  readonly kind: 'group';
+}
+
+export interface SlotManifestEntry extends NodeManifestEntry {
+  readonly kind: 'slot';
 }
 
 export interface RuntimeGraph {

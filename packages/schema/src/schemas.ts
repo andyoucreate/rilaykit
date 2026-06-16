@@ -1,7 +1,18 @@
 import { z } from 'zod';
-import type { RegistryManifest, SurfaceSchema } from './types';
+import type { JsonValue, RegistryManifest, SurfaceNode, SurfaceSchema } from './types';
 
-const jsonObjectSchema = z.record(z.string(), z.unknown());
+export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number().finite(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+);
+
+export const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
 
 export const validationDescriptorSchema = z
   .object({
@@ -29,7 +40,7 @@ export const conditionDescriptorSchema = z
       'notExists',
       'matches',
     ]),
-    value: z.unknown().optional(),
+    value: jsonValueSchema.optional(),
   })
   .strict();
 
@@ -50,23 +61,14 @@ const baseNodeSchema = z.object({
   metadata: jsonObjectSchema.optional(),
 });
 
-type RecursiveNode = z.infer<typeof baseNodeSchema> & {
-  kind: 'field' | 'content' | 'action' | 'group' | 'slot';
-  id?: string;
-  handler?: string;
-  validation?: z.infer<typeof validationDescriptorSchema>[];
-  defaultValue?: unknown;
-  nodes?: RecursiveNode[];
-};
-
-export const surfaceNodeSchema: z.ZodType<RecursiveNode> = z.lazy(() =>
+export const surfaceNodeSchema: z.ZodType<SurfaceNode> = z.lazy(() =>
   z.discriminatedUnion('kind', [
     baseNodeSchema
       .extend({
         kind: z.literal('field'),
         id: z.string().min(1),
         validation: z.array(validationDescriptorSchema).optional(),
-        defaultValue: z.unknown().optional(),
+        defaultValue: jsonValueSchema.optional(),
       })
       .strict(),
     baseNodeSchema.extend({ kind: z.literal('content') }).strict(),
@@ -130,14 +132,14 @@ export function isSurfaceSchema(value: unknown): value is SurfaceSchema {
   return surfaceSchema.safeParse(value).success;
 }
 
-const jsonSchemaObjectSchema = z.record(z.string(), z.unknown());
+const jsonSchemaObjectSchema = jsonObjectSchema;
 
 export const nodeManifestEntrySchema = z
   .object({
     kind: z.enum(['content', 'group', 'slot']),
     propsSchema: jsonSchemaObjectSchema.optional(),
     description: z.string().optional(),
-    examples: z.array(z.unknown()).optional(),
+    examples: z.array(jsonValueSchema).optional(),
     capabilities: jsonObjectSchema.optional(),
   })
   .strict();
@@ -148,7 +150,7 @@ export const fieldManifestEntrySchema = z
     propsSchema: jsonSchemaObjectSchema.optional(),
     valueSchema: jsonSchemaObjectSchema.optional(),
     description: z.string().optional(),
-    examples: z.array(z.unknown()).optional(),
+    examples: z.array(jsonValueSchema).optional(),
     capabilities: jsonObjectSchema.optional(),
     validations: z.array(z.string().min(1)).optional(),
   })
@@ -159,7 +161,7 @@ export const actionManifestEntrySchema = z
     kind: z.literal('action'),
     propsSchema: jsonSchemaObjectSchema.optional(),
     description: z.string().optional(),
-    examples: z.array(z.unknown()).optional(),
+    examples: z.array(jsonValueSchema).optional(),
     capabilities: jsonObjectSchema.optional(),
     handlerRequired: z.boolean().optional(),
   })
