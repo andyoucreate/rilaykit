@@ -1,0 +1,50 @@
+{
+  "name": "@rilaykit/schema",
+  "version": "0.1.6",
+  "private": false,
+  "description": "Portable JSON schemas, manifests, and compiler for Rilay v2 surfaces",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:run": "vitest run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["rilaykit", "schema", "json-schema", "generative-ui", "typescript"],
+  "author": "AND YOU CREATE <contact@andyoucreate.com>",
+  "license": "MIT",
+  "homepage": "https://rilay.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilaykit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilaykit/issues"
+  },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
