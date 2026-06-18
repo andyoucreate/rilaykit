@@ -613,16 +613,22 @@ export function WorkflowProvider({
     if (!formConfig?.allFields) return currentStepData;
 
     const currentStepFieldIds = new Set(formConfig.allFields.map((field) => field.id));
+    const currentStepRepeatableIds = new Set(Object.keys(formConfig.repeatableFields ?? {}));
     const filteredData: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(currentStepData)) {
-      if (currentStepFieldIds.has(key)) {
+      if (currentStepFieldIds.has(key) || currentStepRepeatableIds.has(key)) {
         filteredData[key] = value;
       }
     }
 
     return filteredData;
-  }, [workflowState?.allData, currentStep?.id, formConfig?.allFields]);
+  }, [
+    workflowState?.allData,
+    currentStep?.id,
+    formConfig?.allFields,
+    formConfig?.repeatableFields,
+  ]);
 
   const formProviderKey = useMemo(
     () => workflowState.isInitializing.toString(),

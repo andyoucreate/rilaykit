@@ -1,6 +1,14 @@
-import type { FormConfiguration, FormFieldConfig, ValidationResult } from '@rilaykit/core';
+import type {
+  ConditionBuilder,
+  ConditionConfig,
+  FormConfiguration,
+  FormFieldConfig,
+  RepeatableFieldConfig,
+  ValidationResult,
+} from '@rilaykit/core';
 import {
   createValidationContext,
+  evaluateCondition,
   hasUnifiedValidation,
   isEmptyValue,
   validateFormWithUnifiedConfig,
@@ -14,6 +22,31 @@ import type { UseFormConditionsReturn } from './useFormConditions';
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
   return { isValid: true, errors: [] };
+}
+
+function evaluateTemplateVisibleCondition(
+  condition: ConditionConfig | ConditionBuilder | undefined,
+  formData: Record<string, unknown>
+): boolean {
+  if (!condition) return true;
+
+  try {
+    if (typeof condition === 'object' && 'build' in condition) {
+      return evaluateCondition(condition.build(), formData);
+    }
+    return evaluateCondition(condition, formData);
+  } catch {
+    return false;
+  }
+}
+
+function isRepeatableVisible(
+  config: RepeatableFieldConfig,
+  formData: Record<string, unknown>
+): boolean {
+  return config.allFields.some((field) =>
+    evaluateTemplateVisibleCondition(field.conditions?.visible, formData)
+  );
 }
 
 export interface UseFormValidationWithStoreProps {
@@ -206,8 +239,12 @@ export function useFormValidationWithStore({
         }
       }
 
-      // Validate min count constraint
-      if (config.min !== undefined && order.length < config.min) {
+      // Validate min count constraint only when the repeatable is effectively visible.
+      if (
+        config.min !== undefined &&
+        order.length < config.min &&
+        isRepeatableVisible(config, state.values as Record<string, unknown>)
+      ) {
         repeatableResults.push({
           isValid: false,
           errors: [

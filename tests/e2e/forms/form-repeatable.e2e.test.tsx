@@ -556,6 +556,48 @@ describe('Repeatable Fields — E2E', () => {
       expect(minCountError.message).toContain('2');
     });
 
+    it('should not enforce min count for a repeatable whose template fields are hidden', async () => {
+      const config = form
+        .create(rilConfig, 'conditional-repeatable-min')
+        .add({
+          id: 'hasChildren',
+          type: 'checkbox',
+          props: { label: 'Has children' },
+        })
+        .addRepeatable('children', (r) =>
+          r
+            .add({
+              id: 'name',
+              type: 'text',
+              props: { label: 'Child name' },
+              conditions: {
+                visible: when('hasChildren').equals(true).build(),
+              },
+            })
+            .min(1)
+            .defaultValue({ name: '' })
+        )
+        .build();
+
+      render(
+        <FormProvider formConfig={config} defaultValues={{ hasChildren: false, children: [] }}>
+          <FormBody />
+          <ValidationTrigger />
+          <StoreAccessor />
+        </FormProvider>
+      );
+
+      fireEvent.click(screen.getByTestId('validate-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('validation-valid')).toHaveTextContent('true');
+      });
+
+      const errorsText = screen.getByTestId('validation-errors').textContent!;
+      const errors = JSON.parse(errorsText);
+      expect(errors.some((error: any) => error.code === 'REPEATABLE_MIN_COUNT')).toBe(false);
+    });
+
     it('should clean up ALL state when removing an item', async () => {
       const config = form
         .create(rilConfig, 'test')
