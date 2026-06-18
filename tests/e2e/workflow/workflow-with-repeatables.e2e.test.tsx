@@ -429,6 +429,15 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     expect(itemsStepData.items).toHaveLength(2);
     expect(itemsStepData.items[0]).toEqual(expect.objectContaining({ name: 'Widget', qty: 5 }));
     expect(itemsStepData.items[1]).toEqual(expect.objectContaining({ name: 'Gadget', qty: 10 }));
+
+    // The remounted form should also rehydrate the repeatable UI from workflow allData.
+    await waitFor(() => {
+      expect(screen.getByTestId('item-count')).toHaveTextContent('2');
+      expect(screen.getByTestId('input-items[k0].name')).toHaveValue('Widget');
+      expect(screen.getByTestId('input-items[k0].qty')).toHaveValue(5);
+      expect(screen.getByTestId('input-items[k1].name')).toHaveValue('Gadget');
+      expect(screen.getByTestId('input-items[k1].qty')).toHaveValue(10);
+    });
   });
 
   // --------------------------------------------------------------------------
