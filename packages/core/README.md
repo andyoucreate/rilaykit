@@ -147,11 +147,32 @@ const monitor = initializeMonitoring({
 | Export | Description |
 |--------|-------------|
 | `ril` | Component registry builder with type accumulation |
+| `createSurfaceRuntime` | V2 React-free runtime for compiled surface graphs |
 | `when` | Condition builder for declarative field logic |
 | `required`, `email`, `url`, `pattern`, `min`, `max`, `minLength`, `maxLength`, `number` | Built-in validators |
 | `custom`, `async`, `combine` | Custom and composite validators |
 | `initializeMonitoring`, `RilayMonitor` | Monitoring system |
 | `evaluateCondition`, `ConditionDependencyGraph` | Condition evaluation utilities |
+
+## V2 Surface Runtime
+
+`createSurfaceRuntime(graph, options)` executes a compiled `RuntimeGraph` from `@rilaykit/schema` without React. It owns values, touched state, errors, condition evaluation, step navigation, validation descriptors, and action dispatch.
+
+Persistence is intentionally not built in. Applications that need persistence can subscribe to snapshots and store them in their own infrastructure:
+
+```ts
+import { createSurfaceRuntime } from '@rilaykit/core';
+
+const runtime = createSurfaceRuntime(compiled.graph, {
+  initialValues: restoredValues,
+});
+
+const unsubscribe = runtime.subscribe((snapshot) => {
+  saveDraft(snapshot.surfaceId, snapshot.values);
+});
+```
+
+This keeps Rilay responsible for runtime behavior while leaving storage, encryption, expiry, conflict handling, and backend synchronization to the application.
 
 ## Architecture
 

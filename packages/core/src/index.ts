@@ -22,3 +22,6 @@ export * from './conditions';
 
 // Export effects system
 export * from './effects';
+
+// Export Rilay v2 surface runtime
+export * from './surface';

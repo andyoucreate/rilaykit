@@ -157,6 +157,12 @@ console.log(compiled.graph.steps);
 
 This package is intentionally renderer-free so backend services, builders, and AI tooling can share the same schema contract as the frontend runtime.
 
+### V2 Surface Runtime
+
+`@rilaykit/core` includes the first React-free v2 runtime for compiled surfaces. It executes a `RuntimeGraph`, manages values and errors, evaluates conditions, validates descriptors, navigates flows, and dispatches app-owned actions.
+
+Persistence is not part of the v2 runtime. Apps can persist drafts by subscribing to runtime snapshots and saving `snapshot.values` wherever they choose.
+
 ### Universal Validation
 
 Use built-in validators, Zod, Valibot, Yup, or any Standard Schema library — no adapters needed. Mix them freely.
