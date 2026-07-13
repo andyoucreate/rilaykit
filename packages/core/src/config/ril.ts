@@ -58,7 +58,7 @@ export interface AsyncValidationResult {
  * A plugin is a function that receives a ril instance and returns an
  * extended one (registering components, tools, parts...)
  */
-export type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R;
+export type RilayPlugin = (r: ril<Record<string, unknown>>) => ril<Record<string, unknown>>;
 
 /**
  * Renderer bags accepted by `.renderers()` — component keys are constrained
@@ -276,7 +276,7 @@ export class ril<C> implements RilayInstance<C> {
    *
    * @example
    * ```typescript
-   * const withSearch: RilayPlugin = (r) => r.tool('search', { description: 'Search' }) as typeof r;
+   * const withSearch: RilayPlugin = (r) => r.tool('search', { description: 'Search' });
    * const config = ril.create().use(withSearch);
    * ```
    */
@@ -293,27 +293,25 @@ export class ril<C> implements RilayInstance<C> {
    * @throws NotFoundError if a key does not match a registered entry
    */
   renderers(attachments: RendererAttachments<C>): ril<C> {
-    const patches: Array<[string, unknown]> = [];
-    const collect = (
-      bag: Record<string, unknown> | undefined,
-      prefix: 'component' | 'tool' | 'part'
-    ) => {
-      for (const [name, renderer] of Object.entries(bag ?? {})) {
-        const key = ril.entryKey(prefix, name);
-        const existing = this.entries.get(key);
-        if (!existing) {
-          throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, {
-            key,
-          });
-        }
-        patches.push([key, { ...(existing as object), renderer }]);
-      }
-    };
-    collect(attachments.components as Record<string, unknown> | undefined, 'component');
-    collect(attachments.tools, 'tool');
-    collect(attachments.parts, 'part');
     return this.cloneWith((entries) => {
-      for (const [key, entry] of patches) entries.set(key, entry);
+      const collect = (
+        bag: Record<string, unknown> | undefined,
+        prefix: 'component' | 'tool' | 'part'
+      ) => {
+        for (const [name, renderer] of Object.entries(bag ?? {})) {
+          const key = ril.entryKey(prefix, name);
+          const existing = entries.get(key);
+          if (!existing) {
+            throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, {
+              key,
+            });
+          }
+          entries.set(key, { ...(existing as object), renderer });
+        }
+      };
+      collect(attachments.components as Record<string, unknown> | undefined, 'component');
+      collect(attachments.tools, 'tool');
+      collect(attachments.parts, 'part');
     });
   }
 

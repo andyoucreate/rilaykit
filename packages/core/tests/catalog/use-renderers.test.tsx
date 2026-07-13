@@ -1,44 +1,76 @@
 import { NotFoundError, ril } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+function catchError(fn: () => unknown): unknown {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+}
 
 describe('ril.use()', () => {
   it('applies a plugin that registers entries', () => {
-    const plugin = <R extends ril<Record<string, unknown>>>(r: R): R =>
-      r.tool('show_form', { description: 'from plugin' }) as R;
+    const plugin = (r: ril<Record<string, unknown>>) =>
+      r.tool('show_form', { description: 'from plugin' });
     const r = ril.create().use(plugin);
     expect(r.getTool('show_form')?.description).toBe('from plugin');
   });
 });
 
 describe('ril.renderers()', () => {
+  const textSchema = z.object({ label: z.string() });
+  const textMeta = { group: 'inputs' };
+  const textRenderer = ({ id }: { id: string }) => <input data-id={id} />;
+  const toolRenderer = ({ state }: { state: string }) => <div data-state={state} />;
+
   it('attaches renderers to existing entries without touching schemas', () => {
     const base = ril
       .create()
-      .component('text', { description: 'kept' })
+      .component('text', { description: 'kept', propsSchema: textSchema, meta: textMeta })
       .tool('show_form', { description: 'kept too' });
     const r = base.renderers({
-      components: { text: ({ id }) => <input data-id={id} /> },
-      tools: { show_form: ({ state }) => <div data-state={state} /> },
+      components: { text: textRenderer },
+      tools: { show_form: toolRenderer },
     });
-    expect(typeof r.getComponent('text')?.renderer).toBe('function');
+    expect(r.getComponent('text')?.renderer).toBe(textRenderer);
     expect(r.getComponent('text')?.description).toBe('kept');
-    expect(() =>
-      // @ts-expect-error — unknown component key is rejected statically
-      base.renderers({ components: { nope: () => <i /> } })
-    ).toThrowError(NotFoundError);
-    expect(typeof r.getTool('show_form')?.renderer).toBe('function');
+    expect(r.getComponent('text')?.propsSchema).toBe(textSchema);
+    expect(r.getComponent('text')?.meta).toBe(textMeta);
+    expect(r.getTool('show_form')?.renderer).toBe(toolRenderer);
     expect(r.getTool('show_form')?.description).toBe('kept too');
     // immutability
     expect(base.getComponent('text')?.renderer).toBeUndefined();
+    expect(base.getTool('show_form')?.renderer).toBeUndefined();
   });
 
-  it('throws NotFoundError for an unknown key', () => {
+  it('overrides a part renderer while preserving the rest of the entry', () => {
+    const initialPartRenderer = () => <span />;
+    const partRenderer = () => <em />;
+    const partMeta = { collapsible: true };
+    const base = ril.create().part('reasoning', { renderer: initialPartRenderer, meta: partMeta });
+    const r = base.renderers({ parts: { reasoning: partRenderer } });
+    expect(r.getPart('reasoning')?.renderer).toBe(partRenderer);
+    expect(r.getPart('reasoning')?.meta).toBe(partMeta);
+    // immutability
+    expect(base.getPart('reasoning')?.renderer).toBe(initialPartRenderer);
+  });
+
+  it('throws NotFoundError with the namespaced key for unknown entries', () => {
     const r = ril.create();
-    expect(() => r.renderers({ components: { ghost: () => <i /> } })).toThrowError(NotFoundError);
-    try {
-      r.renderers({ tools: { ghost: () => <i /> } });
-    } catch (e) {
-      expect((e as NotFoundError).meta).toEqual({ key: 'tool:ghost' });
-    }
+
+    const componentError = catchError(() => r.renderers({ components: { ghost: () => <i /> } }));
+    expect(componentError).toBeInstanceOf(NotFoundError);
+    expect((componentError as NotFoundError).meta).toEqual({ key: 'component:ghost' });
+
+    const toolError = catchError(() => r.renderers({ tools: { ghost: () => <i /> } }));
+    expect(toolError).toBeInstanceOf(NotFoundError);
+    expect((toolError as NotFoundError).meta).toEqual({ key: 'tool:ghost' });
+
+    const partError = catchError(() => r.renderers({ parts: { ghost: () => <i /> } }));
+    expect(partError).toBeInstanceOf(NotFoundError);
+    expect((partError as NotFoundError).meta).toEqual({ key: 'part:ghost' });
   });
 });

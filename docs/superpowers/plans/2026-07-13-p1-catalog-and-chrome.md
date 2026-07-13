@@ -610,7 +610,7 @@ git commit -m "feat(core): add .tool() and .part() catalog facades"
 
 **Interfaces:**
 - Produces:
-  - `type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R` — exported from `config/ril.ts`. `r.use(plugin)` returns `plugin(this)`.
+  - `type RilayPlugin = (r: ril<Record<string, unknown>>) => ril<Record<string, unknown>>` — exported from `config/ril.ts`. `r.use(plugin)` returns `plugin(this)`. A plain function type: plugin bodies need no generic gymnastics and no `as` cast; component types registered inside a plugin are not carried in `C` in P1 either way.
   - `r.renderers({ components?: Record<string, ComponentEntry['renderer']>, tools?: Record<string, ToolEntry['renderer']>, parts?: Record<string, PartEntry['renderer']> })` — attaches/overrides ONLY the renderer of existing entries; throws `NotFoundError` for unknown keys. Returns a new instance.
 
 - [ ] **Step 1: Write the failing test**
@@ -622,8 +622,8 @@ import { NotFoundError, ril } from '@rilaykit/core';
 
 describe('ril.use()', () => {
   it('applies a plugin that registers entries', () => {
-    const plugin = <R extends ril<Record<string, unknown>>>(r: R): R =>
-      r.tool('show_form', { description: 'from plugin' }) as R;
+    const plugin = (r: ril<Record<string, unknown>>) =>
+      r.tool('show_form', { description: 'from plugin' });
     const r = ril.create().use(plugin);
     expect(r.getTool('show_form')?.description).toBe('from plugin');
   });
@@ -671,7 +671,7 @@ Expected: FAIL — `r.use is not a function`.
 In `packages/core/src/config/ril.ts`:
 
 ```typescript
-export type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R;
+export type RilayPlugin = (r: ril<Record<string, unknown>>) => ril<Record<string, unknown>>;
 
 export interface RendererAttachments<C> {
   readonly components?: {
@@ -2635,8 +2635,8 @@ describe('PROOF catalog end-to-end', () => {
   });
 
   it('a plugin-registered tool and a hydrated renderer survive the full chain', () => {
-    const plugin = <R extends ril<Record<string, unknown>>>(r: R): R =>
-      r.tool('confirm', { description: 'Ask confirmation' }) as R;
+    const plugin = (r: ril<Record<string, unknown>>) =>
+      r.tool('confirm', { description: 'Ask confirmation' });
     const r = ril
       .create()
       .use(plugin)
