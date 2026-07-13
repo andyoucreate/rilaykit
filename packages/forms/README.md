@@ -72,7 +72,7 @@ function LoginForm() {
   };
 
   return (
-    <Form formConfig={loginForm} onSubmit={handleSubmit}>
+    <Form of={loginForm} onSubmit={handleSubmit}>
       <FormField fieldId="email" />
       <FormField fieldId="password" />
       <button type="submit">Sign In</button>

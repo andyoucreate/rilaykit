@@ -90,7 +90,7 @@ const VALID_CONDITION_OPERATORS = new Set([
  * @example
  * ```typescript
  * const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
- * <Form formConfig={formConfig} defaultValues={defaultValues} onSubmit={handleSubmit} />
+ * <Form of={formConfig} defaults={defaultValues} onSubmit={handleSubmit} />
  * ```
  */
 export function fromSchema<C extends Record<string, any>>(
