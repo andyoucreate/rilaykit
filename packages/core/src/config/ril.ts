@@ -1,6 +1,6 @@
 import { DuplicateError, ValidationError } from '../errors';
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
-import type { ComponentEntry } from '../types/catalog';
+import type { ComponentEntry, PartEntry, ToolEntry } from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
 
 /**
@@ -67,6 +67,16 @@ export interface RilayInstance<C> {
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
   ): RilayInstance<C & { [K in NewType]: TProps }>;
 
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): RilayInstance<C>;
+
+  part<TPart = unknown>(
+    type: string,
+    entry: Omit<PartEntry<TPart>, 'kind' | 'type'>
+  ): RilayInstance<C>;
+
   configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayInstance<C>;
 
   // Component access methods
@@ -75,6 +85,12 @@ export interface RilayInstance<C> {
   ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined;
   getAllComponents(): ComponentEntry[];
   hasComponent(id: string): boolean;
+
+  // Tool and part access methods
+  getTool(name: string): ToolEntry | undefined;
+  getPart(type: string): PartEntry | undefined;
+  getAllTools(): ToolEntry[];
+  getAllParts(): PartEntry[];
 
   // Configuration getters
   getFormRenderConfig(): FormRenderConfig;
@@ -128,6 +144,14 @@ export class ril<C> implements RilayInstance<C> {
     return `component:${type}`;
   }
 
+  private static toolKey(name: string): string {
+    return `tool:${name}`;
+  }
+
+  private static partKey(type: string): string {
+    return `part:${type}`;
+  }
+
   private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
     const next = new ril<C>();
     next.entries = new Map(this.entries);
@@ -167,6 +191,47 @@ export class ril<C> implements RilayInstance<C> {
     return this.cloneWith((entries) => {
       entries.set(key, { ...entry, kind: 'component', type } satisfies ComponentEntry<TProps>);
     }) as ril<C & { [K in NewType]: TProps }>;
+  }
+
+  /**
+   * Register a tool in the catalog (immutable)
+   * Returns a new instance with the added tool entry
+   *
+   * @param name - The tool name (e.g., 'search_flights'), used as a unique identifier.
+   * @param entry - Tool entry without kind and name
+   * @returns A new ril instance with the registered tool
+   * @throws DuplicateError if the name is already registered and `entry.replace` is not true
+   */
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): ril<C> {
+    const key = ril.toolKey(name);
+    if (this.entries.has(key) && entry.replace !== true) {
+      throw new DuplicateError(`Tool "${name}" is already registered`, { key });
+    }
+    return this.cloneWith((entries) => {
+      entries.set(key, { ...entry, kind: 'tool', name } satisfies ToolEntry<TInput, TOutput>);
+    });
+  }
+
+  /**
+   * Register a message part renderer in the catalog (immutable)
+   * Returns a new instance with the added part entry
+   *
+   * @param type - The part type (e.g., 'text', 'reasoning'), used as a unique identifier.
+   * @param entry - Part entry without kind and type
+   * @returns A new ril instance with the registered part
+   * @throws DuplicateError if the type is already registered and `entry.replace` is not true
+   */
+  part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): ril<C> {
+    const key = ril.partKey(type);
+    if (this.entries.has(key) && entry.replace !== true) {
+      throw new DuplicateError(`Part "${type}" is already registered`, { key });
+    }
+    return this.cloneWith((entries) => {
+      entries.set(key, { ...entry, kind: 'part', type } satisfies PartEntry<TPart>);
+    });
   }
 
   /** @deprecated Use .component() — removed in Task 16 */
@@ -275,6 +340,29 @@ export class ril<C> implements RilayInstance<C> {
 
   hasComponent(id: string): boolean {
     return this.entries.has(ril.componentKey(id));
+  }
+
+  /**
+   * Tool and part access methods
+   */
+  getTool(name: string): ToolEntry | undefined {
+    return this.entries.get(ril.toolKey(name)) as ToolEntry | undefined;
+  }
+
+  getPart(type: string): PartEntry | undefined {
+    return this.entries.get(ril.partKey(type)) as PartEntry | undefined;
+  }
+
+  getAllTools(): ToolEntry[] {
+    return [...this.entries.values()].filter(
+      (e): e is ToolEntry => (e as ToolEntry).kind === 'tool'
+    );
+  }
+
+  getAllParts(): PartEntry[] {
+    return [...this.entries.values()].filter(
+      (e): e is PartEntry => (e as PartEntry).kind === 'part'
+    );
   }
 
   /**
