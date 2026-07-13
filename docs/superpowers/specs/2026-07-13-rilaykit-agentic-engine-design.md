@@ -156,9 +156,9 @@ catalog.renderers({
 
 ### Component inventory
 
-- **forms**: `Form` (root; props `of`, `defaults`, `onSubmit`), `Form.Body` (render prop `{ rows }` — visible rows with conditions applied), `Form.Field` (the single bridge to the catalog: resolves `component:*`, wires state/validation/conditions), `Form.Submit` (render prop `{ submitting }`), `Form.List` (repeatables; render prop `{ items, add, remove }`). Hooks: `useFormRows()` plus the whole existing `useField*`/`useForm*` selector inventory (unchanged — already coherent).
+- **forms**: `Form` (root; props `of`, `defaults`, `onSubmit`), `Form.Body` (render prop `{ rows }` — visible rows with conditions applied), `Form.Field` (props `id`/`config`/`overrides`; the single bridge to the catalog: resolves `component:*`, wires state/validation/conditions), `Form.Submit` (render prop `{ submitting }`), `Form.List` (repeatables; render prop `{ items, add, remove }`). Hooks: `useForm()` (renamed `useFormConfigContext` — the exact mirror of `useFlow()`), `useFormRows()`, plus the whole existing `useField*`/`useForm*` selector inventory (unchanged — already coherent).
 - **workflow**: `Flow` (root; props `of`, `defaults`, `onComplete`), `Flow.Body` (current step's form body; render prop), `Flow.Progress` (render prop `{ steps, currentIndex, goTo }` — visible steps with index mapping), `Flow.Back` / `Flow.Next` / `Flow.Skip` (render props receiving full step context: `{ canGo, submitting, isLastStep, step }`). Hooks: `useFlow()` (ex-`useWorkflowContext`), `useFlowData()` (ex-`useWorkflowAllData`), `useStep()` (current step + metadata), `useFlowSteps()`; remaining flow store selectors renamed to the `useFlow*` family.
-- Without a render prop, `Form.Body` / `Flow.*` render bare structural divs (30-second quick start), no classes, no styling opinions.
+- Without a render prop, `Form.Body` / `Flow.*` render bare structural divs (30-second quick start), no classes, no styling opinions — but a coherent **data-attribute system** ships as the styling hook: `data-form-body`, `data-form-row`, `data-form-submit`, `data-form-list(-item/-add)`, `data-field-*` state attrs, `data-flow-progress`, `data-flow-nav="next|back|skip"`. Apps style bare defaults with plain CSS selectors, no wrappers needed.
 - The three flow nav buttons share one internal parametric implementation.
 
 ### Engine sanctity
@@ -288,6 +288,8 @@ Breaking, no compat layer (pre-release, consumers audited):
 | `<Form>`, `<FormBody>`, `<FormRow>`, `<FormField>`, `<FormSubmitButton>`, `<RepeatableField>` | `<Form>`, `<Form.Body>`, `<Form.Field>`, `<Form.Submit>`, `<Form.List>` (row markup is app-side) |
 | `formConfig={...}` / `workflowConfig={...}` props | `of={...}`; `defaultValues` → `defaults` |
 | `useWorkflowContext` / `useWorkflowAllData` / step selectors | `useFlow()` / `useFlowData()` / `useStep()` / `useFlowSteps()` (full `useFlow*` family) |
+| `useFormConfigContext` | `useForm()` |
+| `<FormField fieldId customProps>` | `<Form.Field id overrides>` |
 | `ComponentRenderProps` any-bag | Typed component context (props inferred from `propsSchema`) |
 | Renderer-prop types (`FieldRendererProps`, `FormBodyRendererProps`, ...) | Render-prop context types exported from the same packages (stable import paths — consumers type their app components against these) |
 | `ComponentBuilderMetadata` / `builder` field | `propsSchema` + `meta` |
