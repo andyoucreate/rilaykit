@@ -5,7 +5,7 @@
  * and managing validation contexts using Standard Schema exclusively.
  */
 
-import type { ValidationContext, FieldError, ValidationResult } from '../types';
+import type { FieldError, ValidationContext, ValidationResult } from '../types';
 
 // =================================================================
 // VALUE CHECKS

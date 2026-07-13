@@ -5,11 +5,11 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type {
+  FieldError,
   FieldValidationConfig,
   FormValidationConfig,
   StandardSchema,
   ValidationContext,
-  FieldError,
   ValidationResult,
 } from '../types';
 // =================================================================

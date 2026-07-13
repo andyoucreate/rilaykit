@@ -1,9 +1,9 @@
 import type {
   FieldConditions,
+  FieldError,
   FieldState,
   FormState,
   RepeatableFieldConfig,
-  FieldError,
   ValidationState,
 } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
