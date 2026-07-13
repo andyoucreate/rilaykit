@@ -1,4 +1,5 @@
 import {
+  type ComponentConfig,
   type ConditionalBehavior,
   type FieldEffect,
   type FieldEffects,
@@ -166,7 +167,11 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   private createFormField<T extends keyof C & string>(
     fieldConfig: FieldConfig<C, T>
   ): FormFieldConfig {
-    const component = this.config.getComponent(fieldConfig.type);
+    // Legacy shape until Task 8: entries registered via addComponent keep the
+    // flat ComponentConfig shape (id, flat renderer) at runtime.
+    const component = this.config.getComponent(fieldConfig.type) as unknown as
+      | ComponentConfig
+      | undefined;
 
     if (!component) {
       throw new Error(`No component found with type "${fieldConfig.type}"`);

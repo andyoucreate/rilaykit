@@ -1,4 +1,4 @@
-import type { ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
+import type { ComponentConfig, ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
 import {
   useFieldActions,
@@ -67,7 +67,11 @@ export const FormField = React.memo(function FormField({
   }
 
   // Get component config - early return if not found
-  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId);
+  // Legacy shape until Task 8: entries registered via addComponent keep the
+  // flat ComponentConfig shape (flat renderer, useFieldRenderer) at runtime.
+  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId) as unknown as
+    | ComponentConfig
+    | undefined;
   if (!componentConfig) {
     throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
   }

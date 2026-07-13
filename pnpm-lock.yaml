@@ -74,8 +74,8 @@ importers:
         specifier: '>=3.2.6'
         version: 4.1.8(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(@vitest/ui@4.1.8)(happy-dom@20.10.3)(jsdom@29.1.1)(vite@8.0.16)
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
 
   apps/docs:
     dependencies:
@@ -84,7 +84,7 @@ importers:
         version: 2.0.1(next@16.2.9)(react@19.2.7)
       fumadocs-core:
         specifier: ^16.10.2
-        version: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@3.25.76)
+        version: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@4.4.3)
       fumadocs-mdx:
         specifier: ^15.0.12
         version: 15.0.12(@types/mdx@2.0.14)(@types/react@19.2.17)(fumadocs-core@16.10.2)(next@16.2.9)(react@19.2.7)(vite@8.0.16)
@@ -3820,7 +3820,7 @@ packages:
     requiresBuild: true
     optional: true
 
-  /fumadocs-core@16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@3.25.76):
+  /fumadocs-core@16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@4.4.3):
     resolution: {integrity: sha512-7YMEkUYQYYey+8yzZW47jV3pbctCXsevFY6u4yN9PRwJi/q76QOFfefvzSkbYha3OIudr2C0RGzJxEhzV2a1/g==}
     peerDependencies:
       '@mdx-js/mdx': '*'
@@ -3902,7 +3902,7 @@ packages:
       unified: 11.0.5
       unist-util-visit: 5.1.0
       vfile: 6.0.3
-      zod: 3.25.76
+      zod: 4.4.3
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -3945,7 +3945,7 @@ packages:
       chokidar: 5.0.0
       esbuild: 0.28.1
       estree-util-value-to-estree: 3.5.0
-      fumadocs-core: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@3.25.76)
+      fumadocs-core: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@4.4.3)
       js-yaml: 4.2.0
       mdast-util-mdx: 3.0.0
       next: 16.2.9(react-dom@19.2.7)(react@19.2.7)
@@ -3999,7 +3999,7 @@ packages:
       '@types/mdx': 2.0.14
       '@types/react': 19.2.17
       class-variance-authority: 0.7.1
-      fumadocs-core: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@3.25.76)
+      fumadocs-core: 16.10.2(@types/react@19.2.17)(lucide-react@1.18.0)(next@16.2.9)(react-dom@19.2.7)(react@19.2.7)(zod@4.4.3)
       lucide-react: 1.18.0(react@19.2.7)
       motion: 12.40.0(react-dom@19.2.7)(react@19.2.7)
       next: 16.2.9(react-dom@19.2.7)(react@19.2.7)
@@ -6536,10 +6536,10 @@ packages:
 
   /zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+    dev: false
 
   /zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
-    dev: false
 
   /zustand@5.0.14(@types/react@19.2.17)(react@19.2.7):
     resolution: {integrity: sha512-/8tAspM5LMPr28b3fwLYrtdj77ECpfZviaP75CMTnwO8ISyaE4GDIG/9rDDYq/cH9D2Xw2A2RXglLInmVBQB/g==}

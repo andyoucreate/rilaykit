@@ -139,8 +139,8 @@ describe('ril - Enhanced Validation', () => {
     it('should detect components without renderers', () => {
       const config = ril.create();
       // Add component without renderer
-      (config as any).components.set('broken', {
-        id: 'broken',
+      (config as any).entries.set('component:broken', {
+        kind: 'component',
         type: 'broken',
         name: 'Broken Component',
         // Missing renderer
@@ -164,8 +164,8 @@ describe('ril - Enhanced Validation', () => {
     it('should throw ValidationError for invalid configuration', async () => {
       const config = ril.create();
       // Add invalid component
-      (config as any).components.set('invalid', {
-        id: 'invalid',
+      (config as any).entries.set('component:invalid', {
+        kind: 'component',
         type: 'invalid',
         name: 'Invalid',
         renderer: 'not-a-function', // Invalid renderer type
@@ -246,8 +246,8 @@ describe('ril - Error Hierarchy', () => {
   it('should include metadata in async validation errors', async () => {
     const config = ril.create();
     // Force error condition
-    (config as any).components.set('broken', {
-      id: 'broken',
+    (config as any).entries.set('component:broken', {
+      kind: 'component',
       type: 'broken',
       name: 'Broken',
       // Missing renderer

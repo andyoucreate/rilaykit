@@ -786,3 +786,9 @@ export type FieldEffects = readonly FieldEffect[];
 // =================================================================
 
 export * from './context';
+
+// =================================================================
+// 11. UNIFIED CATALOG (components / tools / parts)
+// =================================================================
+
+export * from './catalog';

@@ -62,7 +62,7 @@
     "turbo": "^2.9.18",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "pnpm": {
     "overrides": {

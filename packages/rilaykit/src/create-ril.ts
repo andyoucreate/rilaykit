@@ -54,8 +54,12 @@ function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit
       return wrapRil(inner.configure(config));
     },
 
-    getComponent: inner.getComponent.bind(inner) as RilayKit<C>['getComponent'],
-    getAllComponents: inner.getAllComponents.bind(inner),
+    // Legacy ComponentConfig-shaped surface until Task 17 aligns the all-in-one
+    // package with the new catalog entry types.
+    getComponent: inner.getComponent.bind(inner) as unknown as RilayKit<C>['getComponent'],
+    getAllComponents: inner.getAllComponents.bind(
+      inner
+    ) as unknown as RilayKit<C>['getAllComponents'],
     hasComponent: inner.hasComponent.bind(inner),
     getFormRenderConfig: inner.getFormRenderConfig.bind(inner),
     getWorkflowRenderConfig: inner.getWorkflowRenderConfig.bind(inner),

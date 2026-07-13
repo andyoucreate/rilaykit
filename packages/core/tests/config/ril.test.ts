@@ -259,11 +259,11 @@ describe('ril', () => {
     it('should detect components without renderer', () => {
       const config = ril.create();
       // Manually add a component without renderer (this shouldn't happen in normal usage)
-      (config as any).components.set('invalid-component', {
-        id: 'invalid-component',
+      (config as any).entries.set('component:invalid-component', {
+        kind: 'component',
         type: 'invalid-component',
         name: 'Invalid Component',
-        renderer: undefined as any,
+        renderer: undefined,
       });
 
       const errors = config.validate();

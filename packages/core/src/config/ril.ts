@@ -1,5 +1,6 @@
-import { ValidationError } from '../errors';
+import { DuplicateError, ValidationError } from '../errors';
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
+import type { ComponentEntry } from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
 
 /**
@@ -30,6 +31,17 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 }
 
 /**
+ * Type guard for component entries stored in the namespaced catalog map
+ */
+function isComponentEntry(entry: unknown): entry is ComponentEntry {
+  return (
+    typeof entry === 'object' &&
+    entry !== null &&
+    (entry as { kind?: unknown }).kind === 'component'
+  );
+}
+
+/**
  * Validation result for async operations
  */
 export interface AsyncValidationResult {
@@ -43,7 +55,13 @@ export interface AsyncValidationResult {
  * Exposes only the methods necessary for the public API
  */
 export interface RilayInstance<C> {
-  // Configuration methods
+  // Catalog registration methods
+  component<NewType extends string, TProps = Record<string, unknown>>(
+    type: NewType,
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
+  ): RilayInstance<C & { [K in NewType]: TProps }>;
+
+  /** @deprecated Use .component() — removed in Task 16 */
   addComponent<NewType extends string, TProps = any>(
     type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
@@ -52,9 +70,10 @@ export interface RilayInstance<C> {
   configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayInstance<C>;
 
   // Component access methods
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined;
-  getAllComponents(): ComponentConfig[];
+  getComponent<T extends string>(
+    id: T
+  ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined;
+  getAllComponents(): ComponentEntry[];
   hasComponent(id: string): boolean;
 
   // Configuration getters
@@ -91,10 +110,10 @@ export interface RilayInstance<C> {
 
 /**
  * Main configuration class for Rilay form components and workflows
- * Manages component registration, retrieval, and configuration with immutable API
+ * Manages catalog entry registration, retrieval, and configuration with immutable API
  */
 export class ril<C> implements RilayInstance<C> {
-  private components = new Map<string, ComponentConfig>();
+  private entries = new Map<string, unknown>();
   private formRenderConfig: FormRenderConfig = {};
   private workflowRenderConfig: WorkflowRenderConfig = {};
 
@@ -105,50 +124,69 @@ export class ril<C> implements RilayInstance<C> {
     return new ril<CT>();
   }
 
+  private static componentKey(type: string): string {
+    return `component:${type}`;
+  }
+
+  private cloneWith(mutate: (entries: Map<string, unknown>) => void): ril<C> {
+    const next = new ril<C>();
+    next.entries = new Map(this.entries);
+    next.formRenderConfig = { ...this.formRenderConfig };
+    next.workflowRenderConfig = { ...this.workflowRenderConfig };
+    mutate(next.entries);
+    return next;
+  }
+
   /**
-   * Add a component to the configuration (immutable)
-   * Returns a new instance with the added component
+   * Register a component in the catalog (immutable)
+   * Returns a new instance with the added component entry
    *
    * @param type - The component type (e.g., 'text', 'email', 'heading'), used as a unique identifier.
-   * @param config - Component configuration without id and type
-   * @returns A new ril instance with the added component
+   * @param entry - Component entry without kind and type
+   * @returns A new ril instance with the registered component
+   * @throws DuplicateError if the type is already registered and `entry.replace` is not true
    *
    * @example
    * ```typescript
-   * // Component with default validation
    * const factory = ril.create()
-   *   .addComponent('email', {
-   *     name: 'Email Input',
-   *     renderer: EmailInput,
-   *     validation: {
-   *       validators: [email('Format email invalide')],
-   *       validateOnBlur: true,
-   *     }
+   *   .component('email', {
+   *     description: 'Email input',
+   *     propsSchema: z.object({ label: z.string() }),
+   *     renderer: (ctx) => <input aria-label={ctx.props.label} />,
    *   });
    * ```
    */
+  component<NewType extends string, TProps = Record<string, unknown>>(
+    type: NewType,
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
+  ): ril<C & { [K in NewType]: TProps }> {
+    const key = ril.componentKey(type);
+    if (this.entries.has(key) && entry.replace !== true) {
+      throw new DuplicateError(`Component "${type}" is already registered`, { key });
+    }
+    return this.cloneWith((entries) => {
+      entries.set(key, { ...entry, kind: 'component', type } satisfies ComponentEntry<TProps>);
+    }) as ril<C & { [K in NewType]: TProps }>;
+  }
+
+  /** @deprecated Use .component() — removed in Task 16 */
   addComponent<NewType extends string, TProps = any>(
     type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
   ): ril<C & { [K in NewType]: TProps }> {
-    const fullConfig: ComponentConfig<TProps> = {
+    const { renderer, ...rest } = config;
+    // Legacy shim: keeps `id`, the flat renderer shape and overwrite semantics
+    // of addComponent alive at runtime until Task 16 deletes it.
+    const legacyEntry = {
+      ...rest,
       id: type,
-      type,
-      ...config,
+      replace: true,
+      renderer: renderer as unknown as ComponentEntry<TProps>['renderer'],
     };
-
-    // Create new instance (immutable)
-    const newInstance = new ril<C & { [K in NewType]: TProps }>();
-
-    // Copy existing components
-    newInstance.components = new Map(this.components);
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-
-    // Add new component
-    newInstance.components.set(type, fullConfig as ComponentConfig);
-
-    return newInstance;
+    return this.component<NewType, TProps>(
+      type,
+      legacyEntry as Omit<ComponentEntry<TProps>, 'kind' | 'type'>
+    );
   }
 
   /**
@@ -168,13 +206,6 @@ export class ril<C> implements RilayInstance<C> {
    *   .configure({
    *     rowRenderer: CustomRowRenderer,
    *     submitButtonRenderer: CustomSubmitButton,
-   *     // Deep nested configuration example
-   *     formStyles: {
-   *       layout: {
-   *         spacing: 'large',
-   *         alignment: 'center'
-   *       }
-   *     }
    *   });
    * ```
    */
@@ -212,7 +243,7 @@ export class ril<C> implements RilayInstance<C> {
     const newInstance = new ril<C>();
 
     // Copy existing state
-    newInstance.components = new Map(this.components);
+    newInstance.entries = new Map(this.entries);
 
     // Apply configurations using deep merge strategy
     newInstance.formRenderConfig = deepMerge(this.formRenderConfig, formRenderers);
@@ -235,17 +266,20 @@ export class ril<C> implements RilayInstance<C> {
   /**
    * Component management methods
    */
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined {
-    return this.components.get(id);
+  getComponent<T extends string>(
+    id: T
+  ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined {
+    return this.entries.get(ril.componentKey(id)) as
+      | ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>>
+      | undefined;
   }
 
-  getAllComponents(): ComponentConfig[] {
-    return Array.from(this.components.values());
+  getAllComponents(): ComponentEntry[] {
+    return Array.from(this.entries.values()).filter(isComponentEntry);
   }
 
   hasComponent(id: string): boolean {
-    return this.components.has(id);
+    return this.entries.has(ril.componentKey(id));
   }
 
   /**
@@ -256,32 +290,21 @@ export class ril<C> implements RilayInstance<C> {
    * @returns A new ril instance without the component
    */
   removeComponent(id: string): ril<C> {
-    const newInstance = new ril<C>();
-
-    // Copy existing state
-    newInstance.components = new Map(this.components);
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-
-    // Remove component
-    newInstance.components.delete(id);
-
-    return newInstance;
+    return this.cloneWith((entries) => {
+      entries.delete(ril.componentKey(id));
+    });
   }
 
   /**
-   * Clear all components from the configuration (immutable)
-   * Returns a new instance with no components
+   * Clear all catalog entries from the configuration (immutable)
+   * Returns a new instance with no entries
    *
    * @returns A new empty ril instance
    */
   clear(): ril<C> {
-    const newInstance = new ril<C>();
-    // Keep render configurations but clear components
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-    // components map is already empty in new instance
-    return newInstance;
+    return this.cloneWith((entries) => {
+      entries.clear();
+    });
   }
 
   /**
@@ -289,7 +312,7 @@ export class ril<C> implements RilayInstance<C> {
    */
   clone(): ril<C> {
     const newInstance = new ril<C>();
-    newInstance.components = new Map(this.components);
+    newInstance.entries = new Map(this.entries);
     newInstance.formRenderConfig = deepMerge({}, this.formRenderConfig);
     newInstance.workflowRenderConfig = deepMerge({}, this.workflowRenderConfig);
     return newInstance;
@@ -314,7 +337,7 @@ export class ril<C> implements RilayInstance<C> {
       workflowSkipButton: boolean;
     };
   } {
-    const components = Array.from(this.components.values());
+    const components = this.getAllComponents();
 
     return {
       total: components.length,
@@ -345,12 +368,12 @@ export class ril<C> implements RilayInstance<C> {
    */
   validate(): string[] {
     const errors: string[] = [];
-    const components = Array.from(this.components.values());
+    const components = this.getAllComponents();
 
-    // Check for duplicate IDs using shared utility
-    const ids = components.map((comp) => comp.id);
+    // Check for duplicate types using shared utility
+    const types = components.map((comp) => comp.type);
     try {
-      ensureUnique(ids, 'component');
+      ensureUnique(types, 'component');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
@@ -360,7 +383,7 @@ export class ril<C> implements RilayInstance<C> {
     if (componentsWithoutRenderer.length > 0) {
       errors.push(
         `Components without renderer: ${componentsWithoutRenderer
-          .map((comp) => comp.id)
+          .map((comp) => comp.type)
           .join(', ')}`
       );
     }
@@ -407,7 +430,7 @@ export class ril<C> implements RilayInstance<C> {
   async validateAsync(): Promise<AsyncValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
-    const components = Array.from(this.components.values());
+    const components = this.getAllComponents();
 
     try {
       // Basic synchronous validations
@@ -422,13 +445,13 @@ export class ril<C> implements RilayInstance<C> {
           typeof comp.renderer !== 'function' &&
           typeof comp.renderer !== 'object'
         ) {
-          return `Component "${comp.id}" has invalid renderer type: ${typeof comp.renderer}`;
+          return `Component "${comp.type}" has invalid renderer type: ${typeof comp.renderer}`;
         }
 
         // Check for potential naming conflicts
-        if (comp.id.includes(' ') || comp.id.includes('-')) {
+        if (comp.type.includes(' ') || comp.type.includes('-')) {
           warnings.push(
-            `Component "${comp.id}" uses non-standard naming (contains spaces or dashes)`
+            `Component "${comp.type}" uses non-standard naming (contains spaces or dashes)`
           );
         }
 
