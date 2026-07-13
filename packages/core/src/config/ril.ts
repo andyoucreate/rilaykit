@@ -1,6 +1,12 @@
-import { DuplicateError, ValidationError } from '../errors';
+import type React from 'react';
+import { DuplicateError, NotFoundError, ValidationError } from '../errors';
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
-import type { ComponentEntry, PartEntry, ToolEntry } from '../types/catalog';
+import type {
+  ComponentEntry,
+  ComponentRenderContext,
+  PartEntry,
+  ToolEntry,
+} from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
 
 /**
@@ -49,6 +55,25 @@ export interface AsyncValidationResult {
 }
 
 /**
+ * A plugin is a function that receives a ril instance and returns an
+ * extended one (registering components, tools, parts...)
+ */
+export type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R;
+
+/**
+ * Renderer bags accepted by `.renderers()` — component keys are constrained
+ * to the instance's registered component map `C` with per-component ctx
+ * typing; tools/parts stay string-keyed in P1 (runtime NotFoundError covers them)
+ */
+export interface RendererAttachments<C> {
+  readonly components?: {
+    readonly [K in keyof C & string]?: (ctx: ComponentRenderContext<C[K]>) => React.ReactElement;
+  };
+  readonly tools?: Record<string, ToolEntry<never, never>['renderer']>;
+  readonly parts?: Record<string, PartEntry<never>['renderer']>;
+}
+
+/**
  * Public interface for Rilay instances
  * Exposes only the methods necessary for the public API
  */
@@ -74,6 +99,10 @@ export interface RilayInstance<C> {
     type: string,
     entry: Omit<PartEntry<TPart>, 'kind' | 'type'>
   ): RilayInstance<C>;
+
+  use(plugin: RilayPlugin): RilayInstance<C>;
+
+  renderers(attachments: RendererAttachments<C>): RilayInstance<C>;
 
   configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayInstance<C>;
 
@@ -236,6 +265,56 @@ export class ril<C> implements RilayInstance<C> {
       kind: 'part',
       type,
     } satisfies PartEntry<TPart>);
+  }
+
+  /**
+   * Apply a plugin to this instance (immutable)
+   * The plugin receives the instance and returns an extended one
+   *
+   * @param plugin - Function that registers entries and returns the extended instance
+   * @returns The instance returned by the plugin
+   *
+   * @example
+   * ```typescript
+   * const withSearch: RilayPlugin = (r) => r.tool('search', { description: 'Search' }) as typeof r;
+   * const config = ril.create().use(withSearch);
+   * ```
+   */
+  use(plugin: RilayPlugin): ril<C> {
+    return plugin(this as ril<Record<string, unknown>>) as ril<C>;
+  }
+
+  /**
+   * Attach or override renderers on already-registered entries (immutable)
+   * Only the renderer is touched — schemas, descriptions and meta are preserved
+   *
+   * @param attachments - Renderer bags keyed by entry name per namespace
+   * @returns A new ril instance with the renderers attached
+   * @throws NotFoundError if a key does not match a registered entry
+   */
+  renderers(attachments: RendererAttachments<C>): ril<C> {
+    const patches: Array<[string, unknown]> = [];
+    const collect = (
+      bag: Record<string, unknown> | undefined,
+      prefix: 'component' | 'tool' | 'part'
+    ) => {
+      for (const [name, renderer] of Object.entries(bag ?? {})) {
+        const key = ril.entryKey(prefix, name);
+        const existing = this.entries.get(key);
+        if (!existing) {
+          throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, {
+            key,
+          });
+        }
+        patches.push([key, { ...(existing as object), renderer }]);
+      }
+    };
+    collect(attachments.components as Record<string, unknown> | undefined, 'component');
+    collect(attachments.tools, 'tool');
+    collect(attachments.parts, 'part');
+    return this.cloneWith((entries) => {
+      for (const [key, entry] of patches) entries.set(key, entry);
+    });
   }
 
   /** @deprecated Use .component() — removed in Task 16 */
