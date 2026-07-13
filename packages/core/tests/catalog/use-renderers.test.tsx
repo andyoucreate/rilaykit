@@ -1,4 +1,5 @@
 import { NotFoundError, ril } from '@rilaykit/core';
+import type { RilayPlugin, ToolRenderContext } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -12,11 +13,14 @@ function catchError(fn: () => unknown): unknown {
 }
 
 describe('ril.use()', () => {
-  it('applies a plugin that registers entries', () => {
-    const plugin = (r: ril<Record<string, unknown>>) =>
-      r.tool('show_form', { description: 'from plugin' });
-    const r = ril.create().use(plugin);
+  it('applies the plugin to the current instance, preserving prior registrations', () => {
+    const plugin: RilayPlugin = (r) => r.tool('show_form', { description: 'from plugin' });
+    const base = ril.create().component('text', { description: 'base' });
+    const r = base.use(plugin);
+    expect(r.getComponent('text')?.description).toBe('base');
     expect(r.getTool('show_form')?.description).toBe('from plugin');
+    // immutability: the pre-use instance is unchanged
+    expect(base.getTool('show_form')).toBeUndefined();
   });
 });
 
@@ -24,7 +28,7 @@ describe('ril.renderers()', () => {
   const textSchema = z.object({ label: z.string() });
   const textMeta = { group: 'inputs' };
   const textRenderer = ({ id }: { id: string }) => <input data-id={id} />;
-  const toolRenderer = ({ state }: { state: string }) => <div data-state={state} />;
+  const toolRenderer = (ctx: ToolRenderContext) => <div data-state={ctx.state} />;
 
   it('attaches renderers to existing entries without touching schemas', () => {
     const base = ril

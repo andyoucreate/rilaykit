@@ -7,7 +7,12 @@ export * from './errors';
 export * from './components/ComponentRendererWrapper';
 
 // Export configuration
-export { ril, type RilayInstance } from './config/ril';
+export {
+  ril,
+  type RilayInstance,
+  type RilayPlugin,
+  type RendererAttachments,
+} from './config/ril';
 
 // Export shared utilities
 export * from './utils/builderHelpers';

@@ -69,8 +69,8 @@ export interface RendererAttachments<C> {
   readonly components?: {
     readonly [K in keyof C & string]?: (ctx: ComponentRenderContext<C[K]>) => React.ReactElement;
   };
-  readonly tools?: Record<string, ToolEntry<never, never>['renderer']>;
-  readonly parts?: Record<string, PartEntry<never>['renderer']>;
+  readonly tools?: Record<string, NonNullable<ToolEntry['renderer']>>;
+  readonly parts?: Record<string, PartEntry['renderer']>;
 }
 
 /**
@@ -294,7 +294,7 @@ export class ril<C> implements RilayInstance<C> {
    */
   renderers(attachments: RendererAttachments<C>): ril<C> {
     return this.cloneWith((entries) => {
-      const collect = (
+      const attach = (
         bag: Record<string, unknown> | undefined,
         prefix: 'component' | 'tool' | 'part'
       ) => {
@@ -309,9 +309,9 @@ export class ril<C> implements RilayInstance<C> {
           entries.set(key, { ...(existing as object), renderer });
         }
       };
-      collect(attachments.components as Record<string, unknown> | undefined, 'component');
-      collect(attachments.tools, 'tool');
-      collect(attachments.parts, 'part');
+      attach(attachments.components as Record<string, unknown> | undefined, 'component');
+      attach(attachments.tools, 'tool');
+      attach(attachments.parts, 'part');
     });
   }
 
