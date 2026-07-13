@@ -23,6 +23,10 @@ export * from './useFormConditions';
 export * from './useFormSubmissionWithStore';
 export * from './useFormValidationWithStore';
 
+// Visible rows (Form.Body render prop)
+export { useFormRows } from './useFormRows';
+export type { VisibleRow } from './useFormRows';
+
 // Repeatable fields
 export { useRepeatableField, type UseRepeatableFieldReturn } from './use-repeatable-field';
 
