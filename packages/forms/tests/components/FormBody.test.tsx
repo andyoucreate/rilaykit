@@ -68,6 +68,18 @@ describe('<Form.Body>', () => {
     expect(document.querySelector('[data-form-row]')).toBeNull();
   });
 
+  it('wraps all visible fields of a multi-field row in a single row div', () => {
+    render(
+      <Form of={partialRowDefinition} defaults={{ a: 'x' }}>
+        <FormBody />
+      </Form>
+    );
+    const formRows = document.querySelectorAll('[data-form-row]');
+    expect(formRows.length).toBe(1);
+    expect(screen.getByTestId('a').closest('[data-form-row]')).toBe(formRows[0]);
+    expect(screen.getByTestId('b').closest('[data-form-row]')).toBe(formRows[0]);
+  });
+
   it('keeps a row with a hidden field and filters only that field', () => {
     render(
       <Form of={partialRowDefinition}>

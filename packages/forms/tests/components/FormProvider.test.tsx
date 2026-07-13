@@ -9,10 +9,6 @@ import { useFormStoreApi, useFormSubmitState, useFormValues } from '../../src/st
 
 // Mock components
 const TestComponent = () => React.createElement('div', null, 'test');
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'form-renderer' }, children);
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'row-renderer' }, children);
 const TestSubmitButtonRenderer = ({
   onSubmit,
   isSubmitting,
@@ -47,9 +43,9 @@ describe('FormProvider', () => {
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter email...' },
       })
+      // No bodyRenderer/rowRenderer here: FormBody ignores renderConfig chrome
+      // since Task 7 (renderConfig removal completes in Tasks 9/10).
       .configure({
-        rowRenderer: TestRowRenderer,
-        bodyRenderer: TestFormRenderer,
         submitButtonRenderer: TestSubmitButtonRenderer,
       });
 

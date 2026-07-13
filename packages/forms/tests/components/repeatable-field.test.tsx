@@ -40,7 +40,6 @@ const MockNumberInput = ({ id, value, onChange, props }: any) => (
 
 let rilConfig: any;
 
-const TestBodyRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
 const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
 
 function buildFormConfig(opts?: {
@@ -49,8 +48,10 @@ function buildFormConfig(opts?: {
   repeatableRenderer?: any;
   repeatableItemRenderer?: any;
 }): FormConfiguration {
+  // No bodyRenderer here: FormBody ignores renderConfig chrome since Task 7.
+  // rowRenderer is still required by RepeatableItem's FormRow until the
+  // renderConfig removal completes in Tasks 9/10.
   const cfg = rilConfig.configure({
-    bodyRenderer: TestBodyRenderer,
     rowRenderer: TestRowRenderer,
     ...(opts?.repeatableRenderer ? { repeatableRenderer: opts.repeatableRenderer } : {}),
     ...(opts?.repeatableItemRenderer
