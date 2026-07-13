@@ -22,6 +22,11 @@ export default defineConfig({
       'tests/e2e/**/*.e2e.test.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**'],
+    typecheck: {
+      enabled: true,
+      include: ['packages/**/*.test-d.{ts,tsx}'],
+      tsconfig: './tsconfig.vitest.json',
+    },
     coverage: {
       provider: 'v8',
       reportsDirectory: 'coverage',

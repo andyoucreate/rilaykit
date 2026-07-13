@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ril } from '../../src/config/ril';
 import { ValidationError } from '../../src/errors';
+import { entriesOf } from '../helpers/entries';
 
 describe('ril - Immutable API', () => {
   describe('addComponent immutability', () => {
@@ -139,7 +140,7 @@ describe('ril - Enhanced Validation', () => {
     it('should detect components without renderers', () => {
       const config = ril.create();
       // Add component without renderer
-      (config as any).entries.set('component:broken', {
+      entriesOf(config).set('component:broken', {
         kind: 'component',
         type: 'broken',
         name: 'Broken Component',
@@ -164,7 +165,7 @@ describe('ril - Enhanced Validation', () => {
     it('should throw ValidationError for invalid configuration', async () => {
       const config = ril.create();
       // Add invalid component
-      (config as any).entries.set('component:invalid', {
+      entriesOf(config).set('component:invalid', {
         kind: 'component',
         type: 'invalid',
         name: 'Invalid',
@@ -246,7 +247,7 @@ describe('ril - Error Hierarchy', () => {
   it('should include metadata in async validation errors', async () => {
     const config = ril.create();
     // Force error condition
-    (config as any).entries.set('component:broken', {
+    entriesOf(config).set('component:broken', {
       kind: 'component',
       type: 'broken',
       name: 'Broken',

@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type React from 'react';
-import type { FieldError, FieldValidationConfig } from './index';
+import type { FieldConditions, FieldError, FieldValidationConfig } from './index';
 
 export type ToolState = 'streaming' | 'ready' | 'done' | 'error';
 
@@ -18,12 +18,7 @@ export interface ComponentRenderContext<TProps = Record<string, unknown>> {
   readonly id: string;
   readonly props: TProps;
   readonly field?: FieldBinding;
-  readonly conditions?: {
-    readonly visible: boolean;
-    readonly disabled: boolean;
-    readonly required: boolean;
-    readonly readonly: boolean;
-  };
+  readonly conditions?: FieldConditions;
   readonly children?: React.ReactNode;
   readonly meta?: Record<string, unknown>;
 }

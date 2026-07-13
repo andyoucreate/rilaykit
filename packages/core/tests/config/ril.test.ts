@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { ril } from '../../src/config/ril';
+import { entriesOf } from '../helpers/entries';
 
 const TestComponent = () => React.createElement('div', null, 'test');
 const TestRenderer = () => React.createElement('div', null, 'renderer');
@@ -259,7 +260,7 @@ describe('ril', () => {
     it('should detect components without renderer', () => {
       const config = ril.create();
       // Manually add a component without renderer (this shouldn't happen in normal usage)
-      (config as any).entries.set('component:invalid-component', {
+      entriesOf(config).set('component:invalid-component', {
         kind: 'component',
         type: 'invalid-component',
         name: 'Invalid Component',

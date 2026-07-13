@@ -62,7 +62,7 @@ export interface RilayInstance<C> {
   ): RilayInstance<C & { [K in NewType]: TProps }>;
 
   /** @deprecated Use .component() — removed in Task 16 */
-  addComponent<NewType extends string, TProps = any>(
+  addComponent<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
   ): RilayInstance<C & { [K in NewType]: TProps }>;
@@ -128,12 +128,12 @@ export class ril<C> implements RilayInstance<C> {
     return `component:${type}`;
   }
 
-  private cloneWith(mutate: (entries: Map<string, unknown>) => void): ril<C> {
+  private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
     const next = new ril<C>();
     next.entries = new Map(this.entries);
     next.formRenderConfig = { ...this.formRenderConfig };
     next.workflowRenderConfig = { ...this.workflowRenderConfig };
-    mutate(next.entries);
+    mutate?.(next.entries);
     return next;
   }
 
@@ -170,7 +170,7 @@ export class ril<C> implements RilayInstance<C> {
   }
 
   /** @deprecated Use .component() — removed in Task 16 */
-  addComponent<NewType extends string, TProps = any>(
+  addComponent<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
     config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
   ): ril<C & { [K in NewType]: TProps }> {
@@ -239,17 +239,12 @@ export class ril<C> implements RilayInstance<C> {
       }
     }
 
-    // Create new instance (immutable)
-    const newInstance = new ril<C>();
+    // Create new instance (immutable) and apply configurations using deep merge strategy
+    const next = this.cloneWith();
+    next.formRenderConfig = deepMerge(this.formRenderConfig, formRenderers);
+    next.workflowRenderConfig = deepMerge(this.workflowRenderConfig, workflowRenderers);
 
-    // Copy existing state
-    newInstance.entries = new Map(this.entries);
-
-    // Apply configurations using deep merge strategy
-    newInstance.formRenderConfig = deepMerge(this.formRenderConfig, formRenderers);
-    newInstance.workflowRenderConfig = deepMerge(this.workflowRenderConfig, workflowRenderers);
-
-    return newInstance;
+    return next;
   }
 
   /**
@@ -311,11 +306,10 @@ export class ril<C> implements RilayInstance<C> {
    * Create a deep copy of the current ril instance
    */
   clone(): ril<C> {
-    const newInstance = new ril<C>();
-    newInstance.entries = new Map(this.entries);
-    newInstance.formRenderConfig = deepMerge({}, this.formRenderConfig);
-    newInstance.workflowRenderConfig = deepMerge({}, this.workflowRenderConfig);
-    return newInstance;
+    const next = this.cloneWith();
+    next.formRenderConfig = deepMerge({}, this.formRenderConfig);
+    next.workflowRenderConfig = deepMerge({}, this.workflowRenderConfig);
+    return next;
   }
 
   /**

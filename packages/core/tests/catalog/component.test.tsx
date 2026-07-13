@@ -1,7 +1,7 @@
 import { DuplicateError, ril } from '@rilaykit/core';
-import type { ComponentRenderContext } from '@rilaykit/core';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { entriesOf } from '../helpers/entries';
 
 const textEntry = {
   description: 'Text input',
@@ -56,29 +56,17 @@ describe('ril.component()', () => {
     expect(r.hasComponent('legacy')).toBe(true);
     expect(r.getComponent('legacy')?.name).toBe('Legacy');
   });
-});
 
-describe('propsSchema type inference', () => {
-  it('infers renderer ctx props from the zod schema', () => {
-    ril.create().component('select', {
-      propsSchema: z.object({ label: z.string(), options: z.array(z.string()) }),
-      renderer: (ctx) => {
-        expectTypeOf(ctx).toMatchTypeOf<
-          ComponentRenderContext<{ label: string; options: string[] }>
-        >();
-        expectTypeOf(ctx.props.label).toBeString();
-        return <div />;
-      },
-    });
-  });
+  it('excludes non-component entries from getAllComponents and getStats', () => {
+    const empty = ril.create();
+    entriesOf(empty).set('tool:x', { kind: 'tool', name: 'x' });
+    expect(empty.getAllComponents()).toHaveLength(0);
+    expect(empty.getStats().total).toBe(0);
 
-  it('accumulates the component map in the instance generic', () => {
-    const r = ril.create().component('select', {
-      propsSchema: z.object({ label: z.string() }),
-    });
-    const entry = r.getComponent('select');
-    expectTypeOf(entry!.propsSchema!).toMatchTypeOf<
-      import('@standard-schema/spec').StandardSchemaV1<unknown, { label: string }>
-    >();
+    const mixed = ril.create().component('text', textEntry);
+    entriesOf(mixed).set('tool:search', { kind: 'tool', name: 'search' });
+    expect(mixed.getAllComponents()).toHaveLength(1);
+    expect(mixed.getAllComponents()[0]?.type).toBe('text');
+    expect(mixed.getStats().total).toBe(1);
   });
 });
