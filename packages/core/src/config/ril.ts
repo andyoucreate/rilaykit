@@ -1,33 +1,6 @@
+import { ValidationError } from '../errors';
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
 import { ensureUnique } from '../utils/builderHelpers';
-
-/**
- * Structured error hierarchy for Rilay
- */
-export class RilayError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly meta?: Record<string, any>
-  ) {
-    super(message);
-    this.name = 'RilayError';
-  }
-}
-
-export class ValidationError extends RilayError {
-  constructor(message: string, meta?: Record<string, any>) {
-    super(message, 'VALIDATION_ERROR', meta);
-    this.name = 'ValidationError';
-  }
-}
-
-export class DuplicateIdError extends RilayError {
-  constructor(message: string, meta?: Record<string, any>) {
-    super(message, 'DUPLICATE_ID_ERROR', meta);
-    this.name = 'DuplicateIdError';
-  }
-}
 
 /**
  * Deep merge utility for nested configuration objects

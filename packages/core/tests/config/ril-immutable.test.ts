@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ValidationError, ril } from '../../src/config/ril';
+import { ril } from '../../src/config/ril';
+import { ValidationError } from '../../src/errors';
 
 describe('ril - Immutable API', () => {
   describe('addComponent immutability', () => {
@@ -238,7 +239,7 @@ describe('ril - Error Hierarchy', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(error).toBeInstanceOf(ValidationError);
-    expect(error.code).toBe('VALIDATION_ERROR');
+    expect(error.code).toBe('VALIDATION');
     expect(error.meta).toEqual({ field: 'test' });
   });
 

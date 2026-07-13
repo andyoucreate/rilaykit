@@ -1,6 +1,14 @@
 // Export all types
 export * from './types';
 
+// Export typed error hierarchy.
+// `ValidationError` exists both as the field-level error shape (interface in
+// ./types, pre-existing public API) and as the error class (./errors). At the
+// package boundary the interface keeps the type name; the class stays
+// available as a constructable value.
+export * from './errors';
+export type { ValidationError } from './types';
+
 export * from './components/ComponentRendererWrapper';
 
 // Export configuration

@@ -1,3 +1,5 @@
+import { DuplicateError } from '../errors';
+
 /**
  * Utility for merging partial configurations into existing objects
  * Eliminates repetitive object spread operations
@@ -12,7 +14,10 @@ export function mergeInto<T>(target: T, partial: Partial<T>): T {
 export function ensureUnique(ids: string[], entityName: string): void {
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicates.length > 0) {
-    throw new Error(`Duplicate ${entityName} IDs: ${duplicates.join(', ')}`);
+    throw new DuplicateError(`Duplicate ${entityName} IDs: ${duplicates.join(', ')}`, {
+      entityName,
+      duplicates,
+    });
   }
 }
 
