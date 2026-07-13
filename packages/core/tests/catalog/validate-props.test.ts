@@ -7,8 +7,8 @@ const r = ril.create().component('select', {
 });
 
 describe('ril.validateProps()', () => {
-  it('returns success with the parsed value', () => {
-    const result = r.validateProps('select', { label: 'Country', options: ['fr'] });
+  it('returns success with the parsed value, not the raw input', () => {
+    const result = r.validateProps('select', { label: 'Country', options: ['fr'], extra: 1 });
     expect(result).toEqual({ success: true, value: { label: 'Country', options: ['fr'] } });
   });
 
@@ -43,11 +43,16 @@ describe('ril.validateProps()', () => {
     });
   });
 
-  it('throws NotFoundError for an unknown component', () => {
-    expect(() => r.validateProps('ghost', {})).toThrowError(NotFoundError);
-    expect(() => r.validateProps('ghost', {})).toThrowError(
-      'Component "ghost" not found in catalog'
-    );
+  it('throws NotFoundError with entry-key meta for an unknown component', () => {
+    let caught: unknown;
+    try {
+      r.validateProps('ghost', {});
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(NotFoundError);
+    expect((caught as NotFoundError).message).toBe('Component "ghost" not found in catalog');
+    expect((caught as NotFoundError).meta).toEqual({ key: 'component:ghost' });
   });
 
   it('throws ConfigurationError for async schemas', () => {
@@ -57,9 +62,16 @@ describe('ril.validateProps()', () => {
     const bad = ril.create().component('async', {
       propsSchema: asyncSchema as never,
     });
-    expect(() => bad.validateProps('async', {})).toThrowError(ConfigurationError);
-    expect(() => bad.validateProps('async', {})).toThrowError(
+    let caught: unknown;
+    try {
+      bad.validateProps('async', {});
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ConfigurationError);
+    expect((caught as ConfigurationError).message).toBe(
       'propsSchema of "async" is async — props schemas must validate synchronously'
     );
+    expect((caught as ConfigurationError).meta).toEqual({ key: 'component:async' });
   });
 });
