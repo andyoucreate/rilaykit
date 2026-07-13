@@ -1,0 +1,2468 @@
+# P1 — Unified Catalog & Headless Chrome Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** De-renderer-ify RilayKit: one namespaced catalog (`.component()/.tool()/.part()/.use()/.renderers()` + `propsSchema` + `meta` + typed errors) and compound headless chrome (`Form.*`, `Flow.*` with `of`/`defaults`), deleting the whole renderConfig layer.
+
+**Architecture:** Spec is `docs/superpowers/specs/2026-07-13-rilaykit-agentic-engine-design.md` (§4, §5, §8, §10). The engine (providers/stores/conditions/validation) is untouched; only the registry and the presentation shell change. Old APIs stay alive mid-plan (temporary `addComponent` delegate) and die in Task 16.
+
+**Tech Stack:** TypeScript strict, React 18, Zustand, Standard Schema (`@standard-schema/spec`), zod (tests), vitest + jsdom + @testing-library/react, biome, turbo/pnpm.
+
+## Global Constraints
+
+- Never `throw new Error(...)` — use the `RilayError` hierarchy (Task 1). Codes: `VALIDATION | DUPLICATE | NOT_FOUND | INVALID_SCHEMA | CONFIGURATION`.
+- No `console.*`. No `any` — `unknown` over `any`; killing `any` is a design goal.
+- `function` for declarations, arrows for callbacks. One component per file.
+- Immutable builder: every registration returns a NEW `ril` instance.
+- Dependency direction: `workflow → forms → core`. Core never imports from the others.
+- Tests: test-first, exact assertions (`toBe`), real stores/catalogs (never mock rilaykit), error paths covered. JSX tests use `.tsx`.
+- Commands run from repo root. Test: `pnpm vitest run <path>`. Typecheck: `pnpm type-check`. Lint: `pnpm check`.
+- Conventional commits.
+- The spec's naming is law: `Form.Body/Field/Submit/List`, `Flow.Body/Progress/Next/Back/Skip`, `of`/`defaults`, `useFlow*` hooks.
+
+## File Structure (end state)
+
+```
+packages/core/src/
+  errors.ts                       NEW  RilayError hierarchy (moved out of config/ril.ts, extended)
+  types/catalog.ts                NEW  Catalog entries + renderer contexts + ToolState
+  types/index.ts                  MOD  drops renderer/builder-metadata/V2 types (Task 16)
+  config/ril.ts                   MOD  namespaced entries Map + fluent facades
+  components/ComponentRendererWrapper.tsx   DELETED (Task 16)
+  utils/componentHelpers.tsx                DELETED (Task 16)
+  types/context.ts                          DELETED (Task 16)
+packages/forms/src/
+  components/Form.tsx             MOD  root (of/defaults) + compound assembly
+  components/FormBody.tsx         MOD  render prop { rows }, bare default
+  components/FormField.tsx        MOD  new ComponentRenderContext bridge
+  components/FormSubmit.tsx       NEW  (replaces FormSubmitButton.tsx)
+  components/FormList.tsx         NEW  (replaces repeatable-field.tsx)
+  components/FormListItem.tsx     NEW  (replaces repeatable-item.tsx)
+  components/FormRow.tsx          DELETED (Task 11; logic moves into useFormRows)
+  hooks/useFormRows.ts            NEW
+packages/workflow/src/
+  components/Flow.tsx             NEW  root (of/defaults/onComplete) + compound assembly
+  components/FlowBody.tsx         NEW  (replaces WorkflowBody.tsx)
+  components/FlowProgress.tsx     NEW  (replaces WorkflowStepper.tsx)
+  components/FlowNav.tsx          NEW  parametric Next/Back/Skip (replaces the 3 button files)
+  components/WorkflowProvider.tsx MOD  exports useFlow (renamed useWorkflowContext)
+  hooks/useStep.ts                NEW
+  hooks/useFlowSteps.ts           NEW
+  stores/workflowStore.ts         MOD  useFlow* selector renames
+packages/rilaykit/src/           MOD  create-ril + index re-exports
+MIGRATION.md                      NEW
+```
+
+---
+
+### Task 1: Typed error hierarchy (`core/src/errors.ts`)
+
+**Files:**
+- Create: `packages/core/src/errors.ts`
+- Test: `packages/core/tests/errors.test.ts`
+- Modify: `packages/core/src/config/ril.ts` (import errors instead of defining them), `packages/core/src/index.ts` (export errors), `packages/core/src/utils/builderHelpers.ts` (throw `DuplicateError`)
+
+**Interfaces:**
+- Produces: `RilayErrorCode = 'VALIDATION' | 'DUPLICATE' | 'NOT_FOUND' | 'INVALID_SCHEMA' | 'CONFIGURATION'`; classes `RilayError` (with `code: RilayErrorCode`, `meta?: Record<string, unknown>`), `ValidationError`, `DuplicateError`, `NotFoundError`, `InvalidSchemaError`, `ConfigurationError`. All later tasks throw these.
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// packages/core/tests/errors.test.ts
+import { describe, expect, it } from 'vitest';
+import {
+  ConfigurationError,
+  DuplicateError,
+  InvalidSchemaError,
+  NotFoundError,
+  RilayError,
+  ValidationError,
+} from '@rilaykit/core';
+
+describe('RilayError hierarchy', () => {
+  it('carries code and meta', () => {
+    const err = new RilayError('boom', 'CONFIGURATION', { key: 'x' });
+    expect(err.code).toBe('CONFIGURATION');
+    expect(err.meta).toEqual({ key: 'x' });
+    expect(err.name).toBe('RilayError');
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it.each([
+    [ValidationError, 'VALIDATION', 'ValidationError'],
+    [DuplicateError, 'DUPLICATE', 'DuplicateError'],
+    [NotFoundError, 'NOT_FOUND', 'NotFoundError'],
+    [InvalidSchemaError, 'INVALID_SCHEMA', 'InvalidSchemaError'],
+    [ConfigurationError, 'CONFIGURATION', 'ConfigurationError'],
+  ] as const)('%o has code %s', (Ctor, code, name) => {
+    const err = new Ctor('msg', { a: 1 });
+    expect(err.code).toBe(code);
+    expect(err.name).toBe(name);
+    expect(err.message).toBe('msg');
+    expect(err.meta).toEqual({ a: 1 });
+    expect(err).toBeInstanceOf(RilayError);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/errors.test.ts`
+Expected: FAIL — `@rilaykit/core` has no export `NotFoundError` (module resolution error).
+
+- [ ] **Step 3: Write the implementation**
+
+```typescript
+// packages/core/src/errors.ts
+export type RilayErrorCode =
+  | 'VALIDATION'
+  | 'DUPLICATE'
+  | 'NOT_FOUND'
+  | 'INVALID_SCHEMA'
+  | 'CONFIGURATION';
+
+export class RilayError extends Error {
+  constructor(
+    message: string,
+    public readonly code: RilayErrorCode,
+    public readonly meta?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = 'RilayError';
+  }
+}
+
+export class ValidationError extends RilayError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 'VALIDATION', meta);
+    this.name = 'ValidationError';
+  }
+}
+
+export class DuplicateError extends RilayError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 'DUPLICATE', meta);
+    this.name = 'DuplicateError';
+  }
+}
+
+export class NotFoundError extends RilayError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 'NOT_FOUND', meta);
+    this.name = 'NotFoundError';
+  }
+}
+
+export class InvalidSchemaError extends RilayError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 'INVALID_SCHEMA', meta);
+    this.name = 'InvalidSchemaError';
+  }
+}
+
+export class ConfigurationError extends RilayError {
+  constructor(message: string, meta?: Record<string, unknown>) {
+    super(message, 'CONFIGURATION', meta);
+    this.name = 'ConfigurationError';
+  }
+}
+```
+
+Then in `packages/core/src/config/ril.ts`: delete the local `RilayError`, `ValidationError`, `DuplicateIdError` classes (lines 4-30) and replace with `import { ValidationError } from '../errors';` (keep `validateAsync` usage working — its `new ValidationError(msg, {…})` signature is unchanged). In `packages/core/src/index.ts` add `export * from './errors';`. In `packages/core/src/utils/builderHelpers.ts`, replace any `DuplicateIdError`/`new Error` throw in `ensureUnique` with `DuplicateError` from `../errors`. Search-and-fix compile fallout: `grep -rn "DuplicateIdError" packages/ --include="*.ts*" | grep -v node_modules` and update each site (imports + `instanceof` + `.code` assertions in existing tests, e.g. `packages/core/tests/config/ril.test.ts` if it references old codes `VALIDATION_ERROR`/`DUPLICATE_ID_ERROR` → new codes `VALIDATION`/`DUPLICATE`).
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/core && pnpm type-check`
+Expected: PASS (all core tests, including updated ones), typecheck green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/core MIGRATION.md 2>/dev/null; git add -A packages/core
+git commit -m "feat(core): extract typed RilayError hierarchy with stable codes"
+```
+
+---
+
+### Task 2: Catalog entry types + `.component()` facade
+
+**Files:**
+- Create: `packages/core/src/types/catalog.ts`
+- Test: `packages/core/tests/catalog/component.test.tsx`
+- Modify: `packages/core/src/config/ril.ts`, `packages/core/src/types/index.ts` (append `export * from './catalog';`)
+
+**Interfaces:**
+- Consumes: errors from Task 1.
+- Produces:
+  - `ToolState = 'streaming' | 'ready' | 'done' | 'error'`
+  - `FieldBinding { value: unknown; onChange: (v: unknown) => void; onBlur: () => void; error?: ValidationError[]; disabled?: boolean; isValidating?: boolean; touched?: boolean }` (this `ValidationError` is the *field* error shape `{ message, code?, path? }` from `types/index.ts`, not the error class)
+  - `ComponentRenderContext<TProps> { id: string; props: TProps; field?: FieldBinding; conditions?: { visible: boolean; disabled: boolean; required: boolean; readonly: boolean }; children?: React.ReactNode; meta?: Record<string, unknown> }`
+  - `ComponentEntry<TProps> { kind: 'component'; type: string; name?: string; description?: string; propsSchema?: StandardSchemaV1<unknown, TProps>; propsJsonSchema?: Record<string, unknown>; renderer?: (ctx: ComponentRenderContext<TProps>) => React.ReactElement; defaultProps?: Partial<TProps>; validation?: FieldValidationConfig; meta?: Record<string, unknown>; replace?: boolean }`
+  - `ToolRenderContext<TInput, TOutput>`, `ToolEntry<TInput, TOutput>`, `PartRenderContext<TPart>`, `PartEntry<TPart>` (fields per spec §4; used by Task 3)
+  - `ril.component(type, entry)` → new instance, key `component:${type}`, throws `DuplicateError` unless `entry.replace === true`; `getComponent/hasComponent/getAllComponents/removeComponent` keep working over the namespaced map; `addComponent` becomes a delegate to `.component()` (temporary, deleted in Task 16).
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/core/tests/catalog/component.test.tsx
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { DuplicateError, ril } from '@rilaykit/core';
+
+const textEntry = {
+  description: 'Text input',
+  propsSchema: z.object({ label: z.string() }),
+  renderer: ({ id, props }: { id: string; props: { label: string } }) => (
+    <input aria-label={props.label} data-id={id} />
+  ),
+  meta: { icon: 'text' },
+};
+
+describe('ril.component()', () => {
+  it('registers a component retrievable by type', () => {
+    const r = ril.create().component('text', textEntry);
+    const entry = r.getComponent('text');
+    expect(entry?.kind).toBe('component');
+    expect(entry?.type).toBe('text');
+    expect(entry?.description).toBe('Text input');
+    expect(entry?.meta).toEqual({ icon: 'text' });
+  });
+
+  it('is immutable — the original instance is untouched', () => {
+    const base = ril.create();
+    const extended = base.component('text', textEntry);
+    expect(base.hasComponent('text')).toBe(false);
+    expect(extended.hasComponent('text')).toBe(true);
+  });
+
+  it('throws DuplicateError on double registration', () => {
+    const r = ril.create().component('text', textEntry);
+    expect(() => r.component('text', textEntry)).toThrowError(DuplicateError);
+    try {
+      r.component('text', textEntry);
+    } catch (e) {
+      expect((e as DuplicateError).code).toBe('DUPLICATE');
+      expect((e as DuplicateError).meta).toEqual({ key: 'component:text' });
+    }
+  });
+
+  it('replaces the whole entry with replace: true', () => {
+    const r = ril
+      .create()
+      .component('text', textEntry)
+      .component('text', { ...textEntry, description: 'Replaced', replace: true });
+    expect(r.getComponent('text')?.description).toBe('Replaced');
+  });
+
+  it('keeps addComponent working as a delegate during migration', () => {
+    const r = ril.create().addComponent('legacy', {
+      name: 'Legacy',
+      renderer: () => <span />,
+    });
+    expect(r.hasComponent('legacy')).toBe(true);
+    expect(r.getComponent('legacy')?.name).toBe('Legacy');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/catalog/component.test.tsx`
+Expected: FAIL — `r.component is not a function`.
+
+- [ ] **Step 3: Write the implementation**
+
+```typescript
+// packages/core/src/types/catalog.ts
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type React from 'react';
+import type { FieldValidationConfig, ValidationError } from './index';
+
+export type ToolState = 'streaming' | 'ready' | 'done' | 'error';
+
+export interface FieldBinding {
+  readonly value: unknown;
+  readonly onChange: (value: unknown) => void;
+  readonly onBlur: () => void;
+  readonly error?: ValidationError[];
+  readonly disabled?: boolean;
+  readonly isValidating?: boolean;
+  readonly touched?: boolean;
+}
+
+export interface ComponentRenderContext<TProps = Record<string, unknown>> {
+  readonly id: string;
+  readonly props: TProps;
+  readonly field?: FieldBinding;
+  readonly conditions?: {
+    readonly visible: boolean;
+    readonly disabled: boolean;
+    readonly required: boolean;
+    readonly readonly: boolean;
+  };
+  readonly children?: React.ReactNode;
+  readonly meta?: Record<string, unknown>;
+}
+
+export interface ComponentEntry<TProps = Record<string, unknown>> {
+  readonly kind: 'component';
+  readonly type: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly propsSchema?: StandardSchemaV1<unknown, TProps>;
+  readonly propsJsonSchema?: Record<string, unknown>;
+  readonly renderer?: (ctx: ComponentRenderContext<TProps>) => React.ReactElement;
+  readonly defaultProps?: Partial<TProps>;
+  readonly validation?: FieldValidationConfig;
+  readonly meta?: Record<string, unknown>;
+  readonly replace?: boolean;
+}
+
+export interface ToolRenderContext<TInput = unknown, TOutput = unknown> {
+  readonly toolCallId: string;
+  readonly name: string;
+  readonly state: ToolState;
+  readonly input: TInput;
+  readonly rawInput?: string;
+  readonly output?: TOutput;
+  readonly errorText?: string;
+  readonly resolve: (output: TOutput) => void;
+  readonly meta?: Record<string, unknown>;
+}
+
+export interface ToolEntry<TInput = unknown, TOutput = unknown> {
+  readonly kind: 'tool';
+  readonly name: string;
+  readonly description?: string;
+  readonly inputSchema?: StandardSchemaV1<unknown, TInput>;
+  readonly inputJsonSchema?: Record<string, unknown>;
+  readonly renderer?: (ctx: ToolRenderContext<TInput, TOutput>) => React.ReactElement;
+  readonly meta?: Record<string, unknown>;
+  readonly replace?: boolean;
+}
+
+export interface PartRenderContext<TPart = unknown> {
+  readonly part: TPart;
+  readonly meta?: Record<string, unknown>;
+}
+
+export interface PartEntry<TPart = unknown> {
+  readonly kind: 'part';
+  readonly type: string;
+  readonly renderer: (ctx: PartRenderContext<TPart>) => React.ReactElement;
+  readonly meta?: Record<string, unknown>;
+  readonly replace?: boolean;
+}
+
+export type CatalogEntry = ComponentEntry<never> | ToolEntry<never, never> | PartEntry<never>;
+```
+
+In `packages/core/src/types/index.ts` append `export * from './catalog';`.
+
+In `packages/core/src/config/ril.ts`:
+1. Replace `private components = new Map<string, ComponentConfig>()` with `private entries = new Map<string, unknown>()` and add private helpers:
+
+```typescript
+private static componentKey(type: string): string {
+  return `component:${type}`;
+}
+
+private cloneWith(mutate: (entries: Map<string, unknown>) => void): ril<C> {
+  const next = new ril<C>();
+  next.entries = new Map(this.entries);
+  next.formRenderConfig = { ...this.formRenderConfig };
+  next.workflowRenderConfig = { ...this.workflowRenderConfig };
+  mutate(next.entries);
+  return next;
+}
+```
+
+2. Add the facade (import `DuplicateError` from `../errors`, entry types from `../types/catalog`):
+
+```typescript
+component<NewType extends string, TProps = Record<string, unknown>>(
+  type: NewType,
+  entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
+): ril<C & { [K in NewType]: TProps }> {
+  const key = ril.componentKey(type);
+  if (this.entries.has(key) && entry.replace !== true) {
+    throw new DuplicateError(`Component "${type}" is already registered`, { key });
+  }
+  return this.cloneWith((entries) => {
+    entries.set(key, { ...entry, kind: 'component', type } satisfies ComponentEntry<TProps>);
+  }) as ril<C & { [K in NewType]: TProps }>;
+}
+```
+
+3. Rewrite `addComponent` as a delegate (temporary shim — its old `ComponentConfig` arg shape maps onto the entry; keep its signature so existing callers compile):
+
+```typescript
+/** @deprecated Use .component() — removed in Task 16 */
+addComponent<NewType extends string, TProps = Record<string, unknown>>(
+  type: NewType,
+  config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+): ril<C & { [K in NewType]: TProps }> {
+  const { renderer, ...rest } = config;
+  return this.component<NewType, TProps>(type, {
+    ...rest,
+    renderer: renderer as unknown as ComponentEntry<TProps>['renderer'],
+  });
+}
+```
+
+4. Point the readers at the namespaced map — `getComponent(id)` returns `this.entries.get(ril.componentKey(id))` cast to `ComponentEntry`; `hasComponent(id)` → `this.entries.has(ril.componentKey(id))`; `getAllComponents()` → filter entries by `kind === 'component'`; `removeComponent(id)` → `cloneWith(e => e.delete(ril.componentKey(id)))`; `clear()`/`clone()` copy `entries`. Update `getStats`/`validate` internals to iterate `getAllComponents()`. Update the `RilayInstance<C>` interface accordingly (add `component`, keep `addComponent` marked deprecated; `getComponent` return type becomes `ComponentEntry<C[T]> | undefined`).
+5. IMPORTANT compile note: `ComponentConfig.renderer` (old flat signature) and `ComponentEntry.renderer` (context signature) differ — the delegate casts once (`as unknown as`), confined to the deprecated shim. `FormField` keeps calling the old flat shape until Task 8; since entries stored via `addComponent` hold old-shape renderers at runtime, behavior is unchanged.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/core && pnpm type-check`
+Expected: PASS. Existing `ril.test.ts` / `ril-immutable.test.ts` still pass through the delegate.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/core
+git commit -m "feat(core): namespaced catalog with .component() facade and entry types"
+```
+
+---
+
+### Task 3: `.tool()` and `.part()` facades
+
+**Files:**
+- Modify: `packages/core/src/config/ril.ts`
+- Test: `packages/core/tests/catalog/tool-part.test.tsx`
+
+**Interfaces:**
+- Consumes: `ToolEntry`, `PartEntry` types (Task 2).
+- Produces: `ril.tool(name, entry)`, `ril.part(type, entry)`, `getTool(name): ToolEntry | undefined`, `getPart(type): PartEntry | undefined`, `getAllTools(): ToolEntry[]`, `getAllParts(): PartEntry[]`. Keys `tool:${name}` / `part:${type}`; same `DuplicateError`/`replace` semantics as `.component()`.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/core/tests/catalog/tool-part.test.tsx
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { DuplicateError, ril } from '@rilaykit/core';
+
+describe('ril.tool() / ril.part()', () => {
+  it('registers a tool with schema and retrieves it', () => {
+    const r = ril.create().tool('search_flights', {
+      description: 'Search flights',
+      inputSchema: z.object({ from: z.string(), to: z.string() }),
+    });
+    const tool = r.getTool('search_flights');
+    expect(tool?.kind).toBe('tool');
+    expect(tool?.name).toBe('search_flights');
+    expect(tool?.description).toBe('Search flights');
+  });
+
+  it('registers a renderer-only tool (no schema)', () => {
+    const r = ril.create().tool('host_tool', {
+      renderer: ({ state }) => <div data-state={state} />,
+    });
+    expect(r.getTool('host_tool')?.inputSchema).toBeUndefined();
+  });
+
+  it('registers a part and lists entries by kind', () => {
+    const r = ril
+      .create()
+      .component('text', { renderer: () => <input /> })
+      .tool('t1', {})
+      .part('text', { renderer: ({ part }) => <p>{String(part)}</p> });
+    expect(r.getAllTools().map((t) => t.name)).toEqual(['t1']);
+    expect(r.getAllParts().map((p) => p.type)).toEqual(['text']);
+    expect(r.getAllComponents().map((c) => c.type)).toEqual(['text']);
+    expect(r.getPart('text')?.kind).toBe('part');
+  });
+
+  it('component and part namespaces do not collide', () => {
+    const r = ril
+      .create()
+      .component('text', { renderer: () => <input /> })
+      .part('text', { renderer: () => <p /> });
+    expect(r.getComponent('text')?.kind).toBe('component');
+    expect(r.getPart('text')?.kind).toBe('part');
+  });
+
+  it('throws DuplicateError on tool double registration without replace', () => {
+    const r = ril.create().tool('x', {});
+    expect(() => r.tool('x', {})).toThrowError(DuplicateError);
+    expect(r.tool('x', { description: 'v2', replace: true }).getTool('x')?.description).toBe('v2');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/catalog/tool-part.test.tsx`
+Expected: FAIL — `r.tool is not a function`.
+
+- [ ] **Step 3: Write the implementation**
+
+In `packages/core/src/config/ril.ts` add (mirroring `component()`):
+
+```typescript
+private static toolKey(name: string): string {
+  return `tool:${name}`;
+}
+private static partKey(type: string): string {
+  return `part:${type}`;
+}
+
+tool<TInput = unknown, TOutput = unknown>(
+  name: string,
+  entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+): ril<C> {
+  const key = ril.toolKey(name);
+  if (this.entries.has(key) && entry.replace !== true) {
+    throw new DuplicateError(`Tool "${name}" is already registered`, { key });
+  }
+  return this.cloneWith((entries) => {
+    entries.set(key, { ...entry, kind: 'tool', name } satisfies ToolEntry<TInput, TOutput>);
+  });
+}
+
+part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): ril<C> {
+  const key = ril.partKey(type);
+  if (this.entries.has(key) && entry.replace !== true) {
+    throw new DuplicateError(`Part "${type}" is already registered`, { key });
+  }
+  return this.cloneWith((entries) => {
+    entries.set(key, { ...entry, kind: 'part', type } satisfies PartEntry<TPart>);
+  });
+}
+
+getTool(name: string): ToolEntry | undefined {
+  return this.entries.get(ril.toolKey(name)) as ToolEntry | undefined;
+}
+getPart(type: string): PartEntry | undefined {
+  return this.entries.get(ril.partKey(type)) as PartEntry | undefined;
+}
+getAllTools(): ToolEntry[] {
+  return [...this.entries.values()].filter(
+    (e): e is ToolEntry => (e as ToolEntry).kind === 'tool'
+  );
+}
+getAllParts(): PartEntry[] {
+  return [...this.entries.values()].filter(
+    (e): e is PartEntry => (e as PartEntry).kind === 'part'
+  );
+}
+```
+
+Add the same methods to the `RilayInstance<C>` interface.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/core && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/core
+git commit -m "feat(core): add .tool() and .part() catalog facades"
+```
+
+---
+
+### Task 4: `.use()` and `.renderers()`
+
+**Files:**
+- Modify: `packages/core/src/config/ril.ts`
+- Test: `packages/core/tests/catalog/use-renderers.test.tsx`
+
+**Interfaces:**
+- Produces:
+  - `type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R` — exported from `config/ril.ts`. `r.use(plugin)` returns `plugin(this)`.
+  - `r.renderers({ components?: Record<string, ComponentEntry['renderer']>, tools?: Record<string, ToolEntry['renderer']>, parts?: Record<string, PartEntry['renderer']> })` — attaches/overrides ONLY the renderer of existing entries; throws `NotFoundError` for unknown keys. Returns a new instance.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/core/tests/catalog/use-renderers.test.tsx
+import { describe, expect, it } from 'vitest';
+import { NotFoundError, ril } from '@rilaykit/core';
+
+describe('ril.use()', () => {
+  it('applies a plugin that registers entries', () => {
+    const plugin = <R extends ril<Record<string, unknown>>>(r: R): R =>
+      r.tool('show_form', { description: 'from plugin' }) as R;
+    const r = ril.create().use(plugin);
+    expect(r.getTool('show_form')?.description).toBe('from plugin');
+  });
+});
+
+describe('ril.renderers()', () => {
+  it('attaches renderers to existing entries without touching schemas', () => {
+    const base = ril
+      .create()
+      .component('text', { description: 'kept' })
+      .tool('show_form', { description: 'kept too' });
+    const r = base.renderers({
+      components: { text: ({ id }) => <input data-id={id} /> },
+      tools: { show_form: ({ state }) => <div data-state={state} /> },
+    });
+    expect(typeof r.getComponent('text')?.renderer).toBe('function');
+    expect(r.getComponent('text')?.description).toBe('kept');
+    expect(typeof r.getTool('show_form')?.renderer).toBe('function');
+    expect(r.getTool('show_form')?.description).toBe('kept too');
+    // immutability
+    expect(base.getComponent('text')?.renderer).toBeUndefined();
+  });
+
+  it('throws NotFoundError for an unknown key', () => {
+    const r = ril.create();
+    expect(() => r.renderers({ components: { ghost: () => <i /> } })).toThrowError(NotFoundError);
+    try {
+      r.renderers({ tools: { ghost: () => <i /> } });
+    } catch (e) {
+      expect((e as NotFoundError).meta).toEqual({ key: 'tool:ghost' });
+    }
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/catalog/use-renderers.test.tsx`
+Expected: FAIL — `r.use is not a function`.
+
+- [ ] **Step 3: Write the implementation**
+
+In `packages/core/src/config/ril.ts`:
+
+```typescript
+export type RilayPlugin = <R extends ril<Record<string, unknown>>>(r: R) => R;
+
+export interface RendererAttachments {
+  readonly components?: Record<string, ComponentEntry<never>['renderer']>;
+  readonly tools?: Record<string, ToolEntry<never, never>['renderer']>;
+  readonly parts?: Record<string, PartEntry<never>['renderer']>;
+}
+```
+
+Methods on the class:
+
+```typescript
+use(plugin: RilayPlugin): ril<C> {
+  return plugin(this as ril<Record<string, unknown>>) as ril<C>;
+}
+
+renderers(attachments: RendererAttachments): ril<C> {
+  const patches: Array<[string, unknown]> = [];
+  const collect = (bag: Record<string, unknown> | undefined, prefix: 'component' | 'tool' | 'part') => {
+    for (const [name, renderer] of Object.entries(bag ?? {})) {
+      const key = `${prefix}:${name}`;
+      const existing = this.entries.get(key);
+      if (!existing) {
+        throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, { key });
+      }
+      patches.push([key, { ...(existing as object), renderer }]);
+    }
+  };
+  collect(attachments.components, 'component');
+  collect(attachments.tools, 'tool');
+  collect(attachments.parts, 'part');
+  return this.cloneWith((entries) => {
+    for (const [key, entry] of patches) entries.set(key, entry);
+  });
+}
+```
+
+(`collect` is an arrow callback — allowed. Import `NotFoundError` from `../errors`.) Add both methods to `RilayInstance<C>`.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/core && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/core
+git commit -m "feat(core): add .use() plugin hook and .renderers() hydration"
+```
+
+---
+
+### Task 5: `validateProps()` — schema projection groundwork
+
+**Files:**
+- Modify: `packages/core/src/config/ril.ts`
+- Test: `packages/core/tests/catalog/validate-props.test.ts`
+
+**Interfaces:**
+- Produces: `ril.validateProps(type: string, props: unknown): PropsValidationResult` with
+  `type PropsValidationResult = { success: true; value: unknown } | { success: false; issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<PropertyKey | { key: PropertyKey }> }>; expectedKeys?: string[] }` (exported from `types/catalog.ts`). Throws `NotFoundError` (unknown component), `ConfigurationError` (async schema). P2's `compileForm` and P3's self-correction consume this.
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// packages/core/tests/catalog/validate-props.test.ts
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { ConfigurationError, NotFoundError, ril } from '@rilaykit/core';
+
+const r = ril.create().component('select', {
+  propsSchema: z.object({ label: z.string(), options: z.array(z.string()) }),
+});
+
+describe('ril.validateProps()', () => {
+  it('returns success with the parsed value', () => {
+    const result = r.validateProps('select', { label: 'Country', options: ['fr'] });
+    expect(result).toEqual({ success: true, value: { label: 'Country', options: ['fr'] } });
+  });
+
+  it('returns issues and expectedKeys on invalid props', () => {
+    const result = r.validateProps('select', { label: 42 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.message).toContain('expected string');
+      expect(result.expectedKeys).toEqual(['label', 'options']);
+    }
+  });
+
+  it('passes through when the component has no propsSchema', () => {
+    const loose = ril.create().component('free', {});
+    expect(loose.validateProps('free', { anything: true })).toEqual({
+      success: true,
+      value: { anything: true },
+    });
+  });
+
+  it('throws NotFoundError for an unknown component', () => {
+    expect(() => r.validateProps('ghost', {})).toThrowError(NotFoundError);
+  });
+
+  it('throws ConfigurationError for async schemas', () => {
+    const asyncSchema = {
+      '~standard': { version: 1, vendor: 'test', validate: () => Promise.resolve({ value: {} }) },
+    };
+    const bad = ril.create().component('async', {
+      propsSchema: asyncSchema as never,
+    });
+    expect(() => bad.validateProps('async', {})).toThrowError(ConfigurationError);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/catalog/validate-props.test.ts`
+Expected: FAIL — `r.validateProps is not a function`.
+
+- [ ] **Step 3: Write the implementation**
+
+In `packages/core/src/types/catalog.ts` add:
+
+```typescript
+export type PropsValidationResult =
+  | { readonly success: true; readonly value: unknown }
+  | {
+      readonly success: false;
+      readonly issues: ReadonlyArray<{
+        readonly message: string;
+        readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
+      }>;
+      readonly expectedKeys?: string[];
+    };
+```
+
+In `ril.ts` (import `ConfigurationError`, `NotFoundError`):
+
+```typescript
+validateProps(type: string, props: unknown): PropsValidationResult {
+  const entry = this.getComponent(type);
+  if (!entry) {
+    throw new NotFoundError(`Component "${type}" not found in catalog`, {
+      key: ril.componentKey(type),
+    });
+  }
+  if (!entry.propsSchema) {
+    return { success: true, value: props };
+  }
+  const outcome = entry.propsSchema['~standard'].validate(props);
+  if (outcome instanceof Promise) {
+    throw new ConfigurationError(
+      `propsSchema of "${type}" is async — props schemas must validate synchronously`,
+      { key: ril.componentKey(type) }
+    );
+  }
+  if (outcome.issues) {
+    const shape = (entry.propsSchema as { shape?: Record<string, unknown> }).shape;
+    return {
+      success: false,
+      issues: outcome.issues,
+      expectedKeys: shape ? Object.keys(shape) : undefined,
+    };
+  }
+  return { success: true, value: outcome.value };
+}
+```
+
+Add `validateProps` to `RilayInstance<C>`. (zod v4 object schemas expose `.shape`, giving best-effort `expectedKeys`; non-zod schemas simply omit it.)
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/core && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/core
+git commit -m "feat(core): validateProps with structured issues and expectedKeys"
+```
+
+---
+
+### Task 6: `Form` root — `of` / `defaults`
+
+**Files:**
+- Modify: `packages/forms/src/components/Form.tsx`
+- Test: `packages/forms/tests/components/Form.test.tsx`
+- Modify (mechanical prop sweep): every JSX usage of `<Form formConfig=` / `defaultValues=` in `tests/e2e/forms/*.e2e.test.tsx` and `packages/forms/tests/integration/*.test.tsx`
+
+**Interfaces:**
+- Produces: `FormProps { of: FormConfiguration<Record<string, never>> | form<Record<string, never>>; defaults?: Record<string, unknown>; onSubmit?: (data: Record<string, unknown>) => void | Promise<void>; onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void; className?: string; children: React.ReactNode }`. `FormProvider` and its props are UNCHANGED (engine).
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/forms/tests/components/Form.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { Form, form, useFieldValue } from '@rilaykit/forms';
+
+const r = ril.create().addComponent('text', {
+  name: 'Text',
+  renderer: ({ id, value, onChange }: { id: string; value?: string; onChange?: (v: unknown) => void }) => (
+    <input data-testid={id} value={value ?? ''} onChange={(e) => onChange?.(e.target.value)} />
+  ),
+});
+
+function Probe({ id }: { id: string }) {
+  const value = useFieldValue<string>(id);
+  return <span data-testid={`probe-${id}`}>{value}</span>;
+}
+
+describe('<Form of defaults>', () => {
+  it('builds from a builder passed via of and seeds defaults', () => {
+    const login = form.create(r, 'login').add({ id: 'email', type: 'text', props: {} });
+    render(
+      <Form of={login} defaults={{ email: 'karl@ayc.dev' }}>
+        <Probe id="email" />
+      </Form>
+    );
+    expect(screen.getByTestId('probe-email').textContent).toBe('karl@ayc.dev');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/Form.test.tsx`
+Expected: FAIL — TS/prop error: `of` is not a valid prop (`formConfig` missing).
+
+- [ ] **Step 3: Write the implementation**
+
+Rewrite `packages/forms/src/components/Form.tsx`:
+
+```tsx
+import type { FormConfiguration } from '@rilaykit/core';
+import { useMemo } from 'react';
+import { form } from '../builders/form';
+import { FormProvider } from './FormProvider';
+
+export interface FormProps {
+  /** Form definition: a built FormConfiguration or a form builder (auto-built). */
+  of: FormConfiguration<Record<string, never>> | form<Record<string, never>>;
+  defaults?: Record<string, unknown>;
+  onSubmit?: (data: Record<string, unknown>) => void | Promise<void>;
+  onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
+  className?: string;
+  children: React.ReactNode;
+}
+
+export function Form({ of, defaults, onSubmit, onFieldChange, className, children }: FormProps) {
+  const resolvedConfig = useMemo(() => (of instanceof form ? of.build() : of), [of]);
+
+  return (
+    <FormProvider
+      formConfig={resolvedConfig}
+      defaultValues={defaults}
+      onSubmit={onSubmit}
+      onFieldChange={onFieldChange}
+      className={className}
+    >
+      {children}
+    </FormProvider>
+  );
+}
+
+export default Form;
+```
+
+Then the mechanical sweep — in `tests/e2e/forms/*.e2e.test.tsx` and `packages/forms/tests/integration/*.test.tsx`, replace JSX props on `<Form ...>` only (NOT `FormProvider`): `formConfig=` → `of=`, `defaultValues=` → `defaults=`. Verify with `grep -rn "<Form formConfig" tests packages | grep -v node_modules` → zero results.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/forms tests/e2e/forms && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/forms tests/e2e/forms
+git commit -m "feat(forms)!: Form root takes of/defaults props"
+```
+
+---
+
+### Task 7: `useFormRows()` + `Form.Body` render prop
+
+**Files:**
+- Create: `packages/forms/src/hooks/useFormRows.ts`
+- Modify: `packages/forms/src/components/FormBody.tsx` (full rewrite), `packages/forms/src/hooks/index.ts` (export hook)
+- Test: `packages/forms/tests/components/FormBody.test.tsx`
+
+**Interfaces:**
+- Consumes: `useFormConfigContext` (`{ formConfig, conditionsHelpers }`), `FormField`, `RepeatableField` (until Task 10 renames it).
+- Produces:
+  - `type VisibleRow = { kind: 'fields'; id: string; fields: FormFieldConfig[] } | { kind: 'repeatable'; id: string; repeatable: RepeatableFieldConfig }` (exported from the hook file and from the package).
+  - `useFormRows(): VisibleRow[]` — rows with hidden fields filtered out; `fields`-rows with zero visible fields are dropped entirely.
+  - `FormBodyProps { children?: (ctx: { rows: VisibleRow[] }) => React.ReactNode; className?: string }` — with children: render prop output only; without: bare default (`<div data-form-body>` → per row `<div data-row-id={id}>` → `<FormField>` / repeatable component).
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/forms/tests/components/FormBody.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril, when } from '@rilaykit/core';
+import { Form, FormBody, form } from '@rilaykit/forms';
+
+const r = ril.create().addComponent('text', {
+  name: 'Text',
+  renderer: ({ id }: { id: string }) => <input data-testid={id} />,
+});
+
+const definition = form
+  .create(r, 'profile')
+  .add({ id: 'name', type: 'text', props: {} })
+  .add({
+    id: 'siren',
+    type: 'text',
+    props: {},
+    conditions: { visible: when('name').equals('business') },
+  });
+
+describe('<Form.Body>', () => {
+  it('renders bare rows and fields by default', () => {
+    render(
+      <Form of={definition}>
+        <FormBody />
+      </Form>
+    );
+    expect(screen.getByTestId('name')).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-row-id]').length).toBe(1); // hidden row dropped
+    expect(screen.queryByTestId('siren')).toBeNull();
+  });
+
+  it('exposes visible rows through the render prop', () => {
+    render(
+      <Form of={definition} defaults={{ name: 'business' }}>
+        <FormBody>
+          {({ rows }) => (
+            <output data-testid="rows">
+              {rows.map((row) => (row.kind === 'fields' ? row.fields.length : 0)).join(',')}
+            </output>
+          )}
+        </FormBody>
+      </Form>
+    );
+    expect(screen.getByTestId('rows').textContent).toBe('1,1');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/FormBody.test.tsx`
+Expected: FAIL — render-prop children not supported / `data-row-id` absent (old wrapper markup).
+
+- [ ] **Step 3: Write the implementation**
+
+```typescript
+// packages/forms/src/hooks/useFormRows.ts
+import type { FormFieldConfig, FormRowEntry, RepeatableFieldConfig } from '@rilaykit/core';
+import { useMemo } from 'react';
+import { useFormConfigContext } from '../components/FormProvider';
+
+export type VisibleRow =
+  | { readonly kind: 'fields'; readonly id: string; readonly fields: FormFieldConfig[] }
+  | { readonly kind: 'repeatable'; readonly id: string; readonly repeatable: RepeatableFieldConfig };
+
+export function useFormRows(): VisibleRow[] {
+  const { formConfig, conditionsHelpers } = useFormConfigContext();
+
+  return useMemo(() => {
+    const rows: VisibleRow[] = [];
+    for (const row of formConfig.rows as FormRowEntry[]) {
+      if (row.kind === 'repeatable') {
+        rows.push({ kind: 'repeatable', id: row.id, repeatable: row.repeatable });
+        continue;
+      }
+      const fields = row.fields.filter((field) => conditionsHelpers.isFieldVisible(field.id));
+      if (fields.length > 0) {
+        rows.push({ kind: 'fields', id: row.id, fields });
+      }
+    }
+    return rows;
+  }, [formConfig.rows, conditionsHelpers]);
+}
+```
+
+Rewrite `packages/forms/src/components/FormBody.tsx`:
+
+```tsx
+import React from 'react';
+import { useFormRows, type VisibleRow } from '../hooks/useFormRows';
+import { FormField } from './FormField';
+import { RepeatableField } from './repeatable-field';
+
+export interface FormBodyProps {
+  children?: (ctx: { rows: VisibleRow[] }) => React.ReactNode;
+  className?: string;
+}
+
+export const FormBody = React.memo(function FormBody({ children, className }: FormBodyProps) {
+  const rows = useFormRows();
+
+  if (children) {
+    return <>{children({ rows })}</>;
+  }
+
+  return (
+    <div className={className} data-form-body>
+      {rows.map((row) =>
+        row.kind === 'repeatable' ? (
+          <RepeatableField key={row.id} repeatableId={row.repeatable.id} repeatableConfig={row.repeatable} />
+        ) : (
+          <div key={row.id} data-row-id={row.id}>
+            {row.fields.map((field) => (
+              <FormField key={field.id} fieldId={field.id} />
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+});
+
+export default FormBody;
+```
+
+Export the hook: in `packages/forms/src/hooks/index.ts` add `export { useFormRows } from './useFormRows'; export type { VisibleRow } from './useFormRows';`. Update any e2e test asserting old FormBody DOM (search `data-form-body`-adjacent assertions; the old markup had no wrapper attribute — only adjust selectors if a test fails in Step 4).
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/forms tests/e2e/forms && pnpm type-check`
+Expected: PASS (fix any e2e selector fallout as part of this step).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/forms tests/e2e/forms
+git commit -m "feat(forms)!: FormBody render prop over useFormRows, bare default markup"
+```
+
+---
+
+### Task 8: `Form.Field` — the catalog bridge with the new context
+
+**Files:**
+- Modify: `packages/forms/src/components/FormField.tsx`
+- Test: `packages/forms/tests/components/FormField.test.tsx` (extend existing file; migrate its fixtures)
+- Modify (fixture sweep): every test registering renderers with the OLD flat shape (`({ id, value, onChange, props })`) in `tests/e2e/**` and `packages/forms/tests/**`, `packages/rilaykit/tests/**` — renderers move to the new context shape (`({ id, props, field })`).
+
+**Interfaces:**
+- Consumes: `ComponentRenderContext`, `FieldBinding` (Task 2); granular store hooks (unchanged).
+- Produces: `FormFieldProps { fieldId: string; fieldConfig?: FormFieldConfig; disabled?: boolean; overrides?: Record<string, unknown>; className?: string; forceVisible?: boolean }` (`customProps` renamed `overrides`). The registered component renderer is now called with `ComponentRenderContext`: `{ id, props, field: { value, onChange, onBlur, error, disabled, isValidating, touched }, conditions, meta }`. Throws `NotFoundError` (was bare `Error`) for unknown field/component. The `fieldRenderer`/`useFieldRenderer` indirection is REMOVED.
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `packages/forms/tests/components/FormField.test.tsx` (replacing old-shape fixtures in that file):
+
+```tsx
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { NotFoundError, ril, type ComponentRenderContext } from '@rilaykit/core';
+import { Form, FormField, form } from '@rilaykit/forms';
+
+const r = ril.create().component('text', {
+  meta: { tone: 'plain' },
+  renderer: ({ id, props, field, meta }: ComponentRenderContext<{ label?: string }>) => (
+    <div>
+      <input
+        data-testid={id}
+        aria-label={props.label}
+        data-tone={String(meta?.tone)}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+      />
+      {field?.error?.length ? <p data-testid={`${id}-error`}>{field.error[0]?.message}</p> : null}
+    </div>
+  ),
+});
+
+describe('<Form.Field> new context', () => {
+  it('wires field binding (value/onChange) and entry meta into the renderer', () => {
+    const def = form.create(r, 'f').add({ id: 'name', type: 'text', props: { label: 'Name' } });
+    render(
+      <Form of={def} defaults={{ name: 'Karl' }}>
+        <FormField fieldId="name" />
+      </Form>
+    );
+    const input = screen.getByTestId('name') as HTMLInputElement;
+    expect(input.value).toBe('Karl');
+    expect(input.dataset.tone).toBe('plain');
+    fireEvent.change(input, { target: { value: 'Mazier' } });
+    expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mazier');
+  });
+
+  it('applies overrides with highest prop precedence', () => {
+    const def = form.create(r, 'f').add({ id: 'name', type: 'text', props: { label: 'From config' } });
+    render(
+      <Form of={def}>
+        <FormField fieldId="name" overrides={{ label: 'Overridden' }} />
+      </Form>
+    );
+    expect(screen.getByLabelText('Overridden')).toBeInTheDocument();
+  });
+
+  it('throws NotFoundError for an unknown field id', () => {
+    const def = form.create(r, 'f').add({ id: 'name', type: 'text', props: {} });
+    expect(() =>
+      render(
+        <Form of={def}>
+          <FormField fieldId="ghost" />
+        </Form>
+      )
+    ).toThrowError(NotFoundError);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/FormField.test.tsx`
+Expected: FAIL — renderer receives old flat shape (`field` undefined), `overrides` prop unknown.
+
+- [ ] **Step 3: Write the implementation**
+
+Rewrite the bottom half of `packages/forms/src/components/FormField.tsx` (keep lines 31-139 mechanics: context, granular selectors, fieldConfig lookup, effectiveConditions, handleChange, handleBlur, mergedProps — with `customProps` renamed `overrides` in props/deps):
+
+```tsx
+import type { ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
+import { NotFoundError } from '@rilaykit/core';
+// ...existing imports unchanged
+
+export interface FormFieldProps {
+  fieldId: string;
+  /** Pre-resolved field config (used by FormListItem to skip allFields lookup) */
+  fieldConfig?: FormFieldConfig;
+  disabled?: boolean;
+  overrides?: Record<string, unknown>;
+  className?: string;
+  forceVisible?: boolean;
+}
+```
+
+Replace the two bare throws:
+
+```tsx
+if (!fieldConfig) {
+  throw new NotFoundError(`Field "${fieldId}" not found`, { key: fieldId });
+}
+const componentEntry = formConfig.config.getComponent(fieldConfig.componentId);
+if (!componentEntry?.renderer) {
+  throw new NotFoundError(`Component "${fieldConfig.componentId}" not found in catalog`, {
+    key: `component:${fieldConfig.componentId}`,
+  });
+}
+```
+
+Replace the `renderProps` memo + wrapper block (old lines 141-203) with:
+
+```tsx
+const context: ComponentRenderContext<Record<string, unknown>> = useMemo(
+  () => ({
+    id: fieldId,
+    props: mergedProps,
+    field: {
+      value,
+      onChange: handleChange,
+      onBlur: handleBlur,
+      error: fieldState.errors,
+      disabled: effectiveConditions.isFieldDisabled,
+      isValidating,
+      touched: fieldState.touched,
+    },
+    conditions: {
+      visible: effectiveConditions.isVisible,
+      disabled: effectiveConditions.isFieldDisabled,
+      required: effectiveConditions.isFieldRequired,
+      readonly: effectiveConditions.isFieldReadonly,
+    },
+    meta: componentEntry.meta,
+  }),
+  [fieldId, mergedProps, value, handleChange, handleBlur, fieldState.errors, fieldState.touched, isValidating, effectiveConditions, componentEntry.meta]
+);
+
+if (!effectiveConditions.isVisible) {
+  return null;
+}
+
+return (
+  <div
+    className={className}
+    data-field-id={fieldId}
+    data-field-type={componentEntry.type}
+    data-field-visible={effectiveConditions.isVisible}
+    data-field-disabled={effectiveConditions.isFieldDisabled}
+    data-field-required={effectiveConditions.isFieldRequired}
+    data-field-readonly={effectiveConditions.isFieldReadonly}
+  >
+    {componentEntry.renderer(context)}
+  </div>
+);
+```
+
+Then the fixture sweep: `grep -rln "addComponent\|renderer:" tests/e2e packages/forms/tests packages/rilaykit/tests packages/core/tests/integration | grep -v node_modules` — for each fixture renderer, migrate to `.component()` + context shape (`({ id, props, field })`; read `field.value`, call `field.onChange`, read `field.error`). This is the plan's biggest mechanical step; do it file by file, running each file's tests as you go.
+
+- [ ] **Step 4: Run the full suite + typecheck**
+
+Run: `pnpm test && pnpm type-check`
+Expected: PASS — everything green with new-shape renderers everywhere.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages tests
+git commit -m "feat(forms)!: FormField renders through typed ComponentRenderContext"
+```
+
+---
+
+### Task 9: `Form.Submit`
+
+**Files:**
+- Create: `packages/forms/src/components/FormSubmit.tsx`
+- Delete: `packages/forms/src/components/FormSubmitButton.tsx`
+- Test: `packages/forms/tests/components/FormSubmit.test.tsx`
+- Modify: usages of `FormSubmitButton` in `tests/e2e/forms/*.e2e.test.tsx`
+
+**Interfaces:**
+- Consumes: `useFormSubmitting()` store hook, `useFormConfigContext().submit`.
+- Produces: `FormSubmitProps { children?: React.ReactNode | ((ctx: { submitting: boolean; submit: () => void }) => React.ReactNode); className?: string }`. Default: `<button type="submit" disabled={submitting}>`.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/forms/tests/components/FormSubmit.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { Form, FormSubmit, form } from '@rilaykit/forms';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const def = form.create(r, 'f').add({ id: 'a', type: 'text', props: {} });
+
+describe('<Form.Submit>', () => {
+  it('renders a bare submit button by default', () => {
+    render(
+      <Form of={def}>
+        <FormSubmit>Send</FormSubmit>
+      </Form>
+    );
+    const btn = screen.getByRole('button', { name: 'Send' });
+    expect(btn.getAttribute('type')).toBe('submit');
+    expect((btn as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('exposes submitting/submit through the render prop', () => {
+    render(
+      <Form of={def}>
+        <FormSubmit>
+          {({ submitting }) => <button type="submit">{submitting ? 'Sending…' : 'Go'}</button>}
+        </FormSubmit>
+      </Form>
+    );
+    expect(screen.getByRole('button', { name: 'Go' })).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/FormSubmit.test.tsx`
+Expected: FAIL — no export `FormSubmit`.
+
+- [ ] **Step 3: Write the implementation**
+
+```tsx
+// packages/forms/src/components/FormSubmit.tsx
+import React, { useCallback } from 'react';
+import { useFormSubmitting } from '../stores';
+import { useFormConfigContext } from './FormProvider';
+
+export interface FormSubmitProps {
+  children?: React.ReactNode | ((ctx: { submitting: boolean; submit: () => void }) => React.ReactNode);
+  className?: string;
+}
+
+export const FormSubmit = React.memo(function FormSubmit({ children, className }: FormSubmitProps) {
+  const { submit } = useFormConfigContext();
+  const submitting = useFormSubmitting();
+  const handleSubmit = useCallback(() => void submit(), [submit]);
+
+  if (typeof children === 'function') {
+    return <>{children({ submitting, submit: handleSubmit })}</>;
+  }
+
+  return (
+    <button type="submit" className={className} disabled={submitting} data-form-submit>
+      {children ?? 'Submit'}
+    </button>
+  );
+});
+
+export default FormSubmit;
+```
+
+Delete `FormSubmitButton.tsx`. Update `packages/forms/src/index.ts`: replace the `FormSubmitButton` export with `export { FormSubmit } from './components/FormSubmit';`. Sweep e2e usages: `<FormSubmitButton>` → `<FormSubmit>` (imports too).
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/forms tests/e2e/forms && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/forms tests/e2e/forms
+git commit -m "feat(forms)!: FormSubmit render-prop component replaces FormSubmitButton"
+```
+
+---
+
+### Task 10: `Form.List` (repeatables)
+
+**Files:**
+- Create: `packages/forms/src/components/FormList.tsx`, `packages/forms/src/components/FormListItem.tsx`
+- Delete: `packages/forms/src/components/repeatable-field.tsx`, `packages/forms/src/components/repeatable-item.tsx`
+- Test: `packages/forms/tests/components/FormList.test.tsx`
+- Modify: `packages/forms/src/components/FormBody.tsx` (default branch uses `FormList`), `packages/forms/src/index.ts`, repeatable e2e/integration tests that mount `RepeatableField`
+
+**Interfaces:**
+- Consumes: `useRepeatableField(repeatableId)` → `{ items, append, remove, move, canAdd, canRemove }` (existing hook, unchanged); `FormField` with `fieldConfig` prop; composite-key utils from `../utils/repeatable-data`.
+- Produces:
+  - `FormListProps { id: string; children?: (ctx: FormListContext) => React.ReactNode; className?: string }`
+  - `FormListContext { items: RepeatableFieldItem[]; add: () => void; remove: (key: string) => void; move: (from: number, to: number) => void; canAdd: boolean; canRemove: boolean }`
+  - `FormListItem` (internal): renders one item's rows/fields with composite ids — port of `repeatable-item.tsx` renderRows logic, minus the `repeatableItemRenderer` dispatch.
+  - Resolves its `RepeatableFieldConfig` from `formConfig.repeatableFields[id]`; throws `NotFoundError` when the id is unknown.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/forms/tests/components/FormList.test.tsx
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { NotFoundError, ril } from '@rilaykit/core';
+import { Form, FormList, form } from '@rilaykit/forms';
+
+const r = ril.create().component('text', {
+  renderer: ({ id, field }) => (
+    <input data-testid={id} value={String(field?.value ?? '')} onChange={(e) => field?.onChange(e.target.value)} />
+  ),
+});
+
+const def = form
+  .create(r, 'contacts')
+  .addRepeatable('phones', (rb) => rb.add({ id: 'number', type: 'text', props: {} }), { min: 1, max: 2 });
+
+describe('<Form.List>', () => {
+  it('renders one item per default entry with an add button (bare default)', () => {
+    render(
+      <Form of={def}>
+        <FormList id="phones" />
+      </Form>
+    );
+    expect(screen.getAllByRole('textbox').length).toBe(1);
+    fireEvent.click(screen.getByTestId('phones-add'));
+    expect(screen.getAllByRole('textbox').length).toBe(2);
+  });
+
+  it('exposes items/add/remove through the render prop', () => {
+    render(
+      <Form of={def}>
+        <FormList id="phones">
+          {({ items, add, canAdd }) => (
+            <div>
+              <output data-testid="count">{items.length}</output>
+              <button type="button" disabled={!canAdd} onClick={add} data-testid="my-add">+</button>
+            </div>
+          )}
+        </FormList>
+      </Form>
+    );
+    expect(screen.getByTestId('count').textContent).toBe('1');
+    fireEvent.click(screen.getByTestId('my-add'));
+    expect(screen.getByTestId('count').textContent).toBe('2');
+  });
+
+  it('throws NotFoundError for an unknown list id', () => {
+    expect(() =>
+      render(
+        <Form of={def}>
+          <FormList id="ghost" />
+        </Form>
+      )
+    ).toThrowError(NotFoundError);
+  });
+});
+```
+
+NOTE: check the exact repeatable builder API in `packages/forms/src/builders/form.ts` (`addRepeatable` name/signature) and in the existing test `packages/forms/tests/builders/form-repeatable.test.ts` — mirror the real call in this fixture before running.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/FormList.test.tsx`
+Expected: FAIL — no export `FormList`.
+
+- [ ] **Step 3: Write the implementation**
+
+```tsx
+// packages/forms/src/components/FormList.tsx
+import type { RepeatableFieldItem } from '@rilaykit/core';
+import { NotFoundError } from '@rilaykit/core';
+import React from 'react';
+import { useRepeatableField } from '../hooks/use-repeatable-field';
+import { useFormConfigContext } from './FormProvider';
+import { FormListItem } from './FormListItem';
+
+export interface FormListContext {
+  items: RepeatableFieldItem[];
+  add: () => void;
+  remove: (key: string) => void;
+  move: (from: number, to: number) => void;
+  canAdd: boolean;
+  canRemove: boolean;
+}
+
+export interface FormListProps {
+  id: string;
+  children?: (ctx: FormListContext) => React.ReactNode;
+  className?: string;
+}
+
+export const FormList = React.memo(function FormList({ id, children, className }: FormListProps) {
+  const { formConfig } = useFormConfigContext();
+  const repeatable = formConfig.repeatableFields?.[id];
+  if (!repeatable) {
+    throw new NotFoundError(`Repeatable "${id}" not found in form "${formConfig.id}"`, { key: id });
+  }
+
+  const { items, append, remove, move, canAdd, canRemove } = useRepeatableField(id);
+
+  if (children) {
+    return <>{children({ items, add: () => append(), remove, move, canAdd, canRemove })}</>;
+  }
+
+  return (
+    <div className={className} data-list-id={id}>
+      {items.map((item) => (
+        <FormListItem key={item.key} item={item} />
+      ))}
+      {canAdd && (
+        <button type="button" onClick={() => append()} data-testid={`${id}-add`}>
+          Add
+        </button>
+      )}
+    </div>
+  );
+});
+
+export default FormList;
+```
+
+`FormListItem.tsx`: port `repeatable-item.tsx` verbatim MINUS the `repeatableItemRenderer` dispatch — it builds the per-item field-config map (composite ids) and renders `<div data-list-item={item.key}>` wrapping `item.rows` → visible fields → `<FormField fieldId={compositeId} fieldConfig={resolvedTemplate} />`. Copy the existing composite-key construction exactly from the old file (it uses `parseCompositeKey`'s inverse — keep identical behavior).
+
+Update `FormBody.tsx` default branch: `<RepeatableField repeatableId=… repeatableConfig=…/>` → `<FormList id={row.repeatable.id} />` (adjust import). Update `packages/forms/src/index.ts`: remove `RepeatableField`/`RepeatableItem` exports, add `export { FormList } from './components/FormList'; export type { FormListContext, FormListProps } from './components/FormList';`. Sweep tests mounting `RepeatableField` (`tests/e2e/forms/form-repeatable.e2e.test.tsx`, `tests/e2e/workflow/workflow-with-repeatables.e2e.test.tsx`, `packages/forms/tests/integration/repeatable-*.test.tsx`) to `FormList` or the `<FormBody/>` default path.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/forms tests/e2e && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/forms tests/e2e
+git commit -m "feat(forms)!: FormList compound replaces RepeatableField/RepeatableItem"
+```
+
+---
+
+### Task 11: Form compound assembly + forms public surface
+
+**Files:**
+- Modify: `packages/forms/src/components/Form.tsx`, `packages/forms/src/index.ts`
+- Delete: `packages/forms/src/components/FormRow.tsx`
+- Test: `packages/forms/tests/components/form-compound.test.tsx`
+
+**Interfaces:**
+- Produces: `Form.Body`, `Form.Field`, `Form.Submit`, `Form.List` attached via `Object.assign` on the root. Public surface of `@rilaykit/forms`: `Form` (compound), `FormProvider`/`useFormConfigContext` (advanced/engine), builders, stores, hooks (incl. `useFormRows`), schema module, repeatable utils. `FormBody/FormField/FormSubmit/FormList` remain individually importable (tree-shaking), `FormRow` is gone.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/forms/tests/components/form-compound.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { Form, form } from '@rilaykit/forms';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const def = form.create(r, 'f').add({ id: 'a', type: 'text', props: {} });
+
+describe('Form compound namespace', () => {
+  it('exposes Body/Field/Submit/List on Form', () => {
+    render(
+      <Form of={def}>
+        <Form.Body />
+        <Form.Submit>Send</Form.Submit>
+      </Form>
+    );
+    expect(screen.getByTestId('a')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+    expect(typeof Form.Field).toBe('object'); // React.memo component
+    expect(typeof Form.List).toBe('object');
+  });
+
+  it('no longer exports FormRow', async () => {
+    const mod = await import('@rilaykit/forms');
+    expect('FormRow' in mod).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/forms/tests/components/form-compound.test.tsx`
+Expected: FAIL — `Form.Body` undefined.
+
+- [ ] **Step 3: Write the implementation**
+
+In `Form.tsx`, rename the function to `FormRoot` (not exported) and assemble:
+
+```tsx
+import { FormBody } from './FormBody';
+import { FormField } from './FormField';
+import { FormList } from './FormList';
+import { FormSubmit } from './FormSubmit';
+
+// ...FormRoot function as written in Task 6 (renamed)...
+
+export const Form = Object.assign(FormRoot, {
+  Body: FormBody,
+  Field: FormField,
+  Submit: FormSubmit,
+  List: FormList,
+});
+
+export default Form;
+```
+
+Delete `FormRow.tsx` (its visibility logic now lives in `useFormRows`; nothing imports it — verify with `grep -rn "FormRow" packages tests | grep -v node_modules` and clean stragglers). Rewrite `packages/forms/src/index.ts`:
+
+```typescript
+export { Form } from './components/Form';
+export type { FormProps } from './components/Form';
+export { FormBody } from './components/FormBody';
+export type { FormBodyProps } from './components/FormBody';
+export { FormField } from './components/FormField';
+export type { FormFieldProps } from './components/FormField';
+export { FormSubmit } from './components/FormSubmit';
+export type { FormSubmitProps } from './components/FormSubmit';
+export { FormList } from './components/FormList';
+export type { FormListContext, FormListProps } from './components/FormList';
+export { FormProvider, useFormConfigContext } from './components/FormProvider';
+export type { FormConfigContextValue, FormProviderProps } from './components/FormProvider';
+
+export { form as FormBuilder, form } from './builders/form';
+export type { FieldConfig } from './builders/form';
+export { RepeatableBuilder } from './builders/repeatable-builder';
+
+export * from './stores';
+export * from './hooks';
+export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
+export { structureFormValues, flattenRepeatableValues } from './utils/repeatable-data';
+export * from './schema';
+```
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm test && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/forms tests
+git commit -m "feat(forms)!: Form compound namespace, FormRow removed"
+```
+
+---
+
+### Task 12: `Flow` root + `Flow.Body`
+
+**Files:**
+- Create: `packages/workflow/src/components/Flow.tsx`, `packages/workflow/src/components/FlowBody.tsx`
+- Delete: `packages/workflow/src/components/Workflow.tsx`, `packages/workflow/src/components/WorkflowBody.tsx`
+- Test: `packages/workflow/tests/components/Flow.test.tsx`
+- Modify: `packages/workflow/src/index.ts`; `tests/e2e/workflow/*.e2e.test.tsx` usages of `<Workflow>`/`<WorkflowBody>`
+
+**Interfaces:**
+- Consumes: `WorkflowProvider` + `WorkflowProviderProps` (engine, unchanged — check its exact prop names in `WorkflowProvider.tsx:98-106` before mapping), `flow` builder, new `FormBody`.
+- Produces:
+  - `FlowProps = Omit<WorkflowProviderProps, 'children' | 'workflowConfig' | 'defaultValues' | 'onWorkflowComplete'> & { of: WorkflowConfig | flow; defaults?: Record<string, unknown>; onComplete?: WorkflowProviderProps['onWorkflowComplete']; children: React.ReactNode }`
+  - `FlowBodyProps { stepId?: string; children?: React.ReactNode | ((ctx: { step: StepConfig }) => React.ReactNode) }` — precedence: custom `step.renderer(step)` → render-prop/children → `<FormBody />` default (port the existing `WorkflowBody.tsx` dispatch, swapping the old FormBody).
+  - Compound assembly happens in Task 14 (after Progress/Nav exist).
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/workflow/tests/components/Flow.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, FlowBody, flow } from '@rilaykit/workflow';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const stepForm = form.create(r, 's1').add({ id: 'email', type: 'text', props: {} });
+const wf = flow
+  .create(r, 'onboarding', 'Onboarding')
+  .addStep({ id: 'personal', title: 'Personal', formConfig: stepForm.build() });
+
+describe('<Flow of> + <Flow.Body>', () => {
+  it('renders the current step form through FlowBody default', () => {
+    render(
+      <Flow of={wf} defaults={{}}>
+        <FlowBody />
+      </Flow>
+    );
+    expect(screen.getByTestId('email')).toBeInTheDocument();
+  });
+
+  it('supports the render-prop children with step context', () => {
+    render(
+      <Flow of={wf}>
+        <FlowBody>{({ step }) => <h1 data-testid="title">{step.title}</h1>}</FlowBody>
+      </Flow>
+    );
+    expect(screen.getByTestId('title').textContent).toBe('Personal');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/workflow/tests/components/Flow.test.tsx`
+Expected: FAIL — no export `Flow`.
+
+- [ ] **Step 3: Write the implementation**
+
+`Flow.tsx` (port of `Workflow.tsx` with renamed props):
+
+```tsx
+import type { WorkflowConfig } from '@rilaykit/core';
+import type React from 'react';
+import { useMemo } from 'react';
+import { flow } from '../builders/flow';
+import type { WorkflowProviderProps } from './WorkflowProvider';
+import { WorkflowProvider } from './WorkflowProvider';
+
+export type FlowProps = Omit<
+  WorkflowProviderProps,
+  'children' | 'workflowConfig' | 'defaultValues' | 'onWorkflowComplete'
+> & {
+  of: WorkflowConfig | flow;
+  defaults?: Record<string, unknown>;
+  onComplete?: WorkflowProviderProps['onWorkflowComplete'];
+  children: React.ReactNode;
+};
+
+function FlowRoot({ children, of, defaults, onComplete, ...props }: FlowProps) {
+  const resolvedConfig = useMemo(() => (of instanceof flow ? of.build() : of), [of]);
+
+  return (
+    <WorkflowProvider
+      {...props}
+      workflowConfig={resolvedConfig}
+      defaultValues={defaults}
+      onWorkflowComplete={onComplete}
+    >
+      {children}
+    </WorkflowProvider>
+  );
+}
+
+export { FlowRoot };
+```
+
+(If `WorkflowProviderProps` names differ — e.g. no `defaultValues`/`onWorkflowComplete` — read `WorkflowProvider.tsx:98-106` and map to the REAL names; the mapping table in MIGRATION.md must match reality.)
+
+`FlowBody.tsx` (port of `WorkflowBody.tsx`, 42 lines — same current-step resolution via `useWorkflowContext`, then):
+
+```tsx
+if (currentStep.renderer) return currentStep.renderer(currentStep);
+if (typeof children === 'function') return <>{children({ step: currentStep })}</>;
+if (children) return <>{children}</>;
+return <FormBody />;
+```
+
+Export both from `packages/workflow/src/index.ts` (add `Flow` root export as `export { FlowRoot as Flow }` temporarily — Task 14 replaces it with the compound). Delete old files; sweep e2e workflow tests: `<Workflow workflowConfig={x} …>` → `<Flow of={x} …>` (map `defaultValues`→`defaults`, `onWorkflowComplete`→`onComplete`), `<WorkflowBody>` → `<FlowBody>`.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/workflow tests/e2e/workflow && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/workflow tests/e2e/workflow
+git commit -m "feat(workflow)!: Flow root (of/defaults/onComplete) and FlowBody"
+```
+
+---
+
+### Task 13: `Flow.Progress`
+
+**Files:**
+- Create: `packages/workflow/src/components/FlowProgress.tsx`, `packages/workflow/src/hooks/useFlowSteps.ts`
+- Delete: `packages/workflow/src/components/WorkflowStepper.tsx`
+- Test: `packages/workflow/tests/components/FlowProgress.test.tsx`
+- Modify: `packages/workflow/src/index.ts`, `packages/workflow/src/hooks/index.ts`, e2e usages of `<WorkflowStepper>`
+
+**Interfaces:**
+- Consumes: `useWorkflowContext` (visible-step filtering + index mapping logic ported from `WorkflowStepper.tsx:1-87` — reuse its exact visibility computation).
+- Produces:
+  - `useFlowSteps(): { steps: StepConfig[]; currentIndex: number; goTo: (visibleIndex: number) => void }` — `steps` are VISIBLE steps, `currentIndex` is the index within them, `goTo` maps back to the original index before navigating.
+  - `FlowProgressProps { children?: (ctx: ReturnType<typeof useFlowSteps>) => React.ReactNode; className?: string }`. Default: `<ol data-flow-progress>` with `<li data-active={i === currentIndex}>{step.title}</li>`.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/workflow/tests/components/FlowProgress.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril, when } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, FlowProgress, flow } from '@rilaykit/workflow';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const step = (id: string) => ({
+  id,
+  title: id.toUpperCase(),
+  formConfig: form.create(r, id).add({ id: `${id}-f`, type: 'text', props: {} }).build(),
+});
+
+const wf = flow
+  .create(r, 'wf', 'WF')
+  .addStep(step('a'))
+  .addStep({ ...step('b'), conditions: { visible: when('a.a-f').equals('show-b') } })
+  .addStep(step('c'));
+
+describe('<Flow.Progress>', () => {
+  it('lists only visible steps, bare default', () => {
+    render(
+      <Flow of={wf}>
+        <FlowProgress />
+      </Flow>
+    );
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual(['A', 'C']);
+    expect(items[0]?.dataset.active).toBe('true');
+  });
+
+  it('exposes steps/currentIndex/goTo via render prop', () => {
+    render(
+      <Flow of={wf}>
+        <FlowProgress>
+          {({ steps, currentIndex }) => (
+            <output data-testid="p">{`${currentIndex}/${steps.length}`}</output>
+          )}
+        </FlowProgress>
+      </Flow>
+    );
+    expect(screen.getByTestId('p').textContent).toBe('0/2');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/workflow/tests/components/FlowProgress.test.tsx`
+Expected: FAIL — no export `FlowProgress`.
+
+- [ ] **Step 3: Write the implementation**
+
+`useFlowSteps.ts`: extract from `WorkflowStepper.tsx` its visible-steps computation and visible↔original index mapping (copy the existing memoized logic verbatim into the hook), plus `goTo`:
+
+```typescript
+import type { StepConfig } from '@rilaykit/core';
+import { useCallback, useMemo } from 'react';
+import { useWorkflowContext } from '../components/WorkflowProvider';
+
+export interface FlowStepsContext {
+  steps: StepConfig[];
+  currentIndex: number;
+  goTo: (visibleIndex: number) => void;
+}
+
+export function useFlowSteps(): FlowStepsContext {
+  const workflowContext = useWorkflowContext();
+  // PORT HERE, UNCHANGED, the visibleSteps + visibleIndex memos from WorkflowStepper.tsx
+  // (they filter workflowConfig.steps through the same condition evaluation the stepper used)
+  // and the onStepClick original-index mapping for goTo (guard: no-op on out-of-range).
+  // Exact source: packages/workflow/src/components/WorkflowStepper.tsx lines 1-87.
+  // The hook returns { steps: visibleSteps, currentIndex: visibleIndex, goTo }.
+}
+```
+
+(The port is a copy of existing, tested logic — the executor reads `WorkflowStepper.tsx` and moves its two memos + click mapping into the hook body; the stepper file is deleted right after, so no duplication remains.)
+
+`FlowProgress.tsx`:
+
+```tsx
+import React from 'react';
+import { useFlowSteps } from '../hooks/useFlowSteps';
+import type { FlowStepsContext } from '../hooks/useFlowSteps';
+
+export interface FlowProgressProps {
+  children?: (ctx: FlowStepsContext) => React.ReactNode;
+  className?: string;
+}
+
+export const FlowProgress = React.memo(function FlowProgress({ children, className }: FlowProgressProps) {
+  const ctx = useFlowSteps();
+
+  if (children) {
+    return <>{children(ctx)}</>;
+  }
+
+  return (
+    <ol className={className} data-flow-progress>
+      {ctx.steps.map((step, index) => (
+        <li key={step.id} data-active={index === ctx.currentIndex ? 'true' : 'false'}>
+          {step.title}
+        </li>
+      ))}
+    </ol>
+  );
+});
+
+export default FlowProgress;
+```
+
+Delete `WorkflowStepper.tsx`; export `FlowProgress` + `useFlowSteps` from the package indexes; sweep e2e `<WorkflowStepper>` usages.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/workflow tests/e2e/workflow && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/workflow tests/e2e/workflow
+git commit -m "feat(workflow)!: FlowProgress + useFlowSteps replace WorkflowStepper"
+```
+
+---
+
+### Task 14: `Flow.Next` / `Flow.Back` / `Flow.Skip` + dynamic `allowSkip` + compound assembly
+
+**Files:**
+- Create: `packages/workflow/src/components/FlowNav.tsx`
+- Delete: `packages/workflow/src/components/WorkflowNextButton.tsx`, `WorkflowPreviousButton.tsx`, `WorkflowSkipButton.tsx`
+- Modify: `packages/core/src/types/index.ts` (`StepConfig.allowSkip` type), `packages/workflow/src/components/Flow.tsx` (compound assembly), `packages/workflow/src/index.ts`, skip-resolution site(s) (grep `allowSkip` in `packages/workflow/src` — normalize through the new helper), e2e nav-button usages
+- Test: `packages/workflow/tests/components/FlowNav.test.tsx`
+
+**Interfaces:**
+- Consumes: `useWorkflowContext` (`{ context, workflowState, currentStep, goPrevious, skipStep }` — confirm exact member names in `WorkflowProvider.tsx`'s `WorkflowContextValue`), `useFormConfigContext().submit`, `useFormSubmitting`.
+- Produces:
+  - `StepConfig.allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean)` (core type widened).
+  - `resolveAllowSkip(step: StepConfig, allData: Record<string, unknown>): boolean` exported from `packages/workflow/src/utils/resolveAllowSkip.ts`.
+  - `FlowNavContext { go: () => void; canGo: boolean; submitting: boolean; isLastStep: boolean; step: StepConfig }`
+  - `FlowNextProps/FlowBackProps/FlowSkipProps { children?: React.ReactNode | ((ctx: FlowNavContext) => React.ReactNode); className?: string }`
+  - `Flow` compound: `Flow.Body`, `Flow.Progress`, `Flow.Next`, `Flow.Back`, `Flow.Skip`.
+  - Defaults: `<button type="button" data-flow-next|back|skip disabled={!canGo}>`; `Flow.Skip` renders `null` when `resolveAllowSkip` is false.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/workflow/tests/components/FlowNav.test.tsx
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, flow } from '@rilaykit/workflow';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const step = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  title: id,
+  formConfig: form.create(r, id).add({ id: `${id}-f`, type: 'text', props: {} }).build(),
+  ...extra,
+});
+
+describe('Flow nav buttons', () => {
+  it('Next advances to the next step (bare default)', async () => {
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a')).addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <Flow.Next>Continue</Flow.Next>
+      </Flow>
+    );
+    expect(screen.getByTestId('a-f')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('b-f')).toBeInTheDocument();
+  });
+
+  it('Back render prop exposes canGo=false on first step', () => {
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a')).addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Back>{({ canGo }) => <output data-testid="can-back">{String(canGo)}</output>}</Flow.Back>
+      </Flow>
+    );
+    expect(screen.getByTestId('can-back').textContent).toBe('false');
+  });
+
+  it('Skip honours a dynamic allowSkip predicate', () => {
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(step('a', { allowSkip: (ctx: { allData: Record<string, unknown> }) => ctx.allData.vip === true }))
+      .addStep(step('b'));
+    render(
+      <Flow of={wf} defaults={{}}>
+        <Flow.Skip>Skip</Flow.Skip>
+      </Flow>
+    );
+    expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+  });
+
+  it('Skip renders when allowSkip is true', () => {
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a', { allowSkip: true })).addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Skip>Skip</Flow.Skip>
+      </Flow>
+    );
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/workflow/tests/components/FlowNav.test.tsx`
+Expected: FAIL — `Flow.Next` undefined.
+
+- [ ] **Step 3: Write the implementation**
+
+Core type change (`packages/core/src/types/index.ts`, `StepConfig`):
+
+```typescript
+readonly allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
+```
+
+`packages/workflow/src/utils/resolveAllowSkip.ts`:
+
+```typescript
+import type { StepConfig } from '@rilaykit/core';
+
+export function resolveAllowSkip(step: StepConfig, allData: Record<string, unknown>): boolean {
+  if (typeof step.allowSkip === 'function') {
+    return step.allowSkip({ allData });
+  }
+  return step.allowSkip === true;
+}
+```
+
+Grep `allowSkip` in `packages/workflow/src` (provider/navigation/submission) and route every boolean read through `resolveAllowSkip(step, allData)`.
+
+`FlowNav.tsx` — one parametric internal + three thin exports (single file is deliberate: one *exported* concept per file, Next/Back/Skip are projections of FlowNav):
+
+```tsx
+import type { StepConfig } from '@rilaykit/core';
+import { useFormConfigContext, useFormSubmitting } from '@rilaykit/forms';
+import React, { useCallback, useMemo } from 'react';
+import { resolveAllowSkip } from '../utils/resolveAllowSkip';
+import { useWorkflowContext } from './WorkflowProvider';
+
+export interface FlowNavContext {
+  go: () => void;
+  canGo: boolean;
+  submitting: boolean;
+  isLastStep: boolean;
+  step: StepConfig;
+}
+
+interface FlowNavProps {
+  children?: React.ReactNode | ((ctx: FlowNavContext) => React.ReactNode);
+  className?: string;
+}
+
+function useFlowNav(direction: 'next' | 'back' | 'skip'): FlowNavContext {
+  const { context, workflowState, currentStep, goPrevious, skipStep } = useWorkflowContext();
+  const { submit } = useFormConfigContext();
+  const formSubmitting = useFormSubmitting();
+
+  const submitting = formSubmitting || workflowState.isSubmitting;
+  const busy = workflowState.isTransitioning || submitting;
+
+  const canGo = useMemo(() => {
+    if (direction === 'back') return !context.isFirstStep && !busy;
+    if (direction === 'skip') return resolveAllowSkip(currentStep, context.allData) && !busy;
+    return !busy;
+  }, [direction, context.isFirstStep, context.allData, currentStep, busy]);
+
+  const go = useCallback(() => {
+    if (!canGo) return;
+    if (direction === 'next') void submit();
+    else if (direction === 'back') void goPrevious();
+    else void skipStep();
+  }, [canGo, direction, submit, goPrevious, skipStep]);
+
+  return { go, canGo, submitting, isLastStep: context.isLastStep, step: currentStep };
+}
+
+function createNavButton(direction: 'next' | 'back' | 'skip', label: string) {
+  return React.memo(function FlowNavButton({ children, className }: FlowNavProps) {
+    const ctx = useFlowNav(direction);
+
+    if (direction === 'skip' && !resolveAllowSkip(ctx.step, useWorkflowContext().context.allData)) {
+      return null;
+    }
+    if (typeof children === 'function') {
+      return <>{children(ctx)}</>;
+    }
+    return (
+      <button
+        type="button"
+        className={className}
+        disabled={!ctx.canGo}
+        onClick={ctx.go}
+        {...{ [`data-flow-${direction}`]: '' }}
+      >
+        {children ?? label}
+      </button>
+    );
+  });
+}
+
+export const FlowNext = createNavButton('next', 'Next');
+export const FlowBack = createNavButton('back', 'Back');
+export const FlowSkip = createNavButton('skip', 'Skip');
+```
+
+REVIEW NOTE for the executor: the `useWorkflowContext()` call inside the `direction === 'skip'` early return violates rules-of-hooks (conditional). Fix it while implementing: compute `const hidden = direction === 'skip' && !resolveAllowSkip(ctx.step, allData)` where `allData` is read inside `useFlowNav` and exposed on the context, THEN `if (hidden) return null` after all hooks. Confirm exact `WorkflowContextValue` member names (`goPrevious`, `skipStep`, `workflowState`) against `WorkflowProvider.tsx` and adjust.
+
+Compound assembly in `Flow.tsx`:
+
+```tsx
+import { FlowBody } from './FlowBody';
+import { FlowProgress } from './FlowProgress';
+import { FlowBack, FlowNext, FlowSkip } from './FlowNav';
+
+export const Flow = Object.assign(FlowRoot, {
+  Body: FlowBody,
+  Progress: FlowProgress,
+  Next: FlowNext,
+  Back: FlowBack,
+  Skip: FlowSkip,
+});
+
+export default Flow;
+```
+
+Update `packages/workflow/src/index.ts` (export compound `Flow` + individual components + `resolveAllowSkip`), delete the three old button files, sweep e2e usages (`WorkflowNextButton`→`Flow.Next` etc. — old render-prop children `{(p) => …}` shapes must map onto `FlowNavContext`).
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm vitest run packages/workflow tests/e2e/workflow && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/core packages/workflow tests/e2e/workflow
+git commit -m "feat(workflow)!: parametric FlowNav buttons, dynamic allowSkip, Flow compound"
+```
+
+---
+
+### Task 15: `useFlow*` hook family renames
+
+**Files:**
+- Modify: `packages/workflow/src/components/WorkflowProvider.tsx` (export rename), `packages/workflow/src/stores/workflowStore.ts` (selector renames), `packages/workflow/src/hooks/index.ts`, `packages/workflow/src/index.ts`
+- Create: `packages/workflow/src/hooks/useStep.ts`
+- Test: `packages/workflow/tests/hooks/flow-hooks.test.tsx`
+- Modify: every internal + test caller of the old names
+
+**Interfaces:**
+- Produces (exact rename map — MIGRATION.md copies this):
+  | Old | New |
+  |---|---|
+  | `useWorkflowContext` | `useFlow` |
+  | `useWorkflowAllData` | `useFlowData` |
+  | `useWorkflowStepData` | `useStepData` |
+  | `useWorkflowActions` | `useFlowActions` |
+  | `useWorkflowStore` | `useFlowStore` |
+  | `useWorkflowStoreApi` | `useFlowStoreApi` |
+  | `useCurrentStepIndex` | `useFlowStepIndex` |
+  | `useWorkflowNavigationState` | `useFlowNavigationState` |
+  | `useWorkflowSubmitState` | `useFlowSubmitState` |
+  | `useWorkflowSubmitting` | `useFlowSubmitting` |
+  | `useWorkflowTransitioning` | `useFlowTransitioning` |
+  | `useWorkflowInitializing` | `useFlowInitializing` |
+
+  Unchanged: `useVisitedSteps`, `usePassedSteps`, `useIsStepVisited`, `useIsStepPassed`, `useStepDataById`, logic hooks (`usePersistence`, `useWorkflowAnalytics` → stays, it names the analytics domain, etc.).
+- New: `useStep(): { step: StepConfig; index: number; metadata: Record<string, unknown> }` — current step + its metadata (reads `useFlow().currentStep`, `context.currentStepIndex`, `currentStep.metadata ?? {}`).
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/workflow/tests/hooks/flow-hooks.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, flow, useFlow, useFlowData, useStep } from '@rilaykit/workflow';
+
+const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
+const wf = flow.create(r, 'wf', 'WF').addStep({
+  id: 'a',
+  title: 'Step A',
+  metadata: { hero: 'yes' },
+  formConfig: form.create(r, 'a').add({ id: 'a-f', type: 'text', props: {} }).build(),
+});
+
+function Probe() {
+  const { currentStep } = useFlow();
+  const { step, index, metadata } = useStep();
+  const data = useFlowData();
+  return (
+    <output data-testid="probe">{`${currentStep.id}|${step.title}|${index}|${metadata.hero}|${Object.keys(data).length}`}</output>
+  );
+}
+
+describe('useFlow* family', () => {
+  it('exposes flow context, current step and data', () => {
+    render(
+      <Flow of={wf}>
+        <Probe />
+      </Flow>
+    );
+    expect(screen.getByTestId('probe').textContent).toBe('a|Step A|0|yes|0');
+  });
+
+  it('old names are gone from the public surface', async () => {
+    const mod = await import('@rilaykit/workflow');
+    expect('useWorkflowContext' in mod).toBe(false);
+    expect('useWorkflowAllData' in mod).toBe(false);
+    expect('useCurrentStepIndex' in mod).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/workflow/tests/hooks/flow-hooks.test.tsx`
+Expected: FAIL — no export `useFlow`.
+
+- [ ] **Step 3: Write the implementation**
+
+Rename per the map (definition site rename + `grep -rln "<oldName>" packages tests | grep -v node_modules` sweep per name, imports included). `useStep.ts`:
+
+```typescript
+import type { StepConfig } from '@rilaykit/core';
+import { useFlow } from '../components/WorkflowProvider';
+
+export interface StepContextValue {
+  step: StepConfig;
+  index: number;
+  metadata: Record<string, unknown>;
+}
+
+export function useStep(): StepContextValue {
+  const { currentStep, context } = useFlow();
+  return {
+    step: currentStep,
+    index: context.currentStepIndex,
+    metadata: currentStep.metadata ?? {},
+  };
+}
+```
+
+Export from hooks/index + package index. Internal callers to update: `FlowNav.tsx`, `FlowBody.tsx`, `FlowProgress.tsx`/`useFlowSteps.ts`, any hook files importing `useWorkflowContext`.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm test && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages tests
+git commit -m "feat(workflow)!: rename hook family to useFlow*, add useStep"
+```
+
+---
+
+### Task 16: The Delete — renderConfig layer, wrapper, metadata, V2, legacy shims
+
+**Files:**
+- Delete: `packages/core/src/components/ComponentRendererWrapper.tsx`, `packages/core/src/utils/componentHelpers.tsx`, `packages/core/src/types/context.ts`
+- Modify: `packages/core/src/config/ril.ts`, `packages/core/src/types/index.ts`, `packages/core/src/index.ts`, `packages/forms/src/builders/form.ts:872`, `packages/workflow/src/builders/flow.ts:798`, `packages/forms/src/components/FormProvider.tsx` (if it reads renderConfig), core tests
+- Test: `packages/core/tests/catalog/surface.test.ts`
+
+**Interfaces:**
+- Produces the FINAL core surface. Deleted symbols (none may remain exported): `ComponentRendererWrapper`, `resolveRendererChildren`, `ComponentRendererBaseProps`, `ComponentRendererWrapperProps`, `ComponentRenderProps`, `ComponentRenderer`, `RendererChildrenFunction`, `ComponentConfig`, `FormRenderConfig`, `WorkflowRenderConfig`, `FormRowRenderer(Props)`, `FormBodyRenderer(Props)`, `FormSubmitButtonRenderer(Props)`, `FieldRenderer(Props)`, `FormComponentRendererProps`, `RepeatableFieldRenderer(Props)`, `RepeatableItemRenderer(Props)`, `WorkflowStepperRenderer(Props)`, `WorkflowNextButtonRenderer(Props)`, `WorkflowPreviousButtonRenderer(Props)`, `WorkflowSkipButtonRenderer(Props)`, `WorkflowComponentRendererBaseProps`, `PropertyEditorDefinition`, `PropertyEditorProps`, `ComponentBuilderMetadata`, `FieldSchemaDefinition`, everything from `types/context.ts` (V2), `ril.addComponent`, `ril.configure`, `ril.getFormRenderConfig`, `ril.getWorkflowRenderConfig`, `useFieldRenderer` field, `FormConfiguration.renderConfig`, `WorkflowConfig.renderConfig`, `getStats().hasCustomRenderers`.
+- `getStats()` slims to `{ total: number; byType: Record<'component' | 'tool' | 'part', number> }`. `validate()` drops the renderer-key checks and the "components without renderer" error becomes a WARNING in `validateAsync` only (renderer-less entries are legit blueprints now).
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// packages/core/tests/catalog/surface.test.ts
+import { describe, expect, it } from 'vitest';
+import * as core from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
+
+describe('core public surface after de-renderer-ification', () => {
+  it.each([
+    'ComponentRendererWrapper',
+    'ComponentBuilderMetadata',
+    'PropertyEditorDefinition',
+    'FieldSchemaDefinition',
+  ])('does not export %s', (name) => {
+    expect(name in core).toBe(false);
+  });
+
+  it('ril has no configure/addComponent anymore', () => {
+    const r = ril.create();
+    expect('configure' in r).toBe(false);
+    expect('addComponent' in r).toBe(false);
+  });
+
+  it('getStats counts entries by kind', () => {
+    const r = ril
+      .create()
+      .component('text', {})
+      .tool('show_form', {})
+      .part('text', { renderer: () => null as never });
+    expect(r.getStats()).toEqual({ total: 3, byType: { component: 1, tool: 1, part: 1 } });
+  });
+
+  it('validate() accepts renderer-less blueprint entries', () => {
+    const r = ril.create().component('text', { description: 'blueprint only' });
+    expect(r.validate()).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/core/tests/catalog/surface.test.ts`
+Expected: FAIL — `configure` still present / old getStats shape.
+
+- [ ] **Step 3: Execute the delete**
+
+Order of operations (compile-driven):
+1. `ril.ts`: remove `addComponent`, `configure`, `getFormRenderConfig`, `getWorkflowRenderConfig`, the `formRenderConfig`/`workflowRenderConfig` fields (and their copies in `cloneWith`/`clone`/`clear`), `deepMerge` (now unused), the renderer-key blocks in `validate()`, and reshape `getStats()`:
+
+```typescript
+getStats(): { total: number; byType: Record<'component' | 'tool' | 'part', number> } {
+  const byType = { component: 0, tool: 0, part: 0 };
+  for (const entry of this.entries.values()) {
+    byType[(entry as { kind: 'component' | 'tool' | 'part' }).kind] += 1;
+  }
+  return { total: this.entries.size, byType };
+}
+```
+
+2. `types/index.ts`: delete sections 3's legacy renderer types, the builder-metadata block (lines 139-247), `FormRenderConfig` + `renderConfig` field on `FormConfiguration`, `WorkflowRenderConfig` + `renderConfig` on `WorkflowConfig`, all `*RendererProps`/`*Renderer` aliases listed above, `useFieldRenderer` and `builder` on the old `ComponentConfig`, then delete `ComponentConfig` itself. Delete `export * from './context'` + the file.
+3. `core/src/index.ts`: drop the wrapper/componentHelpers exports.
+4. `form.ts:872` and `flow.ts:798`: remove the `renderConfig:` line from the built object.
+5. `FormProvider.tsx` / anything else: `grep -rn "renderConfig\|useFieldRenderer\|ComponentRendererWrapper\|ComponentRenderProps\|RendererChildrenFunction" packages tests | grep -v node_modules` → fix every hit (mostly deletions; remaining old core tests `ril.test.ts`/`ril-immutable.test.ts`/`form-builder.test.ts` are rewritten against the new facade: registration via `.component()`, no `configure`).
+
+- [ ] **Step 4: Run the full suite + typecheck + lint**
+
+Run: `pnpm test && pnpm type-check && pnpm check`
+Expected: PASS, zero references to deleted symbols.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages tests
+git commit -m "refactor(core)!: delete renderConfig layer, wrapper, builder metadata and V2 types"
+```
+
+---
+
+### Task 17: `rilaykit` all-in-one alignment
+
+**Files:**
+- Modify: `packages/rilaykit/src/create-ril.ts`, `packages/rilaykit/src/index.ts`
+- Test: `packages/rilaykit/tests/create-ril.test.ts` (update), `packages/rilaykit/tests/surface.test.ts` (new)
+
+**Interfaces:**
+- Consumes: everything above.
+- Produces: `rilaykit` re-exports the new surface: compound `Form`, `Flow`, `useFlow*` family (selective re-export replaces the old `use*Workflow*` list at `index.ts:52-74`), catalog facades chain on the enhanced `ril` — `ril.create().component(…).tool(…).use(…).renderers(…).form(…)`/`.flow(…)` all preserve the enhanced type (read `create-ril.ts` first: it wraps core's `ril` with `.form()`/`.flow()`; every facade returning `ril<C>` must keep returning the ENHANCED instance — apply the same wrapper technique create-ril already uses for `addComponent`… which is now `component`).
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// packages/rilaykit/tests/surface.test.ts
+import { describe, expect, it } from 'vitest';
+import * as kit from 'rilaykit';
+import { ril } from 'rilaykit';
+
+describe('rilaykit all-in-one surface', () => {
+  it('exposes the compound components and flow hooks', () => {
+    expect(typeof kit.Form).toBe('function');
+    expect('Body' in kit.Form).toBe(true);
+    expect(typeof kit.Flow).toBe('function');
+    expect('Progress' in kit.Flow).toBe(true);
+    expect(typeof kit.useFlow).toBe('function');
+    expect('Workflow' in kit).toBe(false);
+    expect('WorkflowStepper' in kit).toBe(false);
+  });
+
+  it('enhanced ril chains catalog facades and keeps .form()/.flow()', () => {
+    const r = ril
+      .create()
+      .component('text', { renderer: () => null as never })
+      .tool('show_form', {});
+    const f = r.form('login');
+    expect(f).toBeDefined();
+    const w = r.flow('wf', 'WF');
+    expect(w).toBeDefined();
+    expect(r.getTool('show_form')?.kind).toBe('tool');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/rilaykit/tests/surface.test.ts`
+Expected: FAIL — old exports still present / chain loses `.form()`.
+
+- [ ] **Step 3: Write the implementation**
+
+Read `packages/rilaykit/src/create-ril.ts` fully, then: replace its `addComponent`/`configure` override list with the new facade set (`component`, `tool`, `part`, `use`, `renderers`, `removeComponent`, `clone`, `clear` — each override delegates to `super`/wrapped instance then re-wraps into the enhanced class so `.form()`/`.flow()` survive chaining; keep the existing wrapper technique of the file). Update `packages/rilaykit/src/index.ts`: re-export forms surface (`Form`, `FormBody`, `FormField`, `FormSubmit`, `FormList`, hooks, stores, schema), selective workflow re-exports become: `Flow`, `FlowBody`, `FlowProgress`, `FlowNext`, `FlowBack`, `FlowSkip`, `useFlow`, `useFlowData`, `useStep`, `useFlowSteps`, `useFlowActions`, `useFlowStore`, `useFlowStoreApi`, `useFlowStepIndex`, `useFlowNavigationState`, `useFlowSubmitState`, `useFlowSubmitting`, `useFlowTransitioning`, `useFlowInitializing`, `useStepData`, `useStepDataById`, `useVisitedSteps`, `usePassedSteps`, `useIsStepVisited`, `useIsStepPassed`, persistence exports, `flow`, `resolveAllowSkip`, `combineWorkflowDataForConditions`, `flattenObject` (KEEP excluding `useConditionEvaluation`/`ConditionEvaluationResult` from workflow — same clash rule as before). Update `create-ril.test.ts` fixtures to `.component()`.
+
+- [ ] **Step 4: Run tests + typecheck**
+
+Run: `pnpm test && pnpm type-check`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A packages/rilaykit
+git commit -m "feat(rilaykit)!: all-in-one re-exports new catalog and compound surface"
+```
+
+---
+
+### Task 18: MIGRATION.md + final gate
+
+**Files:**
+- Create: `MIGRATION.md`
+- Modify: `packages/*/README.md` ONLY if they show now-dead APIs in the quick-start snippet (check `packages/rilaykit/README.md` first)
+
+**Interfaces:** none (documentation + verification).
+
+- [ ] **Step 1: Write MIGRATION.md**
+
+Content skeleton (fill every row from the actual diffs of Tasks 1-17 — the tables in the spec §10 and Task 15 are the source; verify each name against the final exports):
+
+```markdown
+# Migrating to RilayKit 0.2
+
+RilayKit 0.2 removes the renderer-configuration layer entirely. You now compose
+markup with compound headless components; the `ril` instance is a pure catalog.
+
+## Catalog
+| 0.1 | 0.2 |
+|---|---|
+| `ril.create().addComponent('text', { name, renderer })` | `ril.create().component('text', { renderer })` |
+| `renderer: ({ id, value, onChange, props }) => …` | `renderer: ({ id, props, field }) => …` (`field.value`, `field.onChange`, `field.onBlur`, `field.error`) |
+| `.configure({ rowRenderer, bodyRenderer, … })` | deleted — write markup in `Form.Body`/`Flow.*` render props |
+| `builder:` metadata on components | `propsSchema` (zod/Standard Schema) + `meta` |
+
+## Forms
+| 0.1 | 0.2 |
+|---|---|
+| `<Form formConfig={f} defaultValues={d}>` | `<Form of={f} defaults={d}>` |
+| `<FormBody />` + `bodyRenderer`/`rowRenderer` | `<Form.Body>{({ rows }) => …}</Form.Body>` |
+| `<FormField fieldId="x" customProps={p} />` | `<Form.Field fieldId="x" overrides={p} />` |
+| `<FormSubmitButton>` + `submitButtonRenderer` | `<Form.Submit>{({ submitting }) => …}</Form.Submit>` |
+| `<RepeatableField />` / `<RepeatableItem />` | `<Form.List id="x">{({ items, add, remove }) => …}</Form.List>` |
+
+## Workflows → Flows
+(component table + the full hook rename table from Task 15 + `allowSkip` predicate + metadata-smuggling replacement examples: `metadata.hideNextButton` → conditional render around `<Flow.Next>`; `metadata.skipVisible` → `allowSkip: (ctx) => …`; `metadata.submitLabel` → render prop children)
+
+## Errors
+`RilayError.code` values changed: `VALIDATION_ERROR`→`VALIDATION`, `DUPLICATE_ID_ERROR`→`DUPLICATE`; new `NOT_FOUND`, `INVALID_SCHEMA`, `CONFIGURATION`.
+```
+
+- [ ] **Step 2: Full gate**
+
+Run: `pnpm test && pnpm type-check && pnpm check && pnpm build`
+Expected: ALL PASS. Fix anything red before proceeding (build catches tsup/export issues the tests don't).
+
+- [ ] **Step 3: Verify no stale references**
+
+Run: `grep -rn "addComponent\|configure(\|renderConfig\|WorkflowStepper\|FormSubmitButton\|RepeatableField\|useWorkflowContext\|customProps" packages tests docs/README* --include="*.ts*" | grep -v node_modules | grep -v "docs/superpowers"`
+Expected: zero hits (except MIGRATION.md's own "0.1" columns).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add MIGRATION.md packages
+git commit -m "docs: add 0.2 migration guide"
+```
+
+---
+
+## Plan Self-Review (done at authoring time)
+
+- **Spec coverage (P1 items)**: catalog facades T2-T4 ✔, propsSchema+meta T2/T5 ✔, typed errors T1 ✔, deletions T16 ✔, chrome compound T6-T14 ✔, hook renames T15 ✔, `of`/`defaults` T6/T12 ✔, allowSkip predicate T14 ✔, MIGRATION.md T18 ✔. Out of P1 scope (per spec §11): compileForm/FlowSchema (P2), Parts/manifest/uiTools/adapters (P3).
+- **Known judgment calls for the executor**: (a) `WorkflowProviderProps`/`WorkflowContextValue` member names must be confirmed against the real file in T12/T14; (b) the repeatable builder fixture call in T10 must mirror `form-repeatable.test.ts`; (c) the rules-of-hooks fix flagged inline in T14; (d) `useFlowSteps` ports the stepper's existing memos verbatim (T13).
+- **Type consistency**: `ComponentRenderContext`/`FieldBinding` (T2) are consumed by T8's FormField and T10's fixtures; `VisibleRow` (T7) by T11; `FlowNavContext` (T14) by e2e sweeps; error classes (T1) by T2/T4/T5/T8/T10. Names verified consistent across tasks.
+```
