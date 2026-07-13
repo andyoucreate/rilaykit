@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DuplicateError } from '../../src/errors';
 import {
   IdGenerator,
   configureObject,
@@ -123,6 +124,20 @@ describe('Builder Helpers', () => {
       expect(() => {
         ensureUnique(ids, 'test');
       }).not.toThrow();
+    });
+
+    it('throws DuplicateError with code and meta', () => {
+      let caught: unknown;
+
+      try {
+        ensureUnique(['a', 'b', 'a'], 'field');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(DuplicateError);
+      expect((caught as DuplicateError).code).toBe('DUPLICATE');
+      expect((caught as DuplicateError).meta).toEqual({ entityName: 'field', duplicates: ['a'] });
     });
   });
 

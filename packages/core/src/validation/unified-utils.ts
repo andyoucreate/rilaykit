@@ -9,7 +9,7 @@ import type {
   FormValidationConfig,
   StandardSchema,
   ValidationContext,
-  ValidationError,
+  FieldError,
   ValidationResult,
 } from '../types';
 // =================================================================
@@ -54,7 +54,7 @@ export async function validateWithStandardSchema<T extends StandardSchema>(
 
     // Check if validation failed
     if (result.issues) {
-      const errors: ValidationError[] = result.issues.map((issue) => ({
+      const errors: FieldError[] = result.issues.map((issue) => ({
         message: issue.message,
         code: 'VALIDATION_ERROR',
         path: formatIssuePath(issue.path),
@@ -152,7 +152,7 @@ export async function validateWithUnifiedConfig<T>(
   }
 
   const schemas = Array.isArray(config.validate) ? config.validate : [config.validate];
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
 
   for (const schema of schemas) {
     if (!isStandardSchema(schema)) {
@@ -196,7 +196,7 @@ export async function validateFormWithUnifiedConfig<T extends Record<string, any
   }
 
   const schemas = Array.isArray(config.validate) ? config.validate : [config.validate];
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
 
   for (const schema of schemas) {
     if (!isStandardSchema(schema)) {

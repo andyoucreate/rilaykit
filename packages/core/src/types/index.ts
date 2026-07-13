@@ -18,7 +18,7 @@ export interface RilayLicenseConfig {
 // =================================================================
 
 // 2.1. Core Validation Types
-export interface ValidationError {
+export interface FieldError {
   readonly message: string;
   readonly code?: string;
   readonly path?: string;
@@ -26,7 +26,7 @@ export interface ValidationError {
 
 export interface ValidationResult {
   readonly isValid: boolean;
-  readonly errors: ValidationError[];
+  readonly errors: FieldError[];
   readonly value?: any;
 }
 
@@ -131,7 +131,7 @@ export interface ComponentRenderProps<TProps = any> {
   onChange?: (value: any) => void;
   onBlur?: () => void;
   disabled?: boolean;
-  error?: ValidationError[];
+  error?: FieldError[];
   isValidating?: boolean;
   [key: string]: any;
 }
@@ -408,7 +408,7 @@ export interface FieldRendererProps {
   children: React.ReactNode;
   id: string;
   disabled?: boolean;
-  error?: ValidationError[];
+  error?: FieldError[];
   isValidating?: boolean;
   touched?: boolean;
   [key: string]: any;

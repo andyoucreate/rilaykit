@@ -5,7 +5,7 @@
  * and managing validation contexts using Standard Schema exclusively.
  */
 
-import type { ValidationContext, ValidationError, ValidationResult } from '../types';
+import type { ValidationContext, FieldError, ValidationResult } from '../types';
 
 // =================================================================
 // VALUE CHECKS
@@ -47,7 +47,7 @@ export function isEmptyValue(value: unknown): boolean {
  */
 export function createValidationResult(
   isValid: boolean,
-  errors: ValidationError[] = []
+  errors: FieldError[] = []
 ): ValidationResult {
   return {
     isValid,
@@ -105,7 +105,7 @@ export function createErrorResult(message: string, code?: string, path?: string)
  * ```
  */
 export function combineValidationResults(results: ValidationResult[]): ValidationResult {
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
   let isValid = true;
 
   for (const result of results) {

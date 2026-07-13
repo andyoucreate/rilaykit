@@ -1,4 +1,4 @@
-import type { ValidationError, ValidationResult } from './index';
+import type { FieldError, ValidationResult } from './index';
 
 // =================================================================
 // VALIDATION STATE
@@ -15,7 +15,7 @@ export type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
  */
 export interface FieldState {
   readonly value: unknown;
-  readonly errors: ValidationError[];
+  readonly errors: FieldError[];
   readonly validationState: ValidationState;
   readonly touched: boolean;
   readonly dirty: boolean;
@@ -61,7 +61,7 @@ export interface FieldContext extends FieldState, FieldConditions {
  */
 export interface FormState {
   readonly values: Record<string, unknown>;
-  readonly errors: Record<string, ValidationError[]>;
+  readonly errors: Record<string, FieldError[]>;
   readonly validationStates: Record<string, ValidationState>;
   readonly touched: Record<string, boolean>;
   readonly isDirty: boolean;
@@ -75,7 +75,7 @@ export interface FormState {
 export interface FormActions {
   readonly setValue: (fieldId: string, value: unknown) => void;
   readonly setTouched: (fieldId: string) => void;
-  readonly setErrors: (fieldId: string, errors: ValidationError[]) => void;
+  readonly setErrors: (fieldId: string, errors: FieldError[]) => void;
   readonly setValidationState: (fieldId: string, state: ValidationState) => void;
   readonly setSubmitting: (isSubmitting: boolean) => void;
   readonly submit: () => Promise<boolean>;
@@ -161,7 +161,7 @@ export interface FormSubmitButtonRendererPropsV2 {
   /** Form data access (for advanced use cases) */
   readonly form: {
     readonly values: Record<string, unknown>;
-    readonly errors: Record<string, ValidationError[]>;
+    readonly errors: Record<string, FieldError[]>;
   };
 
   /** Optional className */

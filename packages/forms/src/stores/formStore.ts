@@ -3,7 +3,7 @@ import type {
   FieldState,
   FormState,
   RepeatableFieldConfig,
-  ValidationError,
+  FieldError,
   ValidationState,
 } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
@@ -30,7 +30,7 @@ export interface FormStoreState extends FormState {
   // Actions (internal - exposed via FormActions interface)
   _setValue: (fieldId: string, value: unknown) => void;
   _setTouched: (fieldId: string) => void;
-  _setErrors: (fieldId: string, errors: ValidationError[]) => void;
+  _setErrors: (fieldId: string, errors: FieldError[]) => void;
   _clearErrors: (fieldId: string) => void;
   _setValidationState: (fieldId: string, state: ValidationState) => void;
   _setSubmitting: (isSubmitting: boolean) => void;
@@ -363,7 +363,7 @@ export function useFormStore(): FormStore {
 // =================================================================
 
 // Stable empty array references
-const EMPTY_FIELD_ERRORS: ValidationError[] = [];
+const EMPTY_FIELD_ERRORS: FieldError[] = [];
 
 /**
  * Select a single field value - re-renders only when this field's value changes
@@ -376,7 +376,7 @@ export function useFieldValue<T = unknown>(fieldId: string): T {
 /**
  * Select field errors - re-renders only when this field's errors change
  */
-export function useFieldErrors(fieldId: string): ValidationError[] {
+export function useFieldErrors(fieldId: string): FieldError[] {
   const store = useFormStore();
   return useStore(store, (state) => state.errors[fieldId] ?? EMPTY_FIELD_ERRORS);
 }
@@ -524,7 +524,7 @@ export function useRepeatableKeys(repeatableId: string): string[] {
 export interface UseFieldActionsResult {
   setValue: (value: unknown) => void;
   setTouched: () => void;
-  setErrors: (errors: ValidationError[]) => void;
+  setErrors: (errors: FieldError[]) => void;
   clearErrors: () => void;
   setValidationState: (state: ValidationState) => void;
 }
@@ -540,7 +540,7 @@ export function useFieldActions(fieldId: string): UseFieldActionsResult {
   return {
     setValue: (value: unknown) => store.getState()._setValue(fieldId, value),
     setTouched: () => store.getState()._setTouched(fieldId),
-    setErrors: (errors: ValidationError[]) => store.getState()._setErrors(fieldId, errors),
+    setErrors: (errors: FieldError[]) => store.getState()._setErrors(fieldId, errors),
     clearErrors: () => store.getState()._clearErrors(fieldId),
     setValidationState: (state: ValidationState) =>
       store.getState()._setValidationState(fieldId, state),
@@ -550,7 +550,7 @@ export function useFieldActions(fieldId: string): UseFieldActionsResult {
 export interface UseFormActionsResult {
   setValue: (fieldId: string, value: unknown) => void;
   setTouched: (fieldId: string) => void;
-  setErrors: (fieldId: string, errors: ValidationError[]) => void;
+  setErrors: (fieldId: string, errors: FieldError[]) => void;
   setSubmitting: (isSubmitting: boolean) => void;
   reset: (values?: Record<string, unknown>) => void;
   setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
@@ -566,7 +566,7 @@ export function useFormActions(): UseFormActionsResult {
   return {
     setValue: (fieldId: string, value: unknown) => store.getState()._setValue(fieldId, value),
     setTouched: (fieldId: string) => store.getState()._setTouched(fieldId),
-    setErrors: (fieldId: string, errors: ValidationError[]) =>
+    setErrors: (fieldId: string, errors: FieldError[]) =>
       store.getState()._setErrors(fieldId, errors),
     setSubmitting: (isSubmitting: boolean) => store.getState()._setSubmitting(isSubmitting),
     reset: (values?: Record<string, unknown>) => store.getState()._reset(values),
