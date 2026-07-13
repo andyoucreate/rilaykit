@@ -26,27 +26,29 @@ Generative-UI protocols (OpenUI, A2UI, C1) are commoditizing: "component catalog
 | 2 | Generative granularity | **Any registered component** (the catalog), with forms/flows as the premium living primitives. |
 | 3 | Message model | **Own minimal part model** (`text`, `tool`, `data`; extensible union), structurally aligned with AI SDK v5 `UIMessage` parts. Thin adapters. Rendering only — no chat SDK features. |
 | 4 | Feedback loop | **Tool-result pattern**: form/flow submission resolves the tool call with `{ status: 'submitted', values }` or `{ status: 'cancelled' }`. |
-| 5 | Renderer system | **Catalog / UI separation, then full removal of renderer config**: no `renderConfig`, no global `configure(renderers)`, no slots provider. Compound headless components + render props; composition lives app-side. |
+| 5 | Renderer system | **Full removal of renderer config**: no `renderConfig`, no global `configure(renderers)`, no slots provider. Compound headless components + render props; composition lives app-side. |
 | 6 | Streaming | **Progressive rendering of partial tool-call JSON** (forms): partial-JSON parsing, per-field progressive mounting. Flows render on complete input. |
-| 7 | Component props schema | **`propsSchema` as Standard Schema (zod v4 golden path)**, JSON Schema conversion only where needed (anthropic adapter, native `z.toJSONSchema()`), manual `propsJsonSchema` fallback. `ComponentBuilderMetadata` layer deleted. |
+| 7 | Component props schema | **`propsSchema` as Standard Schema (zod v4 golden path)**, JSON Schema conversion only in the anthropic adapter (native `z.toJSONSchema()`), manual `propsJsonSchema` fallback. `ComponentBuilderMetadata` layer deleted. |
 | 8 | Packaging | **New `@rilaykit/agent` package** (+ subpath adapters `/ai-sdk`, `/anthropic`). Chrome stays in `forms`/`workflow`. `rilaykit` all-in-one re-exports everything. |
 | 9 | Versioning | **Breaking assumed, v0.2.0** + `MIGRATION.md`. No compat layer. |
-| 10 | Naming | **Compound namespaces** (Radix-style): `Form.*`, `Flow.*`, `<Parts>`. No "Rilay" branding in component names. `Flow` replaces `Workflow`, `Flow.Progress` replaces Stepper, `Flow.Back` replaces PreviousButton. |
+| 10 | Naming | **Compound namespaces** (Radix-style): `Form.*`, `Flow.*`, `<Parts>`. No "Rilay" branding in component names. |
 | 11 | Unification | **One catalog**: components, tool renderers, and part renderers are all "renderables" in a single namespaced registry with typed facades. |
+| 12 | DX naming system | Short fluent verbs (`.component()/.tool()/.part()`), phrase-reading JSX (`<Form of={...}>`), no bureaucratic suffixes, uniform adapter interface (`toParts`/`tools`), friendly tool states (`streaming/ready/done/error`), intention-oriented LLM tool names (`show_*`). |
+| 13 | Component trees | `show_component` input is a **recursive `ComponentNode`** (`{ type, props, children? }`) — generative UI beyond flat components. |
+| 14 | Server/client split | **Isomorphic catalog blueprint** (schemas only, no React) + client-side `.renderers()` hydration. Server helpers (`tools()`, `manifest()`) consume the blueprint. |
 
 ## 3. Package Architecture
 
 ```
 @rilaykit/core      → unified catalog (components/tools/parts), conditions, validation,
-                      typed errors, CatalogProvider
+                      typed errors, <Catalog> context
 @rilaykit/forms     → form engine (stores/hooks/providers — untouched) + compound chrome
-                      Form.* + FormSchema/fromSchema
-@rilaykit/workflow  → flow engine (untouched) + compound chrome Flow.* + FlowSchema/flowFromSchema
-@rilaykit/agent     → NEW: part model, <Parts>/<Part>, tool definition generation, uiTools(),
+                      Form.* + FormSchema/compileForm
+@rilaykit/workflow  → flow engine (untouched) + compound chrome Flow.* + FlowSchema/compileFlow
+@rilaykit/agent     → NEW: part model, <Parts>/<Part>, manifest(), uiTools(),
                       partial-JSON streaming, HITL resolve loop
-  ├─ /ai-sdk        → Vercel AI SDK adapter (zod schemas passed through untouched,
-                      resolve → addToolResult)
-  └─ /anthropic     → Claude API adapter (z.toJSONSchema() conversion,
+  ├─ /ai-sdk        → Vercel AI SDK adapter: toParts(), tools() (zod passed through untouched)
+  └─ /anthropic     → Claude API adapter: toParts(), tools() (native z.toJSONSchema(),
                       partial_json delta accumulation)
 rilaykit            → all-in-one re-export + enhanced ril (.form()/.flow())
 ```
@@ -55,53 +57,55 @@ Dependency direction: `agent → workflow → forms → core`. Adapters live as 
 
 ## 4. The Unified Catalog (core)
 
-The central concept: **everything that renders is a registered "renderable"** — a typed payload + a renderer resolved by a string key. One `Map` with namespaced keys (`component:select`, `tool:search_flights`, `part:text`), one immutable builder, three typed facades.
+The central concept: **everything that renders is a registered "renderable"** — a typed payload + a renderer resolved by a string key. One `Map` with namespaced keys (`component:select`, `tool:search_flights`, `part:text`), one immutable builder, three typed facades. Registration verbs are short: the method name IS the noun (express/hono style).
 
 ```typescript
-export const r = ril.create()
-  // Components (fields + generative)
-  .addComponent("select", {
+// lib/catalog.ts — ISOMORPHIC blueprint (importable server AND client, no React imports)
+export const catalog = ril.create()
+  .component("select", {
     description: "Dropdown selection with predefined options", // read by the LLM
     propsSchema: z.object({
       label: z.string().describe("Visible field label"),
       options: z.array(z.object({ value: z.string(), label: z.string() })),
       placeholder: z.string().optional(),
     }),
-    renderer: ({ props, field }) => <MySelect {...props} {...field} />,
     defaultProps: { placeholder: "Select..." },
     validation: { validate: z.string().optional() }, // value validation, unchanged
     meta: {}, // open, typed via generic — display config, icons, anything app-level
   })
-
-  // Tools — ONE declaration = tool definition (LLM side) + UI (React side)
-  .addTool("search_flights", {
+  .tool("search_flights", {
     inputSchema: z.object({ from: z.string(), to: z.string() }),
-    renderer: ({ input, state, output }) =>
-      state === "output-available"
-        ? <FlightResults flights={output} />
-        : <FlightsSkeleton input={input} />,
   })
-
-  // Message parts
-  .addPart("text", { renderer: ({ part }) => <Markdown>{part.text}</Markdown> })
-
-  // Plugins — a plugin is (r) => r
-  .use(uiTools());
+  .use(uiTools()); // show_form / show_flow / show_component — pure schemas, no React
 ```
+
+```tsx
+// lib/catalog.client.tsx — "use client": attaches renderers, typed against registered keys
+export const r = catalog.renderers({
+  components: { select: SelectField },
+  tools: {
+    search_flights: ({ input, state, output }) =>
+      state === "done" ? <FlightResults flights={output} /> : <FlightsSkeleton input={input} />,
+  },
+  parts: { text: ({ part }) => <Markdown>{part.text}</Markdown> },
+});
+```
+
+Inline `renderer:` inside `.component()/.tool()/.part()` remains allowed — the blueprint/hydration split is only mandatory when a server imports the catalog (RSC/Next route handlers).
 
 ### Renderer contexts (strictly typed, no any-bags)
 
-- **Component**: `{ id, props, field: { value, onChange, onBlur, error, disabled, isValidating }, conditions, meta }` — `props` inferred from `propsSchema`. The `[key: string]: any` escape hatch is removed.
-- **Tool**: `{ toolCallId, name, state, input, output?, errorText?, resolve, meta }` — states aligned with AI SDK v5: `input-streaming | input-available | output-available | output-error`. During `input-streaming`, `input` is a deep-partial parsed object; the raw partial JSON string is also available for advanced renderers.
+- **Component**: `{ id, props, field: { value, onChange, onBlur, error, disabled, isValidating }, conditions, children?, meta }` — `props` inferred from `propsSchema`; `children` present when rendered from a `ComponentNode` tree (already-rendered ReactNode). The `[key: string]: any` escape hatch is removed.
+- **Tool**: `{ toolCallId, name, state, input, rawInput?, output?, errorText?, resolve, meta }` — states: `streaming | ready | done | error` (adapter-mapped from AI SDK's `input-streaming | input-available | output-available | output-error`). During `streaming`, `input` is a deep-partial parsed object; `rawInput` carries the raw partial JSON for advanced renderers.
 - **Part**: `{ part, meta }`.
 
 ### Rules
 
 - Registration is immutable (returns a new `ril` instance), consistent with the existing builder.
-- Duplicate key registration throws a typed `DuplicateError` unless `replace: true` is set in the entry config. `replace` swaps the **whole entry**; to override only a default renderer shipped by `uiTools()`, pass it via `uiTools({ renderers: { render_form: ... } })` so schemas stay intact.
+- Duplicate key registration throws a typed `DuplicateError` unless `replace: true` is set in the entry config (whole-entry swap). Attaching/overriding **renderers** always goes through `.renderers()` (or inline `renderer:` at registration) — one way to do it.
 - A tool registered without `inputSchema` is **renderer-only**: it renders a host-executed tool but is excluded from generated tool definitions.
-- Every entry has **two projections**: schema → LLM (tool definitions, prompt catalog), renderer → React. Registering means simultaneously *exposing to the agent* and *knowing how to render*.
-- `CatalogProvider` (React context in core) makes the catalog available to `<Parts>`/`<Part>`. `Form`/`Flow` keep receiving it embedded in their config (via builders) — the provider is an override, not a requirement, for them.
+- Every entry has **two projections**: schema → LLM (tool definitions, `manifest()`), renderer → React. Registering means simultaneously *exposing to the agent* and *knowing how to render*.
+- `<Catalog value={r}>` (React context in core) makes the catalog available to `<Parts>`/`<Part>`. `Form`/`Flow` keep receiving it embedded in their config (via builders) — the provider is an override, not a requirement, for them.
 
 ### Deletions (the de-renderer-ification)
 
@@ -115,11 +119,11 @@ export const r = ril.create()
 
 ## 5. Headless Chrome: Compound Components + Render Props
 
-Composition lives **app-side**. Every rendering path — including the generative one — has a dev-written composition point (the page for a classic form; the `render_form` tool renderer for a generated one). Therefore no global layout config is needed anywhere.
+Composition lives **app-side**. Every rendering path — including the generative one — has a dev-written composition point (the page for a classic form; the `show_form` renderer for a generated one). Therefore no global layout config is needed anywhere.
 
 ```tsx
 // 1. RilayKit utils = logic + state + wiring, ZERO imposed markup
-<Form config={loginForm} onSubmit={handle}>
+<Form of={loginForm} defaults={{ email: "" }} onSubmit={handle}>
   <Form.Body>
     {({ rows }) => rows.map(row => (
       <div key={row.id} className="grid grid-cols-2 gap-4">
@@ -137,25 +141,25 @@ function AppFormBody() {
   return <Form.Body>{({ rows }) => /* app markup, once */}</Form.Body>;
 }
 
-// 3. The generative path uses THE SAME utils, inside the tool renderer
-r.use(uiTools({
-  renderers: {
-    render_form: ({ input, resolve }) => (
-      <Form config={fromSchema(input, r)} onSubmit={v => resolve({ status: "submitted", values: v })}>
+// 3. The generative path uses THE SAME utils, via .renderers()
+catalog.renderers({
+  tools: {
+    show_form: ({ input, resolve }) => (
+      <Form of={compileForm(input, r)} onSubmit={v => resolve({ status: "submitted", values: v })}>
         <AppFormBody />
         <Form.Submit>{({ submitting }) => <Button loading={submitting}>Validate</Button>}</Form.Submit>
       </Form>
     ),
   },
-}));
+});
 ```
 
 ### Component inventory
 
-- **forms**: `Form` (root), `Form.Body` (render prop `{ rows }` — visible rows with conditions applied), `Form.Field` (the single bridge to the catalog: resolves `component:*`, wires state/validation/conditions), `Form.Submit` (render prop `{ submitting }`), `Form.Repeatable` (render prop over items/add/remove). Hooks: `useFormRows()` plus the whole existing selector-hook inventory (unchanged).
-- **workflow**: `Flow` (root), `Flow.Body` (current step's form body; render prop), `Flow.Progress` (render prop `{ steps, currentIndex, goTo }` — visible steps with index mapping), `Flow.Back` / `Flow.Next` / `Flow.Skip` (render props receiving full step context: `{ canGo, submitting, isLastStep, step }`). Hooks: `useFlowSteps()` plus existing inventory.
+- **forms**: `Form` (root; props `of`, `defaults`, `onSubmit`), `Form.Body` (render prop `{ rows }` — visible rows with conditions applied), `Form.Field` (the single bridge to the catalog: resolves `component:*`, wires state/validation/conditions), `Form.Submit` (render prop `{ submitting }`), `Form.List` (repeatables; render prop `{ items, add, remove }`). Hooks: `useFormRows()` plus the whole existing `useField*`/`useForm*` selector inventory (unchanged — already coherent).
+- **workflow**: `Flow` (root; props `of`, `defaults`, `onComplete`), `Flow.Body` (current step's form body; render prop), `Flow.Progress` (render prop `{ steps, currentIndex, goTo }` — visible steps with index mapping), `Flow.Back` / `Flow.Next` / `Flow.Skip` (render props receiving full step context: `{ canGo, submitting, isLastStep, step }`). Hooks: `useFlow()` (ex-`useWorkflowContext`), `useFlowData()` (ex-`useWorkflowAllData`), `useStep()` (current step + metadata), `useFlowSteps()`; remaining flow store selectors renamed to the `useFlow*` family.
 - Without a render prop, `Form.Body` / `Flow.*` render bare structural divs (30-second quick start), no classes, no styling opinions.
-- The three workflow nav buttons share one internal parametric implementation.
+- The three flow nav buttons share one internal parametric implementation.
 
 ### Engine sanctity
 
@@ -169,51 +173,79 @@ r.use(uiTools({
 
 ## 6. Schema Layer: JSON as the Pivot Format
 
-- **`FormSchema`** (exists): JSON-serializable form definition + `fromSchema(schema, ril, registry?)` building through the standard builder. Evolutions: per-field inline `default` (streaming-friendly ordering — no late top-level `defaultValues` block required), strict typing against the catalog.
-- **`FlowSchema` + `flowFromSchema`** (new): the workflow mirror. `{ version, id, name, steps: [{ id, title, form: FormSchema, conditions?, allowSkip?, metadata? }] }`. Non-serializable logic (lifecycle handlers like `onAfterValidation`) referenced **by string key** and resolved from a consumer-supplied `SchemaRegistry`, exactly like form validators today.
-- **Typed dynamic building — first-class requirement.** Both known consumers (lilycare `subscription-flow.tsx`, stndrds `form-config.ts` / `use-form-config.ts` / `attribute-field.tsx`) hand-rolled JSON→rilay compilers and cast to `any` at every dynamic build site. The builder and `fromSchema`/`flowFromSchema` must accept runtime-constructed field-config arrays **fully typed against the catalog's component-type union** (`FieldConfigFor<C>`). Killing this `any` gap is a P1/P2 acceptance criterion.
+- **`FormSchema`** (exists): JSON-serializable form definition. Compiler renamed **`compileForm(schema, catalog, { bindings })`** — "compile" tells the true story (JSON → living runtime). Evolutions: per-field inline `default` (streaming-friendly ordering), strict typing against the catalog.
+- **`FlowSchema` + `compileFlow`** (new): the workflow mirror. `{ version, id, name, steps: [{ id, title, form: FormSchema, conditions?, allowSkip?, metadata? }] }`. Non-serializable logic (lifecycle handlers like `onAfterValidation`) referenced **by string key** and resolved from consumer-supplied **`bindings`** (ex-`SchemaRegistry` — renamed: they are the bindings between JSON string keys and living code; also avoids collision with the catalog registry).
+- **Field → component resolution**: a schema field's `type` IS the catalog key. `compileForm` validates each field's `props` against that component's `propsSchema`, then `Form.Field` renders it with the wired `field` context. Same mechanic for `ComponentNode` trees (§7).
+- **Typed dynamic building — first-class requirement.** Both known consumers (lilycare `subscription-flow.tsx`, stndrds `form-config.ts` / `use-form-config.ts` / `attribute-field.tsx`) hand-rolled JSON→rilay compilers and cast to `any` at every dynamic build site. The builder and `compileForm`/`compileFlow` must accept runtime-constructed field-config arrays **fully typed against the catalog's component-type union** (`FieldConfigFor<C>`). Killing this `any` gap is a P1/P2 acceptance criterion.
 - **Not building**: the reverse serializer (config → JSON). No identified consumer; authored forms may embed live zod validators that cannot serialize. YAGNI.
 
 ## 7. The Agent Layer (`@rilaykit/agent`)
 
 ### Part model
 
-Own discriminated union, minimal and extensible:
+Own discriminated union, minimal and extensible. `Part` is both the type and the unit component — one concept, one word:
 
 ```typescript
-type UIPart =
+type Part =
   | { type: "text"; text: string; state?: "streaming" | "done" }
   | { type: "tool"; toolCallId: string; name: string;
-      state: "input-streaming" | "input-available" | "output-available" | "output-error";
+      state: "streaming" | "ready" | "done" | "error";
       input: unknown; rawInput?: string; output?: unknown; errorText?: string }
   | { type: "data"; name: string; data: unknown };
 ```
 
-Structurally aligned with AI SDK v5 parts so that adapter is near-identity. `reasoning`, `source`, `file` parts: deferred (extensible union).
+Structurally aligned with AI SDK v5 parts so the adapter is near-identity (state mapping: `input-streaming→streaming`, `input-available→ready`, `output-available→done`, `output-error→error`). `reasoning`, `source`, `file` parts: deferred (extensible union).
 
 ### Dispatch components
 
-`<Parts parts={UIPart[]} onToolResult={(toolCallId, output) => void} />` and granular `<Part part={} />`. Resolution: `part:*` and `tool:*` catalog namespaces, catalog from `CatalogProvider` (or explicit prop). Unknown tool names fall back to a humanized default or a consumer-provided fallback renderer.
+`<Parts parts={Part[]} onResolve={(toolCallId, output) => void} />` and granular `<Part part={} />`. Resolution: `part:*` and `tool:*` catalog namespaces via `<Catalog value={r}>` context (or explicit prop). `onResolve` is the exact mirror of the `resolve()` the tool renderer receives. Unknown tool names fall back to a humanized default or a consumer-provided fallback renderer. **Built-in fallback renderers for `show_form` / `show_flow` / `show_component` live in `<Parts>`** — bare but functional out of the box; apps override via `.renderers()`.
 
-### `uiTools()` plugin
+### `uiTools()` plugin (isomorphic — pure schemas)
 
-Registers the premium tools + default renderers (overridable via `uiTools({ renderers })`, see §4):
+Registers the premium tools; renderers come from `<Parts>` fallbacks or `.renderers()`:
 
-- `render_form` — input schema: the static JSON Schema of `FormSchema`. Default renderer: `<Form config={fromSchema(input)}><Form.Body/><Form.Submit/></Form>` bare.
-- `render_flow` — input schema: `FlowSchema`. Renders on complete input (no progressive multi-step mounting).
-- `render_component` — input schema: **generated discriminated union** over the catalog's components (`{ type, props }`); renderer resolves the catalog.
+- `show_form` — input schema: the static JSON Schema of `FormSchema`.
+- `show_flow` — input schema: `FlowSchema`. Renders on complete input (no progressive multi-step mounting).
+- `show_component` — input schema: **recursive `ComponentNode`** — `{ type, props, children?: ComponentNode[] }` where `type` is constrained to the catalog's component union. The default renderer resolves the tree recursively; each node's `props` are validated against its component's `propsSchema`; renderers receive already-rendered `children` (ReactNode) and place or ignore them. A failing node produces a structured error part, never a render crash.
 
-### Tool definition generation
+LLM-facing tool names use intention verbs (`show_*`, not `render_*`): the agent *shows* something to the human — proven to steer models better (cf. stndrds `ask_questions`).
 
-- `@rilaykit/agent/ai-sdk`: zod schemas passed through **untouched** (`tool({ inputSchema })` — the SDK owns conversion). `fromUIMessage()` maps `UIMessage` parts → `UIPart[]`. `resolve` wires to `addToolResult`.
-- `@rilaykit/agent/anthropic`: `toolDefinitions(r)` emits `{ name, description, input_schema }` using zod v4 native `z.toJSONSchema()`; manual `propsJsonSchema`/`inputJsonSchema` fallback for non-zod Standard Schemas. Message adapter accumulates `partial_json` deltas.
-- A prompt-catalog helper produces a compact component-catalog description for system prompts.
+### Server-side generation (the isomorphic loop)
+
+```typescript
+// app/api/chat/route.ts — the server only sees the blueprint
+import { catalog } from "@/lib/catalog";
+import { manifest } from "@rilaykit/agent";
+import { tools } from "@rilaykit/agent/ai-sdk";
+
+return streamText({
+  model: anthropic("claude-sonnet-5"),
+  system: `You are a booking assistant.\n${manifest(catalog)}`,
+  tools: { ...tools(catalog), ...myServerTools },
+  messages: convertToModelMessages(messages),
+}).toUIMessageStreamResponse();
+```
+
+- **`tools(catalog)`** (per adapter): AI SDK flavor passes zod schemas through untouched and emits UI tools **without `execute`** (the SDK's native HITL pattern: stream stays pending → client renders → `addToolResult` resumes). Anthropic flavor emits `{ name, description, input_schema }` via native `z.toJSONSchema()` (manual `inputJsonSchema`/`propsJsonSchema` fallback for non-zod Standard Schemas).
+- **`manifest(catalog)`** (provider-neutral, main package): generates the compact catalog description for system prompts from `description`s + schemas — which components exist, their props, when to use `show_form` vs `show_component`. This is how the model learns the patterns it may emit.
+- Adapters export a **uniform pair**: `toParts(message)` + `tools(catalog)`. The module name carries the context (`@rilaykit/agent/ai-sdk`, `@rilaykit/agent/anthropic`).
+
+```tsx
+// Client side — the loop closes
+const { messages, addToolResult } = useChat();
+<Catalog value={r}>
+  {messages.map(m => (
+    <Parts key={m.id} parts={toParts(m)}
+      onResolve={(toolCallId, output) => addToolResult({ toolCallId, output })} />
+  ))}
+</Catalog>
+```
 
 ### Streaming: progressive form rendering
 
 - Internal partial-JSON parser (fixJson-style, ~100 lines, no dependency) used by adapters that only provide raw deltas.
-- `fromSchema` lenient mode for `input-streaming`: a field mounts as soon as its definition is complete (`id` + `type` + parseable props); reconciliation by stable field `id`; append-only; store registers fields incrementally **without reset**; mounted fields are immediately interactive; **submit stays locked** until the schema is complete and validated.
-- Flows: render at `input-available` (deliberate scope cut).
+- `compileForm` lenient mode during `streaming`: a field mounts as soon as its definition is complete (`id` + `type` + parseable props); reconciliation by stable field `id`; append-only; store registers fields incrementally **without reset**; mounted fields are immediately interactive; **submit stays locked** until the schema is complete and validated.
+- Flows: render at `ready` (deliberate scope cut).
 
 ### Human-in-the-loop
 
@@ -223,7 +255,7 @@ Registers the premium tools + default renderers (overridable via `uiTools({ rend
 
 ### Agent self-correction
 
-Invalid agent emissions (props failing `propsSchema`, malformed `FormSchema`) never crash rendering: they produce an `output-error` tool result carrying structured `{ error, issues, expectedKeys }` (format proven in stndrds `wrappers.ts`) so the model can retry.
+Invalid agent emissions (props failing `propsSchema`, malformed `FormSchema`, bad `ComponentNode`) never crash rendering: they produce an `error`-state tool result carrying structured `{ error, issues, expectedKeys }` (format proven in stndrds `wrappers.ts`) so the model can retry.
 
 ## 8. Error Handling
 
@@ -234,28 +266,32 @@ class RilayError extends Error { code: RilayErrorCode }
 // codes: DUPLICATE | NOT_FOUND | INVALID_SCHEMA | VALIDATION | CONFIGURATION
 ```
 
-Used by: catalog registration (DUPLICATE, NOT_FOUND), schema compilation (INVALID_SCHEMA with structured issues), agent emission validation (VALIDATION). Renderer-level failures surface as `output-error` parts, never exceptions during render.
+Used by: catalog registration (DUPLICATE, NOT_FOUND), schema compilation (INVALID_SCHEMA with structured issues), agent emission validation (VALIDATION). Renderer-level failures surface as `error`-state parts, never exceptions during render.
 
 ## 9. Testing Strategy
 
 - **Test-first (TDD) for every task**: red → implement → green. A test that was never red proves nothing.
 - Exact assertions (`toBe('exact')`, never `toBeDefined()`/`not.toThrow()` where an exact assertion is possible). Error paths are first-class tests.
 - **Real code paths**: chrome components tested with real Zustand stores and real catalog instances — never `vi.mock("rilaykit")`. (stndrds mocks rilaykit in its UI tests; that setup cost is a symptom this design removes.)
-- Key suites: catalog unit (namespacing, immutability, replace, duplicate errors, typed contexts), chrome integration (render-prop contracts, bare defaults, conditions/visibility), schema round-trip (`fromSchema`/`flowFromSchema` valid + invalid + lenient partial), streaming simulation (feed partial-JSON chunks, assert progressive mounts and submit lock), HITL integration (resolve → payload convention), adapter mapping tests.
+- Key suites: catalog unit (namespacing, immutability, replace, duplicate errors, typed contexts, `.renderers()` hydration), chrome integration (render-prop contracts, bare defaults, conditions/visibility), schema round-trip (`compileForm`/`compileFlow` valid + invalid + lenient partial), `ComponentNode` tree recursion (+ failing-node isolation), streaming simulation (feed partial-JSON chunks, assert progressive mounts and submit lock), HITL integration (resolve → payload convention), adapter mapping tests (`toParts` state mapping, `tools` HITL emission), `manifest()` snapshot against a reference catalog.
 - Existing test conventions apply: `.tsx` for JSX tests, explicit vitest aliases, StoreInspector non-reactivity caveats.
 
 ## 10. Breaking Changes & Migration (v0.2.0)
 
-Breaking, no compat layer (pre-release, one known production consumer per app audited):
+Breaking, no compat layer (pre-release, consumers audited):
 
 | Before | After |
 |--------|-------|
-| `.configure({ rowRenderer, bodyRenderer, ... })` | Deleted — compose with `Form.Body`/`Flow.*` render props in app components |
+| `.addComponent(type, cfg)` | `.component(type, cfg)` |
+| `.configure({ rowRenderer, bodyRenderer, ... })` | Deleted — compose with `Form.Body`/`Flow.*` render props in app components; renderers attach via `.renderers()` or inline `renderer:` |
 | `<Workflow>`, `<WorkflowBody>`, `<WorkflowStepper>`, `<WorkflowNextButton>`, `<WorkflowPreviousButton>`, `<WorkflowSkipButton>` | `<Flow>`, `<Flow.Body>`, `<Flow.Progress>`, `<Flow.Next>`, `<Flow.Back>`, `<Flow.Skip>` |
-| `<Form>`, `<FormBody>`, `<FormRow>`, `<FormField>`, `<FormSubmitButton>`, `<RepeatableField>` | `<Form>`, `<Form.Body>`, `<Form.Field>`, `<Form.Submit>`, `<Form.Repeatable>` (row markup is app-side) |
+| `<Form>`, `<FormBody>`, `<FormRow>`, `<FormField>`, `<FormSubmitButton>`, `<RepeatableField>` | `<Form>`, `<Form.Body>`, `<Form.Field>`, `<Form.Submit>`, `<Form.List>` (row markup is app-side) |
+| `formConfig={...}` / `workflowConfig={...}` props | `of={...}`; `defaultValues` → `defaults` |
+| `useWorkflowContext` / `useWorkflowAllData` / step selectors | `useFlow()` / `useFlowData()` / `useStep()` / `useFlowSteps()` (full `useFlow*` family) |
 | `ComponentRenderProps` any-bag | Typed component context (props inferred from `propsSchema`) |
 | Renderer-prop types (`FieldRendererProps`, `FormBodyRendererProps`, ...) | Render-prop context types exported from the same packages (stable import paths — consumers type their app components against these) |
 | `ComponentBuilderMetadata` / `builder` field | `propsSchema` + `meta` |
+| `fromSchema(schema, ril, registry)` | `compileForm(schema, catalog, { bindings })` |
 | `metadata.hideNextButton` / `skipVisible` smuggling | First-class render-prop context + `allowSkip` predicate |
 
 `MIGRATION.md` ships with the release, written against the audited usage profiles of lilycare (~1 renderer file + ~25 imports, mechanical) and stndrds (`standard-rilay.tsx` + form-flow compiler). Migrating those apps is out of scope for this repo.
@@ -264,9 +300,9 @@ Breaking, no compat layer (pre-release, one known production consumer per app au
 
 Each phase gets its own implementation plan and is independently shippable. Per-task checker panel (tests-prove-behavior / DRY / elegance / conventions) applies throughout.
 
-- **P1 — De-renderer-ification (breaking)**: unified namespaced catalog + `propsSchema` + `meta` + `use()` + typed errors; delete renderConfig/wrapper/metadata/V2 layers; rewrite chrome as compound headless (`Form.*`, `Flow.*`, hooks); renames; `MIGRATION.md`.
-- **P2 — Schema layer**: `FlowSchema` + `flowFromSchema`; `FormSchema` streaming-friendly evolutions; fully-typed dynamic building (kill the `any` gap).
-- **P3 — `@rilaykit/agent`**: part model + `<Parts>`/`<Part>` + `CatalogProvider` wiring; tool definition generation + prompt catalog helper; `uiTools()`; partial-JSON parser + progressive form mounting; HITL resolve loop + structured self-correction errors; `/ai-sdk` and `/anthropic` adapters.
+- **P1 — De-renderer-ification (breaking)**: unified namespaced catalog with fluent facades (`.component()/.tool()/.part()/.use()/.renderers()`) + `propsSchema` + `meta` + typed errors; delete renderConfig/wrapper/metadata/V2 layers; rewrite chrome as compound headless (`Form.*`, `Flow.*` with `of`/`defaults`, hooks renames); `MIGRATION.md`.
+- **P2 — Schema layer**: `FlowSchema` + `compileFlow`; `compileForm` rename + streaming-friendly evolutions + `bindings`; fully-typed dynamic building (kill the `any` gap).
+- **P3 — `@rilaykit/agent`**: part model + `<Parts>`/`<Part>` + `<Catalog>` wiring + built-in `show_*` fallbacks; `manifest()`; `uiTools()` with `ComponentNode` trees; partial-JSON parser + progressive form mounting; HITL resolve loop + structured self-correction errors; `/ai-sdk` and `/anthropic` adapters (`toParts` + `tools`).
 
 ## 12. Out of Scope (deferred)
 
@@ -300,7 +336,7 @@ Each phase gets its own implementation plan and is independently shippable. Per-
 
 **Packages**
 - Dependency direction: `agent → workflow → forms → core`. Core never imports from the others.
-- Explicit filenames (`partial-json.ts`, `tool-definitions.ts`), no generic `utils.ts` dumping grounds.
+- Explicit filenames (`partial-json.ts`, `manifest.ts`), no generic `utils.ts` dumping grounds.
 - Adapters only under subpath exports; no SDK dependency in main entries.
 
 **Tests (load-bearing)**
