@@ -79,9 +79,6 @@ export type PropsValidationResult =
   | { readonly success: true; readonly value: unknown }
   | {
       readonly success: false;
-      readonly issues: ReadonlyArray<{
-        readonly message: string;
-        readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
-      }>;
+      readonly issues: ReadonlyArray<StandardSchemaV1.Issue>;
       readonly expectedKeys?: string[];
     };

@@ -18,8 +18,21 @@ describe('ril.validateProps()', () => {
     if (!result.success) {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.message).toContain('expected string');
+      expect(result.issues[0]?.path).toEqual(['label']);
       expect(result.expectedKeys).toEqual(['label', 'options']);
     }
+  });
+
+  it('omits expectedKeys for non-zod schemas without a shape', () => {
+    const syncFail = {
+      '~standard': { version: 1, vendor: 'test', validate: () => ({ issues: [{ message: 'nope' }] }) },
+    };
+    const custom = ril.create().component('custom', { propsSchema: syncFail as never });
+    expect(custom.validateProps('custom', {})).toEqual({
+      success: false,
+      issues: [{ message: 'nope' }],
+      expectedKeys: undefined,
+    });
   });
 
   it('passes through when the component has no propsSchema', () => {
@@ -32,6 +45,9 @@ describe('ril.validateProps()', () => {
 
   it('throws NotFoundError for an unknown component', () => {
     expect(() => r.validateProps('ghost', {})).toThrowError(NotFoundError);
+    expect(() => r.validateProps('ghost', {})).toThrowError(
+      'Component "ghost" not found in catalog'
+    );
   });
 
   it('throws ConfigurationError for async schemas', () => {
@@ -42,5 +58,8 @@ describe('ril.validateProps()', () => {
       propsSchema: asyncSchema as never,
     });
     expect(() => bad.validateProps('async', {})).toThrowError(ConfigurationError);
+    expect(() => bad.validateProps('async', {})).toThrowError(
+      'propsSchema of "async" is async — props schemas must validate synchronously'
+    );
   });
 });
