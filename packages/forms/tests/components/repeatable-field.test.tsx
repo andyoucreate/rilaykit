@@ -1,4 +1,4 @@
-import type { FormConfiguration } from '@rilaykit/core';
+import type { ComponentRenderContext, FormConfiguration } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
@@ -11,25 +11,25 @@ import { FormProvider } from '../../src/components/FormProvider';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, props, field }: any) => (
+const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
   </div>
 );
 
-const MockNumberInput = ({ id, props, field }: any) => (
+const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       type="number"
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(Number(e.target.value))}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(Number(e.target.value))}
     />
   </div>
 );

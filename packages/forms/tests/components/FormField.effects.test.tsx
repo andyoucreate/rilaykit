@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { onChange, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, onChange, ril } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,23 +11,25 @@ import { FormProvider } from '../../src/components/FormProvider';
 // Mock components
 // ---------------------------------------------------------------------------
 
-const MockSelect = ({ id, props, field }: any) => (
+const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <select
       data-testid={`select-${id}`}
-      value={field?.value ?? ''}
+      value={String(field?.value ?? '')}
       onChange={(e) => field?.onChange(e.target.value)}
     >
-      {(props.options || []).map((opt: any) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map(
+        (opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        )
+      )}
     </select>
   </div>
 );
 
-const MockText = ({ id, props, field }: any) => (
+const MockText = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
@@ -39,7 +41,7 @@ const MockText = ({ id, props, field }: any) => (
   </div>
 );
 
-const MockNumber = ({ id, props, field }: any) => (
+const MockNumber = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
@@ -365,7 +367,7 @@ describe('FormField — Effects Integration', () => {
 
   describe('Props precedence: fieldConfig.props < dynamicProps < customProps', () => {
     it('should let dynamicProps override static field props', async () => {
-      const MockTextWithPlaceholder = ({ id, props, field }: any) => (
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}
@@ -435,7 +437,7 @@ describe('FormField — Effects Integration', () => {
     });
 
     it('should let customProps take precedence over dynamicProps', async () => {
-      const MockTextWithPlaceholder = ({ id, props, field }: any) => (
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}
@@ -508,7 +510,7 @@ describe('FormField — Effects Integration', () => {
       // Effect sets placeholder='dynamic' via setProps
       // customProps sets placeholder='custom'
 
-      const MockTextWithPlaceholder = ({ id, props, field }: any) => (
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}

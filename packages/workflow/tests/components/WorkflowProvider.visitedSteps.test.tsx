@@ -5,22 +5,9 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { MockInput } from '../_helpers/mock-components';
 
 describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
-  // Mock components
-  const MockInput = ({ id, props, field }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={field?.value ?? ''}
-        onChange={(e) => field?.onChange(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Component to check visited steps
   const VisitedStepsChecker = () => {
     const { workflowState, workflowConfig } = useWorkflowContext();
@@ -48,7 +35,7 @@ describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
 
     config = ril
       .create()
-      .addComponent('input', {
+      .component('input', {
         name: 'Text Input',
         renderer: MockInput,
       })

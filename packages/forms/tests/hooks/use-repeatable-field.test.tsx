@@ -1,4 +1,8 @@
-import type { FormConfiguration, RepeatableFieldConfig } from '@rilaykit/core';
+import type {
+  ComponentRenderContext,
+  FormConfiguration,
+  RepeatableFieldConfig,
+} from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
@@ -11,11 +15,11 @@ import { useRepeatableField } from '../../src/hooks/use-repeatable-field';
 // HELPERS
 // =================================================================
 
-const MockInput = ({ props, field }: any) => (
+const MockInput = ({ props, field }: ComponentRenderContext) => (
   <input
-    value={field?.value ?? ''}
-    onChange={(e: any) => field?.onChange(e.target.value)}
-    placeholder={props?.label}
+    value={String(field?.value ?? '')}
+    onChange={(e) => field?.onChange(e.target.value)}
+    placeholder={props.label ? String(props.label) : undefined}
   />
 );
 

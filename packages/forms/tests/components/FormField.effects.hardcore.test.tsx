@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { onChange, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, onChange, ril } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,24 +12,26 @@ import { useFormValues } from '../../src/stores/formStore';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockSelect = ({ id, props, field }: any) => (
+const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <select
       data-testid={`select-${id}`}
-      value={field?.value ?? ''}
+      value={String(field?.value ?? '')}
       onChange={(e) => field?.onChange(e.target.value)}
     >
       <option value="">--</option>
-      {(props.options || []).map((opt: any) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map(
+        (opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        )
+      )}
     </select>
   </div>
 );
 
-const MockText = ({ id, props, field }: any) => (
+const MockText = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
@@ -41,7 +43,7 @@ const MockText = ({ id, props, field }: any) => (
   </div>
 );
 
-const MockNumber = ({ id, props, field }: any) => (
+const MockNumber = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}

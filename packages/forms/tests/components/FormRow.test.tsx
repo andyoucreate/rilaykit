@@ -1,4 +1,4 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,9 +23,9 @@ describe('FormRow - Conditional Visibility', () => {
       .create()
       .component('switch', {
         name: 'Switch',
-        renderer: ({ id, props, field }: any) => (
+        renderer: ({ id, props, field }: ComponentRenderContext) => (
           <div>
-            <label htmlFor={id}>{props.label}</label>
+            <label htmlFor={id}>{String(props.label ?? '')}</label>
             <input
               id={id}
               type="checkbox"
@@ -38,15 +38,15 @@ describe('FormRow - Conditional Visibility', () => {
       })
       .component('text', {
         name: 'Text Input',
-        renderer: ({ id, props, field }: any) => (
+        renderer: ({ id, props, field }: ComponentRenderContext) => (
           <div>
-            <label htmlFor={id}>{props.label}</label>
+            <label htmlFor={id}>{String(props.label ?? '')}</label>
             <input
               id={id}
               type="text"
-              value={field?.value ?? ''}
+              value={String(field?.value ?? '')}
               onChange={(e) => field?.onChange(e.target.value)}
-              placeholder={props.placeholder}
+              placeholder={props.placeholder ? String(props.placeholder) : undefined}
               data-testid={id}
             />
             {field?.error && field.error.length > 0 && (

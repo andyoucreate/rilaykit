@@ -1,17 +1,28 @@
-import type { FormConfiguration, MonitoringConfig } from '@rilaykit/core';
+import type { ComponentRenderContext, FormConfiguration, MonitoringConfig } from '@rilaykit/core';
 import { destroyGlobalMonitoring, initializeMonitoring, ril } from '@rilaykit/core';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FormProvider, useFormMonitoring } from '../../src';
 
+interface TextInputProps {
+  value?: unknown;
+  onChange?: (value: string) => void;
+  [key: string]: unknown;
+}
+
 // Plain presentational input, rendered directly by these tests
-const TextInput = ({ value, onChange, ...props }: any) => (
-  <input type="text" value={value || ''} onChange={(e) => onChange?.(e.target.value)} {...props} />
+const TextInput = ({ value, onChange, ...props }: TextInputProps) => (
+  <input
+    type="text"
+    value={String(value ?? '')}
+    onChange={(e) => onChange?.(e.target.value)}
+    {...props}
+  />
 );
 
 // Catalog renderer bridging the new ComponentRenderContext shape
-const TextInputRenderer = ({ props, field }: any) => (
+const TextInputRenderer = ({ props, field }: ComponentRenderContext) => (
   <TextInput {...props} value={field?.value} onChange={field?.onChange} />
 );
 

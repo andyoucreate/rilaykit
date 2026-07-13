@@ -38,6 +38,15 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 }
 
 /**
+ * Canonical key of a catalog entry in the namespaced catalog map.
+ * Shared with packages that reference entries in error payloads (e.g. forms'
+ * FormField) so the key scheme never diverges from core lookups.
+ */
+export function catalogEntryKey(kind: 'component' | 'tool' | 'part', id: string): string {
+  return `${kind}:${id}`;
+}
+
+/**
  * Builds a type guard matching catalog entries of the given kind
  * stored in the namespaced catalog map
  */
@@ -171,10 +180,6 @@ export class ril<C> implements RilayInstance<C> {
     return new ril<CT>();
   }
 
-  private static entryKey(kind: 'component' | 'tool' | 'part', id: string): string {
-    return `${kind}:${id}`;
-  }
-
   private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
     const next = new ril<C>();
     next.entries = new Map(this.entries);
@@ -227,7 +232,7 @@ export class ril<C> implements RilayInstance<C> {
     type: NewType,
     entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): ril<C & { [K in NewType]: TProps }> {
-    return this.register(ril.entryKey('component', type), `Component "${type}"`, entry.replace, {
+    return this.register(catalogEntryKey('component', type), `Component "${type}"`, entry.replace, {
       ...entry,
       kind: 'component',
       type,
@@ -247,7 +252,7 @@ export class ril<C> implements RilayInstance<C> {
     name: string,
     entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
   ): ril<C> {
-    return this.register(ril.entryKey('tool', name), `Tool "${name}"`, entry.replace, {
+    return this.register(catalogEntryKey('tool', name), `Tool "${name}"`, entry.replace, {
       ...entry,
       kind: 'tool',
       name,
@@ -264,7 +269,7 @@ export class ril<C> implements RilayInstance<C> {
    * @throws DuplicateError if the type is already registered and `entry.replace` is not true
    */
   part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): ril<C> {
-    return this.register(ril.entryKey('part', type), `Part "${type}"`, entry.replace, {
+    return this.register(catalogEntryKey('part', type), `Part "${type}"`, entry.replace, {
       ...entry,
       kind: 'part',
       type,
@@ -303,7 +308,7 @@ export class ril<C> implements RilayInstance<C> {
         prefix: 'component' | 'tool' | 'part'
       ) => {
         for (const [name, renderer] of Object.entries(bag ?? {})) {
-          const key = ril.entryKey(prefix, name);
+          const key = catalogEntryKey(prefix, name);
           const existing = entries.get(key);
           if (!existing) {
             throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, {
@@ -414,7 +419,7 @@ export class ril<C> implements RilayInstance<C> {
   getComponent<T extends string>(
     id: T
   ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined {
-    return this.entries.get(ril.entryKey('component', id)) as
+    return this.entries.get(catalogEntryKey('component', id)) as
       | ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>>
       | undefined;
   }
@@ -424,18 +429,18 @@ export class ril<C> implements RilayInstance<C> {
   }
 
   hasComponent(id: string): boolean {
-    return this.entries.has(ril.entryKey('component', id));
+    return this.entries.has(catalogEntryKey('component', id));
   }
 
   /**
    * Tool and part access methods
    */
   getTool(name: string): ToolEntry | undefined {
-    return this.entries.get(ril.entryKey('tool', name)) as ToolEntry | undefined;
+    return this.entries.get(catalogEntryKey('tool', name)) as ToolEntry | undefined;
   }
 
   getPart(type: string): PartEntry | undefined {
-    return this.entries.get(ril.entryKey('part', type)) as PartEntry | undefined;
+    return this.entries.get(catalogEntryKey('part', type)) as PartEntry | undefined;
   }
 
   getAllTools(): ToolEntry[] {
@@ -463,7 +468,7 @@ export class ril<C> implements RilayInstance<C> {
     const entry = this.getComponent(type);
     if (!entry) {
       throw new NotFoundError(`Component "${type}" not found in catalog`, {
-        key: ril.entryKey('component', type),
+        key: catalogEntryKey('component', type),
       });
     }
     if (!entry.propsSchema) {
@@ -473,7 +478,7 @@ export class ril<C> implements RilayInstance<C> {
     if (outcome instanceof Promise) {
       throw new ConfigurationError(
         `propsSchema of "${type}" is async — props schemas must validate synchronously`,
-        { key: ril.entryKey('component', type) }
+        { key: catalogEntryKey('component', type) }
       );
     }
     if (outcome.issues) {
@@ -496,7 +501,7 @@ export class ril<C> implements RilayInstance<C> {
    */
   removeComponent(id: string): ril<C> {
     return this.cloneWith((entries) => {
-      entries.delete(ril.entryKey('component', id));
+      entries.delete(catalogEntryKey('component', id));
     });
   }
 

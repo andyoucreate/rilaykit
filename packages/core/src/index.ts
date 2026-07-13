@@ -8,6 +8,7 @@ export * from './components/ComponentRendererWrapper';
 
 // Export configuration
 export {
+  catalogEntryKey,
   ril,
   type RilayInstance,
   type RilayPlugin,

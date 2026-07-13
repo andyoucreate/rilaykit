@@ -5,15 +5,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
-
-// Mock text input component for testing (new ComponentRenderContext shape)
-const TextInput = ({ field }: any) => (
-  <input
-    type="text"
-    value={field?.value ?? ''}
-    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field?.onChange(e.target.value)}
-  />
-);
+import { MockInput } from '../_helpers/mock-components';
 
 // Test component that displays workflow context values
 const WorkflowContextDisplay: React.FC = () => {
@@ -33,9 +25,9 @@ describe('WorkflowProvider isLastStep with Conditions', () => {
   let rilConfig: ril<any>;
 
   beforeEach(() => {
-    rilConfig = ril.create().addComponent('text', {
+    rilConfig = ril.create().component('text', {
       name: 'Text Input',
-      renderer: TextInput,
+      renderer: MockInput,
       defaultProps: {},
     });
   });

@@ -1,4 +1,4 @@
-import { type ComponentRenderContext, NotFoundError, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, NotFoundError, ril, when } from '@rilaykit/core';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,8 +24,14 @@ function createMockStandardSchema(
 }
 
 // Mock components (new ComponentRenderContext shape)
-const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
-  <div data-testid={`field-${id}`}>
+const MockTextInput = ({ id, props, field, conditions }: ComponentRenderContext) => (
+  <div
+    data-testid={`field-${id}`}
+    data-cond-visible={String(conditions?.visible)}
+    data-cond-disabled={String(conditions?.disabled)}
+    data-cond-required={String(conditions?.required)}
+    data-cond-readonly={String(conditions?.readonly)}
+  >
     <label htmlFor={id}>{String(props.label ?? '')}</label>
     <input
       id={id}
@@ -34,6 +40,8 @@ const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
       onChange={(e) => field?.onChange(e.target.value)}
       onBlur={() => field?.onBlur()}
       disabled={field?.disabled}
+      placeholder={props.placeholder ? String(props.placeholder) : undefined}
+      data-validating={String(field?.isValidating ?? false)}
       data-testid={`input-${id}`}
     />
     {field?.error && field.error.length > 0 && (
@@ -195,15 +203,22 @@ describe('FormField', () => {
       // Suppress console.error for this test
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      expect(() => {
+      let caught: unknown;
+      try {
         render(
           <FormProvider formConfig={formConfig}>
             <FormField id="nonExistentField" />
           </FormProvider>
         );
-      }).toThrowError(
-        new NotFoundError('Field "nonExistentField" not found', { key: 'nonExistentField' })
-      );
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundError);
+      const notFound = caught as NotFoundError;
+      expect(notFound.code).toBe('NOT_FOUND');
+      expect(notFound.meta).toEqual({ key: 'nonExistentField' });
+      expect(notFound.message).toBe('Field "nonExistentField" not found');
 
       consoleSpy.mockRestore();
     });
@@ -365,6 +380,53 @@ describe('FormField', () => {
       fireEvent.change(input, { target: { value: 'valid@example.com' } });
       expect(input).toHaveValue('valid@example.com');
     });
+
+    it('should expose isValidating to the renderer while async validation is pending', async () => {
+      let resolveValidation!: (result: { value: unknown }) => void;
+      const pendingSchema: StandardSchemaV1<unknown> = {
+        '~standard': {
+          version: 1,
+          vendor: 'mock-test',
+          validate: () =>
+            new Promise<{ value: unknown }>((resolve) => {
+              resolveValidation = resolve;
+            }),
+        },
+      };
+
+      const formConfigWithAsync = form
+        .create(config, 'test-form-async')
+        .add({
+          id: 'firstName',
+          type: 'text',
+          props: { label: 'First Name' },
+          validation: {
+            validate: pendingSchema,
+            validateOnBlur: true,
+          },
+        })
+        .build();
+
+      render(
+        <FormProvider formConfig={formConfigWithAsync}>
+          <FormField id="firstName" />
+        </FormProvider>
+      );
+
+      expect(screen.getByTestId('input-firstName')).toHaveAttribute('data-validating', 'false');
+
+      fireEvent.blur(screen.getByTestId('input-firstName'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('input-firstName')).toHaveAttribute('data-validating', 'true');
+      });
+
+      resolveValidation({ value: '' });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('input-firstName')).toHaveAttribute('data-validating', 'false');
+      });
+    });
   });
 
   describe('Field State', () => {
@@ -406,13 +468,91 @@ describe('FormField', () => {
             id="firstName"
             overrides={{
               placeholder: 'Custom placeholder',
-              'data-custom': 'custom-value',
             }}
           />
         </FormProvider>
       );
 
-      expect(screen.getByTestId('field-firstName')).toBeInTheDocument();
+      // overrides win over the entry defaultProps ('Enter text...')
+      expect(screen.getByTestId('input-firstName')).toHaveAttribute(
+        'placeholder',
+        'Custom placeholder'
+      );
+      // props coming from the field config are still merged in
+      expect(screen.getByLabelText('First Name')).toBeInTheDocument();
+    });
+  });
+
+  describe('Render Context Conditions', () => {
+    it('should expose condition flags and update them when the driving field changes', async () => {
+      const conditionalConfig = form
+        .create(config, 'test-form-conditions')
+        .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
+        .add({
+          id: 'lastName',
+          type: 'text',
+          props: { label: 'Last Name' },
+          conditions: {
+            required: when('firstName').equals('admin'),
+            disabled: when('firstName').equals('admin'),
+            readonly: when('firstName').equals('admin'),
+          },
+        })
+        .build();
+
+      render(
+        <FormProvider formConfig={conditionalConfig}>
+          <FormField id="firstName" />
+          <FormField id="lastName" />
+        </FormProvider>
+      );
+
+      const lastName = screen.getByTestId('field-lastName');
+      expect(lastName).toHaveAttribute('data-cond-visible', 'true');
+      expect(lastName).toHaveAttribute('data-cond-required', 'false');
+      expect(lastName).toHaveAttribute('data-cond-disabled', 'false');
+      expect(lastName).toHaveAttribute('data-cond-readonly', 'false');
+
+      fireEvent.change(screen.getByTestId('input-firstName'), { target: { value: 'admin' } });
+
+      await waitFor(() => {
+        const el = screen.getByTestId('field-lastName');
+        expect(el).toHaveAttribute('data-cond-visible', 'true');
+        expect(el).toHaveAttribute('data-cond-required', 'true');
+        expect(el).toHaveAttribute('data-cond-disabled', 'true');
+        expect(el).toHaveAttribute('data-cond-readonly', 'true');
+      });
+    });
+
+    it('should expose the raw visibility flag when the field is force-rendered', async () => {
+      const conditionalConfig = form
+        .create(config, 'test-form-force-visible')
+        .add({ id: 'firstName', type: 'text', props: { label: 'First Name' } })
+        .add({
+          id: 'secret',
+          type: 'text',
+          props: { label: 'Secret' },
+          conditions: {
+            visible: when('firstName').equals('show'),
+          },
+        })
+        .build();
+
+      render(
+        <FormProvider formConfig={conditionalConfig}>
+          <FormField id="firstName" />
+          <FormField id="secret" forceVisible />
+        </FormProvider>
+      );
+
+      // Rendered because of forceVisible, but the raw store condition is still false
+      expect(screen.getByTestId('field-secret')).toHaveAttribute('data-cond-visible', 'false');
+
+      fireEvent.change(screen.getByTestId('input-firstName'), { target: { value: 'show' } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('field-secret')).toHaveAttribute('data-cond-visible', 'true');
+      });
     });
   });
 
@@ -466,15 +606,22 @@ describe('FormField', () => {
         .add({ id: 'bareField', type: 'bare', props: {} })
         .build();
 
-      expect(() => {
+      let caught: unknown;
+      try {
         render(
           <FormProvider formConfig={formConfigWithoutRenderer}>
             <FormField id="bareField" />
           </FormProvider>
         );
-      }).toThrowError(
-        new NotFoundError('Component "bare" not found in catalog', { key: 'component:bare' })
-      );
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundError);
+      const notFound = caught as NotFoundError;
+      expect(notFound.code).toBe('NOT_FOUND');
+      expect(notFound.meta).toEqual({ key: 'component:bare' });
+      expect(notFound.message).toBe('Component "bare" not found in catalog');
 
       consoleSpy.mockRestore();
     });

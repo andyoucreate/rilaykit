@@ -1,5 +1,5 @@
 import type { ComponentEntry, ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
-import { NotFoundError } from '@rilaykit/core';
+import { NotFoundError, catalogEntryKey } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
 import {
   useFieldActions,
@@ -74,7 +74,7 @@ export const FormField = React.memo(function FormField({
     | undefined;
   if (!componentEntry?.renderer) {
     throw new NotFoundError(`Component "${fieldConfig.componentId}" not found in catalog`, {
-      key: `component:${fieldConfig.componentId}`,
+      key: catalogEntryKey('component', fieldConfig.componentId),
     });
   }
 
@@ -159,7 +159,10 @@ export const FormField = React.memo(function FormField({
         touched: fieldState.touched,
       },
       conditions: {
-        visible: effectiveConditions.isVisible,
+        // Raw store visibility (pre-forceVisible): effective visibility is
+        // always true inside a rendered field, so the raw flag is the only
+        // informative value (e.g. styling a condition-hidden field under forceVisible)
+        visible: conditions.visible,
         disabled: effectiveConditions.isFieldDisabled,
         required: effectiveConditions.isFieldRequired,
         readonly: effectiveConditions.isFieldReadonly,
@@ -175,6 +178,7 @@ export const FormField = React.memo(function FormField({
       fieldState.errors,
       fieldState.touched,
       isValidating,
+      conditions.visible,
       effectiveConditions,
       componentEntry.meta,
     ]

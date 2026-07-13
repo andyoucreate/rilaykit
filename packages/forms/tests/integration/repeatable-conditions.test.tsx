@@ -1,4 +1,4 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -11,26 +11,26 @@ import { useFormStoreApi } from '../../src/stores';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, props, field }: any) => (
+const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
   </div>
 );
 
-const MockSelectInput = ({ id, props, field }: any) => (
+const MockSelectInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <select
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     >
-      {props?.options?.map((opt: any) => (
+      {(props.options as Array<{ value: string; label: string }> | undefined)?.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>

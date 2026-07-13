@@ -5,6 +5,7 @@ import type React from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { MockInput, MockSelect } from '../_helpers/mock-components';
 
 /**
  * Integration test to reproduce the bug where conditions fail
@@ -14,42 +15,6 @@ import { flow } from '../../src/builders/flow';
  * qu'une de ses variables dans son formulaire, les conditions ne marche pas."
  */
 describe('Identical Step and Field Names - Bug Reproduction', () => {
-  // Mock components
-  const MockProducts = ({ id, props, field }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label || id}</label>
-      <select
-        id={id}
-        value={Array.isArray(field?.value) ? field.value[0] || '' : field?.value || ''}
-        onChange={(e) => {
-          const newValue = props.multiple ? [e.target.value] : e.target.value;
-          field?.onChange(newValue);
-        }}
-        data-testid={`select-${id}`}
-        multiple={props.multiple}
-      >
-        {props.options?.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const MockInput = ({ id, props, field }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label || id}</label>
-      <input
-        id={id}
-        type="text"
-        value={field?.value ?? ''}
-        onChange={(e) => field?.onChange(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Test component to check step visibility
   const StepVisibilityChecker = () => {
     const { workflowConfig, conditionsHelpers } = useWorkflowContext();
@@ -72,12 +37,12 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
 
     rilConfig = ril
       .create()
-      .addComponent('products', {
+      .component('products', {
         name: 'Products Selector',
-        renderer: MockProducts,
+        renderer: MockSelect,
         defaultProps: {},
       })
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: MockInput,
         defaultProps: {},

@@ -1,4 +1,4 @@
-import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
+import type { ComponentRenderContext, FormConfiguration, ValidationResult } from '@rilaykit/core';
 import { required, ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -11,13 +11,13 @@ import { FormProvider, useFormConfigContext } from '../../src/components/FormPro
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, props, field }: any) => (
+const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
     {field?.error && field.error.length > 0 && (
       <div data-testid={`error-${id}`}>{field.error[0].message}</div>
@@ -25,14 +25,14 @@ const MockTextInput = ({ id, props, field }: any) => (
   </div>
 );
 
-const MockNumberInput = ({ id, props, field }: any) => (
+const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       type="number"
       data-testid={`input-${id}`}
-      value={field?.value ?? ''}
-      onChange={(e: any) => field?.onChange(Number(e.target.value))}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(Number(e.target.value))}
     />
     {field?.error && field.error.length > 0 && (
       <div data-testid={`error-${id}`}>{field.error[0].message}</div>

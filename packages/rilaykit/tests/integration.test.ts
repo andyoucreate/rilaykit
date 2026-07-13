@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  type ComponentRenderContext,
   Form,
   type FormConfiguration,
   type RilayKit,
@@ -12,19 +13,19 @@ import {
 } from 'rilaykit';
 import { describe, expect, it } from 'vitest';
 
-const MockInput = ({ id, props, field }: any) =>
+const MockInput = ({ id, props, field }: ComponentRenderContext) =>
   React.createElement('input', {
     id,
-    value: field?.value ?? '',
-    placeholder: props?.label,
-    onChange: (e: any) => field?.onChange(e.target.value),
+    value: String(field?.value ?? ''),
+    placeholder: props.label ? String(props.label) : undefined,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => field?.onChange(e.target.value),
   });
 
-const MockSelect = ({ id, field }: any) =>
+const MockSelect = ({ id, field }: ComponentRenderContext) =>
   React.createElement('select', {
     id,
-    value: field?.value ?? '',
-    onChange: (e: any) => field?.onChange(e.target.value),
+    value: String(field?.value ?? ''),
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => field?.onChange(e.target.value),
   });
 
 describe('rilaykit - all-in-one integration', () => {

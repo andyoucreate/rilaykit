@@ -1,18 +1,19 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowBody, WorkflowNextButton, WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { MockInput } from '../_helpers/mock-components';
 
 describe('Workflow - onAfterValidation Navigation Bug', () => {
   // Mock components
-  const MockRadio = ({ id, props, field }: any) => (
+  const MockRadio = ({ id, props, field }: ComponentRenderContext) => (
     <div data-testid={`field-${id}`}>
-      <span>{props.label}</span>
+      <span>{String(props.label ?? '')}</span>
       <div>
-        {props.options.map((option: any) => (
+        {(props.options as Array<{ value: string; label: string }>).map((option) => (
           <label key={option.value}>
             <input
               type="radio"
@@ -26,19 +27,6 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
           </label>
         ))}
       </div>
-    </div>
-  );
-
-  const MockInput = ({ id, props, field }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={field?.value ?? ''}
-        onChange={(e) => field?.onChange(e.target.value)}
-        data-testid={`input-${id}`}
-      />
     </div>
   );
 
