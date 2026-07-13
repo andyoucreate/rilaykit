@@ -1,24 +1,22 @@
-import type { FormFieldConfig, FormRowEntry, RepeatableFieldConfig } from '@rilaykit/core';
+import type { FormRowEntry } from '@rilaykit/core';
 import { useMemo } from 'react';
 import { useFormConfigContext } from '../components/FormProvider';
 
-export type VisibleRow =
-  | { readonly kind: 'fields'; readonly id: string; readonly fields: FormFieldConfig[] }
-  | { readonly kind: 'repeatable'; readonly id: string; readonly repeatable: RepeatableFieldConfig };
+export type VisibleRow = FormRowEntry;
 
 export function useFormRows(): VisibleRow[] {
   const { formConfig, conditionsHelpers } = useFormConfigContext();
 
   return useMemo(() => {
     const rows: VisibleRow[] = [];
-    for (const row of formConfig.rows as FormRowEntry[]) {
+    for (const row of formConfig.rows) {
       if (row.kind === 'repeatable') {
-        rows.push({ kind: 'repeatable', id: row.id, repeatable: row.repeatable });
+        rows.push(row);
         continue;
       }
       const fields = row.fields.filter((field) => conditionsHelpers.isFieldVisible(field.id));
       if (fields.length > 0) {
-        rows.push({ kind: 'fields', id: row.id, fields });
+        rows.push({ ...row, fields });
       }
     }
     return rows;
