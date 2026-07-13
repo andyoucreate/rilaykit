@@ -1,4 +1,4 @@
-import type { ValidationResult } from '@rilaykit/core';
+import type { ComponentRenderContext, ValidationResult } from '@rilaykit/core';
 import { useFormConfigContext } from '@rilaykit/forms';
 import {
   useFieldErrors,
@@ -17,34 +17,34 @@ import { useState } from 'react';
 // MOCK COMPONENTS
 // =================================================================
 
-export const MockTextInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
-      readOnly={props?.readonly}
-      placeholder={props?.placeholder}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
+      readOnly={Boolean(props?.readonly)}
+      placeholder={props?.placeholder ? String(props.placeholder) : undefined}
     />
   </div>
 );
 
-export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockSelectInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <select
       id={id}
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
     >
-      {props?.options?.map((opt: any) => (
+      {(props?.options as Array<{ value: string; label: string }> | undefined)?.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -53,31 +53,31 @@ export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }
   </div>
 );
 
-export const MockNumberInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
       type="number"
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(Number(e.target.value))}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(Number(e.target.value))}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
     />
   </div>
 );
 
-export const MockCheckboxInput = ({ id, value, onChange, disabled, props }: any) => (
+export const MockCheckboxInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
       type="checkbox"
-      checked={!!value}
-      onChange={(e: any) => onChange?.(e.target.checked)}
-      disabled={disabled}
+      checked={!!field?.value}
+      onChange={(e) => field?.onChange(e.target.checked)}
+      disabled={field?.disabled}
     />
   </div>
 );

@@ -21,22 +21,22 @@ import {
 export function createTestRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: MockTextInput,
       defaultProps: { label: '', placeholder: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select Input',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
     })
-    .addComponent('number', {
+    .component('number', {
       name: 'Number Input',
       renderer: MockNumberInput,
       defaultProps: { label: '' },
     })
-    .addComponent('checkbox', {
+    .component('checkbox', {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },
@@ -56,12 +56,12 @@ export function createTestRilConfig() {
 export function createMinimalRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select Input',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },

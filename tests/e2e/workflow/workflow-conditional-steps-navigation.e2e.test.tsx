@@ -21,17 +21,17 @@ let rilConfig: ReturnType<typeof createRilConfig>;
 function createRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
     })
-    .addComponent('checkbox', {
+    .component('checkbox', {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },

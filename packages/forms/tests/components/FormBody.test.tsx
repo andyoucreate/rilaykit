@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ril, when } from '@rilaykit/core';
 import { Form, FormBody, form, useFormRows, type VisibleRow } from '@rilaykit/forms';
 
-const r = ril.create().addComponent('text', {
+const r = ril.create().component('text', {
   name: 'Text',
   renderer: ({ id }: { id: string }) => <input data-testid={id} />,
 });

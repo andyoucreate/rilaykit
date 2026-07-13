@@ -5,9 +5,14 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FormProvider, useFormMonitoring } from '../../src';
 
-// Mock text input component for testing
-const TextInput: React.FC<any> = ({ value, onChange, ...props }) => (
+// Plain presentational input, rendered directly by these tests
+const TextInput = ({ value, onChange, ...props }: any) => (
   <input type="text" value={value || ''} onChange={(e) => onChange?.(e.target.value)} {...props} />
+);
+
+// Catalog renderer bridging the new ComponentRenderContext shape
+const TextInputRenderer = ({ props, field }: any) => (
+  <TextInput {...props} value={field?.value} onChange={field?.onChange} />
 );
 
 describe('Form Performance Tests', () => {
@@ -34,9 +39,9 @@ describe('Form Performance Tests', () => {
     initializeMonitoring(monitoringConfig);
 
     // Setup form configuration
-    config = ril.create().addComponent('text', {
+    config = ril.create().component('text', {
       name: 'Text Input',
-      renderer: TextInput as any,
+      renderer: TextInputRenderer,
       defaultProps: {},
     });
 

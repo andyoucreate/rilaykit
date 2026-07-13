@@ -10,7 +10,7 @@ describe('Form Builder', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
@@ -19,7 +19,7 @@ describe('Form Builder', () => {
           validators: [],
         },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', required: false },
@@ -28,7 +28,7 @@ describe('Form Builder', () => {
           validators: [email()],
         },
       })
-      .addComponent('password', {
+      .component('password', {
         name: 'Password Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', minLength: 8 },
@@ -37,22 +37,22 @@ describe('Form Builder', () => {
           validators: [required(), minLength(8)],
         },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', min: 0 },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },
       })
-      .addComponent('textarea', {
+      .component('textarea', {
         name: 'Textarea',
         renderer: () => React.createElement('textarea'),
         defaultProps: { label: '', rows: 3 },
       })
-      .addComponent('checkbox', {
+      .component('checkbox', {
         name: 'Checkbox',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', checked: false },

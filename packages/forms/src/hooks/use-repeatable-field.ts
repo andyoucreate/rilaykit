@@ -41,7 +41,7 @@ export interface UseRepeatableFieldReturn {
  *     {items.map(item => (
  *       <div key={item.key}>
  *         {item.allFields.map(field => (
- *           <FormField key={field.id} fieldId={field.id} fieldConfig={field} />
+ *           <FormField key={field.id} id={field.id} config={field} />
  *         ))}
  *         {canRemove && <button onClick={() => remove(item.key)}>Remove</button>}
  *       </div>

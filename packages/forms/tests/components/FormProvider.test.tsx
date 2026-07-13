@@ -33,12 +33,12 @@ describe('FormProvider', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter email...' },

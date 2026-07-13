@@ -11,25 +11,25 @@ import { FormProvider } from '../../src/components/FormProvider';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, value, onChange, props }: any) => (
+const MockTextInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <input
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(e.target.value)}
     />
   </div>
 );
 
-const MockNumberInput = ({ id, value, onChange, props }: any) => (
+const MockNumberInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <input
       type="number"
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(Number(e.target.value))}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(Number(e.target.value))}
     />
   </div>
 );
@@ -90,12 +90,12 @@ describe('RepeatableField + RepeatableItem Components', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockTextInput,
         defaultProps: { label: '' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number',
         renderer: MockNumberInput,
         defaultProps: { label: '', min: 0 },

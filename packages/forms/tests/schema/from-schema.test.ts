@@ -15,23 +15,23 @@ let rilConfig: any;
 beforeEach(() => {
   rilConfig = ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: () => React.createElement('input'),
       defaultProps: { label: '', placeholder: 'Enter text' },
     })
-    .addComponent('email', {
+    .component('email', {
       name: 'Email Input',
       renderer: () => React.createElement('input'),
       defaultProps: { label: '', required: false },
       validation: { validateOnChange: true },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: () => React.createElement('select'),
       defaultProps: { label: '', options: [] },
     })
-    .addComponent('number', {
+    .component('number', {
       name: 'Number',
       renderer: () => React.createElement('input'),
       defaultProps: { label: '', min: 0 },

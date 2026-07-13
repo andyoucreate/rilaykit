@@ -12,19 +12,19 @@ import {
 } from 'rilaykit';
 import { describe, expect, it } from 'vitest';
 
-const MockInput = ({ id, value, onChange, props }: any) =>
+const MockInput = ({ id, props, field }: any) =>
   React.createElement('input', {
     id,
-    value: value || '',
+    value: field?.value ?? '',
     placeholder: props?.label,
-    onChange: (e: any) => onChange?.(e.target.value),
+    onChange: (e: any) => field?.onChange(e.target.value),
   });
 
-const MockSelect = ({ id, value, onChange }: any) =>
+const MockSelect = ({ id, field }: any) =>
   React.createElement('select', {
     id,
-    value: value || '',
-    onChange: (e: any) => onChange?.(e.target.value),
+    value: field?.value ?? '',
+    onChange: (e: any) => field?.onChange(e.target.value),
   });
 
 describe('rilaykit - all-in-one integration', () => {

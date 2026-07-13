@@ -23,7 +23,7 @@ export const FormRow = React.memo(function FormRow({ row, className, ...props }:
 
   // Memoize FormField components only for visible fields
   const defaultFieldComponents = useMemo(
-    () => visibleFields.map((field) => <FormField key={field.id} fieldId={field.id} />),
+    () => visibleFields.map((field) => <FormField key={field.id} id={field.id} />),
     [visibleFields]
   );
 

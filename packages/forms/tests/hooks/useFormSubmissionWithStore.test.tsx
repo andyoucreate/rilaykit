@@ -16,12 +16,12 @@ const TestComponent = () => React.createElement('div', null, 'test');
 function createConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: TestComponent,
       defaultProps: {},
     })
-    .addComponent('email', {
+    .component('email', {
       name: 'Email Input',
       renderer: TestComponent,
       defaultProps: {},

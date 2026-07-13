@@ -15,15 +15,15 @@ import { flow } from '../../src/builders/flow';
  */
 describe('Identical Step and Field Names - Bug Reproduction', () => {
   // Mock components
-  const MockProducts = ({ id, value, onChange, props }: any) => (
+  const MockProducts = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label || id}</label>
       <select
         id={id}
-        value={Array.isArray(value) ? value[0] || '' : value || ''}
+        value={Array.isArray(field?.value) ? field.value[0] || '' : field?.value || ''}
         onChange={(e) => {
           const newValue = props.multiple ? [e.target.value] : e.target.value;
-          onChange?.(newValue);
+          field?.onChange(newValue);
         }}
         data-testid={`select-${id}`}
         multiple={props.multiple}
@@ -37,14 +37,14 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
     </div>
   );
 
-  const MockInput = ({ id, value, onChange, props }: any) => (
+  const MockInput = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label || id}</label>
       <input
         id={id}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`input-${id}`}
       />
     </div>

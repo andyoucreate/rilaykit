@@ -21,12 +21,12 @@ import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 
 const rilConfig = ril
   .create()
-  .addComponent('text', {
+  .component('text', {
     name: 'Text',
     renderer: MockTextInput,
     defaultProps: { label: '' },
   })
-  .addComponent('number', {
+  .component('number', {
     name: 'Number',
     renderer: MockNumberInput,
     defaultProps: { label: '' },

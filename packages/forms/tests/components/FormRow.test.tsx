@@ -21,36 +21,36 @@ describe('FormRow - Conditional Visibility', () => {
 
     config = ril
       .create()
-      .addComponent('switch', {
+      .component('switch', {
         name: 'Switch',
-        renderer: ({ id, value, onChange, props }: any) => (
+        renderer: ({ id, props, field }: any) => (
           <div>
             <label htmlFor={id}>{props.label}</label>
             <input
               id={id}
               type="checkbox"
-              checked={value || false}
-              onChange={(e) => onChange(e.target.checked)}
+              checked={Boolean(field?.value)}
+              onChange={(e) => field?.onChange(e.target.checked)}
               data-testid={id}
             />
           </div>
         ),
       })
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
-        renderer: ({ id, value, onChange, props, error }: any) => (
+        renderer: ({ id, props, field }: any) => (
           <div>
             <label htmlFor={id}>{props.label}</label>
             <input
               id={id}
               type="text"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
+              value={field?.value ?? ''}
+              onChange={(e) => field?.onChange(e.target.value)}
               placeholder={props.placeholder}
               data-testid={id}
             />
-            {error && error.length > 0 && (
-              <span data-testid={`${id}-error`}>{error[0].message}</span>
+            {field?.error && field.error.length > 0 && (
+              <span data-testid={`${id}-error`}>{field.error[0].message}</span>
             )}
           </div>
         ),

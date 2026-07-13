@@ -20,7 +20,7 @@ const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{
 function createTestConfig() {
   const config = ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: TestComponent,
       defaultProps: {},

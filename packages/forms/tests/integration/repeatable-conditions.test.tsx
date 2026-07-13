@@ -11,24 +11,24 @@ import { useFormStoreApi } from '../../src/stores';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, value, onChange, props }: any) => (
+const MockTextInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <input
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(e.target.value)}
     />
   </div>
 );
 
-const MockSelectInput = ({ id, value, onChange, props }: any) => (
+const MockSelectInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <select
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(e.target.value)}
     >
       {props?.options?.map((opt: any) => (
         <option key={opt.value} value={opt.value}>
@@ -68,12 +68,12 @@ describe('Repeatable Fields — Conditions Integration', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockTextInput,
         defaultProps: { label: '' },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: MockSelectInput,
         defaultProps: { label: '', options: [] },

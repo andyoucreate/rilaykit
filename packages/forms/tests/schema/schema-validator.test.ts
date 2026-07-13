@@ -38,15 +38,15 @@ describe('validateSchema', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: () => React.createElement('input'),
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email',
         renderer: () => React.createElement('input'),
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
       });

@@ -1,4 +1,5 @@
-import type { ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
+import type { ComponentEntry, ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
+import { NotFoundError } from '@rilaykit/core';
 import React, { useCallback, useMemo } from 'react';
 import {
   useFieldActions,
@@ -7,25 +8,24 @@ import {
   useFieldState,
   useFieldValue,
 } from '../stores';
-import { getLegacyComponentConfig } from '../utils/legacy-component-config';
 import { parseCompositeKey } from '../utils/repeatable-data';
 import { useFormConfigContext } from './FormProvider';
 
 export interface FormFieldProps {
-  fieldId: string;
-  /** Pre-resolved field config (used by RepeatableItem to skip allFields lookup) */
-  fieldConfig?: FormFieldConfig;
+  id: string;
+  /** Pre-resolved field config (used by FormListItem to skip allFields lookup) */
+  config?: FormFieldConfig;
   disabled?: boolean;
-  customProps?: Record<string, unknown>;
+  overrides?: Record<string, unknown>;
   className?: string;
   forceVisible?: boolean;
 }
 
 export const FormField = React.memo(function FormField({
-  fieldId,
-  fieldConfig: fieldConfigProp,
+  id: fieldId,
+  config: fieldConfigProp,
   disabled = false,
-  customProps = {},
+  overrides = {},
   className,
   forceVisible = false,
 }: FormFieldProps) {
@@ -64,13 +64,18 @@ export const FormField = React.memo(function FormField({
   }, [fieldConfigProp, formConfig.allFields, formConfig.repeatableFields, fieldId]);
 
   if (!fieldConfig) {
-    throw new Error(`Field with ID "${fieldId}" not found`);
+    throw new NotFoundError(`Field "${fieldId}" not found`, { key: fieldId });
   }
 
-  // Get component config - early return if not found
-  const componentConfig = getLegacyComponentConfig(formConfig.config, fieldConfig.componentId);
-  if (!componentConfig) {
-    throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
+  // Get catalog entry - early throw if not found or renderless.
+  // componentId is runtime-dynamic, so the per-component props typing is erased here.
+  const componentEntry = formConfig.config.getComponent(fieldConfig.componentId) as
+    | ComponentEntry<Record<string, unknown>>
+    | undefined;
+  if (!componentEntry?.renderer) {
+    throw new NotFoundError(`Component "${fieldConfig.componentId}" not found in catalog`, {
+      key: `component:${fieldConfig.componentId}`,
+    });
   }
 
   const isValidating = fieldState.validationState === 'validating';
@@ -117,40 +122,49 @@ export const FormField = React.memo(function FormField({
   ]);
 
   // Memoize merged props
-  // Precedence: defaultProps < fieldConfig.props < dynamicProps (effects) < customProps < conditions
+  // Precedence: defaultProps < fieldConfig.props < dynamicProps (effects) < overrides < conditions
   const mergedProps = useMemo(
     () => ({
-      ...(componentConfig.defaultProps ?? {}),
+      ...(componentEntry.defaultProps ?? {}),
       ...fieldConfig.props,
       ...dynamicProps,
-      ...customProps,
+      ...overrides,
       disabled: effectiveConditions.isFieldDisabled,
       required: effectiveConditions.isFieldRequired,
       readOnly: effectiveConditions.isFieldReadonly,
     }),
     [
-      componentConfig.defaultProps,
+      componentEntry.defaultProps,
       fieldConfig.props,
       dynamicProps,
-      customProps,
+      overrides,
       effectiveConditions.isFieldDisabled,
       effectiveConditions.isFieldRequired,
       effectiveConditions.isFieldReadonly,
     ]
   );
 
-  // Memoize render props
-  const renderProps: ComponentRenderProps = useMemo(
+  // Memoize the render context passed to the catalog renderer
+  const context: ComponentRenderContext<Record<string, unknown>> = useMemo(
     () => ({
       id: fieldId,
       props: mergedProps,
-      value,
-      onChange: handleChange,
-      onBlur: handleBlur,
-      disabled: effectiveConditions.isFieldDisabled,
-      error: fieldState.errors,
-      isValidating,
-      touched: fieldState.touched,
+      field: {
+        value,
+        onChange: handleChange,
+        onBlur: handleBlur,
+        error: fieldState.errors,
+        disabled: effectiveConditions.isFieldDisabled,
+        isValidating,
+        touched: fieldState.touched,
+      },
+      conditions: {
+        visible: effectiveConditions.isVisible,
+        disabled: effectiveConditions.isFieldDisabled,
+        required: effectiveConditions.isFieldRequired,
+        readonly: effectiveConditions.isFieldReadonly,
+      },
+      meta: componentEntry.meta,
     }),
     [
       fieldId,
@@ -158,10 +172,11 @@ export const FormField = React.memo(function FormField({
       value,
       handleChange,
       handleBlur,
-      effectiveConditions.isFieldDisabled,
       fieldState.errors,
-      isValidating,
       fieldState.touched,
+      isValidating,
+      effectiveConditions,
+      componentEntry.meta,
     ]
   );
 
@@ -170,36 +185,17 @@ export const FormField = React.memo(function FormField({
     return null;
   }
 
-  // Render component
-  const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
-
-  // Render field wrapper
-  const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
-  const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
-
-  const content =
-    fieldRenderer && shouldUseFieldRenderer
-      ? fieldRenderer({
-          children: renderedComponent,
-          id: fieldId,
-          ...mergedProps,
-          error: fieldState.errors,
-          isValidating,
-          touched: fieldState.touched,
-        })
-      : renderedComponent;
-
   return (
     <div
       className={className}
       data-field-id={fieldId}
-      data-field-type={componentConfig.type}
+      data-field-type={componentEntry.type}
       data-field-visible={effectiveConditions.isVisible}
       data-field-disabled={effectiveConditions.isFieldDisabled}
       data-field-required={effectiveConditions.isFieldRequired}
       data-field-readonly={effectiveConditions.isFieldReadonly}
     >
-      {content}
+      {componentEntry.renderer(context)}
     </div>
   );
 });

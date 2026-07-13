@@ -8,14 +8,14 @@ import { flow } from '../../src/builders/flow';
 
 describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
   // Mock components
-  const MockInput = ({ id, value, onChange, props }: any) => (
+  const MockInput = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label}</label>
       <input
         id={id}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`input-${id}`}
       />
     </div>

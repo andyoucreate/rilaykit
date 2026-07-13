@@ -6,9 +6,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
 
-// Mock text input component for testing
-const TextInput: React.FC<any> = ({ value, onChange, ...props }) => (
-  <input type="text" value={value || ''} onChange={(e) => onChange?.(e.target.value)} {...props} />
+// Mock text input component for testing (new ComponentRenderContext shape)
+const TextInput = ({ field }: any) => (
+  <input
+    type="text"
+    value={field?.value ?? ''}
+    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field?.onChange(e.target.value)}
+  />
 );
 
 // Test component that displays workflow context values
@@ -31,7 +35,7 @@ describe('WorkflowProvider isLastStep with Conditions', () => {
   beforeEach(() => {
     rilConfig = ril.create().addComponent('text', {
       name: 'Text Input',
-      renderer: TextInput as any,
+      renderer: TextInput,
       defaultProps: {},
     });
   });

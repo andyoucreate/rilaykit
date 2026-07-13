@@ -21,7 +21,7 @@ import { MockTextInput } from '../_setup/test-helpers';
 const STORAGE_KEY = 'rilay_workflow_test-workflow';
 const rilConfig = ril
   .create()
-  .addComponent('text', {
+  .component('text', {
     name: 'Text',
     renderer: MockTextInput,
     defaultProps: { label: '' },

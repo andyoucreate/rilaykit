@@ -49,11 +49,7 @@ export const RepeatableItem = React.memo(function RepeatableItem({
       item.rows.map((row) => (
         <FormRow key={row.id} row={row}>
           {row.fields.map((field) => (
-            <FormField
-              key={field.id}
-              fieldId={field.id}
-              fieldConfig={fieldConfigMap.get(field.id)}
-            />
+            <FormField key={field.id} id={field.id} config={fieldConfigMap.get(field.id)} />
           ))}
         </FormRow>
       )),

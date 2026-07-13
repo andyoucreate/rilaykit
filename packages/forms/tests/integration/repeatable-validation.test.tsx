@@ -11,28 +11,32 @@ import { FormProvider, useFormConfigContext } from '../../src/components/FormPro
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, value, onChange, props, error }: any) => (
+const MockTextInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <input
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(e.target.value)}
     />
-    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
+    {field?.error && field.error.length > 0 && (
+      <div data-testid={`error-${id}`}>{field.error[0].message}</div>
+    )}
   </div>
 );
 
-const MockNumberInput = ({ id, value, onChange, props, error }: any) => (
+const MockNumberInput = ({ id, props, field }: any) => (
   <div data-testid={`field-${id}`}>
     <label>{props?.label}</label>
     <input
       type="number"
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(Number(e.target.value))}
+      value={field?.value ?? ''}
+      onChange={(e: any) => field?.onChange(Number(e.target.value))}
     />
-    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
+    {field?.error && field.error.length > 0 && (
+      <div data-testid={`error-${id}`}>{field.error[0].message}</div>
+    )}
   </div>
 );
 
@@ -101,12 +105,12 @@ describe('Repeatable Fields — Validation Integration', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockTextInput,
         defaultProps: { label: '' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number',
         renderer: MockNumberInput,
         defaultProps: { label: '', min: 0 },

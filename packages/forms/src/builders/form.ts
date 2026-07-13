@@ -207,7 +207,8 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     return {
       id: fieldConfig.id || this.idGenerator.next('field'),
-      componentId: component.id,
+      // Catalog entries are keyed by type; legacy addComponent set id === type
+      componentId: fieldConfig.type,
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: combinedValidation,
       conditions: fieldConfig.conditions,

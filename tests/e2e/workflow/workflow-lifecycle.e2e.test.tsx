@@ -21,12 +21,12 @@ import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 function createWorkflowRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },

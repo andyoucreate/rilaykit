@@ -11,10 +11,10 @@ import { useRepeatableField } from '../../src/hooks/use-repeatable-field';
 // HELPERS
 // =================================================================
 
-const MockInput = ({ value, onChange, props }: any) => (
+const MockInput = ({ props, field }: any) => (
   <input
-    value={value || ''}
-    onChange={(e: any) => onChange?.(e.target.value)}
+    value={field?.value ?? ''}
+    onChange={(e: any) => field?.onChange(e.target.value)}
     placeholder={props?.label}
   />
 );
@@ -40,12 +40,12 @@ describe('useRepeatableField', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockInput,
         defaultProps: { label: '' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number',
         renderer: MockInput,
         defaultProps: { label: '', min: 0 },

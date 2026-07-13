@@ -1,4 +1,4 @@
-import { ConditionDependencyGraph, ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ConditionDependencyGraph, ril, when } from '@rilaykit/core';
 import { act, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,19 +8,11 @@ import { FormProvider } from '../../src/components/FormProvider';
 import { createFormStore } from '../../src/stores/formStore';
 
 // Mock component
-const TestComponent = ({
-  id,
-  value,
-  onChange,
-}: {
-  id: string;
-  value: unknown;
-  onChange: (val: unknown) => void;
-}) => (
+const TestComponent = ({ id, field }: ComponentRenderContext) => (
   <input
     data-testid={`field-${id}`}
-    value={(value as string) || ''}
-    onChange={(e) => onChange(e.target.value)}
+    value={String(field?.value ?? '')}
+    onChange={(e) => field?.onChange(e.target.value)}
   />
 );
 const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
@@ -30,7 +22,7 @@ const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{
 function createTestConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: TestComponent,
       defaultProps: {},
@@ -171,28 +163,20 @@ describe('Conditions Performance', () => {
     const renderCounts: Record<string, number> = {};
 
     // Create a tracking component
-    const TrackingComponent = ({
-      id,
-      value,
-      onChange,
-    }: {
-      id: string;
-      value: unknown;
-      onChange: (val: unknown) => void;
-    }) => {
+    const TrackingComponent = ({ id, field }: ComponentRenderContext) => {
       renderCounts[id] = (renderCounts[id] || 0) + 1;
       return (
         <input
           data-testid={`field-${id}`}
-          value={(value as string) || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={String(field?.value ?? '')}
+          onChange={(e) => field?.onChange(e.target.value)}
         />
       );
     };
 
     const trackingConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TrackingComponent,
         defaultProps: {},

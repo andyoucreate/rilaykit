@@ -10,17 +10,17 @@ describe('Form Builder — Repeatable Fields', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', min: 0 },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },

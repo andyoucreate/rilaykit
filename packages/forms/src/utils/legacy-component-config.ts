@@ -1,9 +1,10 @@
 import type { ComponentConfig, RilayInstance } from '@rilaykit/core';
 
 /**
- * Legacy shape until Task 8: entries registered via addComponent keep the
- * flat ComponentConfig shape (id, flat renderer, useFieldRenderer) at runtime.
- * Delete in Task 8 once forms consume ComponentEntry directly.
+ * Legacy cast for the form builder: entries registered via addComponent keep
+ * the flat ComponentConfig shape (id, flat renderer, useFieldRenderer) at
+ * runtime. FormField consumes ComponentEntry directly since Task 8; delete
+ * this once the builder does too (Task 16).
  *
  * @internal
  */

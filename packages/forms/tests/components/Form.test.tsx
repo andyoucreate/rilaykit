@@ -1,16 +1,16 @@
-import { ril } from '@rilaykit/core';
+import { type ComponentRenderContext, ril } from '@rilaykit/core';
 import { Form, FormField, form, useFieldValue } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-const r = ril.create().addComponent('text', {
+const r = ril.create().component('text', {
   name: 'Text',
-  renderer: ({
-    id,
-    value,
-    onChange,
-  }: { id: string; value?: string; onChange?: (v: unknown) => void }) => (
-    <input data-testid={id} value={value ?? ''} onChange={(e) => onChange?.(e.target.value)} />
+  renderer: ({ id, field }: ComponentRenderContext) => (
+    <input
+      data-testid={id}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
+    />
   ),
 });
 
@@ -52,7 +52,7 @@ describe('<Form of defaults>', () => {
         onFieldChange={onFieldChange}
         className="login-form"
       >
-        <FormField fieldId="email" />
+        <FormField id="email" />
         <button type="submit">Sign In</button>
       </Form>
     );

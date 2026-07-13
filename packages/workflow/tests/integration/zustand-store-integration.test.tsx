@@ -1,4 +1,4 @@
-import { ril } from '@rilaykit/core';
+import { type ComponentRenderContext, ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
@@ -14,15 +14,11 @@ import {
 } from '../../src/stores';
 
 // Mock components
-const TestComponent = ({
-  id,
-  value,
-  onChange,
-}: { id: string; value: unknown; onChange: (val: unknown) => void }) => (
+const TestComponent = ({ id, field }: ComponentRenderContext) => (
   <input
     data-testid={`field-${id}`}
-    value={(value as string) || ''}
-    onChange={(e) => onChange(e.target.value)}
+    value={String(field?.value ?? '')}
+    onChange={(e) => field?.onChange(e.target.value)}
   />
 );
 const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
@@ -37,7 +33,7 @@ describe('Workflow Zustand Store Integration', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: {},

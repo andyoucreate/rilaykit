@@ -27,7 +27,7 @@ export const FormBody = React.memo(function FormBody({ children, className }: Fo
         ) : (
           <div key={row.id} data-form-row={row.id}>
             {row.fields.map((field) => (
-              <FormField key={field.id} fieldId={field.id} />
+              <FormField key={field.id} id={field.id} />
             ))}
           </div>
         )

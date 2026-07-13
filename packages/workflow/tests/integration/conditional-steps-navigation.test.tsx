@@ -14,13 +14,13 @@ import { flow } from '../../src/builders/flow';
  * because stepData no longer contains the triggering field value.
  */
 describe('Conditional steps - navigation bug', () => {
-  const MockSelect = ({ id, value, onChange, props }: any) => (
+  const MockSelect = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label}</label>
       <select
         id={id}
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`select-${id}`}
       >
         <option value="">Select...</option>
@@ -33,27 +33,27 @@ describe('Conditional steps - navigation bug', () => {
     </div>
   );
 
-  const MockInput = ({ id, value, onChange, props }: any) => (
+  const MockInput = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label}</label>
       <input
         id={id}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`input-${id}`}
       />
     </div>
   );
 
-  const MockCheckbox = ({ id, value, onChange, props }: any) => (
+  const MockCheckbox = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <label htmlFor={id}>{props.label}</label>
       <input
         id={id}
         type="checkbox"
-        checked={value || false}
-        onChange={(e) => onChange?.(e.target.checked)}
+        checked={Boolean(field?.value)}
+        onChange={(e) => field?.onChange(e.target.checked)}
         data-testid={`checkbox-${id}`}
       />
     </div>
@@ -379,12 +379,12 @@ describe('Conditional steps - navigation bug', () => {
  * The tests above use goNext() directly which bypasses setStepDataAction.
  */
 describe('Conditional steps - form submission flow (real WorkflowNextButton path)', () => {
-  const MockSelect = ({ id, value, onChange, props }: any) => (
+  const MockSelect = ({ id, props, field }: any) => (
     <div data-testid={`field-${id}`}>
       <select
         id={id}
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`select-${id}`}
       >
         <option value="">Select...</option>
@@ -397,25 +397,25 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
     </div>
   );
 
-  const MockInput = ({ id, value, onChange }: any) => (
+  const MockInput = ({ id, field }: any) => (
     <div data-testid={`field-${id}`}>
       <input
         id={id}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={field?.value ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`input-${id}`}
       />
     </div>
   );
 
-  const MockCheckbox = ({ id, value, onChange }: any) => (
+  const MockCheckbox = ({ id, field }: any) => (
     <div data-testid={`field-${id}`}>
       <input
         id={id}
         type="checkbox"
-        checked={value || false}
-        onChange={(e) => onChange?.(e.target.checked)}
+        checked={Boolean(field?.value)}
+        onChange={(e) => field?.onChange(e.target.checked)}
         data-testid={`checkbox-${id}`}
       />
     </div>
