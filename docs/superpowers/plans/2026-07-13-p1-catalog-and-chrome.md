@@ -2557,9 +2557,327 @@ git commit -m "docs: add 0.2 migration guide, DX showcase and refreshed quick-st
 
 ---
 
+---
+
+### Task 19: Feature Proof Matrix — the phase gate
+
+Per-task TDD proves units; this task proves FEATURES. Every user-facing capability of P1 must have a test that fails if the capability breaks — an exact-assertion, real-store, user-level test. No feature ships on "the suite is green"; it ships on "here is the test that proves it".
+
+**Files:**
+- Create: `tests/e2e/proof/catalog.proof.e2e.test.tsx`, `tests/e2e/proof/form-chrome.proof.e2e.test.tsx`, `tests/e2e/proof/flow-chrome.proof.e2e.test.tsx`
+- Create: `docs/superpowers/plans/2026-07-13-p1-proof-matrix.md` (the filled matrix — committed as the phase's proof record)
+
+**Interfaces:** none produced — this task only adds tests and the matrix document.
+
+- [ ] **Step 1: Fill the feature matrix**
+
+Copy this matrix into `docs/superpowers/plans/2026-07-13-p1-proof-matrix.md` and fill the "Proven by" column with `file:testname` for EVERY row — pointing either at an existing test (unit/e2e migrated in T1-T18) or at one of the new proof tests written in Steps 2-4. A row with no proving test = a test to write, not a row to delete. Matrix rows (grouped by feature area):
+
+| Feature | Proven by |
+|---|---|
+| catalog: `.component()` register + retrieve + immutability | |
+| catalog: `.tool()` / `.part()` register + namespace isolation | |
+| catalog: duplicate → `DuplicateError`; `replace: true` swaps whole entry | |
+| catalog: `.renderers()` attaches without touching schemas; `NotFoundError` on unknown key; static key constraint | |
+| catalog: `.use()` plugin chain | |
+| catalog: `validateProps` success / issues+expectedKeys / no-schema passthrough / `NotFoundError` / async → `ConfigurationError` | |
+| catalog: propsSchema → renderer ctx type inference (type-level) | |
+| catalog: `meta` reaches the renderer context | |
+| catalog: `getStats` flat counts; `validate()` tolerates blueprint entries | |
+| form: `<Form of={builder}>` auto-build + `of={config}`; `defaults` seeding | |
+| form: `Form.Body` bare markup (`data-form-body`/`data-form-row`); render prop `{ rows }`; hidden-field row dropped; repeatable row delegated to `Form.List` | |
+| form: `Form.Field` binding (value/onChange/onBlur), error render path, `overrides` precedence, `defaultProps` merge, conditions (visible/disabled/required/readonly), `NotFoundError` ghost field/component | |
+| form: `Form.Submit` bare + render prop; disabled during async submit; no double-submit | |
+| form: `Form.List` default render + add/remove; `min`/`max` bounds drive `canAdd`/`canRemove`; validation inside items; `NotFoundError` ghost id | |
+| form: validation — mixed zod + built-ins, validateOnBlur/validateOnChange, submit blocked on invalid, error messages exact | |
+| form: effects (`onChange` handler `setValue`/`setProps`) still fire through new chrome | |
+| flow: `<Flow of>` + `defaults` + `onComplete` exact payload; `defaultStep` passthrough | |
+| flow: `Flow.Body` default renders current step form; custom `step.renderer` precedence; render-prop children | |
+| flow: `Flow.Progress` visible-only steps, active index, `goTo` navigates with hidden-step index mapping | |
+| flow: `Flow.Next` validates then advances; invalid step blocks; last step triggers `onComplete` | |
+| flow: `Flow.Back` disabled on first step; navigates back; entered values preserved | |
+| flow: `Flow.Skip` hidden when disallowed; `allowSkip` boolean; `allowSkip` predicate over `allData` (both truth values); skip advances without validating | |
+| flow: cross-step data (`onAfterValidation` + `setStepFields`/`setNextStepFields`) prefills later steps | |
+| flow: conditional steps — hidden step skipped in navigation both directions | |
+| flow: workflows containing repeatables still work end-to-end | |
+| flow: persistence save/restore unaffected; analytics `onStepStart`/`onStepComplete` fire | |
+| hooks: `useForm`/`useFlow`/`useFlowData`/`useStep`/`useFlowSteps`/`useFormRows` return documented shapes; old names absent from surfaces | |
+| errors: every public throw is a `RilayError` subclass with stable `code` (grep `throw new Error(` in `packages/*/src` → zero) | |
+
+- [ ] **Step 2: Write the catalog proof tests**
+
+`tests/e2e/proof/catalog.proof.e2e.test.tsx` — the rows above not already proven by `packages/core/tests/catalog/*`. At minimum (real code, exact assertions):
+
+```tsx
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { ril } from '@rilaykit/core';
+import { Form, form } from '@rilaykit/forms';
+
+describe('PROOF catalog end-to-end', () => {
+  it('meta and inferred props flow from registration to the rendered field', () => {
+    const r = ril.create().component('badge', {
+      propsSchema: z.object({ label: z.string() }),
+      meta: { tone: 'brand' },
+      renderer: ({ props, meta }) => (
+        <span data-tone={String(meta?.tone)}>{props.label}</span>
+      ),
+    });
+    const def = form.create(r, 'p').add({ id: 'b', type: 'badge', props: { label: 'Pro' } });
+    render(
+      <Form of={def}>
+        <Form.Body />
+      </Form>
+    );
+    const badge = screen.getByText('Pro');
+    expect(badge.dataset.tone).toBe('brand');
+  });
+
+  it('a plugin-registered tool and a hydrated renderer survive the full chain', () => {
+    const plugin = <R extends ril<Record<string, unknown>>>(r: R): R =>
+      r.tool('confirm', { description: 'Ask confirmation' }) as R;
+    const r = ril
+      .create()
+      .use(plugin)
+      .renderers({ tools: { confirm: ({ state }) => <output>{state}</output> } });
+    expect(r.getTool('confirm')?.description).toBe('Ask confirmation');
+    expect(typeof r.getTool('confirm')?.renderer).toBe('function');
+  });
+});
+```
+
+- [ ] **Step 3: Write the form-chrome proof tests**
+
+`tests/e2e/proof/form-chrome.proof.e2e.test.tsx` — hardening scenarios NOT covered by migrated e2e (verify against the matrix; expected new ones below, full user-level flows with `@testing-library/user-event` if present, else `fireEvent`):
+
+```tsx
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { required, ril } from '@rilaykit/core';
+import { Form, form } from '@rilaykit/forms';
+
+const r = ril.create().component('text', {
+  renderer: ({ id, field }) => (
+    <div>
+      <input
+        data-testid={id}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+      />
+      {field?.error?.map((e) => (
+        <p key={e.message} role="alert">{e.message}</p>
+      ))}
+    </div>
+  ),
+});
+
+describe('PROOF form chrome hardening', () => {
+  it('submit is blocked while invalid and the exact message renders on blur', async () => {
+    const onSubmit = vi.fn();
+    const def = form.create(r, 'f').add({
+      id: 'email',
+      type: 'text',
+      props: {},
+      validation: { validate: [required('Email is required'), z.string().email('Invalid email')], validateOnBlur: true },
+    });
+    render(
+      <Form of={def} onSubmit={onSubmit}>
+        <Form.Body />
+        <Form.Submit>Send</Form.Submit>
+      </Form>
+    );
+    fireEvent.blur(screen.getByTestId('email'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email is required');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(onSubmit).not.toHaveBeenCalled());
+  });
+
+  it('double-clicking submit fires onSubmit exactly once', async () => {
+    let release: () => void = () => {};
+    const onSubmit = vi.fn(() => new Promise<void>((res) => { release = res; }));
+    const def = form.create(r, 'f').add({ id: 'a', type: 'text', props: {} });
+    render(
+      <Form of={def} onSubmit={onSubmit}>
+        <Form.Submit>Go</Form.Submit>
+      </Form>
+    );
+    const btn = screen.getByRole('button', { name: 'Go' });
+    fireEvent.click(btn);
+    fireEvent.click(btn); // second click while submitting
+    release();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('Form.List enforces min/max: remove disabled at min, add disabled at max', () => {
+    const def = form
+      .create(r, 'f')
+      .addRepeatable('phones', (rb) => rb.add({ id: 'n', type: 'text', props: {} }), { min: 1, max: 2 });
+    render(
+      <Form of={def}>
+        <Form.List id="phones">
+          {({ items, add, remove, canAdd, canRemove }) => (
+            <div>
+              <output data-testid="state">{`${items.length}|${canAdd}|${canRemove}`}</output>
+              <button type="button" onClick={add} data-testid="add" />
+              <button type="button" onClick={() => items[0] && remove(items[0].key)} data-testid="rm" />
+            </div>
+          )}
+        </Form.List>
+      </Form>
+    );
+    expect(screen.getByTestId('state').textContent).toBe('1|true|false');
+    fireEvent.click(screen.getByTestId('add'));
+    expect(screen.getByTestId('state').textContent).toBe('2|false|true');
+  });
+
+  it('a form whose every field is hidden renders an empty body and still submits {}', async () => {
+    const onSubmit = vi.fn();
+    const { when } = await import('@rilaykit/core');
+    const def = form.create(r, 'f').add({
+      id: 'ghost',
+      type: 'text',
+      props: {},
+      conditions: { visible: when('never').equals('yes') },
+    });
+    render(
+      <Form of={def} onSubmit={onSubmit}>
+        <Form.Body />
+        <Form.Submit>Send</Form.Submit>
+      </Form>
+    );
+    expect(document.querySelectorAll('[data-form-row]').length).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+});
+```
+
+(Adjust the exact submitted-payload assertion of the last test to the engine's real hidden-field semantics — assert the EXACT object, whatever the engine's contract is, and document it in the matrix.)
+
+- [ ] **Step 4: Write the flow-chrome proof tests**
+
+`tests/e2e/proof/flow-chrome.proof.e2e.test.tsx` — expected new hardening scenarios:
+
+```tsx
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, flow } from '@rilaykit/workflow';
+
+const r = ril.create().component('text', {
+  renderer: ({ id, field }) => (
+    <input data-testid={id} value={String(field?.value ?? '')} onChange={(e) => field?.onChange(e.target.value)} />
+  ),
+});
+const step = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  title: id,
+  formConfig: form.create(r, id).add({ id: `${id}-f`, type: 'text', props: {} }).build(),
+  ...extra,
+});
+
+describe('PROOF flow chrome hardening', () => {
+  it('completes a 2-step flow and delivers the exact namespaced payload to onComplete', async () => {
+    const onComplete = vi.fn();
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a')).addStep(step('b'));
+    render(
+      <Flow of={wf} onComplete={onComplete}>
+        <Flow.Body />
+        <Flow.Next>Next</Flow.Next>
+      </Flow>
+    );
+    fireEvent.change(screen.getByTestId('a-f'), { target: { value: 'one' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.change(await screen.findByTestId('b-f'), { target: { value: 'two' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith({ a: { 'a-f': 'one' }, b: { 'b-f': 'two' } })
+    );
+  });
+
+  it('Back preserves the values typed on the previous step', async () => {
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a')).addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <Flow.Back>Back</Flow.Back>
+        <Flow.Next>Next</Flow.Next>
+      </Flow>
+    );
+    fireEvent.change(screen.getByTestId('a-f'), { target: { value: 'kept' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByTestId('b-f');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(((await screen.findByTestId('a-f')) as HTMLInputElement).value).toBe('kept');
+  });
+
+  it('allowSkip predicate flips live when allData changes', async () => {
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(step('a', { allowSkip: (ctx: { allData: Record<string, unknown> }) => ctx.allData['a']?.['a-f'] === 'vip' }))
+      .addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <Flow.Skip>Skip</Flow.Skip>
+      </Flow>
+    );
+    expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+    fireEvent.change(screen.getByTestId('a-f'), { target: { value: 'vip' } });
+    expect(await screen.findByRole('button', { name: 'Skip' })).toBeInTheDocument();
+  });
+
+  it('Progress goTo lands on the right step when a middle step is hidden', async () => {
+    const { when } = await import('@rilaykit/core');
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(step('a'))
+      .addStep({ ...step('hidden'), conditions: { visible: when('a.a-f').equals('never') } })
+      .addStep(step('c'));
+    render(
+      <Flow of={wf}>
+        <Flow.Progress>
+          {({ steps, goTo }) => (
+            <button type="button" onClick={() => goTo(1)} data-testid="jump">
+              {steps.map((s) => s.id).join(',')}
+            </button>
+          )}
+        </Flow.Progress>
+        <Flow.Body />
+      </Flow>
+    );
+    expect(screen.getByTestId('jump').textContent).toBe('a,c');
+    fireEvent.click(screen.getByTestId('jump'));
+    expect(await screen.findByTestId('c-f')).toBeInTheDocument();
+  });
+});
+```
+
+(If `goTo` legitimately refuses forward jumps to unvisited steps — check `canGoToStep` — assert THAT contract instead and record it in the matrix; the proof is the exact documented behavior, not a wished-for one.)
+
+- [ ] **Step 5: Coverage + adversarial gate**
+
+Run: `pnpm vitest run --coverage`
+Expected: PASS with the repo's configured thresholds (lines 90 / branches 85 / functions 90 / statements 90). If a P1 file is under threshold, the matrix has a hole — write the missing proof test (do NOT lower thresholds).
+
+Then dispatch the inquisition checker panel over the WHOLE P1 diff (`git diff main...HEAD`) with the four lenses (tests-prove-behavior / DRY / elegance / conventions) — read-only subagents, structured verdicts, fix everything they confirm, re-run the failing lens.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add tests/e2e/proof docs/superpowers/plans/2026-07-13-p1-proof-matrix.md
+git commit -m "test: P1 feature proof matrix and hardening suite"
+```
+
+---
+
 ## Plan Self-Review (done at authoring time)
 
-- **Spec coverage (P1 items)**: catalog facades T2-T4 ✔, propsSchema+meta T2/T5 ✔, typed errors T1 ✔, deletions T16 ✔, chrome compound T6-T14 ✔, hook renames T15 ✔, `of`/`defaults` T6/T12 ✔, allowSkip predicate T14 ✔, MIGRATION.md T18 ✔. Out of P1 scope (per spec §11): compileForm/FlowSchema (P2), Parts/manifest/uiTools/adapters (P3).
+- **Spec coverage (P1 items)**: catalog facades T2-T4 ✔, propsSchema+meta T2/T5 ✔, typed errors T1 ✔, deletions T16 ✔, chrome compound T6-T14 ✔, hook renames T15 ✔, `of`/`defaults` T6/T12 ✔, allowSkip predicate T14 ✔, MIGRATION.md T18 ✔, phase proof gate T19 ✔. Out of P1 scope (per spec §11): compileForm/FlowSchema (P2), Parts/manifest/uiTools/adapters (P3).
 - **Review pass (2026-07-13, post-authoring)**: provider/context member names verified against the real files (T12/T14 hedges removed); `useFlowSteps` now contains the real ported code (T13); the T14 rules-of-hooks bug is fixed in-plan (`hidden` computed inside the hook); styled renames applied (`Form.Field id`/`config`, `useForm`, flat `getStats`, `data-form-*`/`data-flow-*` attribute system); `.renderers()` components map typed against the registered keys; type-level inference tests added (T2 Step 4); zod bumped to v4 (T2); DX showcase e2e + README refresh added (T18). Remaining executor judgment: mirror `form-repeatable.test.ts` option names in the T10 fixture.
 - **Type consistency**: `ComponentRenderContext`/`FieldBinding` (T2) are consumed by T8's FormField and T10's fixtures; `VisibleRow` (T7) by T11; `FlowNavContext` (T14) by e2e sweeps; error classes (T1) by T2/T4/T5/T8/T10. Names verified consistent across tasks.
 ```
