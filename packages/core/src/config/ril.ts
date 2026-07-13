@@ -31,14 +31,12 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 }
 
 /**
- * Type guard for component entries stored in the namespaced catalog map
+ * Builds a type guard matching catalog entries of the given kind
+ * stored in the namespaced catalog map
  */
-function isComponentEntry(entry: unknown): entry is ComponentEntry {
-  return (
-    typeof entry === 'object' &&
-    entry !== null &&
-    (entry as { kind?: unknown }).kind === 'component'
-  );
+function isEntryOfKind<TEntry extends { kind: string }>(kind: TEntry['kind']) {
+  return (entry: unknown): entry is TEntry =>
+    typeof entry === 'object' && entry !== null && (entry as { kind?: unknown }).kind === kind;
 }
 
 /**
@@ -140,16 +138,8 @@ export class ril<C> implements RilayInstance<C> {
     return new ril<CT>();
   }
 
-  private static componentKey(type: string): string {
-    return `component:${type}`;
-  }
-
-  private static toolKey(name: string): string {
-    return `tool:${name}`;
-  }
-
-  private static partKey(type: string): string {
-    return `part:${type}`;
+  private static entryKey(kind: 'component' | 'tool' | 'part', id: string): string {
+    return `${kind}:${id}`;
   }
 
   private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
@@ -159,6 +149,26 @@ export class ril<C> implements RilayInstance<C> {
     next.workflowRenderConfig = { ...this.workflowRenderConfig };
     mutate?.(next.entries);
     return next;
+  }
+
+  /**
+   * Shared registration path for all catalog facades (immutable)
+   * Enforces the DuplicateError/replace semantics in a single place
+   *
+   * @throws DuplicateError if the key is already registered and `replace` is not true
+   */
+  private register(
+    key: string,
+    label: string,
+    replace: boolean | undefined,
+    value: unknown
+  ): ril<C> {
+    if (this.entries.has(key) && replace !== true) {
+      throw new DuplicateError(`${label} is already registered`, { key });
+    }
+    return this.cloneWith((entries) => {
+      entries.set(key, value);
+    });
   }
 
   /**
@@ -184,13 +194,11 @@ export class ril<C> implements RilayInstance<C> {
     type: NewType,
     entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): ril<C & { [K in NewType]: TProps }> {
-    const key = ril.componentKey(type);
-    if (this.entries.has(key) && entry.replace !== true) {
-      throw new DuplicateError(`Component "${type}" is already registered`, { key });
-    }
-    return this.cloneWith((entries) => {
-      entries.set(key, { ...entry, kind: 'component', type } satisfies ComponentEntry<TProps>);
-    }) as ril<C & { [K in NewType]: TProps }>;
+    return this.register(ril.entryKey('component', type), `Component "${type}"`, entry.replace, {
+      ...entry,
+      kind: 'component',
+      type,
+    } satisfies ComponentEntry<TProps>) as ril<C & { [K in NewType]: TProps }>;
   }
 
   /**
@@ -206,13 +214,11 @@ export class ril<C> implements RilayInstance<C> {
     name: string,
     entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
   ): ril<C> {
-    const key = ril.toolKey(name);
-    if (this.entries.has(key) && entry.replace !== true) {
-      throw new DuplicateError(`Tool "${name}" is already registered`, { key });
-    }
-    return this.cloneWith((entries) => {
-      entries.set(key, { ...entry, kind: 'tool', name } satisfies ToolEntry<TInput, TOutput>);
-    });
+    return this.register(ril.entryKey('tool', name), `Tool "${name}"`, entry.replace, {
+      ...entry,
+      kind: 'tool',
+      name,
+    } satisfies ToolEntry<TInput, TOutput>);
   }
 
   /**
@@ -225,13 +231,11 @@ export class ril<C> implements RilayInstance<C> {
    * @throws DuplicateError if the type is already registered and `entry.replace` is not true
    */
   part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): ril<C> {
-    const key = ril.partKey(type);
-    if (this.entries.has(key) && entry.replace !== true) {
-      throw new DuplicateError(`Part "${type}" is already registered`, { key });
-    }
-    return this.cloneWith((entries) => {
-      entries.set(key, { ...entry, kind: 'part', type } satisfies PartEntry<TPart>);
-    });
+    return this.register(ril.entryKey('part', type), `Part "${type}"`, entry.replace, {
+      ...entry,
+      kind: 'part',
+      type,
+    } satisfies PartEntry<TPart>);
   }
 
   /** @deprecated Use .component() — removed in Task 16 */
@@ -329,40 +333,36 @@ export class ril<C> implements RilayInstance<C> {
   getComponent<T extends string>(
     id: T
   ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined {
-    return this.entries.get(ril.componentKey(id)) as
+    return this.entries.get(ril.entryKey('component', id)) as
       | ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>>
       | undefined;
   }
 
   getAllComponents(): ComponentEntry[] {
-    return Array.from(this.entries.values()).filter(isComponentEntry);
+    return Array.from(this.entries.values()).filter(isEntryOfKind<ComponentEntry>('component'));
   }
 
   hasComponent(id: string): boolean {
-    return this.entries.has(ril.componentKey(id));
+    return this.entries.has(ril.entryKey('component', id));
   }
 
   /**
    * Tool and part access methods
    */
   getTool(name: string): ToolEntry | undefined {
-    return this.entries.get(ril.toolKey(name)) as ToolEntry | undefined;
+    return this.entries.get(ril.entryKey('tool', name)) as ToolEntry | undefined;
   }
 
   getPart(type: string): PartEntry | undefined {
-    return this.entries.get(ril.partKey(type)) as PartEntry | undefined;
+    return this.entries.get(ril.entryKey('part', type)) as PartEntry | undefined;
   }
 
   getAllTools(): ToolEntry[] {
-    return [...this.entries.values()].filter(
-      (e): e is ToolEntry => (e as ToolEntry).kind === 'tool'
-    );
+    return Array.from(this.entries.values()).filter(isEntryOfKind<ToolEntry>('tool'));
   }
 
   getAllParts(): PartEntry[] {
-    return [...this.entries.values()].filter(
-      (e): e is PartEntry => (e as PartEntry).kind === 'part'
-    );
+    return Array.from(this.entries.values()).filter(isEntryOfKind<PartEntry>('part'));
   }
 
   /**
@@ -374,7 +374,7 @@ export class ril<C> implements RilayInstance<C> {
    */
   removeComponent(id: string): ril<C> {
     return this.cloneWith((entries) => {
-      entries.delete(ril.componentKey(id));
+      entries.delete(ril.entryKey('component', id));
     });
   }
 

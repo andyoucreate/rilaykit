@@ -18,7 +18,20 @@ describe('ril.tool() / ril.part()', () => {
     const r = ril.create().tool('host_tool', {
       renderer: ({ state }) => <div data-state={state} />,
     });
-    expect(r.getTool('host_tool')?.inputSchema).toBeUndefined();
+    const tool = r.getTool('host_tool');
+    expect(tool?.kind).toBe('tool');
+    expect(tool?.name).toBe('host_tool');
+    expect(tool?.renderer).toBeTypeOf('function');
+    expect(tool?.inputSchema).toBeUndefined();
+  });
+
+  it('is immutable — the original instance is untouched', () => {
+    const base = ril.create();
+    const ext = base.tool('x', {}).part('p', { renderer: () => <p /> });
+    expect(base.getTool('x')).toBeUndefined();
+    expect(base.getPart('p')).toBeUndefined();
+    expect(ext.getTool('x')?.kind).toBe('tool');
+    expect(ext.getPart('p')?.kind).toBe('part');
   });
 
   it('registers a part and lists entries by kind', () => {
@@ -33,18 +46,40 @@ describe('ril.tool() / ril.part()', () => {
     expect(r.getPart('text')?.kind).toBe('part');
   });
 
-  it('component and part namespaces do not collide', () => {
+  it('component, tool and part namespaces do not collide on the same identifier', () => {
     const r = ril
       .create()
-      .component('text', { renderer: () => <input /> })
-      .part('text', { renderer: () => <p /> });
-    expect(r.getComponent('text')?.kind).toBe('component');
-    expect(r.getPart('text')?.kind).toBe('part');
+      .component('x', { renderer: () => <input /> })
+      .tool('x', {})
+      .part('x', { renderer: () => <p /> });
+    expect(r.getComponent('x')?.kind).toBe('component');
+    expect(r.getTool('x')?.kind).toBe('tool');
+    expect(r.getPart('x')?.kind).toBe('part');
   });
 
   it('throws DuplicateError on tool double registration without replace', () => {
     const r = ril.create().tool('x', {});
     expect(() => r.tool('x', {})).toThrowError(DuplicateError);
+    try {
+      r.tool('x', {});
+    } catch (e) {
+      expect((e as DuplicateError).code).toBe('DUPLICATE');
+      expect((e as DuplicateError).meta).toEqual({ key: 'tool:x' });
+    }
     expect(r.tool('x', { description: 'v2', replace: true }).getTool('x')?.description).toBe('v2');
+  });
+
+  it('throws DuplicateError on part double registration without replace', () => {
+    const r = ril.create().part('text', { renderer: () => <p /> });
+    expect(() => r.part('text', { renderer: () => <p /> })).toThrowError(DuplicateError);
+    try {
+      r.part('text', { renderer: () => <p /> });
+    } catch (e) {
+      expect((e as DuplicateError).code).toBe('DUPLICATE');
+      expect((e as DuplicateError).meta).toEqual({ key: 'part:text' });
+    }
+    expect(
+      r.part('text', { renderer: () => <p />, meta: { v: 2 }, replace: true }).getPart('text')?.meta
+    ).toEqual({ v: 2 });
   });
 });
