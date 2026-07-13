@@ -45,6 +45,7 @@ describe('<Form.Body>', () => {
     expect(screen.getByTestId('name')).toBeInTheDocument();
     const formRows = document.querySelectorAll('[data-form-row]');
     expect(formRows.length).toBe(1); // hidden row dropped
+    expect(formRows[0]!.getAttribute('data-form-row')).toBe('row-1');
     expect(formRows[0].parentElement).toBe(body);
     expect(screen.queryByTestId('siren')).toBeNull();
   });
@@ -74,6 +75,7 @@ describe('<Form.Body>', () => {
       </Form>
     );
     expect(document.querySelectorAll('[data-form-row]').length).toBe(1);
+    expect(document.querySelector('[data-form-row]')!.getAttribute('data-form-row')).toBe('row-1');
     expect(screen.getByTestId('a')).toBeInTheDocument();
     expect(screen.queryByTestId('b')).toBeNull();
   });
