@@ -984,3 +984,16 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     };
   }
 }
+
+/**
+ * Resolve a form definition to a built {@link FormConfiguration}.
+ *
+ * Accepts either an already-built configuration (returned as-is) or a
+ * form builder (auto-built via {@link form.build}). Single source of
+ * truth for the "config or builder" resolution used by form/workflow roots.
+ */
+export function resolveFormConfig<C extends Record<string, any>>(
+  value: FormConfiguration<C> | form<C>
+): FormConfiguration<C> {
+  return value instanceof form ? value.build() : value;
+}

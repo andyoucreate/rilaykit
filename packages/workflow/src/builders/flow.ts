@@ -14,7 +14,7 @@ import {
   normalizeToArray,
   type ril,
 } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { type form, resolveFormConfig } from '@rilaykit/forms';
 import type { StepContext, StepMetadata } from '../context/step-context';
 import { createStepContext } from '../context/step-context';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
@@ -296,8 +296,7 @@ export class flow {
       id: stepDef.id || this.idGenerator.next('step'),
       title: stepDef.title,
       description: stepDef.description,
-      formConfig:
-        stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
+      formConfig: resolveFormConfig(stepDef.formConfig),
       allowSkip: stepDef.allowSkip || false,
       renderer: stepDef.renderer,
       conditions: stepDef.conditions,

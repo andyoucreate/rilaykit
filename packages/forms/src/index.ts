@@ -10,7 +10,7 @@ export { RepeatableField } from './components/repeatable-field';
 export { RepeatableItem } from './components/repeatable-item';
 
 // Export form builder and ensure prototype extension is applied
-export { form as FormBuilder, form } from './builders/form';
+export { form as FormBuilder, form, resolveFormConfig } from './builders/form';
 export type { FieldConfig } from './builders/form';
 export { RepeatableBuilder } from './builders/repeatable-builder';
 
