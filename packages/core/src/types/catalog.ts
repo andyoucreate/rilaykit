@@ -74,3 +74,14 @@ export interface PartEntry<TPart = unknown> {
 }
 
 export type CatalogEntry = ComponentEntry<never> | ToolEntry<never, never> | PartEntry<never>;
+
+export type PropsValidationResult =
+  | { readonly success: true; readonly value: unknown }
+  | {
+      readonly success: false;
+      readonly issues: ReadonlyArray<{
+        readonly message: string;
+        readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
+      }>;
+      readonly expectedKeys?: string[];
+    };

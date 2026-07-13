@@ -1,10 +1,11 @@
 import type React from 'react';
-import { DuplicateError, NotFoundError, ValidationError } from '../errors';
+import { ConfigurationError, DuplicateError, NotFoundError, ValidationError } from '../errors';
 import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
 import type {
   ComponentEntry,
   ComponentRenderContext,
   PartEntry,
+  PropsValidationResult,
   ToolEntry,
 } from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
@@ -118,6 +119,9 @@ export interface RilayInstance<C> {
   getPart(type: string): PartEntry | undefined;
   getAllTools(): ToolEntry[];
   getAllParts(): PartEntry[];
+
+  // Props validation
+  validateProps(type: string, props: unknown): PropsValidationResult;
 
   // Configuration getters
   getFormRenderConfig(): FormRenderConfig;
@@ -440,6 +444,47 @@ export class ril<C> implements RilayInstance<C> {
 
   getAllParts(): PartEntry[] {
     return Array.from(this.entries.values()).filter(isEntryOfKind<PartEntry>('part'));
+  }
+
+  /**
+   * Validate props against a registered component's propsSchema (synchronous)
+   *
+   * Components without a propsSchema pass through unchanged. On failure the
+   * result carries the schema issues plus a best-effort `expectedKeys` list
+   * (zod object schemas expose `.shape`; other vendors simply omit it).
+   *
+   * @param type - The registered component type
+   * @param props - The props to validate
+   * @returns A structured success/failure result
+   * @throws NotFoundError if the component is not registered
+   * @throws ConfigurationError if the propsSchema validates asynchronously
+   */
+  validateProps(type: string, props: unknown): PropsValidationResult {
+    const entry = this.getComponent(type);
+    if (!entry) {
+      throw new NotFoundError(`Component "${type}" not found in catalog`, {
+        key: ril.entryKey('component', type),
+      });
+    }
+    if (!entry.propsSchema) {
+      return { success: true, value: props };
+    }
+    const outcome = entry.propsSchema['~standard'].validate(props);
+    if (outcome instanceof Promise) {
+      throw new ConfigurationError(
+        `propsSchema of "${type}" is async — props schemas must validate synchronously`,
+        { key: ril.entryKey('component', type) }
+      );
+    }
+    if (outcome.issues) {
+      const shape = (entry.propsSchema as { shape?: Record<string, unknown> }).shape;
+      return {
+        success: false,
+        issues: outcome.issues,
+        expectedKeys: shape ? Object.keys(shape) : undefined,
+      };
+    }
+    return { success: true, value: outcome.value };
   }
 
   /**
