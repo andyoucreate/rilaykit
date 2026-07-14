@@ -86,6 +86,19 @@
 - [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
 - [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
+## Round 3 hunt inventory (iter 7) — 8 bugs + 2 config gaps; NOT clean
+
+- [ ] BUG/high: `canSubmit` uses RAW last index vs visible-last → custom submit never enables when last step hidden — useWorkflowSubmission.ts
+- [ ] BUG/med: `getFieldValue` uses `in` (prototype-inclusive) → field named toString/constructor resolves inherited → exists/notExists inverted — core/conditions/index.ts
+- [ ] BUG/med (race): RemoteAdapter concurrent send() strands events + resolves 2nd caller as false success — core/monitoring/adapters.ts
+- [ ] BUG/med (error-path): fromSchema/validateSchema throws raw TypeError on null row/field instead of typed SchemaValidationError — forms/schema/from-schema.ts
+- [ ] BUG/med: onStepComplete fires on BACKWARD navigation → inflates completion counts — useWorkflowAnalytics.ts
+- [ ] BUG/med (race): async persistence load overwrites in-flight user input (full allData replace) — WorkflowProvider.tsx
+- [ ] BUG/low: onWorkflowAbandon declared but NEVER invoked (dead analytics contract) — needs unmount handler
+- [ ] BUG/low: rapid double-skip emits duplicate onStepSkip — useWorkflowNavigation.ts
+- [ ] GAP/low: rilaykit all-in-one package.json missing `sideEffects: false` (defeats tree-shaking) — packages/rilaykit/package.json
+- [ ] GAP/low: forms `sideEffects` glob points at non-published src/ path (matches no shipped module) — packages/forms/package.json
+
 ## Round 2 hunt inventory (iter 5) — 5 bugs + 5 gaps; NOT a clean round
 
 ### bugs (fix TDD this batch)
