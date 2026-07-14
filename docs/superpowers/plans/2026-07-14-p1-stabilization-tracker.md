@@ -86,6 +86,15 @@
 - [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
 - [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
+## Round 6 hunt inventory (iter 10, CONFIRMATION) — 2 real golden-path bugs + 1 REFUTED
+
+Verdict: NOT clean. 2 real bugs (both siblings of earlier point-patches → fix the CLASS, not the instance).
+Bug 3 (combine threading) VERIFIED as a FALSE POSITIVE: number() returns coerced {value:42}, runCombinedSchemas threads currentValue correctly, combine(number(),custom(isInteger)) on '42' passes (live probe). Round-1 fix holds.
+
+- [ ] BUG/high (golden): conditional-required error never cleared when a field stops being REQUIRED (still visible) → isValid wedged false + contradicts validateForm — useFormValidationWithStore.ts / FormProvider conditions-sync (sibling of round-5 invisible-field fix; also the untouched-field recovery gap)
+- [ ] BUG/high (golden, race): onWorkflowComplete gets STALE final-step slice (flat repeatable keys / missing defaults) — submitWorkflow reads render snapshot not live store (sibling of the navigation getAllData fix) — useWorkflowSubmission.ts
+- [x] ~~BUG combine() threading~~ REFUTED false-positive (verified live; round-1 fix works)
+
 ## Round 5 hunt inventory (iter 9, DECISIVE) — 2 golden-path bugs; r4-regression + core CLEAN
 
 Verdict: r4-regression audit = 0 findings (fixes solid); core-golden = 0 findings (solid on normal data).
