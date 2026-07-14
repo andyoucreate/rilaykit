@@ -1,7 +1,7 @@
 import React from 'react';
 import { useFormRows, type VisibleRow } from '../hooks/useFormRows';
 import { FormField } from './FormField';
-import { RepeatableField } from './repeatable-field';
+import { FormList } from './FormList';
 
 export interface FormBodyProps {
   children?: (ctx: { rows: VisibleRow[] }) => React.ReactNode;
@@ -19,11 +19,7 @@ export const FormBody = React.memo(function FormBody({ children, className }: Fo
     <div className={className} data-form-body>
       {rows.map((row) =>
         row.kind === 'repeatable' ? (
-          <RepeatableField
-            key={row.id}
-            repeatableId={row.repeatable.id}
-            repeatableConfig={row.repeatable}
-          />
+          <FormList key={row.id} id={row.repeatable.id} />
         ) : (
           <div key={row.id} data-form-row={row.id}>
             {row.fields.map((field) => (

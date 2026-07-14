@@ -4,10 +4,10 @@ export { FormBody } from './components/FormBody';
 export { FormField } from './components/FormField';
 export { FormProvider, useFormConfigContext } from './components/FormProvider';
 export type { FormConfigContextValue, FormProviderProps } from './components/FormProvider';
+export { FormList } from './components/FormList';
+export type { FormListContext, FormListProps } from './components/FormList';
 export { FormRow } from './components/FormRow';
 export { FormSubmit } from './components/FormSubmit';
-export { RepeatableField } from './components/repeatable-field';
-export { RepeatableItem } from './components/repeatable-item';
 
 // Export form builder and ensure prototype extension is applied
 export { form as FormBuilder, form, resolveFormConfig } from './builders/form';
