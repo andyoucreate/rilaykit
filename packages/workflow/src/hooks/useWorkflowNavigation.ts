@@ -19,7 +19,7 @@ export interface UseWorkflowNavigationProps {
    * writing prefill data, then the step transition) it goes stale and the
    * transition would wipe the freshly written data.
    */
-  getAllData: () => Record<string, any>;
+  getAllData: () => Record<string, unknown>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
 }
 

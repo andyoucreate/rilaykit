@@ -1,5 +1,5 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
-import { NotFoundError, email, minLength, required, ril } from '@rilaykit/core';
+import { ConfigurationError, NotFoundError, email, minLength, required, ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
@@ -318,6 +318,14 @@ describe('Form Builder', () => {
         expect(() => {
           builder.add([]);
         }).toThrow('At least one field is required');
+
+        try {
+          builder.add([]);
+          expect.unreachable('builder.add([]) should have thrown');
+        } catch (err) {
+          expect(err).toBeInstanceOf(ConfigurationError);
+          expect((err as ConfigurationError).code).toBe('CONFIGURATION');
+        }
       });
 
       it('should generate unique row IDs', () => {

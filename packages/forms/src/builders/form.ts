@@ -417,10 +417,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   updateField(fieldId: string, updates: Partial<Omit<FormFieldConfig, 'id'>>): this {
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     Object.assign(field, {
       ...updates,
@@ -452,6 +449,19 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       }
     }
     return null;
+  }
+
+  /**
+   * Finds a field by ID or throws a `NotFoundError`.
+   *
+   * @internal
+   */
+  private findFieldOrThrow(fieldId: string): FormFieldConfig {
+    const field = this.findField(fieldId);
+    if (!field) {
+      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
+    }
+    return field;
   }
 
   /**
@@ -653,10 +663,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     console.warn(
       'addFieldValidation is deprecated. Use updateField with validation.validate property instead.'
     );
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     // For legacy support, just update with new config (ignoring validators merge)
     const updatedValidation = {
@@ -687,10 +694,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   addFieldConditions(fieldId: string, conditions: ConditionalBehavior): this {
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     const updatedConditions: ConditionalBehavior = {
       ...field.conditions,

@@ -539,11 +539,21 @@ export class flow {
    * });
    * ```
    */
-  updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
+  /**
+   * Finds the index of a step by ID or throws a `NotFoundError`.
+   *
+   * @internal
+   */
+  private findStepIndexOrThrow(stepId: string): number {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
       throw new NotFoundError(`Step with ID "${stepId}" not found`, { stepId });
     }
+    return stepIndex;
+  }
+
+  updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
+    const stepIndex = this.findStepIndexOrThrow(stepId);
 
     this.steps[stepIndex] = { ...this.steps[stepIndex], ...updates };
     return this;
@@ -569,10 +579,7 @@ export class flow {
    * ```
    */
   addStepConditions(stepId: string, conditions: StepConditionalBehavior): this {
-    const stepIndex = this.steps.findIndex((step) => step.id === stepId);
-    if (stepIndex === -1) {
-      throw new NotFoundError(`Step with ID "${stepId}" not found`, { stepId });
-    }
+    const stepIndex = this.findStepIndexOrThrow(stepId);
 
     const updatedConditions: StepConditionalBehavior = {
       ...this.steps[stepIndex].conditions,

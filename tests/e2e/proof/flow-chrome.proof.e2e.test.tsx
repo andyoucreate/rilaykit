@@ -8,19 +8,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { StepDataHelper } from '@rilaykit/core';
-import { ril, when } from '@rilaykit/core';
+import { when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { Flow, flow } from '@rilaykit/workflow';
+import { createProofRil } from '../_setup/proof-fixtures';
 
-const r = ril.create().component('text', {
-  renderer: ({ id, field }) => (
-    <input
-      data-testid={id}
-      value={String(field?.value ?? '')}
-      onChange={(e) => field?.onChange(e.target.value)}
-    />
-  ),
-});
+const r = createProofRil();
 const step = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
   title: id,

@@ -52,7 +52,7 @@
 | Feature | Proven by |
 |---|---|
 | hooks: `useForm`/`useFlow`/`useFlowData`/`useStep`/`useFlowSteps`/`useFormRows` return documented shapes; old names absent from surfaces | `packages/workflow/tests/hooks/flow-hooks.test.tsx: exposes flow context, current step and data`; `flow-hooks.test.tsx: useStep reflects the active step and defaults metadata to {}`; `flow-hooks.test.tsx: old names are gone from the public surface`; `packages/workflow/tests/stores/workflowStore.test.tsx: useFlowData should return all data`; `packages/forms/tests/components/form-compound.test.tsx: exports useForm and drops useFormConfigContext`; `packages/forms/tests/components/FormBody.test.tsx: is exported from @rilaykit/forms and returns visible row ids and kinds` (useFormRows); `useFlowSteps` exercised by `packages/workflow/tests/components/FlowProgress.test.tsx: lists only visible steps with exact active flags, bare default` |
-| errors: every public throw is a `RilayError` subclass with stable `code` (grep `throw new Error(` in `packages/*/src` → zero) | `tests/e2e/proof/errors.proof.e2e.test.ts: packages/*/src contains zero bare throw new Error(`; class/code contracts: `packages/core/tests/errors.test.ts` — the gate found 24 bare throws left in legacy builders/utils and converted them all to `RilayError` subclasses (messages unchanged). Known exception: `SchemaValidationError` (forms schema layer) predates P1, is typed with its own stable `code: 'SCHEMA_VALIDATION_ERROR'` and structured `issues`; converting it would break its published contract, so it stays |
+| errors: every public throw is a `RilayError` subclass with stable `code` (grep `throw new Error(` in `packages/*/src` → zero) | `tests/e2e/proof/errors.proof.e2e.test.ts: packages/*/src contains zero bare throw new Error(`; class/code contracts: `packages/core/tests/errors.test.ts` — the gate found 24 bare throws left in legacy builders/utils and converted them all to `RilayError` subclasses (messages unchanged). Known pre-P1 exceptions (both predate P1, both carry their own stable `code`, both outside the RilayError hierarchy by prior contract, so converting them would break published behavior): `SchemaValidationError` (forms schema layer) is typed with its own stable `code: 'SCHEMA_VALIDATION_ERROR'` and structured `issues`; `WorkflowPersistenceError` (workflow persistence layer, thrown from the public `persistence/adapters/localStorage.ts`) carries its own stable `code: string`. Both are enumerated in the grep proof's documented-exceptions set |
 
 ## Coverage gate
 
@@ -62,6 +62,11 @@ thresholds (90/85/90/90) are **not met globally** (82.24 L / 72.9 B / 83.23 F /
 pre-P1 legacy modules outside this phase's scope (`core/monitoring/*`,
 `workflow/hooks/useWorkflowState.ts`, legacy analytics/condition hooks,
 `core/validation/utils.ts`), plus type-only files counted at 0% by `all: true`.
+Caveat on `core/monitoring/adapters.ts`: commit 473befa (in P1) did touch it,
+but only via a mechanical 3-line throw-conversion (bare `Error` →
+`ConfigurationError`) that changes no branches or lines executed and so does not
+change its coverage profile; its low coverage predates P1 and is unrelated to
+that change.
 
 P1 files themselves meet or exceed the bar — `errors.ts`, `Form.tsx`,
 `FormBody`, `FormSubmit`, `FormList(+Item)`, `useFormRows`, `Flow.tsx`,

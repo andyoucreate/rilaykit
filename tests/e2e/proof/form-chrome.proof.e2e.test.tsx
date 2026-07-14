@@ -8,26 +8,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { required, ril, when } from '@rilaykit/core';
+import { required, when } from '@rilaykit/core';
 import { Form, form } from '@rilaykit/forms';
+import { createProofRil } from '../_setup/proof-fixtures';
 
-const r = ril.create().component('text', {
-  renderer: ({ id, field }) => (
-    <div>
-      <input
-        data-testid={id}
-        value={String(field?.value ?? '')}
-        onChange={(e) => field?.onChange(e.target.value)}
-        onBlur={() => field?.onBlur()}
-      />
-      {field?.error?.map((err) => (
-        <p key={err.message} role="alert">
-          {err.message}
-        </p>
-      ))}
-    </div>
-  ),
-});
+const r = createProofRil();
 
 describe('PROOF form chrome hardening', () => {
   it('submit is blocked while invalid and the exact message renders on blur', async () => {
