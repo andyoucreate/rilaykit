@@ -29,14 +29,14 @@ bun add @rilaykit/core @rilaykit/forms
 
 ## Quick Start
 
-### 1. Create Your Registry
+### 1. Create Your Catalog
 
 ```tsx
 import { ril } from '@rilaykit/core';
 import { Input } from './components/Input';
 
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .component('input', { renderer: Input });
 ```
 
 ### 2. Build a Form
@@ -64,21 +64,46 @@ const loginForm = form
 ### 3. Render It
 
 ```tsx
-import { Form, FormField } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms';
 
 function LoginForm() {
-  const handleSubmit = (data: { email: string; password: string }) => {
-    console.log('Login:', data);
+  const handleSubmit = (data: Record<string, unknown>) => {
+    login(data);
   };
 
   return (
     <Form of={loginForm} onSubmit={handleSubmit}>
-      <FormField fieldId="email" />
-      <FormField fieldId="password" />
-      <button type="submit">Sign In</button>
+      <Form.Field id="email" />
+      <Form.Field id="password" />
+      <Form.Submit>Sign In</Form.Submit>
     </Form>
   );
 }
+```
+
+Prefer full control over the markup? Use the `Form.Body` render prop:
+
+```tsx
+<Form of={loginForm} defaults={{ email: 'neo@matrix.io' }} onSubmit={handleSubmit}>
+  <Form.Body>
+    {({ rows }) =>
+      rows.map((row) =>
+        row.kind === 'fields' ? (
+          <section key={row.id} className="row">
+            {row.fields.map((field) => (
+              <Form.Field key={field.id} id={field.id} />
+            ))}
+          </section>
+        ) : (
+          <Form.List key={row.id} id={row.repeatable.id} />
+        )
+      )
+    }
+  </Form.Body>
+  <Form.Submit>{({ submitting, submit }) => (
+    <button type="button" disabled={submitting} onClick={submit}>Sign In</button>
+  )}</Form.Submit>
+</Form>
 ```
 
 ## Features
@@ -115,12 +140,14 @@ Zero HTML, zero CSS. You provide the renderers, RilayKit handles state, validati
 
 | Component | Description |
 |-----------|-------------|
-| `<Form>` | Main wrapper — manages context, state, and submission |
+| `<Form of defaults>` | Root — accepts a builder or a built configuration, manages context, state, and submission |
+| `<Form.Body>` | Renders the form body — bare default markup or a `{ rows }` render prop |
+| `<Form.Field id overrides>` | Renders a single field by ID through its catalog renderer |
+| `<Form.Submit>` | Submit button — bare default or a `{ submitting, submit }` render prop |
+| `<Form.List id>` | Repeatable group — bare default or an `{ items, add, remove, move, canAdd, canRemove }` render prop |
 | `<FormProvider>` | Context provider (used separately from Form when needed) |
-| `<FormBody>` | Renders the full form body from configuration |
-| `<FormField>` | Renders a single field by ID |
-| `<FormRow>` | Renders a row of fields |
-| `<FormSubmitButton>` | Submit button with loading/disabled state |
+
+Bare defaults ship styleable data attributes: `[data-form-body]`, `[data-form-row]`, `[data-form-submit]`, `[data-form-list]`, `[data-form-list-item]`, `[data-form-list-add]`, `[data-field-id]` and `data-field-*` state attributes.
 
 ### Zustand-Powered Store
 

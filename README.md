@@ -23,7 +23,7 @@ RilayKit treats forms as **data structures**, not JSX trees. You describe what a
 | Package | Version | Description |
 |---------|---------|-------------|
 | [`rilaykit`](./packages/rilaykit) | ![npm](https://img.shields.io/npm/v/rilaykit) | **All-in-one** — single install with enhanced `ril.form()` / `ril.flow()` API |
-| [`@rilaykit/core`](./packages/core) | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Component registry, types, validation, conditions, monitoring |
+| [`@rilaykit/core`](./packages/core) | ![npm](https://img.shields.io/npm/v/@rilaykit/core) | Unified catalog, types, validation, conditions, monitoring |
 | [`@rilaykit/forms`](./packages/forms) | ![npm](https://img.shields.io/npm/v/@rilaykit/forms) | Form builder and headless React components |
 | [`@rilaykit/workflow`](./packages/workflow) | ![npm](https://img.shields.io/npm/v/@rilaykit/workflow) | Multi-step workflows with persistence, analytics, plugins |
 
@@ -49,32 +49,35 @@ pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 ### 1. Register Your Components
 
 ```tsx
-import { ril, ComponentRenderer } from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
+import type { ComponentRenderContext } from '@rilaykit/core';
+import { z } from 'zod';
 
-interface InputProps {
-  label: string;
-  type?: string;
-  placeholder?: string;
+const inputProps = z.object({
+  label: z.string(),
+  type: z.string().optional(),
+  placeholder: z.string().optional(),
+});
+type InputProps = z.infer<typeof inputProps>;
+
+function Input({ id, props, field }: ComponentRenderContext<InputProps>) {
+  return (
+    <div>
+      <label htmlFor={id}>{props.label}</label>
+      <input
+        id={id}
+        type={props.type || 'text'}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+      />
+      {field?.error?.[0] && <p>{field.error[0].message}</p>}
+    </div>
+  );
 }
 
-const Input: ComponentRenderer<InputProps> = ({
-  id, value, onChange, onBlur, error, props,
-}) => (
-  <div>
-    <label htmlFor={id}>{props.label}</label>
-    <input
-      id={id}
-      type={props.type || 'text'}
-      value={value || ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-    />
-    {error && <p>{error[0].message}</p>}
-  </div>
-);
-
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .component('input', { propsSchema: inputProps, renderer: Input });
 ```
 
 ### 2. Build a Form
@@ -102,21 +105,46 @@ const loginForm = form
 ### 3. Render It
 
 ```tsx
-import { Form, FormField } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms';
 
 function LoginForm() {
-  const handleSubmit = (data: { email: string; password: string }) => {
-    console.log('Login:', data);
+  const handleSubmit = (data: Record<string, unknown>) => {
+    login(data);
   };
 
   return (
     <Form of={loginForm} onSubmit={handleSubmit}>
-      <FormField fieldId="email" />
-      <FormField fieldId="password" />
-      <button type="submit">Sign In</button>
+      <Form.Field id="email" />
+      <Form.Field id="password" />
+      <Form.Submit>Sign In</Form.Submit>
     </Form>
   );
 }
+```
+
+Need full markup control? `Form.Body` and `Form.Submit` accept render props:
+
+```tsx
+<Form of={loginForm} defaults={{ email: 'neo@matrix.io' }} onSubmit={handleSubmit}>
+  <Form.Body>
+    {({ rows }) =>
+      rows.map((row) =>
+        row.kind === 'fields' ? (
+          <section key={row.id}>
+            {row.fields.map((field) => <Form.Field key={field.id} id={field.id} />)}
+          </section>
+        ) : (
+          <Form.List key={row.id} id={row.repeatable.id} />
+        )
+      )
+    }
+  </Form.Body>
+  <Form.Submit>
+    {({ submitting, submit }) => (
+      <button type="button" disabled={submitting} onClick={submit}>Sign In</button>
+    )}
+  </Form.Submit>
+</Form>
 ```
 
 ## All-in-One Package
@@ -124,10 +152,10 @@ function LoginForm() {
 The [`rilaykit`](./packages/rilaykit) package re-exports everything and provides an enhanced `ril` with `.form()` and `.flow()` methods — no separate builder imports needed:
 
 ```tsx
-import { ril, required, email, Form, FormField } from 'rilaykit';
+import { ril, required, email, Form } from 'rilaykit';
 
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .component('input', { propsSchema: inputProps, renderer: Input });
 
 // .form() and .flow() are available directly on the ril instance
 const loginForm = rilay
@@ -219,21 +247,19 @@ const onboarding = flow
 ```
 
 ```tsx
-import {
-  Workflow, WorkflowStepper, WorkflowBody,
-  WorkflowPreviousButton, WorkflowNextButton,
-} from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow';
 
 function OnboardingFlow() {
   return (
-    <Workflow workflowConfig={onboarding} onComplete={handleComplete}>
-      <WorkflowStepper />
-      <WorkflowBody />
+    <Flow of={onboarding} onComplete={handleComplete}>
+      <Flow.Progress />
+      <Flow.Body />
       <div>
-        <WorkflowPreviousButton />
-        <WorkflowNextButton />
+        <Flow.Back />
+        <Flow.Skip />
+        <Flow.Next />
       </div>
-    </Workflow>
+    </Flow>
   );
 }
 ```
@@ -241,14 +267,14 @@ function OnboardingFlow() {
 ## Architecture
 
 ```
-@rilaykit/core          Registry, types, validation, conditions, monitoring
+@rilaykit/core          Unified catalog, types, validation, conditions, monitoring
     ↑
 @rilaykit/forms         Form builder, React components, Zustand store
     ↑
-@rilaykit/workflow      Workflow builder, navigation, persistence, analytics, plugins
+@rilaykit/workflow      Flow builder, navigation, persistence, analytics, plugins
 ```
 
-The Registry and Builder layers have no React dependency — they run in Node, tests, and build scripts. The rendering layer is entirely your code.
+The Catalog and Builder layers have no React dependency — they run in Node, tests, and build scripts. The rendering layer is entirely your code.
 
 ## Documentation
 
