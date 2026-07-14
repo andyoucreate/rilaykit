@@ -2,10 +2,7 @@ import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
   FlowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
   WorkflowProvider,
-  WorkflowSkipButton,
   flow,
   useWorkflowContext,
 } from '@rilaykit/workflow';
@@ -14,6 +11,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MockSelectInput, MockTextInput, SetValueButton } from '../_setup/test-helpers';
+import { NextButton, PrevButton, SkipButton } from '../_setup/nav-buttons';
 
 // ============================================================================
 // SETUP
@@ -37,21 +35,6 @@ function createRilConfig() {
     .configure({
       bodyRenderer: ({ children }) => <div>{children}</div>,
       rowRenderer: ({ children }) => <div>{children}</div>,
-      nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-          Next
-        </button>
-      ),
-      previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-          Previous
-        </button>
-      ),
-      skipButtonRenderer: ({ onSkip, canSkip }) => (
-        <button type="button" data-testid="skip-btn" onClick={onSkip} disabled={!canSkip}>
-          Skip
-        </button>
-      ),
     });
 }
 
@@ -141,7 +124,7 @@ describe('Workflow Conditions -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -197,8 +180,8 @@ describe('Workflow Conditions -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -266,7 +249,7 @@ describe('Workflow Conditions -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -330,7 +313,7 @@ describe('Workflow Conditions -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -398,8 +381,8 @@ describe('Workflow Conditions -- E2E', () => {
         defaultValues={{ step1: { accountType: 'business' } }}
       >
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -539,8 +522,8 @@ describe('Workflow Conditions -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowSkipButton />
+        <NextButton />
+        <SkipButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );

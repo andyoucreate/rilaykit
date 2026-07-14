@@ -1,6 +1,7 @@
 import type { ConditionalBehavior, StepConfig, WorkflowConfig } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+import { resolveAllowSkip } from '../utils/resolveAllowSkip';
 import {
   type ConditionEvaluationResult,
   useConditionEvaluation,
@@ -40,13 +41,13 @@ export interface UseWorkflowConditionsReturn {
  */
 function toStepConditionResult(
   fullResult: ConditionEvaluationResult,
-  allowSkip?: boolean
+  allowSkip: boolean
 ): StepConditionResult {
   return {
     visible: fullResult.visible,
-    // For steps: skippable if either allowSkip is true OR skippable condition is true
+    // For steps: skippable if either allowSkip resolves to true OR skippable condition is true
     // Note: fullResult.required now represents the skippable condition (mapped above)
-    skippable: allowSkip === true || fullResult.required,
+    skippable: allowSkip || fullResult.required,
   };
 }
 
@@ -92,8 +93,12 @@ export function useWorkflowConditions({
   });
 
   const stepConditions = useMemo(
-    () => toStepConditionResult(currentStepEvaluation, currentStep?.allowSkip),
-    [currentStepEvaluation, currentStep?.allowSkip]
+    () =>
+      toStepConditionResult(
+        currentStepEvaluation,
+        currentStep ? resolveAllowSkip(currentStep, workflowState.allData) : false
+      ),
+    [currentStepEvaluation, currentStep, workflowState.allData]
   );
 
   // Pre-evaluate all steps conditions - create conditions map first
@@ -125,19 +130,21 @@ export function useWorkflowConditions({
     workflowConfig.steps.forEach((step, index) => {
       const evaluation = allStepEvaluations[index];
 
+      const allowSkip = resolveAllowSkip(step, workflowState.allData);
+
       if (evaluation) {
-        results[index] = toStepConditionResult(evaluation, step.allowSkip);
+        results[index] = toStepConditionResult(evaluation, allowSkip);
       } else {
         // No conditions = visible and respects allowSkip setting
         results[index] = {
           visible: true,
-          skippable: step.allowSkip === true,
+          skippable: allowSkip,
         };
       }
     });
 
     return results;
-  }, [workflowConfig.steps, allStepEvaluations]);
+  }, [workflowConfig.steps, allStepEvaluations, workflowState.allData]);
 
   // Evaluate field-level conditions for the current step form (uses full field conditions)
   const fieldsWithConditions = useMemo(() => {

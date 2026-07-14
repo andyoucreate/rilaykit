@@ -479,7 +479,7 @@ export interface StepConfig {
   readonly title: string;
   readonly description?: string;
   readonly formConfig: FormConfiguration;
-  readonly allowSkip?: boolean;
+  readonly allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
   readonly renderer?: CustomStepRenderer;
   readonly conditions?: StepConditionalBehavior;
   readonly metadata?: Record<string, any>;

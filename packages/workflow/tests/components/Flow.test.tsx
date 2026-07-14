@@ -1,21 +1,12 @@
 import type { StepConfig } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, FlowBody, WorkflowNextButton, flow } from '@rilaykit/workflow';
+import { Flow, FlowBody, flow } from '@rilaykit/workflow';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MockInput } from '../_helpers/mock-components';
 
-const r = ril
-  .create()
-  .component('text', { name: 'Text', renderer: MockInput })
-  .configure({
-    nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-      <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-        Next
-      </button>
-    ),
-  });
+const r = ril.create().component('text', { name: 'Text', renderer: MockInput });
 const stepForm = form.create(r, 's1').add({ id: 'email', type: 'text', props: {} });
 const wf = flow
   .create(r, 'onboarding', 'Onboarding')
@@ -74,7 +65,13 @@ describe('<Flow of> + <Flow.Body>', () => {
     render(
       <Flow of={wf} onComplete={onComplete}>
         <FlowBody />
-        <WorkflowNextButton />
+        <Flow.Next>
+          {({ go, submitting }) => (
+            <button type="button" data-testid="next-btn" onClick={go} disabled={submitting}>
+              Next
+            </button>
+          )}
+        </Flow.Next>
       </Flow>
     );
 

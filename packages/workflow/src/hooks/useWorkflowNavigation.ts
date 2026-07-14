@@ -1,5 +1,6 @@
 import type { StepDataHelper, WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
+import { resolveAllowSkip } from '../utils/resolveAllowSkip';
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
 import type { WorkflowState } from './useWorkflowState';
 
@@ -232,10 +233,8 @@ export function useWorkflowNavigation({
 
   // Skip current step
   const skipStep = useCallback(async (): Promise<boolean> => {
-    if (
-      !currentStep?.allowSkip &&
-      !conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
-    ) {
+    const allowSkip = currentStep ? resolveAllowSkip(currentStep, workflowState.allData) : false;
+    if (!allowSkip && !conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) {
       return false;
     }
 
@@ -249,6 +248,7 @@ export function useWorkflowNavigation({
     currentStep,
     conditionsHelpers,
     workflowState.currentStepIndex,
+    workflowState.allData,
     workflowConfig.analytics,
     workflowContext,
     goNext,
@@ -277,11 +277,12 @@ export function useWorkflowNavigation({
 
   // Check if current step can be skipped
   const canSkipCurrentStep = useCallback((): boolean => {
+    if (!currentStep) return false;
     return (
-      currentStep?.allowSkip === true &&
+      resolveAllowSkip(currentStep, workflowState.allData) &&
       conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
     );
-  }, [currentStep?.allowSkip, conditionsHelpers, workflowState.currentStepIndex]);
+  }, [currentStep, workflowState.allData, conditionsHelpers, workflowState.currentStepIndex]);
 
   return {
     goToStep,

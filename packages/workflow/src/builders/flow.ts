@@ -54,10 +54,11 @@ export interface StepDefinition {
   formConfig: FormConfiguration<any> | form<any>;
 
   /**
-   * Whether users can skip this step
+   * Whether users can skip this step.
+   * Accepts a static boolean or a predicate evaluated against the workflow data.
    * @default false
    */
-  allowSkip?: boolean;
+  allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
 
   /**
    * Custom renderer for the step
@@ -297,7 +298,7 @@ export class flow {
       title: stepDef.title,
       description: stepDef.description,
       formConfig: resolveFormConfig(stepDef.formConfig),
-      allowSkip: stepDef.allowSkip || false,
+      allowSkip: stepDef.allowSkip ?? false,
       renderer: stepDef.renderer,
       conditions: stepDef.conditions,
       metadata: stepDef.metadata,

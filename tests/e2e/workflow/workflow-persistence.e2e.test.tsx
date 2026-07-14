@@ -3,7 +3,6 @@ import { form } from '@rilaykit/forms';
 import {
   LocalStorageAdapter,
   FlowBody,
-  WorkflowNextButton,
   WorkflowProvider,
   flow,
   useWorkflowContext,
@@ -13,6 +12,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MockTextInput } from '../_setup/test-helpers';
+import { NextButton } from '../_setup/nav-buttons';
 
 // ============================================================================
 // SETUP
@@ -29,16 +29,6 @@ const rilConfig = ril
   .configure({
     bodyRenderer: ({ children }) => <div>{children}</div>,
     rowRenderer: ({ children }) => <div>{children}</div>,
-    nextButtonRenderer: ({ onSubmit }) => (
-      <button type="button" data-testid="next-btn" onClick={onSubmit}>
-        Next
-      </button>
-    ),
-    previousButtonRenderer: ({ onPrevious }) => (
-      <button type="button" data-testid="prev-btn" onClick={onPrevious}>
-        Previous
-      </button>
-    ),
   });
 
 // ============================================================================
@@ -128,7 +118,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -210,7 +200,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -269,7 +259,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -326,7 +316,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );

@@ -3,8 +3,6 @@ import { form, useFormStoreApi } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
 import {
   FlowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
   WorkflowProvider,
   flow,
   useWorkflowContext,
@@ -14,6 +12,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
+import { NextButton, PrevButton } from '../_setup/nav-buttons';
 
 // ============================================================================
 // RIL CONFIG
@@ -34,16 +33,6 @@ const rilConfig = ril
   .configure({
     bodyRenderer: ({ children }) => <div>{children}</div>,
     rowRenderer: ({ children }) => <div>{children}</div>,
-    nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-      <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-        Next
-      </button>
-    ),
-    previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-      <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-        Previous
-      </button>
-    ),
   });
 
 // ============================================================================
@@ -175,7 +164,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
         }}
       >
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -218,7 +207,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -281,7 +270,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -340,8 +329,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -451,7 +440,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>

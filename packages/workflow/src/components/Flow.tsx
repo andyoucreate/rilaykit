@@ -2,6 +2,9 @@ import type { WorkflowConfig } from '@rilaykit/core';
 import type React from 'react';
 import { useMemo } from 'react';
 import { type flow, resolveWorkflowConfig } from '../builders/flow';
+import { FlowBody } from './FlowBody';
+import { FlowBack, FlowNext, FlowSkip } from './FlowNav';
+import { FlowProgress } from './FlowProgress';
 import type { WorkflowProviderProps } from './WorkflowProvider';
 import { WorkflowProvider } from './WorkflowProvider';
 
@@ -36,4 +39,14 @@ function FlowRoot({ children, of, defaults, onComplete, ...props }: FlowProps) {
   );
 }
 
+export const Flow = Object.assign(FlowRoot, {
+  Body: FlowBody,
+  Progress: FlowProgress,
+  Next: FlowNext,
+  Back: FlowBack,
+  Skip: FlowSkip,
+});
+
 export { FlowRoot };
+
+export default Flow;

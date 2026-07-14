@@ -2,8 +2,6 @@ import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
   FlowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
   WorkflowProvider,
   flow,
   useWorkflowContext,
@@ -11,6 +9,7 @@ import {
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MockCheckboxInput, MockSelectInput, MockTextInput } from '../_setup/test-helpers';
+import { NextButton, PrevButton } from '../_setup/nav-buttons';
 
 // ============================================================================
 // SETUP — Reproduces the playground conditional-steps example
@@ -39,16 +38,6 @@ function createRilConfig() {
     .configure({
       bodyRenderer: ({ children }) => <div>{children}</div>,
       rowRenderer: ({ children }) => <div>{children}</div>,
-      nextButtonRenderer: ({ onSubmit, isSubmitting, isLastStep }) => (
-        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-          {isLastStep ? 'Complete' : 'Next'}
-        </button>
-      ),
-      previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-          Previous
-        </button>
-      ),
     });
 }
 
@@ -200,8 +189,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -299,8 +288,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -354,7 +343,7 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -391,7 +380,7 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onComplete}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -477,8 +466,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -546,8 +535,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -588,7 +577,7 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
         <FlowBody />
-        <WorkflowNextButton />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>

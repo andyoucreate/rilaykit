@@ -19,13 +19,14 @@ export { flow, resolveWorkflowConfig, type StepDefinition } from '@rilaykit/work
 // Components
 export {
   Flow,
+  FlowBack,
   FlowBody,
+  FlowNext,
   FlowProgress,
+  FlowSkip,
   useWorkflowContext,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
   WorkflowProvider,
-  WorkflowSkipButton,
+  type FlowNavContext,
   type FlowProgressProps,
   type WorkflowContextValue,
 } from '@rilaykit/workflow';
@@ -98,6 +99,7 @@ export {
 export {
   combineWorkflowDataForConditions,
   flattenObject,
+  resolveAllowSkip,
 } from '@rilaykit/workflow';
 
 // =============================================================================

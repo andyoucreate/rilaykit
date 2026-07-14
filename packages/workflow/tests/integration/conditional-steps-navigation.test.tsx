@@ -331,10 +331,10 @@ describe('Conditional steps - navigation bug', () => {
 
 /**
  * Tests using the REAL form submission flow (submit() → handleSubmit → setStepDataAction → goNext).
- * This reproduces the exact behavior of WorkflowNextButton in the playground.
+ * This reproduces the exact behavior of Flow.Next in the playground.
  * The tests above use goNext() directly which bypasses setStepDataAction.
  */
-describe('Conditional steps - form submission flow (real WorkflowNextButton path)', () => {
+describe('Conditional steps - form submission flow (real Flow.Next path)', () => {
   let config: any;
   let conditionalFlow: any;
 
@@ -418,7 +418,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
   });
 
   /**
-   * Test harness that uses submit() from FormProvider (like WorkflowNextButton does),
+   * Test harness that uses submit() from FormProvider (like Flow.Next does),
    * NOT goNext() directly. This tests the real submission flow:
    * submit() → form validation → handleSubmit(values) → setStepDataAction → goNext
    *
@@ -428,7 +428,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
   function FormSubmitTestHarness() {
     const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useWorkflowContext();
 
-    // Access submit from FormProvider — same as WorkflowNextButton
+    // Access submit from FormProvider — same as Flow.Next
     const { submit } = useForm();
 
     // Access form store to set values like a real form component would
@@ -456,7 +456,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
           </div>
         ))}
 
-        {/* Submit button — triggers full form submission flow like WorkflowNextButton */}
+        {/* Submit button — triggers full form submission flow like Flow.Next */}
         <button type="button" data-testid="fs-submit" onClick={() => submit()}>
           Submit (Next)
         </button>
@@ -531,7 +531,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
       expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
     });
 
-    // Submit form (like WorkflowNextButton) — goes through handleSubmit → setStepDataAction → goNext
+    // Submit form (like Flow.Next) — goes through handleSubmit → setStepDataAction → goNext
     fireEvent.click(screen.getByTestId('fs-submit'));
 
     // Wait for navigation AND verify conditional steps are still visible
