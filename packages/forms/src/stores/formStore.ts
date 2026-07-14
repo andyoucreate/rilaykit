@@ -311,6 +311,7 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         newOrder.splice(toIndex, 0, moved);
 
         set({
+          isDirty: true,
           _repeatableOrder: {
             ...state._repeatableOrder,
             [repeatableId]: newOrder,
