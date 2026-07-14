@@ -4,13 +4,19 @@ import {
   type WorkflowPerformanceMetrics,
   getGlobalMonitor,
 } from '@rilaykit/core';
-import { useCallback, useEffect, useRef } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { WorkflowState } from './useWorkflowState';
 
 export interface UseWorkflowAnalyticsProps {
   workflowConfig: WorkflowConfig;
   workflowState: WorkflowState;
   workflowContext: WorkflowContext;
+  /**
+   * Shared signal set by {@link useWorkflowNavigation.skipStep} carrying the id
+   * of a step that was skipped (not validated). A skip is not a completion, so
+   * the step-change effect must suppress `onStepComplete` for it exactly once.
+   */
+  pendingSkipRef: MutableRefObject<string | null>;
 }
 
 export interface UseWorkflowAnalyticsReturn {
@@ -25,6 +31,7 @@ export function useWorkflowAnalytics({
   workflowConfig,
   workflowState,
   workflowContext,
+  pendingSkipRef,
 }: UseWorkflowAnalyticsProps): UseWorkflowAnalyticsReturn {
   const analyticsStartTime = useRef<number>(Date.now());
   const stepStartTimes = useRef<Map<string, number>>(new Map());
@@ -73,21 +80,41 @@ export function useWorkflowAnalytics({
 
   // Track step changes and completion
   useEffect(() => {
+    // Do not emit step analytics until initialization (including any async
+    // persistence load) has settled. Otherwise resuming from a persisted index
+    // emits a phantom onStepStart/onStepComplete for the default step the user
+    // never saw. The first REAL step becomes the first onStepStart.
+    if (workflowState.isInitializing) return;
+
     const currentStep = workflowConfig.steps[workflowState.currentStepIndex];
     if (!currentStep) return;
 
     // Only trigger if step actually changed
     if (currentStepRef.current === currentStep.id) return;
 
+    // A skipped step is not a completion: consume the skip signal and suppress
+    // onStepComplete for exactly that transition.
+    const previousStepId = currentStepRef.current;
+    const wasSkipped = previousStepId !== null && pendingSkipRef.current === previousStepId;
+    if (wasSkipped) {
+      pendingSkipRef.current = null;
+    }
+
     // Track step completion for previous step
-    if (currentStepRef.current && workflowConfig.analytics?.onStepComplete) {
-      const startTime = stepStartTimes.current.get(currentStepRef.current);
+    if (previousStepId && !wasSkipped && workflowConfig.analytics?.onStepComplete) {
+      const startTime = stepStartTimes.current.get(previousStepId);
       if (startTime) {
         const duration = Date.now() - startTime;
+        // Pass the COMPLETED step's data (its slice of allData), not the new
+        // step's stepData which the navigation has already swapped in.
+        const completedStepData = (workflowState.allData[previousStepId] ?? {}) as Record<
+          string,
+          unknown
+        >;
         workflowConfig.analytics.onStepComplete(
-          currentStepRef.current,
+          previousStepId,
           duration,
-          workflowState.stepData,
+          completedStepData,
           workflowContext
         );
 
@@ -99,7 +126,7 @@ export function useWorkflowAnalytics({
             {
               workflowId: workflowConfig.id,
               action: 'step_complete',
-              stepId: currentStepRef.current,
+              stepId: previousStepId,
               duration,
             },
             {
@@ -151,12 +178,14 @@ export function useWorkflowAnalytics({
     }
   }, [
     workflowState.currentStepIndex,
+    workflowState.isInitializing,
     workflowConfig.steps,
     workflowConfig.analytics,
     workflowContext,
-    workflowState.stepData,
+    workflowState.allData,
     monitor,
     workflowConfig.id,
+    pendingSkipRef,
   ]);
 
   // Helper to track step skips

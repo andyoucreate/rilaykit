@@ -1,5 +1,13 @@
-import type { StepDataHelper, WorkflowConfig, WorkflowContext } from '@rilaykit/core';
-import { useCallback, useRef } from 'react';
+import {
+  type ConditionBuilder,
+  type ConditionConfig,
+  type StepDataHelper,
+  type WorkflowConfig,
+  type WorkflowContext,
+  evaluateCondition,
+} from '@rilaykit/core';
+import { type MutableRefObject, useCallback, useRef } from 'react';
+import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
 import type { WorkflowState } from './useWorkflowState';
 
@@ -20,6 +28,11 @@ export interface UseWorkflowNavigationProps {
    * transition would wipe the freshly written data.
    */
   getAllData: () => Record<string, unknown>;
+  /**
+   * Shared signal read by {@link useWorkflowAnalytics} to suppress
+   * `onStepComplete` for a skipped step. A skip is not a completion.
+   */
+  pendingSkipRef: MutableRefObject<string | null>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
 }
 
@@ -45,6 +58,7 @@ export function useWorkflowNavigation({
   markStepPassed,
   setStepData,
   getAllData,
+  pendingSkipRef,
   onStepChange,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
   // Use ref to avoid recreating callbacks when onStepChange changes
@@ -104,6 +118,39 @@ export function useWorkflowNavigation({
     };
   }, [getAllData, workflowState.currentStepIndex, workflowConfig.steps, setStepData]);
 
+  // Evaluate a step's `visible` condition against LIVE data. The
+  // `conditionsHelpers.isStepVisible` reads a render-time snapshot of allData,
+  // which goes stale within a single navigation tick (e.g. onAfterValidation
+  // writing data that flips a later step's visibility). Re-derive the decision
+  // from the freshly-written store, mirroring the live-read used for data.
+  const isStepVisibleLive = useCallback(
+    (stepIndex: number): boolean => {
+      if (stepIndex < 0 || stepIndex >= workflowConfig.steps.length) return false;
+
+      const visibleCondition = workflowConfig.steps[stepIndex]?.conditions?.visible;
+      if (!visibleCondition) return true;
+
+      const liveAllData = getAllData() as Record<string, unknown>;
+      const currentStepId = workflowConfig.steps[workflowState.currentStepIndex]?.id;
+      const liveStepData = (currentStepId ? liveAllData[currentStepId] : undefined) as
+        | Record<string, unknown>
+        | undefined;
+      const conditionData = combineWorkflowDataForConditions(liveAllData, liveStepData ?? {});
+
+      try {
+        const condition = visibleCondition as ConditionConfig | ConditionBuilder;
+        const conditionToEvaluate: ConditionConfig =
+          typeof condition === 'object' && 'build' in condition ? condition.build() : condition;
+        return evaluateCondition(conditionToEvaluate, conditionData);
+      } catch {
+        // Match the render-path behaviour: a visible condition that throws
+        // resolves to hidden rather than silently defaulting to visible.
+        return false;
+      }
+    },
+    [workflowConfig.steps, workflowState.currentStepIndex, getAllData]
+  );
+
   // Core navigation function
   const goToStep = useCallback(
     async (stepIndex: number): Promise<boolean> => {
@@ -111,8 +158,8 @@ export function useWorkflowNavigation({
         return false;
       }
 
-      // Check if step is visible
-      if (!conditionsHelpers.isStepVisible(stepIndex)) {
+      // Check if step is visible against LIVE data (see isStepVisibleLive)
+      if (!isStepVisibleLive(stepIndex)) {
         return false;
       }
 
@@ -150,7 +197,7 @@ export function useWorkflowNavigation({
     [
       workflowConfig.steps,
       workflowConfig.analytics,
-      conditionsHelpers,
+      isStepVisibleLive,
       workflowState.currentStepIndex,
       getAllData,
       workflowContext,
@@ -165,26 +212,26 @@ export function useWorkflowNavigation({
   const findNextVisibleStep = useCallback(
     (fromIndex: number): number | null => {
       for (let i = fromIndex + 1; i < workflowConfig.steps.length; i++) {
-        if (conditionsHelpers.isStepVisible(i)) {
+        if (isStepVisibleLive(i)) {
           return i;
         }
       }
       return null;
     },
-    [workflowConfig.steps.length, conditionsHelpers]
+    [workflowConfig.steps.length, isStepVisibleLive]
   );
 
   // Helper function to find the previous visible step
   const findPreviousVisibleStep = useCallback(
     (fromIndex: number): number | null => {
       for (let i = fromIndex - 1; i >= 0; i--) {
-        if (conditionsHelpers.isStepVisible(i)) {
+        if (isStepVisibleLive(i)) {
           return i;
         }
       }
       return null;
     },
-    [conditionsHelpers]
+    [isStepVisibleLive]
   );
 
   // Navigate to next step
@@ -257,9 +304,27 @@ export function useWorkflowNavigation({
       workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
     }
 
-    // Go to next step (skipping does not trigger validation)
-    return goNext();
-  }, [canSkipCurrentStep, currentStep, workflowConfig.analytics, workflowContext, goNext]);
+    // A skip is NOT a completion: it explicitly bypasses validation, so it must
+    // not run onAfterValidation, must not mark the step passed, and must not
+    // emit onStepComplete. Signal the analytics hook to suppress completion for
+    // this step, then transition to the next visible step directly.
+    const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
+    if (nextStepIndex === null) {
+      return false; // Let the submission hook handle this
+    }
+
+    pendingSkipRef.current = currentStep.id;
+    return goToStep(nextStepIndex);
+  }, [
+    canSkipCurrentStep,
+    currentStep,
+    workflowConfig.analytics,
+    workflowContext,
+    workflowState.currentStepIndex,
+    findNextVisibleStep,
+    goToStep,
+    pendingSkipRef,
+  ]);
 
   // Check if we can navigate to a specific step
   const canGoToStep = useCallback(

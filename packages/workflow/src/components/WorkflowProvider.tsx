@@ -398,11 +398,16 @@ export function WorkflowProvider({
     workflowConfig.steps,
   ]);
 
+  // Shared signal: skipStep sets the id of a skipped step so analytics can
+  // suppress onStepComplete for it (a skip is not a completion).
+  const pendingSkipRef = useRef<string | null>(null);
+
   // Initialize analytics tracking
   const { analyticsStartTime } = useWorkflowAnalytics({
     workflowConfig,
     workflowState,
     workflowContext,
+    pendingSkipRef,
   });
 
   // Initialize navigation
@@ -426,6 +431,7 @@ export function WorkflowProvider({
     markStepPassed,
     setStepData: setStepDataAction,
     getAllData,
+    pendingSkipRef,
     onStepChange: onStepChangeRef.current,
   });
 
