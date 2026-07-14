@@ -73,6 +73,23 @@ describe('Flow Builder', () => {
     });
   });
 
+  describe('JSON serialization round-trip', () => {
+    it('should preserve id/name/description and steps through toJSON()/fromJSON()', () => {
+      const builder = flow
+        .create(rilConfig as any, 'wf-1', 'My Flow', 'desc')
+        .addStep({ title: 'S', formConfig: sampleForm });
+
+      const json = JSON.parse(JSON.stringify(builder.toJSON()));
+      const built = flow.create(rilConfig as any).fromJSON(json).build();
+
+      expect(built.id).toBe('wf-1');
+      expect(built.name).toBe('My Flow');
+      expect(built.description).toBe('desc');
+      expect(built.steps).toHaveLength(1);
+      expect(built.steps[0].title).toBe('S');
+    });
+  });
+
   describe('step addition', () => {
     describe('addStep method - single step', () => {
       it('should add single step with form builder', () => {

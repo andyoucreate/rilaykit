@@ -859,9 +859,9 @@ export class flow {
    * ```
    */
   fromJSON(json: any): this {
-    this.workflowId = json.workflowId;
-    this.workflowName = json.workflowName;
-    this.workflowDescription = json.workflowDescription;
+    this.workflowId = json.id;
+    this.workflowName = json.name;
+    this.workflowDescription = json.description;
     this.steps = json.steps;
     this.analytics = json.analytics;
     this.persistenceConfig = json.persistence;
