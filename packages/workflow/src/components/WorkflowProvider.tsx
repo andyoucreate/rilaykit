@@ -563,6 +563,7 @@ export function WorkflowProvider({
     workflowContext,
     setSubmitting,
     onWorkflowComplete: onWorkflowCompleteRef.current,
+    getAllData,
     analyticsStartTime,
     workflowCompletedRef,
     clearPersistedState: persistenceInfo.clearPersistedData,

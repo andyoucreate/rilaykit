@@ -11,6 +11,17 @@ export interface UseWorkflowSubmissionProps {
   workflowContext: WorkflowContext;
   setSubmitting: (isSubmitting: boolean) => void;
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
+  /**
+   * Live accessor for the latest `allData`. The `workflowState` prop is a
+   * render-time snapshot: on the FINAL step, `handleSubmit` writes the
+   * structured step values into the store then calls `submitWorkflow()`
+   * synchronously in the same tick — no React commit between — so the snapshot
+   * still holds the pre-submit final-step slice (flat repeatable composite
+   * keys, missing untouched defaults). Reading the store live mirrors
+   * {@link useWorkflowNavigation} and hands the callbacks the canonical
+   * structured completion payload.
+   */
+  getAllData: () => Record<string, unknown>;
   analyticsStartTime: React.MutableRefObject<number>;
   /**
    * Shared flag flipped once the workflow completes so the abandon cleanup in
@@ -38,6 +49,7 @@ export function useWorkflowSubmission({
   workflowContext,
   setSubmitting,
   onWorkflowComplete,
+  getAllData,
   analyticsStartTime,
   workflowCompletedRef,
   clearPersistedState,
@@ -52,20 +64,21 @@ export function useWorkflowSubmission({
   const submitWorkflow = useCallback(async () => {
     setSubmitting(true);
 
+    // Read the completion payload from the LIVE store, not the render-time
+    // snapshot: on the final step the just-written structured step data has not
+    // committed to a new render yet (see getAllData docs).
+    const completionData = getAllData();
+
     try {
       // Call onWorkflowComplete callback if provided
       if (onWorkflowCompleteRef.current) {
-        await onWorkflowCompleteRef.current(workflowState.allData);
+        await onWorkflowCompleteRef.current(completionData);
       }
 
       // Track workflow completion analytics
       if (workflowConfig.analytics?.onWorkflowComplete) {
         const totalTime = Date.now() - analyticsStartTime.current;
-        workflowConfig.analytics.onWorkflowComplete(
-          workflowConfig.id,
-          totalTime,
-          workflowState.allData
-        );
+        workflowConfig.analytics.onWorkflowComplete(workflowConfig.id, totalTime, completionData);
       }
 
       // Mark completion so unmount does not fire onWorkflowAbandon.
@@ -90,7 +103,7 @@ export function useWorkflowSubmission({
       setSubmitting(false);
     }
   }, [
-    workflowState.allData,
+    getAllData,
     workflowConfig.analytics,
     workflowConfig.id,
     workflowContext,
