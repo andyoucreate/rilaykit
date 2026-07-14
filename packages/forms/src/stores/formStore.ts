@@ -10,7 +10,7 @@ import { ConfigurationError } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { buildCompositeKey } from '../utils/repeatable-data';
+import { buildCompositeKey, initializeRepeatableState } from '../utils/repeatable-data';
 
 // =================================================================
 // STORE STATE & ACTIONS
@@ -149,9 +149,18 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
       },
 
       _reset: (values) => {
-        const resetValues = values ?? get()._defaultValues;
+        const state = get();
+        const resetValues = values ?? state._defaultValues;
+
+        // Rebuild the repeatable order + next-keys from the reset values so rows
+        // (and their default/min items) survive a reset instead of vanishing.
+        const { values: rebuiltValues, order, nextKeys } = initializeRepeatableState(
+          resetValues,
+          state._repeatableConfigs
+        );
+
         set({
-          values: { ...resetValues },
+          values: { ...rebuiltValues },
           errors: {},
           validationStates: {},
           touched: {},
@@ -159,8 +168,8 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
           isSubmitting: false,
           isValid: true,
           _fieldProps: {},
-          _repeatableOrder: {},
-          _repeatableNextKey: {},
+          _repeatableOrder: order,
+          _repeatableNextKey: nextKeys,
         });
       },
 

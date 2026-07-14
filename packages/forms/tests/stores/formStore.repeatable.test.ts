@@ -368,7 +368,7 @@ describe('FormStore — Repeatable Fields', () => {
   });
 
   describe('_reset', () => {
-    it('should clear repeatable order and next keys', () => {
+    it('should reconstruct repeatable order/next-keys from reset values (min-respecting)', () => {
       const store = setupStore();
 
       act(() => {
@@ -380,9 +380,12 @@ describe('FormStore — Repeatable Fields', () => {
         store.getState()._reset();
       });
 
+      // BUG 3: reset rebuilds order from the reset values instead of hard-clearing.
+      // The default values carry no rows and min is 0, so the repeatable is
+      // present with an empty order (rows are gone, but the entry is rebuilt).
       const state = store.getState();
-      expect(state._repeatableOrder).toEqual({});
-      expect(state._repeatableNextKey).toEqual({});
+      expect(state._repeatableOrder).toEqual({ items: [] });
+      expect(state._repeatableNextKey).toEqual({ items: 0 });
     });
 
     it('should preserve repeatable configs after reset', () => {

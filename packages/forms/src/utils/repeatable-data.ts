@@ -168,3 +168,103 @@ export function flattenRepeatableValues(
 
   return { values, order, nextKeys };
 }
+
+// =================================================================
+// INITIALIZE / RECONSTRUCT: repeatable order + next-key from values
+// =================================================================
+
+/**
+ * Collect the ordered item keys already present in flat store values for a
+ * given repeatable, plus the next free numeric key.
+ */
+function collectItemKeysFromFlat(
+  values: Record<string, unknown>,
+  repeatableId: string
+): { keys: string[]; nextKey: number } {
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  let maxIndex = -1;
+
+  for (const key of Object.keys(values)) {
+    const parsed = parseCompositeKey(key);
+    if (!parsed || parsed.repeatableId !== repeatableId) continue;
+
+    if (!seen.has(parsed.itemKey)) {
+      seen.add(parsed.itemKey);
+      keys.push(parsed.itemKey);
+    }
+
+    const match = /^k(\d+)$/.exec(parsed.itemKey);
+    if (match) {
+      maxIndex = Math.max(maxIndex, Number(match[1]));
+    }
+  }
+
+  return { keys, nextKey: maxIndex + 1 };
+}
+
+/**
+ * Build the initial repeatable state (values + order + next-keys) from raw
+ * default/reset values. This is the single source of truth used by both the
+ * FormProvider (mount / id-change) and the store `_reset` action.
+ *
+ * Handling, per repeatable:
+ *  - If the raw values contain a nested array (e.g. `{ items: [{...}] }`), it is
+ *    flattened into composite keys and its order is taken from the array.
+ *  - Otherwise the order is reconstructed from any composite keys already
+ *    present in the flat values (the reset case, where values are already flat).
+ *  - The result is padded up to the repeatable's `min` with default rows.
+ */
+export function initializeRepeatableState(
+  rawValues: Record<string, unknown>,
+  repeatableConfigs: Record<string, RepeatableFieldConfig>
+): {
+  values: Record<string, unknown>;
+  order: Record<string, string[]>;
+  nextKeys: Record<string, number>;
+} {
+  // Step 1 — flatten any nested repeatable arrays.
+  const hasArrayDefaults = Object.keys(repeatableConfigs).some((id) =>
+    Array.isArray(rawValues[id])
+  );
+
+  let values: Record<string, unknown>;
+  const order: Record<string, string[]> = {};
+  const nextKeys: Record<string, number> = {};
+
+  if (hasArrayDefaults) {
+    const flattened = flattenRepeatableValues(rawValues, repeatableConfigs);
+    values = flattened.values;
+    Object.assign(order, flattened.order);
+    Object.assign(nextKeys, flattened.nextKeys);
+  } else {
+    values = { ...rawValues };
+  }
+
+  // Step 2 — reconstruct order from flat keys where none exists, then pad to min.
+  for (const [id, config] of Object.entries(repeatableConfigs)) {
+    if (!order[id]) {
+      const reconstructed = collectItemKeysFromFlat(values, id);
+      order[id] = reconstructed.keys;
+      nextKeys[id] = reconstructed.nextKey;
+    }
+
+    const minItems = config.min ?? 0;
+    let nextKey = nextKeys[id] ?? 0;
+
+    while (order[id].length < minItems) {
+      const itemKey = `k${nextKey}`;
+      order[id] = [...order[id], itemKey];
+
+      for (const field of config.allFields) {
+        values[buildCompositeKey(id, itemKey, field.id)] = config.defaultValue?.[field.id] ?? undefined;
+      }
+
+      nextKey++;
+    }
+
+    nextKeys[id] = nextKey;
+  }
+
+  return { values, order, nextKeys };
+}

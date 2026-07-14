@@ -12,7 +12,7 @@ import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
 import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
 import { FormStoreContext, createFormStore } from '../stores';
-import { buildCompositeKey, flattenRepeatableValues } from '../utils/repeatable-data';
+import { initializeRepeatableState } from '../utils/repeatable-data';
 
 // =================================================================
 // FORM CONFIG CONTEXT
@@ -69,45 +69,13 @@ export function FormProvider({
   // Synchronously initialize repeatable configs and default values
   const [store] = useState(() => {
     const repeatableConfigs = formConfig.repeatableFields ?? {};
-    let initialValues = { ...defaultValues };
-    let initialOrder: Record<string, string[]> = {};
-    let initialNextKeys: Record<string, number> = {};
 
-    // If defaultValues contain arrays for repeatables, flatten them
-    const hasRepeatableDefaults = Object.keys(repeatableConfigs).some((id) =>
-      Array.isArray(defaultValues[id])
-    );
-
-    if (hasRepeatableDefaults) {
-      const flattened = flattenRepeatableValues(defaultValues, repeatableConfigs);
-      initialValues = flattened.values;
-      initialOrder = flattened.order;
-      initialNextKeys = flattened.nextKeys;
-    }
-
-    // For repeatables without default arrays, create min items
-    for (const [id, config] of Object.entries(repeatableConfigs)) {
-      if (!initialOrder[id]) {
-        const minItems = config.min ?? 0;
-        const keys: string[] = [];
-        let keyCounter = initialNextKeys[id] ?? 0;
-
-        for (let i = 0; i < minItems; i++) {
-          const itemKey = `k${keyCounter}`;
-          keys.push(itemKey);
-
-          for (const field of config.allFields) {
-            const compositeKey = buildCompositeKey(id, itemKey, field.id);
-            initialValues[compositeKey] = config.defaultValue?.[field.id] ?? undefined;
-          }
-
-          keyCounter++;
-        }
-
-        initialOrder[id] = keys;
-        initialNextKeys[id] = keyCounter;
-      }
-    }
+    // Flatten default arrays, reconstruct order and pad to min counts.
+    const {
+      values: initialValues,
+      order: initialOrder,
+      nextKeys: initialNextKeys,
+    } = initializeRepeatableState(defaultValues, repeatableConfigs);
 
     const s = createFormStore(initialValues);
 
@@ -179,45 +147,13 @@ export function FormProvider({
       prevFormIdRef.current = formConfig.id;
 
       const repeatableConfigs = formConfig.repeatableFields ?? {};
-      let resetValues = { ...defaultValues };
-      let initialOrder: Record<string, string[]> = {};
-      let initialNextKeys: Record<string, number> = {};
 
-      // Flatten default arrays for repeatables
-      const hasRepeatableDefaults = Object.keys(repeatableConfigs).some((id) =>
-        Array.isArray(defaultValues[id])
-      );
-
-      if (hasRepeatableDefaults) {
-        const flattened = flattenRepeatableValues(defaultValues, repeatableConfigs);
-        resetValues = flattened.values;
-        initialOrder = flattened.order;
-        initialNextKeys = flattened.nextKeys;
-      }
-
-      // Create min items for repeatables without defaults
-      for (const [id, config] of Object.entries(repeatableConfigs)) {
-        if (!initialOrder[id]) {
-          const minItems = config.min ?? 0;
-          const keys: string[] = [];
-          let keyCounter = initialNextKeys[id] ?? 0;
-
-          for (let i = 0; i < minItems; i++) {
-            const itemKey = `k${keyCounter}`;
-            keys.push(itemKey);
-
-            for (const field of config.allFields) {
-              const compositeKey = buildCompositeKey(id, itemKey, field.id);
-              resetValues[compositeKey] = config.defaultValue?.[field.id] ?? undefined;
-            }
-
-            keyCounter++;
-          }
-
-          initialOrder[id] = keys;
-          initialNextKeys[id] = keyCounter;
-        }
-      }
+      // Flatten default arrays, reconstruct order and pad to min counts.
+      const {
+        values: resetValues,
+        order: initialOrder,
+        nextKeys: initialNextKeys,
+      } = initializeRepeatableState(defaultValues, repeatableConfigs);
 
       // Reset with computed values
       store.getState()._reset(resetValues);
