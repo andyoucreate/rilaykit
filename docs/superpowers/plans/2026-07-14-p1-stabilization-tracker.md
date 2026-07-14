@@ -86,6 +86,14 @@
 - [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
 - [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
+## Round 5 hunt inventory (iter 9, DECISIVE) — 2 golden-path bugs; r4-regression + core CLEAN
+
+Verdict: r4-regression audit = 0 findings (fixes solid); core-golden = 0 findings (solid on normal data).
+Only 2 golden-path bugs remain (both high). cleanOnGoldenPath=false → not yet NASA-grade, but converging.
+
+- [ ] BUG/high (golden): field hidden by a condition AFTER committing a validation error → isValid stays false forever (submit deadlock) — FormProvider.tsx conditions-sync effect
+- [ ] BUG/high (golden, race): auto-save re-persists a completed workflow AFTER clear-on-completion → resurrects finished state on reload — usePersistence.ts (coordinate with clearPersistedState + cancel debounce)
+
 ## Round 4 hunt inventory (iter 8) — 9 bugs (6 high) + 1 gap; NOT clean
 
 - [x] BUG/high: `form.clone()` drops form-level validation + submitOptions — forms/builders/form.ts
