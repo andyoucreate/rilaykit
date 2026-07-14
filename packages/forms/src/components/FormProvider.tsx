@@ -148,25 +148,19 @@ export function FormProvider({
 
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
+      // Install THIS form's repeatable configs (replacing the previous form's)
+      // BEFORE resetting. `_reset` rebuilds repeatable rows against the store's
+      // `_repeatableConfigs`; if the previous form's configs were still present,
+      // a reset would pad their `min` items into this form's values (leaking
+      // stale composite keys like `prevRepeatable[k0].field` across steps).
+      store.setState({ _repeatableConfigs: repeatableConfigs });
+
       // Flatten default arrays, reconstruct order and pad to min counts.
-      const {
-        values: resetValues,
-        order: initialOrder,
-        nextKeys: initialNextKeys,
-      } = initializeRepeatableState(defaultValues, repeatableConfigs);
+      const { values: resetValues } = initializeRepeatableState(defaultValues, repeatableConfigs);
 
-      // Reset with computed values
+      // Reset with computed values — `_reset` rebuilds order/next-keys from the
+      // now-current configs.
       store.getState()._reset(resetValues);
-
-      // Re-set repeatable configs and order
-      const state = store.getState();
-      for (const [id, config] of Object.entries(repeatableConfigs)) {
-        state._setRepeatableConfig(id, config);
-      }
-      store.setState({
-        _repeatableOrder: initialOrder,
-        _repeatableNextKey: initialNextKeys,
-      });
     }
   }, [formConfig.id, formConfig.repeatableFields, store, defaultValues]);
 

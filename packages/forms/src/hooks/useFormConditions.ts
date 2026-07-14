@@ -7,6 +7,14 @@ import {
   useMultipleConditionEvaluation,
 } from './useConditionEvaluation';
 
+// Stable empty singletons for the no-conditions fast path. Passing fresh `{}`
+// literals would give `useMultipleConditionEvaluation`'s memo new deps on every
+// render, changing `fieldConditions` identity every keystroke — which would
+// churn `conditionsHelpers` in the form context and re-render EVERY field,
+// defeating granular subscription isolation.
+const EMPTY_CONDITIONS: Record<string, ConditionalBehavior | undefined> = Object.freeze({});
+const EMPTY_VALUES: Record<string, any> = Object.freeze({});
+
 export interface UseFormConditionsProps {
   formConfig: FormConfiguration;
   formValues: Record<string, any>;
@@ -101,8 +109,8 @@ export function useFormConditions({
 
   // Evaluate conditions for all fields - only if there are conditional fields
   const fieldConditions = useMultipleConditionEvaluation(
-    hasConditionalFields ? fieldsWithConditions : {},
-    hasConditionalFields ? formValues : {}
+    hasConditionalFields ? fieldsWithConditions : EMPTY_CONDITIONS,
+    hasConditionalFields ? formValues : EMPTY_VALUES
   );
 
   // Helper function to get condition result for a specific field
