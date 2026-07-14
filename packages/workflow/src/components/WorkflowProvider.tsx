@@ -350,12 +350,14 @@ export function WorkflowProvider({
       isPersisting: hasPersistence ? persistenceHook.isPersisting : false,
       persistenceError: hasPersistence ? persistenceHook.persistenceError : null,
       persistNow: hasPersistence ? persistenceHook.persistNow : undefined,
+      clearPersistedData: hasPersistence ? persistenceHook.clearPersistedData : undefined,
     }),
     [
       hasPersistence,
       persistenceHook.isPersisting,
       persistenceHook.persistenceError,
       persistenceHook.persistNow,
+      persistenceHook.clearPersistedData,
     ]
   );
 
@@ -560,6 +562,7 @@ export function WorkflowProvider({
     onWorkflowComplete: onWorkflowCompleteRef.current,
     analyticsStartTime,
     workflowCompletedRef,
+    clearPersistedState: persistenceInfo.clearPersistedData,
   });
 
   // Create field value setter for form integration

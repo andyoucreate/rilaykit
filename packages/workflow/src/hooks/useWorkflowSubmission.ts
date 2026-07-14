@@ -18,6 +18,12 @@ export interface UseWorkflowSubmissionProps {
    * abandonment on unmount.
    */
   workflowCompletedRef: React.MutableRefObject<boolean>;
+  /**
+   * Clears any persisted state for this workflow. Called on genuine completion
+   * so re-mounting the same provider starts fresh instead of resurrecting the
+   * completed workflow's data. Absent when persistence is not configured.
+   */
+  clearPersistedState?: () => Promise<void>;
 }
 
 export interface UseWorkflowSubmissionReturn {
@@ -34,10 +40,13 @@ export function useWorkflowSubmission({
   onWorkflowComplete,
   analyticsStartTime,
   workflowCompletedRef,
+  clearPersistedState,
 }: UseWorkflowSubmissionProps): UseWorkflowSubmissionReturn {
   // Use ref to avoid recreating callbacks when onWorkflowComplete changes
   const onWorkflowCompleteRef = useRef(onWorkflowComplete);
   onWorkflowCompleteRef.current = onWorkflowComplete;
+  const clearPersistedStateRef = useRef(clearPersistedState);
+  clearPersistedStateRef.current = clearPersistedState;
 
   // Submit workflow
   const submitWorkflow = useCallback(async () => {
@@ -61,6 +70,16 @@ export function useWorkflowSubmission({
 
       // Mark completion so unmount does not fire onWorkflowAbandon.
       workflowCompletedRef.current = true;
+
+      // Clear persisted state on genuine completion so a re-mount starts fresh
+      // instead of resurrecting the finished workflow's data.
+      if (clearPersistedStateRef.current) {
+        try {
+          await clearPersistedStateRef.current();
+        } catch (clearError) {
+          log.error('Failed to clear persisted state after completion:', clearError);
+        }
+      }
     } catch (error) {
       log.error('Workflow submission failed:', error);
       if (workflowConfig.analytics?.onError) {
