@@ -182,8 +182,8 @@ describe('Form Lifecycle — E2E', () => {
       <FormProvider formConfig={formConfig} onSubmit={onSubmit}>
         <FormBody />
         <SubmitButton />
-        <FieldErrorDisplay fieldId="fullName" />
-        <FieldErrorDisplay fieldId="contactEmail" />
+        <FieldErrorDisplay id="fullName" />
+        <FieldErrorDisplay id="contactEmail" />
       </FormProvider>
     );
 
@@ -334,7 +334,7 @@ describe('Form Lifecycle — E2E', () => {
         <FormBody />
         <FormValuesDisplay />
         <FormStateDisplay />
-        <SetValueButton fieldId="nickname" value="Modified" />
+        <SetValueButton id="nickname" value="Modified" />
         <ResetButton />
       </FormProvider>
     );

@@ -365,7 +365,7 @@ describe('Repeatable Fields — E2E', () => {
           }}
         >
           <FormBody />
-          <SetValueButton fieldId="country" value="FR" />
+          <SetValueButton id="country" value="FR" />
         </FormProvider>
       );
 

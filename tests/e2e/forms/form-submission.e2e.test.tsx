@@ -216,7 +216,7 @@ describe('Form Submission — E2E', () => {
         <FormBody />
         <SubmitButton />
         <FormStateDisplay />
-        <FieldErrorDisplay fieldId="username" />
+        <FieldErrorDisplay id="username" />
         <StoreCapture />
       </FormProvider>
     );

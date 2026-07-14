@@ -235,7 +235,7 @@ describe('Form Reset & Edge Cases — E2E', () => {
           <FormProvider formConfig={formConfig} defaultValues={{ name: 'default' }}>
             <FormBody />
             <FormValuesDisplay />
-            <SetValueButton fieldId="name" value="modified" />
+            <SetValueButton id="name" value="modified" />
           </FormProvider>
           <button type="button" data-testid="change-config" onClick={() => setConfigId('form-2')}>
             Change

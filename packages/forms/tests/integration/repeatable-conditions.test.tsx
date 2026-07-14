@@ -45,14 +45,11 @@ const MockSelectInput = ({ id, props, field }: ComponentRenderContext) => (
 
 let rilConfig: any;
 
-function SetValueButton({ fieldId, value }: { fieldId: string; value: unknown }) {
+function SetValueButton({ id, value }: { id: string; value: unknown }) {
   const store = useFormStoreApi();
   return (
-    <button
-      data-testid={`set-${fieldId}`}
-      onClick={() => store.getState()._setValue(fieldId, value)}
-    >
-      Set {fieldId}
+    <button data-testid={`set-${id}`} onClick={() => store.getState()._setValue(id, value)}>
+      Set {id}
     </button>
   );
 }
@@ -171,7 +168,7 @@ describe('Repeatable Fields — Conditions Integration', () => {
           }}
         >
           <FormBody />
-          <SetValueButton fieldId="country" value="FR" />
+          <SetValueButton id="country" value="FR" />
         </FormProvider>
       );
 

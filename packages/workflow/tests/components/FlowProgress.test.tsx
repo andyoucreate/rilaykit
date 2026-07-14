@@ -9,7 +9,10 @@ const r = ril.create().component('text', { name: 'Text', renderer: MockInput });
 const step = (id: string) => ({
   id,
   title: id.toUpperCase(),
-  formConfig: form.create(r, id).add({ id: `${id}-f`, type: 'text', props: {} }).build(),
+  formConfig: form
+    .create(r, id)
+    .add({ id: `${id}-f`, type: 'text', props: {} })
+    .build(),
 });
 
 const wf = flow

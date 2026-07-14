@@ -12,7 +12,7 @@ export interface FlowStepsContext {
  * Exposes the VISIBLE workflow steps, the current index within them,
  * and a `goTo` navigator that maps a visible index back to the original one.
  *
- * Visibility computation ported verbatim from WorkflowStepper.tsx (deleted in this task).
+ * Visibility computation ported verbatim from the legacy stepper component.
  */
 export function useFlowSteps(): FlowStepsContext {
   const { workflowConfig, workflowState, goToStep, conditionsHelpers } = useFlow();

@@ -1,7 +1,7 @@
+import { ril, when } from '@rilaykit/core';
+import { Form, FormBody, type VisibleRow, form, useFormRows } from '@rilaykit/forms';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ril, when } from '@rilaykit/core';
-import { Form, FormBody, form, useFormRows, type VisibleRow } from '@rilaykit/forms';
 
 const r = ril.create().component('text', {
   name: 'Text',
@@ -20,17 +20,15 @@ const definition = form
 
 // One row containing two fields, where only 'b' is conditionally hidden:
 // partial filtering must keep the row and drop only the hidden field.
-const partialRowDefinition = form
-  .create(r, 'partial')
-  .add(
-    { id: 'a', type: 'text', props: {} },
-    {
-      id: 'b',
-      type: 'text',
-      props: {},
-      conditions: { visible: when('a').equals('x') },
-    }
-  );
+const partialRowDefinition = form.create(r, 'partial').add(
+  { id: 'a', type: 'text', props: {} },
+  {
+    id: 'b',
+    type: 'text',
+    props: {},
+    conditions: { visible: when('a').equals('x') },
+  }
+);
 
 describe('<Form.Body>', () => {
   it('renders bare rows and fields by default', () => {
@@ -119,9 +117,7 @@ describe('useFormRows', () => {
   function RowsProbe() {
     const rows: VisibleRow[] = useFormRows();
     return (
-      <output data-testid="row-ids">
-        {rows.map((row) => `${row.kind}:${row.id}`).join(',')}
-      </output>
+      <output data-testid="row-ids">{rows.map((row) => `${row.kind}:${row.id}`).join(',')}</output>
     );
   }
 

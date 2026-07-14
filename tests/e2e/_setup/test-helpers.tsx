@@ -135,13 +135,13 @@ export function ValidationTrigger() {
   );
 }
 
-export function FieldErrorDisplay({ fieldId }: { fieldId: string }) {
-  const errors = useFieldErrors(fieldId);
+export function FieldErrorDisplay({ id }: { id: string }) {
+  const errors = useFieldErrors(id);
   if (errors.length === 0) return null;
   return (
-    <div data-testid={`errors-${fieldId}`}>
+    <div data-testid={`errors-${id}`}>
       {errors.map((err) => (
-        <span key={err.message} data-testid={`error-${fieldId}-${errors.indexOf(err)}`}>
+        <span key={err.message} data-testid={`error-${id}-${errors.indexOf(err)}`}>
           {err.message}
         </span>
       ))}
@@ -149,15 +149,15 @@ export function FieldErrorDisplay({ fieldId }: { fieldId: string }) {
   );
 }
 
-export function SetValueButton({ fieldId, value }: { fieldId: string; value: unknown }) {
+export function SetValueButton({ id, value }: { id: string; value: unknown }) {
   const store = useFormStoreApi();
   return (
     <button
       type="button"
-      data-testid={`set-${fieldId}`}
-      onClick={() => store.getState()._setValue(fieldId, value)}
+      data-testid={`set-${id}`}
+      onClick={() => store.getState()._setValue(id, value)}
     >
-      Set {fieldId}
+      Set {id}
     </button>
   );
 }

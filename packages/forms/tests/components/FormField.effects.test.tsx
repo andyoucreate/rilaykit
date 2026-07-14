@@ -18,13 +18,11 @@ const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
       value={String(field?.value ?? '')}
       onChange={(e) => field?.onChange(e.target.value)}
     >
-      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map(
-        (opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        )
-      )}
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
     </select>
   </div>
 );
@@ -362,10 +360,10 @@ describe('FormField — Effects Integration', () => {
   });
 
   // =========================================================================
-  // 5. dynamicProps override static props but not customProps
+  // 5. dynamicProps override static props but not overrides
   // =========================================================================
 
-  describe('Props precedence: fieldConfig.props < dynamicProps < customProps', () => {
+  describe('Props precedence: fieldConfig.props < dynamicProps < overrides', () => {
     it('should let dynamicProps override static field props', async () => {
       const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
@@ -436,7 +434,7 @@ describe('FormField — Effects Integration', () => {
       });
     });
 
-    it('should let customProps take precedence over dynamicProps', async () => {
+    it('should let overrides take precedence over dynamicProps', async () => {
       const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
@@ -488,7 +486,7 @@ describe('FormField — Effects Integration', () => {
       render(
         <FormProvider formConfig={formConfig}>
           <FormField id="toggle" />
-          {/* customProps forces placeholder='custom', overriding dynamicProps */}
+          {/* overrides forces placeholder='custom', overriding dynamicProps */}
           <FormField id="target" overrides={{ placeholder: 'custom' }} />
         </FormProvider>
       );
@@ -499,16 +497,16 @@ describe('FormField — Effects Integration', () => {
       });
 
       await waitFor(() => {
-        // But customProps { placeholder: 'custom' } has higher precedence
+        // But overrides { placeholder: 'custom' } has higher precedence
         expect(screen.getByTestId('input-target')).toHaveAttribute('placeholder', 'custom');
       });
     });
 
-    it('should apply precedence: fieldConfig.props < dynamicProps < customProps', async () => {
+    it('should apply precedence: fieldConfig.props < dynamicProps < overrides', async () => {
       // This test verifies the full chain in a single scenario.
       // fieldConfig.props has placeholder='static'
       // Effect sets placeholder='dynamic' via setProps
-      // customProps sets placeholder='custom'
+      // overrides sets placeholder='custom'
 
       const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
@@ -554,7 +552,7 @@ describe('FormField — Effects Integration', () => {
         })
         .build();
 
-      // --- Without customProps: dynamicProps should win over static ---
+      // --- Without overrides: dynamicProps should win over static ---
       const { unmount } = render(
         <FormProvider formConfig={formConfig}>
           <FormField id="trigger" />
@@ -574,7 +572,7 @@ describe('FormField — Effects Integration', () => {
 
       unmount();
 
-      // --- With customProps: customProps should win over dynamicProps ---
+      // --- With overrides: overrides should win over dynamicProps ---
       render(
         <FormProvider formConfig={formConfig}>
           <FormField id="trigger" />

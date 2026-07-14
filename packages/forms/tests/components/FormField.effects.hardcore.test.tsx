@@ -20,13 +20,11 @@ const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
       onChange={(e) => field?.onChange(e.target.value)}
     >
       <option value="">--</option>
-      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map(
-        (opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        )
-      )}
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
     </select>
   </div>
 );

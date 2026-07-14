@@ -1,6 +1,6 @@
+import { ConfigurationError, NotFoundError, ril } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { ConfigurationError, NotFoundError, ril } from '@rilaykit/core';
 
 const r = ril.create().component('select', {
   propsSchema: z.object({ label: z.string(), options: z.array(z.string()) }),
@@ -25,7 +25,11 @@ describe('ril.validateProps()', () => {
 
   it('omits expectedKeys for non-zod schemas without a shape', () => {
     const syncFail = {
-      '~standard': { version: 1, vendor: 'test', validate: () => ({ issues: [{ message: 'nope' }] }) },
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({ issues: [{ message: 'nope' }] }),
+      },
     };
     const custom = ril.create().component('custom', { propsSchema: syncFail as never });
     expect(custom.validateProps('custom', {})).toEqual({

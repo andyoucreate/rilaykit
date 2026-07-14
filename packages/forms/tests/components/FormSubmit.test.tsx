@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ril } from '@rilaykit/core';
 import { Form, FormSubmit, form } from '@rilaykit/forms';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 const r = ril.create().component('text', { renderer: ({ id }) => <input data-testid={id} /> });
 const def = form.create(r, 'f').add({ id: 'a', type: 'text', props: {} });
