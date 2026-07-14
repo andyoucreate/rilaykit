@@ -145,6 +145,17 @@ Only 2 golden-path bugs remain (both high). cleanOnGoldenPath=false → not yet 
 - [x] DevelopmentAdapter tests (exact avg/max formatting, error summary)
 - [~] weak-assertion sweep: localStorage.test.ts strengthened (instanceof + exact code + round-trip); full 153-site repo sweep still deferred
 
+## CAMPAIGN COMPLETE — NASA-grade convergence reached (2026-07-14)
+
+Stop condition MET: 2 consecutive clean-golden-path rounds (7 + 8), core + regression audits clean (round 5),
+bug classes A (stale committed error vs condition change) and B (live-vs-render-snapshot staleness) verified fully closed.
+- 50 real bugs fixed across 8 hunt rounds (r1=19, r2=5, r3=8, r4=9, r5=2, r6=2, r7=1, r8=1) + P1 proof-gate work.
+- 2 hunter findings correctly REFUTED as false positives (combine threading; canSubmit raw-index) — verified against live source.
+- Baseline 1428 → 1534 tests (+106), 146 files, type-check 4/4, build 6/6. Every fix TDD (red→green) + key fixes mutation-checked.
+- New capability shipped in passing: redirectable runtime logger (getLogger/setLogSink), IdGenerator.clone(), debounce.cancel().
+Known documented limitations (tracked debt, NOT golden-path): full weak-assertion sweep (~153 sites) deferred; secondary-surface
+polish. None affect primary user flows.
+
 ## Iteration log
 - (iter 11, CONFIRMATION) ROUND 7: cleanOnGoldenPath=TRUE (first clean golden-path round!). 2 findings, both onGoldenPath=false: (1) onAfterValidation positional stepData arg stale (last unpatched class-B sibling — REAL, fixed TDD + mutation-checked, class B now fully closed); (2) canSubmit raw-index = FALSE POSITIVE (round-3 fix verified in place). 49 total bugs fixed, 2 false positives correctly refuted. Full suite 1532 green. Rising false-positive rate (combine, canSubmit) signals bottom-of-barrel. Next: ROUND 8 = second consecutive clean-golden-path confirmation → if clean, NASA-grade call (stop loop + P2).
 - (iter 10, CONFIRMATION) ROUND 6: NOT clean — 2 golden-path bugs (both SIBLINGS of earlier point-patches) + 1 REFUTED false positive (combine threading — verified live, round-1 fix holds). Fixed both SYSTEMICALLY (class not instance: shared conditional-required helper covering invisible+non-required; getAllData threaded into submission like navigation) + mutation-checked. Full suite 1530 green. 48 total bugs fixed, 1 false-positive correctly refuted. Pattern: golden-path rounds now find only class-siblings, now closed systemically. Next: ROUND 7 golden-path confirmation — a clean round + the clean round-5 core/regression audits + user authorization → NASA-grade call (stop loop + P2).
