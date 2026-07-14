@@ -39,19 +39,33 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Functions (`renderer`), Standard Schema objects (`propsSchema`,
  * `inputSchema`, `validate`) and any non-plain object are passed through by
  * reference so their identity — and behaviour — is never disturbed.
+ *
+ * A `seen` map guards against cyclic plain input (e.g. `meta.self = meta`):
+ * each source object/array maps to its clone, so a cycle is reproduced in the
+ * output instead of recursing until the stack overflows.
  */
-function clonePlainData<T>(value: T): T {
+function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
   if (Array.isArray(value)) {
-    return value.map((item) => clonePlainData(item)) as T;
+    const existing = seen.get(value);
+    if (existing !== undefined) return existing as T;
+    const clonedArray: unknown[] = [];
+    seen.set(value, clonedArray);
+    for (const item of value) {
+      clonedArray.push(clonePlainData(item, seen));
+    }
+    return clonedArray as T;
   }
   if (isPlainObject(value)) {
     // Standard Schema objects carry a `~standard` marker — never clone them.
     if ('~standard' in value) {
       return value;
     }
+    const existing = seen.get(value);
+    if (existing !== undefined) return existing as T;
     const cloned: Record<string, unknown> = {};
+    seen.set(value, cloned);
     for (const [key, item] of Object.entries(value)) {
-      cloned[key] = clonePlainData(item);
+      cloned[key] = clonePlainData(item, seen);
     }
     return cloned as T;
   }
