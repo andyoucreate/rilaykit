@@ -54,6 +54,50 @@ describe('ril - Immutable API', () => {
     });
   });
 
+  describe('deep-clone of registered entries (Bug 2)', () => {
+    it('isolates nested meta/defaultProps from post-registration mutation', () => {
+      const renderer = vi.fn();
+      const meta = { nested: { v: 1 } };
+      const defaultProps = { a: { b: 1 } };
+
+      const config = ril.create().component('widget', {
+        name: 'Widget',
+        renderer,
+        meta,
+        defaultProps,
+      });
+
+      // Mutate the ORIGINAL objects after registration
+      meta.nested.v = 999;
+      defaultProps.a.b = 999;
+
+      const stored = config.getComponent('widget');
+      expect((stored?.meta?.nested as { v: number }).v).toBe(1);
+      expect((stored?.defaultProps?.a as { b: number }).b).toBe(1);
+    });
+
+    it('preserves renderer and propsSchema reference identity', () => {
+      const renderer = vi.fn();
+      const propsSchema = {
+        '~standard': {
+          version: 1 as const,
+          vendor: 'test',
+          validate: (value: unknown) => ({ value }),
+        },
+      };
+
+      const config = ril.create().component('widget', {
+        name: 'Widget',
+        renderer,
+        propsSchema: propsSchema as never,
+      });
+
+      const stored = config.getComponent('widget');
+      expect(stored?.renderer).toBe(renderer);
+      expect(stored?.propsSchema).toBe(propsSchema);
+    });
+  });
+
   describe('clone method', () => {
     it('should create independent copy', () => {
       const original = ril.create().component('text', { name: 'Text', renderer: vi.fn() });

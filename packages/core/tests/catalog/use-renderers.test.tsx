@@ -42,7 +42,9 @@ describe('ril.renderers()', () => {
     expect(r.getComponent('text')?.renderer).toBe(textRenderer);
     expect(r.getComponent('text')?.description).toBe('kept');
     expect(r.getComponent('text')?.propsSchema).toBe(textSchema);
-    expect(r.getComponent('text')?.meta).toBe(textMeta);
+    // meta is deep-cloned at registration (immutability), so structural — not
+    // referential — equality is the contract.
+    expect(r.getComponent('text')?.meta).toEqual(textMeta);
     expect(r.getTool('show_form')?.renderer).toBe(toolRenderer);
     expect(r.getTool('show_form')?.description).toBe('kept too');
     // immutability
@@ -57,7 +59,8 @@ describe('ril.renderers()', () => {
     const base = ril.create().part('reasoning', { renderer: initialPartRenderer, meta: partMeta });
     const r = base.renderers({ parts: { reasoning: partRenderer } });
     expect(r.getPart('reasoning')?.renderer).toBe(partRenderer);
-    expect(r.getPart('reasoning')?.meta).toBe(partMeta);
+    // meta is deep-cloned at registration (immutability), so structural equality.
+    expect(r.getPart('reasoning')?.meta).toEqual(partMeta);
     // immutability
     expect(base.getPart('reasoning')?.renderer).toBe(initialPartRenderer);
   });

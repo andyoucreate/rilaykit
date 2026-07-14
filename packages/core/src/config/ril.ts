@@ -19,6 +19,47 @@ export function catalogEntryKey(kind: 'component' | 'tool' | 'part', id: string)
 }
 
 /**
+ * Determines whether a value is a plain data object (literal `{}` or
+ * null-prototype). Class instances, RegExp, Date, functions, etc. are not.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Deep-clones the plain-data payload of a catalog entry while PRESERVING
+ * reference identity for functions and Standard Schema objects.
+ *
+ * Nested `meta`/`defaultProps` (and any plain object/array) are cloned so a
+ * caller mutating the object it passed in cannot leak into the stored entry.
+ * Functions (`renderer`), Standard Schema objects (`propsSchema`,
+ * `inputSchema`, `validate`) and any non-plain object are passed through by
+ * reference so their identity — and behaviour — is never disturbed.
+ */
+function clonePlainData<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => clonePlainData(item)) as T;
+  }
+  if (isPlainObject(value)) {
+    // Standard Schema objects carry a `~standard` marker — never clone them.
+    if ('~standard' in value) {
+      return value;
+    }
+    const cloned: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      cloned[key] = clonePlainData(item);
+    }
+    return cloned as T;
+  }
+  // Functions, non-plain objects and primitives keep their identity.
+  return value;
+}
+
+/**
  * Builds a type guard matching catalog entries of the given kind
  * stored in the namespaced catalog map
  */
@@ -146,7 +187,10 @@ export class ril<C> implements RilayInstance<C> {
       throw new DuplicateError(`${label} is already registered`, { key });
     }
     return this.cloneWith((entries) => {
-      entries.set(key, value);
+      // Deep-clone plain data so external mutation of the caller's object
+      // cannot leak into the stored (immutable) entry; functions and schemas
+      // keep their reference identity.
+      entries.set(key, clonePlainData(value));
     });
   }
 
