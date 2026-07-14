@@ -1,4 +1,4 @@
-import { FieldWrapper } from '@/components/renderers/field-wrapper';
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import {
   Select,
   SelectContent,
@@ -22,19 +22,11 @@ interface SelectInputProps {
 }
 
 export function SelectInput({ id, props, field }: ComponentRenderContext<SelectInputProps>) {
-  const hasError = Boolean(field?.touched && field?.error?.length);
+  const hasError = hasFieldError(field);
   const options = props.options ?? [];
 
   return (
-    <FieldWrapper
-      id={id}
-      label={props.label}
-      description={props.description}
-      required={props.required}
-      error={field?.error}
-      touched={field?.touched}
-      isValidating={field?.isValidating}
-    >
+    <FieldWrapper id={id} props={props} field={field}>
       <Select
         value={(field?.value as string) ?? ''}
         onValueChange={(v) => field?.onChange(v)}

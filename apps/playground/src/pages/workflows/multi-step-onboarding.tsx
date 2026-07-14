@@ -1,5 +1,6 @@
 import { NextButton } from '@/components/chrome/next-button';
 import { PreviousButton } from '@/components/chrome/previous-button';
+import { SkipButton } from '@/components/chrome/skip-button';
 import { Stepper } from '@/components/chrome/stepper';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -162,7 +163,10 @@ export function MultiStepOnboardingPage() {
             </div>
             <div className="mt-6 flex justify-between">
               <PreviousButton />
-              <NextButton />
+              <div className="flex gap-2">
+                <SkipButton />
+                <NextButton />
+              </div>
             </div>
           </Flow>
         </CardContent>

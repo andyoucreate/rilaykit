@@ -1,4 +1,4 @@
-import { FieldWrapper } from '@/components/renderers/field-wrapper';
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import { Input } from '@/components/ui/input';
 import type { ComponentRenderContext } from 'rilaykit';
 
@@ -11,18 +11,10 @@ interface DateInputProps {
 }
 
 export function DateInput({ id, props, field }: ComponentRenderContext<DateInputProps>) {
-  const hasError = Boolean(field?.touched && field?.error?.length);
+  const hasError = hasFieldError(field);
 
   return (
-    <FieldWrapper
-      id={id}
-      label={props.label}
-      description={props.description}
-      required={props.required}
-      error={field?.error}
-      touched={field?.touched}
-      isValidating={field?.isValidating}
-    >
+    <FieldWrapper id={id} props={props} field={field}>
       <Input
         id={id}
         type="date"
