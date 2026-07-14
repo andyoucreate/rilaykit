@@ -4,6 +4,7 @@ import type {
   SubmitOptions,
   ValidationResult,
 } from '@rilaykit/core';
+import { ConfigurationError } from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { EffectEngine } from '../effects/effect-engine';
@@ -28,12 +29,13 @@ export interface FormConfigContextValue {
 const FormConfigContext = createContext<FormConfigContextValue | null>(null);
 
 /**
- * Access form configuration and validation methods
+ * Access the form engine: configuration, conditions helpers, validation and submit.
+ * Mirror of workflow's `useFlow`.
  */
-export function useFormConfigContext(): FormConfigContextValue {
+export function useForm(): FormConfigContextValue {
   const context = useContext(FormConfigContext);
   if (!context) {
-    throw new Error('useFormConfigContext must be used within a FormProvider');
+    throw new ConfigurationError('useForm must be used within a FormProvider');
   }
   return context;
 }

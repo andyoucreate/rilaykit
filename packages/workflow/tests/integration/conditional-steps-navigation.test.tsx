@@ -1,5 +1,5 @@
 import { ril, when } from '@rilaykit/core';
-import { form, useFormConfigContext, useFormStoreApi } from '@rilaykit/forms';
+import { form, useForm, useFormStoreApi } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -429,7 +429,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
     const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useWorkflowContext();
 
     // Access submit from FormProvider — same as WorkflowNextButton
-    const { submit } = useFormConfigContext();
+    const { submit } = useForm();
 
     // Access form store to set values like a real form component would
     const formStore = useFormStoreApi();

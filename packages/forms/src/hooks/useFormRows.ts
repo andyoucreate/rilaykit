@@ -1,12 +1,12 @@
 import type { FormRowEntry } from '@rilaykit/core';
 import { useMemo } from 'react';
-import { useFormConfigContext } from '../components/FormProvider';
+import { useForm } from '../components/FormProvider';
 import { visibleRowFields } from '../utils/visible-row-fields';
 
 export type VisibleRow = FormRowEntry;
 
 export function useFormRows(): VisibleRow[] {
-  const { formConfig, conditionsHelpers } = useFormConfigContext();
+  const { formConfig, conditionsHelpers } = useForm();
 
   return useMemo(() => {
     const rows: VisibleRow[] = [];

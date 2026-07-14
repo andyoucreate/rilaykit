@@ -1,6 +1,6 @@
 import type { ComponentRendererBaseProps, WorkflowNextButtonRendererProps } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
-import { useFormConfigContext, useFormSubmitting, useFormValues } from '@rilaykit/forms';
+import { useForm, useFormSubmitting, useFormValues } from '@rilaykit/forms';
 import React, { useCallback, useMemo } from 'react';
 import { useWorkflowContext } from './WorkflowProvider';
 
@@ -19,7 +19,7 @@ export const WorkflowNextButton = React.memo(function WorkflowNextButton({
   ...props
 }: WorkflowNextButtonProps) {
   const { context, workflowState, workflowConfig, currentStep } = useWorkflowContext();
-  const { submit } = useFormConfigContext();
+  const { submit } = useForm();
   const formIsSubmitting = useFormSubmitting();
   const formValues = useFormValues();
 

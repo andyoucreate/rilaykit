@@ -5,7 +5,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormBody } from '../../src/components/FormBody';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider, useForm } from '../../src/components/FormProvider';
 
 // =================================================================
 // MOCK COMPONENTS
@@ -74,7 +74,7 @@ function buildForm(opts?: { min?: number }): FormConfiguration {
 }
 
 function ValidationTestChild() {
-  const { validateForm } = useFormConfigContext();
+  const { validateForm } = useForm();
   const [result, setResult] = React.useState<ValidationResult | null>(null);
 
   return (

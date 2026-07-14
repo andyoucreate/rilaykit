@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider } from '../../src/components/FormProvider';
 import {
   useConditionEvaluator,
   useFieldConditionsLazy,

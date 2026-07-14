@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider, useForm } from '../../src/components/FormProvider';
 import { useFormStoreApi, useFormSubmitState } from '../../src/stores';
 
 // ============================================================================
@@ -58,7 +58,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ force: true })} data-testid="submit">
             Submit
@@ -97,7 +97,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ force: true })} data-testid="submit">
             Submit
@@ -136,7 +136,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ force: true })} data-testid="submit">
             Submit
@@ -174,7 +174,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const { isSubmitting } = useFormSubmitState();
         return (
           <div>
@@ -223,7 +223,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const { isSubmitting } = useFormSubmitState();
         return (
           <div>
@@ -262,7 +262,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ force: true })} data-testid="submit">
             Submit
@@ -309,7 +309,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -356,7 +356,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -399,7 +399,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -442,7 +442,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -482,7 +482,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const store = useFormStoreApi();
         const [errors, setErrors] = React.useState<string>('{}');
 
@@ -540,7 +540,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -590,7 +590,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit()} data-testid="submit">
             Submit
@@ -634,7 +634,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ force: true })} data-testid="submit">
             Submit
@@ -672,7 +672,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit()} data-testid="submit">
             Submit
@@ -734,7 +734,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const [result, setResult] = React.useState<boolean | null>(null);
         return (
           <div>
@@ -777,7 +777,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit()} data-testid="submit">
             Submit
@@ -817,7 +817,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button
             type="button"
@@ -857,7 +857,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit({ skipInvalid: true })} data-testid="submit">
             Submit
@@ -900,7 +900,7 @@ describe('useFormSubmissionWithStore - SubmitOptions', () => {
         .build();
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const { isSubmitting } = useFormSubmitState();
         return (
           <div>

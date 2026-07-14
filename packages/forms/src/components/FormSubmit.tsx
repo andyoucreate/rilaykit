@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useFormSubmitting } from '../stores';
-import { useFormConfigContext } from './FormProvider';
+import { useForm } from './FormProvider';
 
 export interface FormSubmitProps {
   children?:
@@ -9,11 +9,8 @@ export interface FormSubmitProps {
   className?: string;
 }
 
-export const FormSubmit = React.memo(function FormSubmit({
-  children,
-  className,
-}: FormSubmitProps) {
-  const { submit } = useFormConfigContext();
+export const FormSubmit = React.memo(function FormSubmit({ children, className }: FormSubmitProps) {
+  const { submit } = useForm();
   const submitting = useFormSubmitting();
   const handleSubmit = useCallback(() => void submit(), [submit]);
 

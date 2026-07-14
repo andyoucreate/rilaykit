@@ -9,7 +9,7 @@ import {
   useFieldValue,
 } from '../stores';
 import { parseCompositeKey } from '../utils/repeatable-data';
-import { useFormConfigContext } from './FormProvider';
+import { useForm } from './FormProvider';
 
 export interface FormFieldProps {
   id: string;
@@ -30,7 +30,7 @@ export const FormField = React.memo(function FormField({
   forceVisible = false,
 }: FormFieldProps) {
   // Get form config (stable reference)
-  const { formConfig, validateField, conditionsHelpers } = useFormConfigContext();
+  const { formConfig, validateField, conditionsHelpers } = useForm();
 
   // Granular selectors - only re-render when THIS field changes
   const value = useFieldValue(fieldId);

@@ -11,7 +11,7 @@ import {
   ril,
   when,
 } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
+import { FormBody, FormProvider, form, useForm } from '@rilaykit/forms';
 import {
   useFieldErrors,
   useFieldValidationState,

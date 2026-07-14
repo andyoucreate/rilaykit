@@ -2,7 +2,7 @@ import type { RepeatableFieldItem } from '@rilaykit/core';
 import React from 'react';
 import { visibleRowFields } from '../utils/visible-row-fields';
 import { FormField } from './FormField';
-import { useFormConfigContext } from './FormProvider';
+import { useForm } from './FormProvider';
 
 export interface FormListItemProps {
   item: RepeatableFieldItem;
@@ -13,7 +13,7 @@ export interface FormListItemProps {
  * Field configs come pre-scoped from useRepeatableField via FormList.
  */
 export const FormListItem = React.memo(function FormListItem({ item }: FormListItemProps) {
-  const { conditionsHelpers } = useFormConfigContext();
+  const { conditionsHelpers } = useForm();
 
   return (
     <div data-form-list-item={item.key}>

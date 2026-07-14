@@ -5,7 +5,7 @@ import type {
   RepeatableFieldItem,
 } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
-import { useFormConfigContext } from '../components/FormProvider';
+import { useForm } from '../components/FormProvider';
 import { useFormStore, useRepeatableKeys } from '../stores';
 import { buildCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
@@ -60,7 +60,7 @@ export interface UseRepeatableFieldReturn {
  */
 export function useRepeatableField(repeatableId: string): UseRepeatableFieldReturn {
   const store = useFormStore();
-  const { formConfig } = useFormConfigContext();
+  const { formConfig } = useForm();
   const orderedKeys = useRepeatableKeys(repeatableId);
 
   // Get the repeatable config from the form config

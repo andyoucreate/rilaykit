@@ -1,5 +1,5 @@
 import { ril } from '@rilaykit/core';
-import { form, useFormConfigContext } from '@rilaykit/forms';
+import { form, useForm } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -431,7 +431,7 @@ describe('WorkflowProvider', () => {
   describe('Validation', () => {
     it('should validate current step', async () => {
       const TestChild = () => {
-        const { validateForm } = useFormConfigContext();
+        const { validateForm } = useForm();
         const [result, setResult] = React.useState<any>(null);
 
         const handleValidate = async () => {

@@ -133,7 +133,7 @@ describe('Repeatable Fields — Conditions Integration', () => {
         expect(screen.getByTestId('field-items[k0].weight')).toBeInTheDocument();
       });
 
-      // Digital item — weight should NOT be in the DOM (FormRow filters invisible fields)
+      // Digital item — weight should NOT be in the DOM (visibleRowFields filters invisible fields)
       expect(screen.queryByTestId('field-items[k1].weight')).not.toBeInTheDocument();
     });
   });

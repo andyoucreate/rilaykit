@@ -1,5 +1,5 @@
 import type { ComponentRenderContext, ValidationResult } from '@rilaykit/core';
-import { useFormConfigContext } from '@rilaykit/forms';
+import { useForm } from '@rilaykit/forms';
 import {
   useFieldErrors,
   useFormDirty,
@@ -167,7 +167,7 @@ export function FormStateDisplay() {
 }
 
 export function SubmitButton() {
-  const { submit } = useFormConfigContext();
+  const { submit } = useForm();
   return (
     <button type="button" data-testid="submit-btn" onClick={() => submit()}>
       Submit
@@ -176,7 +176,7 @@ export function SubmitButton() {
 }
 
 export function ValidationTrigger() {
-  const { validateForm } = useFormConfigContext();
+  const { validateForm } = useForm();
   const [result, setResult] = useState<ValidationResult | null>(null);
 
   const handleValidate = async () => {

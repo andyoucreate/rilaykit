@@ -1,5 +1,5 @@
 import { required, ril, when } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
+import { FormBody, FormProvider, form, useForm } from '@rilaykit/forms';
 import { useFormStoreApi, useFormValues } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
