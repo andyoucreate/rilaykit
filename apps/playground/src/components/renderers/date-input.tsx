@@ -1,5 +1,6 @@
+import { FieldWrapper } from '@/components/renderers/field-wrapper';
 import { Input } from '@/components/ui/input';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface DateInputProps {
   label?: string;
@@ -9,29 +10,30 @@ interface DateInputProps {
   max?: string;
 }
 
-export function DateInput({
-  id,
-  props,
-  value,
-  onChange,
-  onBlur,
-  disabled,
-  error,
-  touched,
-}: ComponentRenderProps<DateInputProps>) {
-  const hasError = touched && error && error.length > 0;
+export function DateInput({ id, props, field }: ComponentRenderContext<DateInputProps>) {
+  const hasError = Boolean(field?.touched && field?.error?.length);
 
   return (
-    <Input
+    <FieldWrapper
       id={id}
-      type="date"
-      value={(value as string) ?? ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-      disabled={disabled}
-      min={props.min}
-      max={props.max}
-      className={hasError ? 'border-destructive' : ''}
-    />
+      label={props.label}
+      description={props.description}
+      required={props.required}
+      error={field?.error}
+      touched={field?.touched}
+      isValidating={field?.isValidating}
+    >
+      <Input
+        id={id}
+        type="date"
+        value={(field?.value as string) ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+        disabled={field?.disabled}
+        min={props.min}
+        max={props.max}
+        className={hasError ? 'border-destructive' : ''}
+      />
+    </FieldWrapper>
   );
 }
