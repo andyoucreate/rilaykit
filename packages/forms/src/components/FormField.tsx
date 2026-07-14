@@ -1,6 +1,6 @@
 import type { ComponentEntry, ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
 import { NotFoundError, catalogEntryKey } from '@rilaykit/core';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   useFieldActions,
   useFieldConditions,
@@ -91,17 +91,53 @@ export const FormField = React.memo(function FormField({
     [forceVisible, disabled, conditions, conditionsHelpers, fieldId]
   );
 
+  // Per-field debounce timer for change-triggered validation. Cleared on
+  // unmount and whenever a newer change supersedes a pending run.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    },
+    []
+  );
+
   // Stable change handler
   const handleChange = useCallback(
     async (newValue: unknown) => {
       setValue(newValue);
 
-      // Validate immediately if configured OR if field is already touched
-      if (fieldConfig.validation?.validateOnChange || fieldState.touched) {
-        await validateField(fieldId, newValue);
+      // Validate on change if configured OR if the field is already touched.
+      const shouldValidate = fieldConfig.validation?.validateOnChange || fieldState.touched;
+      if (!shouldValidate) return;
+
+      // Debounce change-triggered validation when configured (blur/submit always
+      // validate immediately, unaffected by this). Superseded runs are cancelled.
+      const debounceMs = fieldConfig.validation?.debounceMs;
+      if (debounceMs && debounceMs > 0) {
+        if (debounceTimerRef.current !== null) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          void validateField(fieldId, newValue);
+        }, debounceMs);
+        return;
       }
+
+      await validateField(fieldId, newValue);
     },
-    [fieldId, setValue, validateField, fieldConfig.validation?.validateOnChange, fieldState.touched]
+    [
+      fieldId,
+      setValue,
+      validateField,
+      fieldConfig.validation?.validateOnChange,
+      fieldConfig.validation?.debounceMs,
+      fieldState.touched,
+    ]
   );
 
   // Stable blur handler
