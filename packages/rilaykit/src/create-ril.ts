@@ -1,4 +1,12 @@
-import { type ComponentEntry, ril as OriginalRil, type RilayInstance } from '@rilaykit/core';
+import {
+  type ComponentEntry,
+  ril as OriginalRil,
+  type PartEntry,
+  type RendererAttachments,
+  type RilayInstance,
+  type RilayPlugin,
+  type ToolEntry,
+} from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
 
@@ -7,14 +15,36 @@ import { flow } from '@rilaykit/workflow';
  * Available when using the all-in-one `rilaykit` package.
  */
 export interface RilayKit<C extends Record<string, any>> {
+  // Catalog registration facades (each preserves the enhanced instance)
   component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
     entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): RilayKit<C & { [K in NewType]: TProps }>;
 
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): RilayKit<C>;
+
+  part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): RilayKit<C>;
+
+  use(plugin: RilayPlugin): RilayKit<C>;
+
+  renderers(attachments: RendererAttachments<C>): RilayKit<C>;
+
+  // Component access
   getComponent: RilayInstance<C>['getComponent'];
   getAllComponents(): ComponentEntry[];
   hasComponent(id: string): boolean;
+
+  // Tool and part access
+  getTool(name: string): ToolEntry | undefined;
+  getPart(type: string): PartEntry | undefined;
+  getAllTools(): ToolEntry[];
+  getAllParts(): PartEntry[];
+
+  // Props validation
+  validateProps: RilayInstance<C>['validateProps'];
 
   getStats(): ReturnType<RilayInstance<C>['getStats']>;
 
@@ -38,9 +68,36 @@ function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit
       return wrapRil(inner.component<NewType, TProps>(type, entry));
     },
 
+    tool<TInput = unknown, TOutput = unknown>(
+      name: string,
+      entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+    ): RilayKit<C> {
+      return wrapRil(inner.tool<TInput, TOutput>(name, entry));
+    },
+
+    part<TPart = unknown>(
+      type: string,
+      entry: Omit<PartEntry<TPart>, 'kind' | 'type'>
+    ): RilayKit<C> {
+      return wrapRil(inner.part<TPart>(type, entry));
+    },
+
+    use(plugin: RilayPlugin): RilayKit<C> {
+      return wrapRil(inner.use(plugin));
+    },
+
+    renderers(attachments: RendererAttachments<C>): RilayKit<C> {
+      return wrapRil(inner.renderers(attachments));
+    },
+
     getComponent: inner.getComponent.bind(inner),
     getAllComponents: inner.getAllComponents.bind(inner),
     hasComponent: inner.hasComponent.bind(inner),
+    getTool: inner.getTool.bind(inner),
+    getPart: inner.getPart.bind(inner),
+    getAllTools: inner.getAllTools.bind(inner),
+    getAllParts: inner.getAllParts.bind(inner),
+    validateProps: inner.validateProps.bind(inner),
     getStats: inner.getStats.bind(inner),
     validate: inner.validate.bind(inner),
     validateAsync: inner.validateAsync.bind(inner),

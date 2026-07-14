@@ -16,7 +16,7 @@ export * from '@rilaykit/forms';
 // Builder
 export { flow, resolveWorkflowConfig, type StepDefinition } from '@rilaykit/workflow';
 
-// Components
+// Compound components
 export {
   Flow,
   FlowBack,
@@ -25,56 +25,40 @@ export {
   FlowProgress,
   FlowSkip,
   useFlow,
-  WorkflowProvider,
   type FlowNavContext,
   type FlowNavProps,
   type FlowProgressProps,
   type WorkflowContextValue,
 } from '@rilaykit/workflow';
 
-// Step context
-export {
-  createStepContext,
-  type StepContext,
-  type StepMetadata,
-} from '@rilaykit/workflow';
-
 // Hooks (except useConditionEvaluation — already exported by forms)
 export {
   useFlowSteps,
-  usePersistence,
   useStep,
-  useStepMetadata,
   type FlowStepsContext,
+  type StepContext,
   type StepContextValue,
-  useWorkflowAnalytics,
-  useWorkflowConditions,
-  useWorkflowNavigation,
-  useWorkflowState,
-  useWorkflowSubmission,
+  type StepMetadata,
 } from '@rilaykit/workflow';
 
 // Stores
 export {
-  createWorkflowStore,
-  useFlowStepIndex,
-  useIsStepPassed,
-  useIsStepVisited,
-  usePassedSteps,
-  useStepDataById,
-  useVisitedSteps,
   useFlowActions,
   useFlowData,
   useFlowInitializing,
   useFlowNavigationState,
-  useStepData,
+  useFlowStepIndex,
   useFlowStore,
   useFlowStoreApi,
   useFlowSubmitState,
   useFlowSubmitting,
   useFlowTransitioning,
-  WorkflowStoreContext,
-  type CreateWorkflowStoreOptions,
+  useIsStepPassed,
+  useIsStepVisited,
+  usePassedSteps,
+  useStepData,
+  useStepDataById,
+  useVisitedSteps,
   type UseFlowActionsResult,
   type WorkflowStore,
   type WorkflowStoreState,
@@ -87,6 +71,7 @@ export {
   LocalStorageAdapter,
   mergePersistedState,
   persistedToWorkflowState,
+  usePersistence,
   validatePersistedData,
   WorkflowPersistenceError,
   workflowStateToPersisted,

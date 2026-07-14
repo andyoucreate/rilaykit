@@ -82,6 +82,41 @@ describe('rilaykit - enhanced ril', () => {
       expect(r.flow).toBeTypeOf('function');
     });
 
+    it('tool returns RilayKit with .form() and .flow()', () => {
+      const r = ril.create().tool('search', { description: 'Search' });
+
+      expect(r.form).toBeTypeOf('function');
+      expect(r.flow).toBeTypeOf('function');
+      expect(r.getTool('search')?.description).toBe('Search');
+    });
+
+    it('part returns RilayKit with .form() and .flow()', () => {
+      const r = ril.create().part('reasoning', { renderer: MockRenderer });
+
+      expect(r.form).toBeTypeOf('function');
+      expect(r.flow).toBeTypeOf('function');
+      expect(r.getPart('reasoning')?.kind).toBe('part');
+    });
+
+    it('use returns RilayKit with .form() and .flow()', () => {
+      const r = ril.create().use((inner) => inner.tool('search', { description: 'Search' }));
+
+      expect(r.form).toBeTypeOf('function');
+      expect(r.flow).toBeTypeOf('function');
+      expect(r.getTool('search')?.description).toBe('Search');
+    });
+
+    it('renderers returns RilayKit with .form() and .flow()', () => {
+      const r = ril
+        .create()
+        .component('text', { name: 'Text' })
+        .renderers({ components: { text: MockRenderer } });
+
+      expect(r.form).toBeTypeOf('function');
+      expect(r.flow).toBeTypeOf('function');
+      expect(r.getComponent('text')?.renderer).toBe(MockRenderer);
+    });
+
     it('clone returns RilayKit with .form() and .flow()', () => {
       const r = ril.create().component('text', { name: 'Text', renderer: MockRenderer }).clone();
 
