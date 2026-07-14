@@ -50,7 +50,7 @@
 - [ ] No `any` anywhere in `packages/*/src` (grep gate as a test)
 - [ ] Every public export has at least one test touching it (export-surface audit)
 - [ ] All error paths throw the correct RilayError subclass + code (extend the proof)
-- [ ] Concurrent/StrictMode double-invoke safety for providers
+- [x] Concurrent/StrictMode double-invoke safety for providers (idempotency guard, passes clean)
 
 ## Bug inventory (found by adversarial hunt, iter 1) — TDD-fix each: red → fix → green
 
@@ -97,12 +97,13 @@
 - [x] GAP/high: StrictMode double-mount idempotency untested (analytics double-fire risk) — write test; fix source if it double-fires
 
 ### gaps (next iteration — quality/coverage)
-- [ ] console.* ~20 sites outside monitoring adapters (DNA violation) + guard test
-- [ ] RemoteAdapter zero behavioral test coverage
-- [ ] DevelopmentAdapter untested
-- [ ] weak-assertion sweep (not.toThrow/toBeDefined where exact value exists, ~153 sites)
+- [x] console.* ~22 sites → getLogger()/setLogSink() (redirectable), no-console guard test (mutation-checked)
+- [x] RemoteAdapter behavioral tests (POST body, Bearer, no-retry-4xx, retry-5xx×3, network retry×2)
+- [x] DevelopmentAdapter tests (exact avg/max formatting, error summary)
+- [~] weak-assertion sweep: localStorage.test.ts strengthened (instanceof + exact code + round-trip); full 153-site repo sweep still deferred
 
 ## Iteration log
+- (iter 6) QUALITY pass: internal redirectable logger (getLogger/setLogSink), 22 runtime console.* routed through it, no-console guard test (mutation-checked), RemoteAdapter + DevelopmentAdapter behavioral tests, localStorage assertions strengthened. Full suite 1496 green. Remaining before round 3: full weak-assertion sweep deferred (low value). Next: ROUND 3 hunt (clean-round counter still 0; need 2 consecutive clean → P2).
 - (iter 5) ROUND 2 hunt: NOT clean — 5 bugs (2 fix-regressions from my own hardening) + 5 gaps. Fixed all 5 bugs TDD + StrictMode idempotency guard (passed clean, no double-fire). BUG 2 fix-regression mutation-checked. Full suite 1485 green. 26 total bugs fixed. Clean-round counter = 0. Next: deferred quality gaps (console.* cleanup, adapter coverage, weak-assertion sweep) THEN round 3 hunt (needs 2 consecutive clean rounds → P2).
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
 - (iter 4) E2E POWER DEMOS written (4 flagship tests, real stack, exact payloads). Found + fixed 2 MORE bugs: (a) FormProvider id-change reset rebuilt repeatables against the PREVIOUS step's configs → leaked composite key into next step payload; (b) useFormConditions passed fresh {} literals → churned conditionsHelpers → EVERY FormField re-rendered on every keystroke (perf contract broken for all forms). Full suite 1469 green, both fixes mutation-checked. 21 total bugs fixed. Next: ROUND 2 adversarial hunt (stop condition: 2 consecutive clean rounds → P2).
