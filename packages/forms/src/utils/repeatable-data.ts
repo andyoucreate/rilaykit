@@ -53,11 +53,11 @@ export function structureFormValues(
   const result: Record<string, unknown> = {};
   const processedKeys = new Set<string>();
 
-  // Build structured arrays from repeatable order
-  for (const [repeatableId, keys] of Object.entries(repeatableOrder)) {
-    if (!repeatableConfigs[repeatableId]) continue;
-
-    const config = repeatableConfigs[repeatableId];
+  // Build structured arrays for every configured repeatable. A repeatable with
+  // no active rows (absent from `repeatableOrder`) still submits as an empty
+  // array — never `undefined` — so consumers get a stable array shape.
+  for (const [repeatableId, config] of Object.entries(repeatableConfigs)) {
+    const keys = repeatableOrder[repeatableId] ?? [];
     const items: Record<string, unknown>[] = [];
 
     const itemByKey = new Map<string, Record<string, unknown>>();
@@ -241,29 +241,54 @@ export function initializeRepeatableState(
     values = { ...rawValues };
   }
 
-  // Step 2 — reconstruct order from flat keys where none exists, then pad to min.
+  // Step 2 — resolve each repeatable's rows, then pad to `min` only when the
+  // caller supplied no explicit items.
   for (const [id, config] of Object.entries(repeatableConfigs)) {
-    if (!order[id]) {
+    // A flattened array default (even an empty `[]`) counts as an explicit
+    // source: the key is present on `order` after Step 1.
+    const fromArray = Object.prototype.hasOwnProperty.call(order, id);
+
+    let keys: string[];
+    let nextKey: number;
+    if (fromArray) {
+      keys = order[id];
+      nextKey = nextKeys[id] ?? keys.length;
+    } else {
       const reconstructed = collectItemKeysFromFlat(values, id);
-      order[id] = reconstructed.keys;
-      nextKeys[id] = reconstructed.nextKey;
+      keys = reconstructed.keys;
+      nextKey = reconstructed.nextKey;
     }
 
-    const minItems = config.min ?? 0;
-    let nextKey = nextKeys[id] ?? 0;
+    // Pad up to `min` ONLY when no explicit items were provided. A repeatable
+    // given an explicit (possibly shorter) set of rows keeps exactly those rows,
+    // so min-count validation can flag the shortfall — we never silently top it
+    // up to satisfy `min`.
+    const hasExplicitItems = fromArray || keys.length > 0;
+    if (!hasExplicitItems) {
+      const minItems = config.min ?? 0;
+      while (keys.length < minItems) {
+        const itemKey = `k${nextKey}`;
+        keys = [...keys, itemKey];
 
-    while (order[id].length < minItems) {
-      const itemKey = `k${nextKey}`;
-      order[id] = [...order[id], itemKey];
+        for (const field of config.allFields) {
+          values[buildCompositeKey(id, itemKey, field.id)] =
+            config.defaultValue?.[field.id] ?? undefined;
+        }
 
-      for (const field of config.allFields) {
-        values[buildCompositeKey(id, itemKey, field.id)] = config.defaultValue?.[field.id] ?? undefined;
+        nextKey++;
       }
-
-      nextKey++;
     }
 
-    nextKeys[id] = nextKey;
+    // A repeatable that resolves to zero rows produces no order/next-key entry:
+    // it must not surface in `_repeatableOrder`, `_repeatableNextKey`, or the
+    // structured output.
+    if (keys.length > 0) {
+      order[id] = keys;
+      nextKeys[id] = nextKey;
+    } else {
+      delete order[id];
+      delete nextKeys[id];
+    }
   }
 
   return { values, order, nextKeys };
