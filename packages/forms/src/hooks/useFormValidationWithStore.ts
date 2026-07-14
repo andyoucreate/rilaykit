@@ -17,6 +17,10 @@ import {
 } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
+import {
+  CONDITIONAL_REQUIRED_CODE,
+  holdsOnlyConditionalRequiredError,
+} from '../utils/conditional-required';
 import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
 
@@ -175,7 +179,7 @@ export function useFormValidationWithStore({
         if (isConditionallyRequired && isEmptyValue(valueToCheck)) {
           const result = {
             isValid: false as const,
-            errors: [{ message: 'This field is required', code: 'CONDITIONAL_REQUIRED' }],
+            errors: [{ message: 'This field is required', code: CONDITIONAL_REQUIRED_CODE }],
           };
           state._setErrors(fieldId, result.errors);
           state._setValidationState(fieldId, 'invalid');
@@ -237,7 +241,7 @@ export function useFormValidationWithStore({
             const enhancedResult = {
               isValid: false,
               errors: [
-                { message: 'This field is required', code: 'CONDITIONAL_REQUIRED' },
+                { message: 'This field is required', code: CONDITIONAL_REQUIRED_CODE },
                 ...result.errors,
               ],
             };
@@ -298,6 +302,22 @@ export function useFormValidationWithStore({
     for (const field of invisibleFields) {
       state._setErrors(field.id, []);
       state._setValidationState(field.id, 'valid');
+    }
+
+    // Clear stale CONDITIONAL_REQUIRED errors on visible fields that are no
+    // longer conditionally required and have no base validation. Such a field
+    // is excluded from `fieldsToValidate`, so without this its committed
+    // required-error would linger in the store and wedge `store.isValid` even
+    // though this function reports the form valid — a contradiction that keeps
+    // a submit button (gated on useFormValid) disabled forever.
+    for (const field of formConfigRef.current.allFields) {
+      if (!isFieldVisibleLive(field.id)) continue;
+      const hasValidation = field.validation && hasUnifiedValidation(field.validation);
+      if (hasValidation || isFieldRequiredLive(field.id)) continue;
+      if (holdsOnlyConditionalRequiredError(state.errors[field.id])) {
+        state._setErrors(field.id, []);
+        state._setValidationState(field.id, 'valid');
+      }
     }
 
     // Validate visible static fields

@@ -12,6 +12,7 @@ import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
 import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
 import { FormStoreContext, createFormStore } from '../stores';
+import { holdsOnlyConditionalRequiredError } from '../utils/conditional-required';
 import { initializeRepeatableState } from '../utils/repeatable-data';
 
 // =================================================================
@@ -230,8 +231,10 @@ export function FormProvider({
     for (const [fieldId, condition] of Object.entries(fieldConditions)) {
       // A field with no stored conditions yet is treated as visible (matches
       // the store's DEFAULT_FIELD_CONDITIONS), so only a real true→false flip
-      // triggers the clear below.
+      // triggers the clear below. `required` defaults to false, so a field only
+      // counts as "was required" once a true was actually stored.
       const wasVisible = prevConditions[fieldId]?.visible ?? true;
+      const wasRequired = prevConditions[fieldId]?.required ?? false;
 
       const conditions: FieldConditions = {
         visible: condition.visible,
@@ -249,7 +252,25 @@ export function FormProvider({
       // becomes visible again is re-validated normally on its next trigger —
       // this only clears the stale committed state, it does not suppress
       // future validation.
-      if (wasVisible && condition.visible === false) {
+      const becameHidden = wasVisible && condition.visible === false;
+
+      // Sibling of the visible→hidden clear: when a still-visible field stops
+      // being conditionally required (required true→false) and its ONLY
+      // committed error is the synthetic CONDITIONAL_REQUIRED one, clear it.
+      // Otherwise the field would wedge isValid forever even though
+      // validateForm — which excludes a non-required field with no base
+      // validation — reports the form valid. A field whose requirement is
+      // re-added (false→true) is re-validated normally on its next submit, so
+      // this only clears stale state, it does not suppress future validation.
+      // A base-validation error (any non-CONDITIONAL_REQUIRED code) is left
+      // intact and recomputed on the next validation trigger.
+      const requirementRemoved = wasRequired && condition.required === false;
+      const onlyConditionalRequiredError =
+        requirementRemoved &&
+        !becameHidden &&
+        holdsOnlyConditionalRequiredError(store.getState().errors[fieldId]);
+
+      if (becameHidden || onlyConditionalRequiredError) {
         state._setErrors(fieldId, []);
         state._setValidationState(fieldId, 'valid');
       }
