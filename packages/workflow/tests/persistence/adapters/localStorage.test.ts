@@ -69,7 +69,7 @@ describe('LocalStorageAdapter', () => {
 
   describe('initialization', () => {
     it('should initialize with default config', () => {
-      expect(() => new LocalStorageAdapter()).not.toThrow();
+      expect(new LocalStorageAdapter()).toBeInstanceOf(LocalStorageAdapter);
     });
 
     it('should initialize with custom config', () => {
@@ -143,7 +143,9 @@ describe('LocalStorageAdapter', () => {
         throw quotaError;
       });
 
-      await expect(adapter.save(testKey, testData)).rejects.toThrow(WorkflowPersistenceError);
+      const error = await adapter.save(testKey, testData).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkflowPersistenceError);
+      expect((error as WorkflowPersistenceError).code).toBe('QUOTA_EXCEEDED');
     });
 
     it('should handle other save errors', async () => {
@@ -151,22 +153,26 @@ describe('LocalStorageAdapter', () => {
         throw new Error('Storage error');
       });
 
-      await expect(adapter.save(testKey, testData)).rejects.toThrow(WorkflowPersistenceError);
+      const error = await adapter.save(testKey, testData).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkflowPersistenceError);
+      expect((error as WorkflowPersistenceError).code).toBe('SAVE_FAILED');
     });
   });
 
   describe('load', () => {
     it('should load saved data', async () => {
+      // Pin Date.now so the round-trip is fully deterministic: the adapter
+      // rewrites only `lastSaved` (to the save time); everything else is
+      // preserved verbatim.
+      const fixedNow = 1_700_000_000_000;
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
       await adapter.save(testKey, testData);
       const loaded = await adapter.load(testKey);
 
-      expect(loaded).toMatchObject({
-        workflowId: testData.workflowId,
-        currentStepIndex: testData.currentStepIndex,
-        allData: testData.allData,
-        stepData: testData.stepData,
-        visitedSteps: testData.visitedSteps,
-      });
+      expect(loaded).toEqual({ ...testData, lastSaved: fixedNow });
+
+      nowSpy.mockRestore();
     });
 
     it('should return null for non-existent data', async () => {
@@ -178,7 +184,9 @@ describe('LocalStorageAdapter', () => {
       const store = mockLocalStorage._getStore();
       store[`rilay_workflow_${testKey}`] = 'invalid-json';
 
-      await expect(adapter.load(testKey)).rejects.toThrow(WorkflowPersistenceError);
+      const error = await adapter.load(testKey).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkflowPersistenceError);
+      expect((error as WorkflowPersistenceError).code).toBe('LOAD_FAILED');
     });
 
     it('should handle expired data', async () => {
@@ -206,7 +214,9 @@ describe('LocalStorageAdapter', () => {
         throw new Error('Remove error');
       });
 
-      await expect(adapter.remove(testKey)).rejects.toThrow(WorkflowPersistenceError);
+      const error = await adapter.remove(testKey).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkflowPersistenceError);
+      expect((error as WorkflowPersistenceError).code).toBe('REMOVE_FAILED');
     });
   });
 
@@ -270,15 +280,18 @@ describe('LocalStorageAdapter', () => {
 
   describe('data compression', () => {
     it('should compress data when enabled', async () => {
+      const fixedNow = 1_700_000_000_000;
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(fixedNow);
       const compressedAdapter = new LocalStorageAdapter({ compress: true });
 
       await compressedAdapter.save(testKey, testData);
       const loaded = await compressedAdapter.load(testKey);
 
-      expect(loaded).toMatchObject({
-        workflowId: testData.workflowId,
-        currentStepIndex: testData.currentStepIndex,
-      });
+      // Compression is a lossless round-trip: loaded equals saved (with the
+      // adapter-managed lastSaved timestamp).
+      expect(loaded).toEqual({ ...testData, lastSaved: fixedNow });
+
+      nowSpy.mockRestore();
     });
 
     it('should round-trip non-Latin1 characters (accents/emoji) when compressed', async () => {
@@ -303,9 +316,9 @@ describe('LocalStorageAdapter', () => {
         throw new Error('Compression error');
       });
 
-      await expect(compressedAdapter.save(testKey, testData)).rejects.toThrow(
-        WorkflowPersistenceError
-      );
+      const error = await compressedAdapter.save(testKey, testData).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkflowPersistenceError);
+      expect((error as WorkflowPersistenceError).code).toBe('SAVE_FAILED');
 
       global.btoa = originalBtoa;
     });
