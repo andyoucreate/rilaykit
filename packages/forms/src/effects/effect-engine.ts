@@ -3,6 +3,17 @@ import type { FormStore } from '../stores/formStore';
 
 const MAX_CASCADE_DEPTH = 10;
 
+/**
+ * A cascade chain tracks the fields already visited on the current propagation
+ * path plus its depth. It is carried THROUGH async setValue continuations (not
+ * just the synchronous call stack) so mutually-writing async effects cannot loop
+ * unboundedly across microtasks.
+ */
+interface CascadeChain {
+  readonly visited: Set<string>;
+  readonly depth: number;
+}
+
 export interface EffectEngineOptions {
   readonly effectsMap: Record<string, FieldEffect[]>;
   readonly store: FormStore;
@@ -13,8 +24,9 @@ export class EffectEngine {
   private readonly store: FormStore;
   private unsubscribe: (() => void) | null = null;
   private readonly abortControllers = new Map<string, AbortController>();
-  private readonly processingFields = new Set<string>();
-  private cascadeDepth = 0;
+  // Chain of the cascade currently propagating through a setValue call, if any.
+  // Picked up by the store subscription so downstream effects inherit it.
+  private pendingChain: CascadeChain | null = null;
   private stopped = false;
 
   constructor({ effectsMap, store }: EffectEngineOptions) {
@@ -30,10 +42,14 @@ export class EffectEngine {
       (values, prevValues) => {
         if (this.stopped) return;
 
+        // Inherit the cascade chain from the setValue that caused this change
+        // (null for user-initiated changes → a fresh cascade).
+        const incomingChain = this.pendingChain;
+
         // Find which fields changed
         for (const fieldId of Object.keys(values)) {
           if (values[fieldId] !== prevValues[fieldId]) {
-            this.executeEffectsForField(fieldId, values[fieldId]);
+            this.executeEffectsForField(fieldId, values[fieldId], incomingChain);
           }
         }
       }
@@ -67,29 +83,41 @@ export class EffectEngine {
       controller.abort();
     }
     this.abortControllers.clear();
-    this.processingFields.clear();
-    this.cascadeDepth = 0;
+    this.pendingChain = null;
   }
 
-  private executeEffectsForField(fieldId: string, newValue: unknown): void {
+  private executeEffectsForField(
+    fieldId: string,
+    newValue: unknown,
+    incomingChain: CascadeChain | null = null
+  ): void {
     const effects = this.effectsMap[fieldId];
     if (!effects || effects.length === 0) return;
 
-    // Cascade depth protection
-    if (this.cascadeDepth >= MAX_CASCADE_DEPTH) {
+    const chain: CascadeChain = incomingChain ?? { visited: new Set(), depth: 0 };
+
+    // Cycle detection — carried across async continuations, so A→B→A loops are
+    // caught even when each hop happens in a separate microtask.
+    if (chain.visited.has(fieldId)) {
+      console.warn(
+        `[EffectEngine] Cycle detected: field "${fieldId}" is already being processed. Skipping.`
+      );
+      return;
+    }
+
+    // Cascade depth protection — bounds long distinct chains.
+    if (chain.depth >= MAX_CASCADE_DEPTH) {
       console.warn(
         `[EffectEngine] Max cascade depth (${MAX_CASCADE_DEPTH}) reached for field "${fieldId}". Stopping cascade.`
       );
       return;
     }
 
-    // Cycle detection
-    if (this.processingFields.has(fieldId)) {
-      console.warn(
-        `[EffectEngine] Cycle detected: field "${fieldId}" is already being processed. Skipping.`
-      );
-      return;
-    }
+    // The chain passed on to any effect this field triggers via setValue.
+    const nextChain: CascadeChain = {
+      visited: new Set(chain.visited).add(fieldId),
+      depth: chain.depth + 1,
+    };
 
     // Abort previous async effects for this field
     const prevController = this.abortControllers.get(fieldId);
@@ -100,15 +128,28 @@ export class EffectEngine {
     const abortController = new AbortController();
     this.abortControllers.set(fieldId, abortController);
 
+    // Propagate a store write while tagging it with the current cascade chain so
+    // downstream effects (triggered synchronously by the store subscription)
+    // inherit the visited-set and depth.
+    const propagate = (write: () => void) => {
+      const previousChain = this.pendingChain;
+      this.pendingChain = nextChain;
+      try {
+        write();
+      } finally {
+        this.pendingChain = previousChain;
+      }
+    };
+
     // Build context
     const context: FieldEffectContext = {
       setValue: (targetFieldId: string, value: unknown) => {
         if (abortController.signal.aborted || this.stopped) return;
-        this.store.getState()._setValue(targetFieldId, value);
+        propagate(() => this.store.getState()._setValue(targetFieldId, value));
       },
       setProps: (targetFieldId: string, props: Record<string, unknown>) => {
         if (abortController.signal.aborted || this.stopped) return;
-        this.store.getState()._setFieldProps(targetFieldId, props);
+        propagate(() => this.store.getState()._setFieldProps(targetFieldId, props));
       },
       getValues: () => {
         return this.store.getState().values as Record<string, unknown>;
@@ -118,46 +159,37 @@ export class EffectEngine {
       },
     };
 
-    // Mark field as processing and increment cascade depth
-    this.processingFields.add(fieldId);
-    this.cascadeDepth++;
+    const promises: Promise<void>[] = [];
 
-    try {
-      const promises: Promise<void>[] = [];
+    for (const effect of effects) {
+      if (abortController.signal.aborted || this.stopped) break;
 
-      for (const effect of effects) {
-        if (abortController.signal.aborted || this.stopped) break;
-
-        try {
-          const result = effect.handler(newValue, context);
-          if (result instanceof Promise) {
-            promises.push(
-              result.catch((error) => {
-                // Ignore AbortError silently
-                if (error?.name === 'AbortError') return;
-                console.warn(`[EffectEngine] Async effect error for field "${fieldId}":`, error);
-              })
-            );
-          }
-        } catch (error) {
-          console.warn(`[EffectEngine] Sync effect error for field "${fieldId}":`, error);
+      try {
+        const result = effect.handler(newValue, context);
+        if (result instanceof Promise) {
+          promises.push(
+            result.catch((error) => {
+              // Ignore AbortError silently
+              if (error?.name === 'AbortError') return;
+              console.warn(`[EffectEngine] Async effect error for field "${fieldId}":`, error);
+            })
+          );
         }
+      } catch (error) {
+        console.warn(`[EffectEngine] Sync effect error for field "${fieldId}":`, error);
       }
+    }
 
-      // Clean up abort controller when all async effects settle
-      if (promises.length > 0) {
-        Promise.allSettled(promises).then(() => {
-          // Only clean up if this is still the current controller
-          if (this.abortControllers.get(fieldId) === abortController) {
-            this.abortControllers.delete(fieldId);
-          }
-        });
-      } else {
-        this.abortControllers.delete(fieldId);
-      }
-    } finally {
-      this.processingFields.delete(fieldId);
-      this.cascadeDepth--;
+    // Clean up abort controller when all async effects settle
+    if (promises.length > 0) {
+      Promise.allSettled(promises).then(() => {
+        // Only clean up if this is still the current controller
+        if (this.abortControllers.get(fieldId) === abortController) {
+          this.abortControllers.delete(fieldId);
+        }
+      });
+    } else {
+      this.abortControllers.delete(fieldId);
     }
   }
 }
