@@ -86,6 +86,22 @@
 - [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
 - [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
+## Round 2 hunt inventory (iter 5) — 5 bugs + 5 gaps; NOT a clean round
+
+### bugs (fix TDD this batch)
+- [ ] BUG/high: `isEmptyValue` treats Date/File/Map/Set as empty → `required()` fails on filled date/file fields — core/validation/utils.ts
+- [ ] BUG/high (fix-regression): stale `_defaultValues` after form-id change → `reset()` restores previous form's defaults + corrupts dirty flag — forms/stores/formStore.ts + FormProvider
+- [ ] BUG/med (race): async validation writes errors to a field that went invisible mid-flight → poisons global isValid (stuck-invalid) — useFormValidationWithStore.ts (needs post-await visibility recheck)
+- [ ] BUG/med (fix-regression): `pendingSkipRef` leaks when a skip transition fails → suppresses the NEXT real onStepComplete — useWorkflowNavigation.ts
+- [ ] BUG/low: `clonePlainData` no cycle guard → circular meta/defaultProps stack-overflows registration — core/config/ril.ts
+- [ ] GAP/high: StrictMode double-mount idempotency untested (analytics double-fire risk) — write test; fix source if it double-fires
+
+### gaps (next iteration — quality/coverage)
+- [ ] console.* ~20 sites outside monitoring adapters (DNA violation) + guard test
+- [ ] RemoteAdapter zero behavioral test coverage
+- [ ] DevelopmentAdapter untested
+- [ ] weak-assertion sweep (not.toThrow/toBeDefined where exact value exists, ~153 sites)
+
 ## Iteration log
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
 - (iter 4) E2E POWER DEMOS written (4 flagship tests, real stack, exact payloads). Found + fixed 2 MORE bugs: (a) FormProvider id-change reset rebuilt repeatables against the PREVIOUS step's configs → leaked composite key into next step payload; (b) useFormConditions passed fresh {} literals → churned conditionsHelpers → EVERY FormField re-rendered on every keystroke (perf contract broken for all forms). Full suite 1469 green, both fixes mutation-checked. 21 total bugs fixed. Next: ROUND 2 adversarial hunt (stop condition: 2 consecutive clean rounds → P2).
