@@ -249,7 +249,14 @@ export function useWorkflowNavigation({
     if (currentStep?.onAfterValidation) {
       try {
         const helper = createStepDataHelper();
-        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
+        // Read the LIVE current-step slice rather than the render-time
+        // `workflowState.stepData` snapshot. handleSubmit writes the structured
+        // form values via setStepData(values) then calls goNext() in the same
+        // tick (no React commit between), so the snapshot is pre-submit: it holds
+        // only incrementally-changed fields (flat repeatable composite keys) and
+        // is missing untouched defaults. Mirrors the round-6 submission fix.
+        const liveStepData = (getAllData()[currentStep.id] ?? {}) as Record<string, unknown>;
+        await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
         log.error('onAfterValidation failed:', error);
         if (workflowConfig.analytics?.onError) {
@@ -274,7 +281,7 @@ export function useWorkflowNavigation({
   }, [
     currentStep,
     createStepDataHelper,
-    workflowState.stepData,
+    getAllData,
     workflowContext,
     workflowConfig.analytics,
     workflowState.currentStepIndex,
