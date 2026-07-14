@@ -68,6 +68,12 @@ export function useWorkflowNavigation({
   const onStepChangeRef = useRef(onStepChange);
   onStepChangeRef.current = onStepChange;
 
+  // Re-entrancy guard for skipStep: two synchronous skipStep() calls for the
+  // same step must emit onStepSkip once. `isTransitioning` toggles across an
+  // await, so a second synchronous call is not gated by it; this ref tracks the
+  // step id whose skip is already in flight.
+  const skipInFlightRef = useRef<string | null>(null);
+
   // Get current step
   const currentStep = workflowConfig.steps[workflowState.currentStepIndex];
 
@@ -303,6 +309,14 @@ export function useWorkflowNavigation({
       return false;
     }
 
+    // Gate re-entrant synchronous skips of the SAME step: the first call owns
+    // the skip; a second call in the same tick is a no-op until the step id
+    // actually changes (a real transition), which re-enables a legitimate skip.
+    if (skipInFlightRef.current === currentStep.id) {
+      return false;
+    }
+    skipInFlightRef.current = currentStep.id;
+
     if (workflowConfig.analytics?.onStepSkip) {
       workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
     }
@@ -313,6 +327,7 @@ export function useWorkflowNavigation({
     // this step, then transition to the next visible step directly.
     const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
     if (nextStepIndex === null) {
+      skipInFlightRef.current = null;
       return false; // Let the submission hook handle this
     }
 
@@ -325,6 +340,7 @@ export function useWorkflowNavigation({
     const didTransition = await goToStep(nextStepIndex);
     if (!didTransition) {
       pendingSkipRef.current = null;
+      skipInFlightRef.current = null;
     }
     return didTransition;
   }, [

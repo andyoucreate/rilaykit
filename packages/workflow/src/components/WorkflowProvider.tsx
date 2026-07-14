@@ -277,6 +277,13 @@ export function WorkflowProvider({
   // Load persisted data once on mount
   const hasLoadedPersistedRef = useRef(false);
 
+  // Async persistence load can resolve AFTER the form is already interactive.
+  // These track edits the user made before the load resolved so the load does
+  // not clobber in-flight input: `userEditsBeforeLoadRef` records those edits
+  // per step, and `persistLoadResolvedRef` stops recording once load settles.
+  const userEditsBeforeLoadRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const persistLoadResolvedRef = useRef(false);
+
   useEffect(() => {
     if (hasLoadedPersistedRef.current) return;
     hasLoadedPersistedRef.current = true;
@@ -286,24 +293,42 @@ export function WorkflowProvider({
         try {
           const persistedData = await persistenceHookRef.current.loadPersistedData();
           if (persistedData) {
+            // Merge loaded state as the base, but keys the user already set
+            // before the load resolved WIN — preserve in-flight user input
+            // rather than overwriting it.
+            const userEdits = userEditsBeforeLoadRef.current;
+            const mergedAllData: Record<string, unknown> = { ...persistedData.allData };
+            for (const [stepId, edits] of userEdits) {
+              const base = (mergedAllData[stepId] as Record<string, unknown> | undefined) ?? {};
+              mergedAllData[stepId] = { ...base, ...edits };
+            }
+
+            const persistedStepId = workflowConfig.steps[persistedData.currentStepIndex]?.id;
+            const mergedStepData = persistedStepId
+              ? ((mergedAllData[persistedStepId] as Record<string, unknown> | undefined) ??
+                persistedData.stepData)
+              : persistedData.stepData;
+
             store.getState()._loadPersistedState({
               currentStepIndex: persistedData.currentStepIndex,
-              allData: persistedData.allData,
-              stepData: persistedData.stepData,
+              allData: mergedAllData,
+              stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),
               passedSteps: new Set(persistedData.passedSteps || []),
             });
+            persistLoadResolvedRef.current = true;
             return;
           }
         } catch (error) {
           log.error('Failed to load persisted state:', error);
         }
       }
+      persistLoadResolvedRef.current = true;
       store.getState()._setInitializing(false);
     };
 
     loadPersistedData();
-  }, [store, hasPersistence]);
+  }, [store, hasPersistence, workflowConfig.steps]);
 
   // Extract persistence utilities (only expose when persistence is configured)
   const persistenceInfo = useMemo(
@@ -405,12 +430,17 @@ export function WorkflowProvider({
   // suppress onStepComplete for it (a skip is not a completion).
   const pendingSkipRef = useRef<string | null>(null);
 
+  // Shared flag: submission flips this on completion so the analytics abandon
+  // cleanup does not treat a normal completion as an abandonment on unmount.
+  const workflowCompletedRef = useRef<boolean>(false);
+
   // Initialize analytics tracking
   const { analyticsStartTime } = useWorkflowAnalytics({
     workflowConfig,
     workflowState,
     workflowContext,
     pendingSkipRef,
+    workflowCompletedRef,
   });
 
   // Initialize navigation
@@ -510,14 +540,23 @@ export function WorkflowProvider({
     setSubmitting,
     onWorkflowComplete: onWorkflowCompleteRef.current,
     analyticsStartTime,
+    workflowCompletedRef,
   });
 
   // Create field value setter for form integration
   const setValue = useCallback(
     (fieldId: string, value: unknown) => {
-      setFieldValue(fieldId, value, currentStep?.id || '');
+      const stepId = currentStep?.id || '';
+      // Record edits made before an async persistence load resolves so the load
+      // merge can preserve them (user input must win over loaded state).
+      if (hasPersistence && !persistLoadResolvedRef.current && stepId) {
+        const existing = userEditsBeforeLoadRef.current.get(stepId) ?? {};
+        existing[fieldId] = value;
+        userEditsBeforeLoadRef.current.set(stepId, existing);
+      }
+      setFieldValue(fieldId, value, stepId);
     },
-    [setFieldValue, currentStep?.id]
+    [setFieldValue, currentStep?.id, hasPersistence]
   );
 
   // Create step data setter

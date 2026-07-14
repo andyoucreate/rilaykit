@@ -12,6 +12,12 @@ export interface UseWorkflowSubmissionProps {
   setSubmitting: (isSubmitting: boolean) => void;
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
   analyticsStartTime: React.MutableRefObject<number>;
+  /**
+   * Shared flag flipped once the workflow completes so the abandon cleanup in
+   * {@link useWorkflowAnalytics} does not treat a normal completion as an
+   * abandonment on unmount.
+   */
+  workflowCompletedRef: React.MutableRefObject<boolean>;
 }
 
 export interface UseWorkflowSubmissionReturn {
@@ -27,6 +33,7 @@ export function useWorkflowSubmission({
   setSubmitting,
   onWorkflowComplete,
   analyticsStartTime,
+  workflowCompletedRef,
 }: UseWorkflowSubmissionProps): UseWorkflowSubmissionReturn {
   // Use ref to avoid recreating callbacks when onWorkflowComplete changes
   const onWorkflowCompleteRef = useRef(onWorkflowComplete);
@@ -51,6 +58,9 @@ export function useWorkflowSubmission({
           workflowState.allData
         );
       }
+
+      // Mark completion so unmount does not fire onWorkflowAbandon.
+      workflowCompletedRef.current = true;
     } catch (error) {
       log.error('Workflow submission failed:', error);
       if (workflowConfig.analytics?.onError) {
@@ -74,11 +84,13 @@ export function useWorkflowSubmission({
     // Basic check: not currently submitting
     if (workflowState.isSubmitting) return false;
 
-    // Check if we're on the last step
-    const isLastStep = workflowState.currentStepIndex === workflowConfig.steps.length - 1;
-
-    return isLastStep;
-  }, [workflowState.isSubmitting, workflowState.currentStepIndex, workflowConfig.steps.length]);
+    // Terminal check must use the last VISIBLE step, not the raw last index:
+    // when the final raw step is conditionally hidden, the last visible step is
+    // the real terminal step. `handleSubmit` already gates on this same
+    // `workflowContext.isLastStep`, so canSubmit must agree or a custom submit
+    // button wired to `useFlow().canSubmit` could never submit.
+    return workflowContext.isLastStep;
+  }, [workflowState.isSubmitting, workflowContext.isLastStep]);
 
   return {
     submitWorkflow,

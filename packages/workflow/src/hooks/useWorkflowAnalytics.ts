@@ -17,6 +17,12 @@ export interface UseWorkflowAnalyticsProps {
    * the step-change effect must suppress `onStepComplete` for it exactly once.
    */
   pendingSkipRef: MutableRefObject<string | null>;
+  /**
+   * Shared flag set by {@link useWorkflowSubmission} when the workflow finishes.
+   * Read by the abandon cleanup so a normal completion does NOT fire
+   * {@link WorkflowAnalytics.onWorkflowAbandon} on unmount.
+   */
+  workflowCompletedRef: MutableRefObject<boolean>;
 }
 
 export interface UseWorkflowAnalyticsReturn {
@@ -32,11 +38,49 @@ export function useWorkflowAnalytics({
   workflowState,
   workflowContext,
   pendingSkipRef,
+  workflowCompletedRef,
 }: UseWorkflowAnalyticsProps): UseWorkflowAnalyticsReturn {
   const analyticsStartTime = useRef<number>(Date.now());
   const stepStartTimes = useRef<Map<string, number>>(new Map());
   const workflowStartedRef = useRef<boolean>(false);
   const currentStepRef = useRef<string | null>(null);
+
+  // Abandon bookkeeping: the cleanup effect (unmount) reads the LATEST config
+  // and data through refs so it can fire onWorkflowAbandon without stale deps.
+  const configRef = useRef(workflowConfig);
+  configRef.current = workflowConfig;
+  const latestDataRef = useRef<Record<string, unknown>>(workflowState.allData);
+  latestDataRef.current = workflowState.allData;
+  // "Started" means the workflow reached an interactive step (initialization,
+  // including any async persistence load, has settled). Independent of whether
+  // onWorkflowStart is configured.
+  const hasStartedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!workflowState.isInitializing) {
+      hasStartedRef.current = true;
+    }
+  }, [workflowState.isInitializing]);
+
+  // Fire onWorkflowAbandon on unmount IFF the workflow was started but never
+  // completed. Runs exactly once (empty deps) so it only reacts to a real
+  // unmount, reading current values through refs.
+  useEffect(() => {
+    return () => {
+      const analytics = configRef.current.analytics;
+      if (
+        hasStartedRef.current &&
+        !workflowCompletedRef.current &&
+        analytics?.onWorkflowAbandon
+      ) {
+        analytics.onWorkflowAbandon(
+          configRef.current.id,
+          currentStepRef.current ?? '',
+          latestDataRef.current
+        );
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs only; unmount-only cleanup
+  }, []);
 
   // Get global monitor for enhanced tracking
   const monitor = getGlobalMonitor();
@@ -100,8 +144,17 @@ export function useWorkflowAnalytics({
       pendingSkipRef.current = null;
     }
 
+    // A completion is a FORWARD transition only. Backward navigation
+    // (goPrevious) retreats from a step the user has not completed, so it must
+    // not fire onStepComplete for the step being left behind.
+    const previousStepIndex = previousStepId
+      ? workflowConfig.steps.findIndex((s) => s.id === previousStepId)
+      : -1;
+    const isForward =
+      previousStepIndex !== -1 && workflowState.currentStepIndex > previousStepIndex;
+
     // Track step completion for previous step
-    if (previousStepId && !wasSkipped && workflowConfig.analytics?.onStepComplete) {
+    if (previousStepId && !wasSkipped && isForward && workflowConfig.analytics?.onStepComplete) {
       const startTime = stepStartTimes.current.get(previousStepId);
       if (startTime) {
         const duration = Date.now() - startTime;
