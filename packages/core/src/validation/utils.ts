@@ -16,7 +16,12 @@ import type { FieldError, ValidationContext, ValidationResult } from '../types';
  * Checks whether a value is considered "empty" for validation purposes.
  *
  * Handles: `undefined`, `null`, empty string, whitespace-only string,
- * empty array, and empty plain object.
+ * empty array, and empty PLAIN object.
+ *
+ * Non-plain objects (Date, File, Blob, Map, Set, class instances) are never
+ * empty: `Object.keys(new Date())` is `[]`, so the plain-object heuristic would
+ * otherwise wrongly report a filled Date/File/Map/Set as empty and make
+ * `required()` fail on a genuinely populated field.
  *
  * @returns `true` if the value is empty
  */
@@ -24,7 +29,14 @@ export function isEmptyValue(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') return value.trim().length === 0;
   if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+  if (typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value);
+    // Only a plain object (literal `{}` or null-prototype) can be "empty".
+    if (proto === Object.prototype || proto === null) {
+      return Object.keys(value as Record<string, unknown>).length === 0;
+    }
+    return false;
+  }
   return false;
 }
 
