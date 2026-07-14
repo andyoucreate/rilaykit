@@ -222,14 +222,37 @@ export function FormProvider({
 
   // Sync conditions to store whenever they change
   useEffect(() => {
+    const state = store.getState();
+    // Snapshot the previous conditions BEFORE any write so a visible→hidden
+    // transition can be detected per field.
+    const prevConditions = state._fieldConditions;
+
     for (const [fieldId, condition] of Object.entries(fieldConditions)) {
+      // A field with no stored conditions yet is treated as visible (matches
+      // the store's DEFAULT_FIELD_CONDITIONS), so only a real true→false flip
+      // triggers the clear below.
+      const wasVisible = prevConditions[fieldId]?.visible ?? true;
+
       const conditions: FieldConditions = {
         visible: condition.visible,
         disabled: condition.disabled,
         required: condition.required,
         readonly: condition.readonly,
       };
-      store.getState()._setFieldConditions(fieldId, conditions);
+      state._setFieldConditions(fieldId, conditions);
+
+      // When a field transitions from visible → hidden, clear any already
+      // committed error + validation state so it stops contributing to the
+      // global isValid (a hidden field must never wedge isValid with no
+      // visible error). Mirrors validateForm's invisible-field handling and
+      // the in-flight guard in useFormValidationWithStore. A field that
+      // becomes visible again is re-validated normally on its next trigger —
+      // this only clears the stale committed state, it does not suppress
+      // future validation.
+      if (wasVisible && condition.visible === false) {
+        state._setErrors(fieldId, []);
+        state._setValidationState(fieldId, 'valid');
+      }
     }
   }, [fieldConditions, store]);
 
