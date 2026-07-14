@@ -2,8 +2,8 @@ import type { RepeatableFieldItem } from '@rilaykit/core';
 import { NotFoundError } from '@rilaykit/core';
 import React from 'react';
 import { useRepeatableField } from '../hooks/use-repeatable-field';
-import { useFormConfigContext } from './FormProvider';
 import { FormListItem } from './FormListItem';
+import { useFormConfigContext } from './FormProvider';
 
 export interface FormListContext {
   items: RepeatableFieldItem[];
@@ -22,12 +22,11 @@ export interface FormListProps {
 
 export const FormList = React.memo(function FormList({ id, children, className }: FormListProps) {
   const { formConfig } = useFormConfigContext();
-  const repeatable = formConfig.repeatableFields?.[id];
-  if (!repeatable) {
+  const { config, items, append, remove, move, canAdd, canRemove } = useRepeatableField(id);
+
+  if (!config) {
     throw new NotFoundError(`Repeatable "${id}" not found in form "${formConfig.id}"`, { key: id });
   }
-
-  const { items, append, remove, move, canAdd, canRemove } = useRepeatableField(id);
 
   if (children) {
     return <>{children({ items, add: () => append(), remove, move, canAdd, canRemove })}</>;

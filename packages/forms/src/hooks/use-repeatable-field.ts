@@ -1,4 +1,9 @@
-import type { FormFieldConfig, FormFieldRow, RepeatableFieldItem } from '@rilaykit/core';
+import type {
+  FormFieldConfig,
+  FormFieldRow,
+  RepeatableFieldConfig,
+  RepeatableFieldItem,
+} from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { useFormConfigContext } from '../components/FormProvider';
 import { useFormStore, useRepeatableKeys } from '../stores';
@@ -10,6 +15,8 @@ import { scopeConditions } from '../utils/scope-conditions';
 // =================================================================
 
 export interface UseRepeatableFieldReturn {
+  /** The resolved repeatable config, or undefined when the id is unknown */
+  config: RepeatableFieldConfig | undefined;
   items: RepeatableFieldItem[];
   append: (defaultValue?: Record<string, unknown>) => void;
   remove: (key: string) => void;
@@ -146,6 +153,7 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
   );
 
   return {
+    config: repeatableConfig,
     items,
     append,
     remove,

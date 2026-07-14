@@ -5,6 +5,7 @@ import type {
 } from '@rilaykit/core';
 import { ComponentRendererWrapper } from '@rilaykit/core';
 import React, { useMemo } from 'react';
+import { visibleRowFields } from '../utils/visible-row-fields';
 import { FormField } from './FormField';
 import { useFormConfigContext } from './FormProvider';
 
@@ -17,8 +18,8 @@ export const FormRow = React.memo(function FormRow({ row, className, ...props }:
 
   // Filter visible fields BEFORE creating components to avoid empty wrapper divs
   const visibleFields = useMemo(
-    () => row.fields.filter((field) => conditionsHelpers.isFieldVisible(field.id)),
-    [row.fields, conditionsHelpers]
+    () => visibleRowFields(row, conditionsHelpers),
+    [row, conditionsHelpers]
   );
 
   // Memoize FormField components only for visible fields
