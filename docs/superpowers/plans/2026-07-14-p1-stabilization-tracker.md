@@ -86,6 +86,19 @@
 - [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
 - [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
+## Round 4 hunt inventory (iter 8) — 9 bugs (6 high) + 1 gap; NOT clean
+
+- [ ] BUG/high: `form.clone()` drops form-level validation + submitOptions — forms/builders/form.ts
+- [ ] BUG/high: `form.clone()` resets IdGenerator → duplicate auto-ids when extending clone — forms/builders/form.ts
+- [ ] BUG/high: plugin `use()` non-atomic — plugin stays registered after install() throws — workflow/builders/flow.ts
+- [ ] BUG/high: persisted currentStepIndex never validated/clamped on load → out-of-range — WorkflowProvider.tsx
+- [ ] BUG/high: `useStep()` dereferences currentStep.metadata without null guard → crash on out-of-range index — workflow/hooks/useStep.ts
+- [ ] BUG/high: effect writing a field with an existing error never re-validates → wedges isValid=false, deadlocks submit — forms/effects/effect-engine.ts
+- [ ] BUG/med (regression): RemoteAdapter concurrent-drain now rejects a caller whose events WERE delivered (false-failure) — core/monitoring/adapters.ts
+- [ ] BUG/med: `_moveRepeatableItem` reorders but never sets isDirty → reorder lost silently — forms/stores/formStore.ts
+- [ ] BUG/med: workflow persistence never cleared on completion → re-mount resurrects completed workflow — workflow/hooks/useWorkflowSubmission.ts
+- [ ] GAP/low: step-transition effect ordering — new step effects run against previous step values (effectsMap before form-id reset) — FormProvider.tsx
+
 ## Round 3 hunt inventory (iter 7) — 8 bugs + 2 config gaps; NOT clean
 
 - [x] BUG/high: `canSubmit` uses RAW last index vs visible-last → custom submit never enables when last step hidden — useWorkflowSubmission.ts
