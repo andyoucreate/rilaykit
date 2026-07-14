@@ -1,4 +1,4 @@
-import { ril } from '@rilaykit/core';
+import { ConfigurationError, ril } from '@rilaykit/core';
 import { form, useForm } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -165,15 +165,23 @@ describe('WorkflowProvider', () => {
   });
 
   describe('useWorkflow Hook', () => {
-    it('should throw error when used outside provider', () => {
+    it('should throw a ConfigurationError when used outside provider', () => {
       const TestComponent = () => {
         useFlow();
         return null;
       };
 
-      expect(() => render(<TestComponent />)).toThrow(
-        'useFlow must be used within a WorkflowProvider'
-      );
+      expect(() => render(<TestComponent />)).toThrow(ConfigurationError);
+
+      try {
+        render(<TestComponent />);
+        expect.unreachable('useFlow must throw outside a WorkflowProvider');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConfigurationError);
+        const configurationError = error as ConfigurationError;
+        expect(configurationError.code).toBe('CONFIGURATION');
+        expect(configurationError.message).toBe('useFlow must be used within a WorkflowProvider');
+      }
     });
 
     it('should provide workflow state', () => {

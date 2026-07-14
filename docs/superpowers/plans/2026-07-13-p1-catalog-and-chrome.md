@@ -2221,6 +2221,7 @@ git commit -m "feat(workflow)!: parametric FlowNav buttons, dynamic allowSkip, F
   | `useWorkflowAllData` | `useFlowData` |
   | `useWorkflowStepData` | `useStepData` |
   | `useWorkflowActions` | `useFlowActions` |
+  | `UseWorkflowActionsResult` (type) | `UseFlowActionsResult` |
   | `useWorkflowStore` | `useFlowStore` |
   | `useWorkflowStoreApi` | `useFlowStoreApi` |
   | `useCurrentStepIndex` | `useFlowStepIndex` |

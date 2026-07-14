@@ -1,3 +1,4 @@
+import { ConfigurationError } from '@rilaykit/core';
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -5,20 +6,20 @@ import {
   type CreateWorkflowStoreOptions,
   WorkflowStoreContext,
   createWorkflowStore,
-  useFlowStepIndex,
-  useIsStepPassed,
-  useIsStepVisited,
-  usePassedSteps,
-  useVisitedSteps,
   useFlowActions,
   useFlowData,
   useFlowInitializing,
   useFlowNavigationState,
-  useStepData,
+  useFlowStepIndex,
   useFlowStore,
   useFlowSubmitState,
   useFlowSubmitting,
   useFlowTransitioning,
+  useIsStepPassed,
+  useIsStepVisited,
+  usePassedSteps,
+  useStepData,
+  useVisitedSteps,
 } from '../../src/stores/workflowStore';
 
 // Helper to create a wrapper with store context
@@ -231,10 +232,20 @@ describe('workflowStore', () => {
   });
 
   describe('Selector Hooks', () => {
-    it('useFlowStore should throw outside provider', () => {
-      expect(() => renderHook(() => useFlowStore())).toThrow(
-        'useFlowStore must be used within a WorkflowProvider'
-      );
+    it('useFlowStore should throw a ConfigurationError outside provider', () => {
+      expect(() => renderHook(() => useFlowStore())).toThrow(ConfigurationError);
+
+      try {
+        renderHook(() => useFlowStore());
+        expect.unreachable('useFlowStore must throw outside a WorkflowProvider');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConfigurationError);
+        const configurationError = error as ConfigurationError;
+        expect(configurationError.code).toBe('CONFIGURATION');
+        expect(configurationError.message).toBe(
+          'useFlowStore must be used within a WorkflowProvider'
+        );
+      }
     });
 
     it('useFlowStepIndex should return current step', () => {

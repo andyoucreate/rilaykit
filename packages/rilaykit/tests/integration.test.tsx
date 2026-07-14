@@ -171,4 +171,45 @@ describe('rilaykit - all-in-one integration', () => {
     expect(workflow.steps[1].id).toBe('professional');
     expect(workflow.description).toBe('Multi-step onboarding');
   });
+
+  it('exposes the useFlow* hook family and drops the old useWorkflow* names', async () => {
+    const mod: Record<string, unknown> = await import('rilaykit');
+
+    const newHookNames = [
+      'useFlow',
+      'useFlowData',
+      'useStepData',
+      'useFlowActions',
+      'useFlowStore',
+      'useFlowStoreApi',
+      'useFlowStepIndex',
+      'useFlowNavigationState',
+      'useFlowSubmitState',
+      'useFlowSubmitting',
+      'useFlowTransitioning',
+      'useFlowInitializing',
+      'useStep',
+    ] as const;
+    for (const newName of newHookNames) {
+      expect(typeof mod[newName], newName).toBe('function');
+    }
+
+    const oldHookNames = [
+      'useWorkflowContext',
+      'useWorkflowAllData',
+      'useWorkflowStepData',
+      'useWorkflowActions',
+      'useWorkflowStore',
+      'useWorkflowStoreApi',
+      'useCurrentStepIndex',
+      'useWorkflowNavigationState',
+      'useWorkflowSubmitState',
+      'useWorkflowSubmitting',
+      'useWorkflowTransitioning',
+      'useWorkflowInitializing',
+    ] as const;
+    for (const oldName of oldHookNames) {
+      expect(oldName in mod, oldName).toBe(false);
+    }
+  });
 });

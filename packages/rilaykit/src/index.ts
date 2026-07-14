@@ -75,7 +75,7 @@ export {
   useFlowTransitioning,
   WorkflowStoreContext,
   type CreateWorkflowStoreOptions,
-  type UseWorkflowActionsResult,
+  type UseFlowActionsResult,
   type WorkflowStore,
   type WorkflowStoreState,
 } from '@rilaykit/workflow';

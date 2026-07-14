@@ -306,7 +306,7 @@ export function useFlowSubmitState(): {
 // ACTION HOOKS
 // =================================================================
 
-export interface UseWorkflowActionsResult {
+export interface UseFlowActionsResult {
   setCurrentStep: (stepIndex: number) => void;
   setStepData: (data: Record<string, unknown>, stepId: string) => void;
   setAllData: (data: Record<string, unknown>) => void;
@@ -324,7 +324,7 @@ export interface UseWorkflowActionsResult {
  * Get stable action references for workflow
  * Actions don't cause re-renders
  */
-export function useFlowActions(): UseWorkflowActionsResult {
+export function useFlowActions(): UseFlowActionsResult {
   const store = useFlowStore();
 
   return {
