@@ -244,6 +244,57 @@ describe('flattenRepeatableValues', () => {
   });
 });
 
+describe('BUG 4: flattenRepeatableValues error-path — null/non-object items', () => {
+  it('should NOT throw when an array item is null (backend JSON null row)', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    expect(() => flattenRepeatableValues({ items: [null] }, configs)).not.toThrow();
+  });
+
+  it('should normalize null/non-object items to empty objects (degrade, never throw)', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const result = flattenRepeatableValues(
+      { items: [null, undefined, 42, 'str', { name: 'ok' }] },
+      configs
+    );
+
+    // Each item still gets a key, non-object items contribute no field values
+    expect(result.order).toEqual({ items: ['k0', 'k1', 'k2', 'k3', 'k4'] });
+    expect(result.nextKeys).toEqual({ items: 5 });
+    expect(result.values).toEqual({ 'items[k4].name': 'ok' });
+  });
+});
+
+describe('BUG 7: round-trip fidelity — preserve non-template item keys (no silent data loss)', () => {
+  it('structureFormValues(flatten(data)) deep-equals data when an item carries a non-template key', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+    const data = {
+      items: [{ name: 'a', legacyId: 42 }],
+    };
+
+    const flattened = flattenRepeatableValues(data, configs);
+    const structured = structureFormValues(flattened.values, configs, flattened.order);
+
+    expect(structured).toEqual(data);
+  });
+
+  it('preserves multiple non-template keys across several items', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+    const data = {
+      items: [
+        { name: 'a', legacyId: 1, meta: { x: true } },
+        { name: 'b', legacyId: 2 },
+      ],
+    };
+
+    const flattened = flattenRepeatableValues(data, configs);
+    const structured = structureFormValues(flattened.values, configs, flattened.order);
+
+    expect(structured).toEqual(data);
+  });
+});
+
 describe('roundtrip: flatten ↔ structure', () => {
   it('should roundtrip correctly', () => {
     const original = {

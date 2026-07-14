@@ -60,9 +60,12 @@ export function structureFormValues(
     const config = repeatableConfigs[repeatableId];
     const items: Record<string, unknown>[] = [];
 
+    const itemByKey = new Map<string, Record<string, unknown>>();
+
     for (const itemKey of keys) {
       const item: Record<string, unknown> = {};
 
+      // Template fields first (preserve declaration order)
       for (const templateField of config.allFields) {
         const compositeKey = buildCompositeKey(repeatableId, itemKey, templateField.id);
         if (compositeKey in values) {
@@ -71,7 +74,22 @@ export function structureFormValues(
         }
       }
 
+      itemByKey.set(itemKey, item);
       items.push(item);
+    }
+
+    // Round-trip fidelity: carry over any non-template stored keys for each active
+    // item so backend-provided extra fields are not silently dropped on submit.
+    for (const [key, value] of Object.entries(values)) {
+      if (processedKeys.has(key)) continue;
+      const parsed = parseCompositeKey(key);
+      if (!parsed || parsed.repeatableId !== repeatableId) continue;
+      const item = itemByKey.get(parsed.itemKey);
+      if (!item) continue; // orphan key (not in active order) — skip
+      if (!(parsed.fieldId in item)) {
+        item[parsed.fieldId] = value;
+      }
+      processedKeys.add(key);
     }
 
     result[repeatableId] = items;
@@ -122,9 +140,16 @@ export function flattenRepeatableValues(
       const keys: string[] = [];
       let keyCounter = 0;
 
-      for (const item of value as Record<string, unknown>[]) {
+      for (const rawItem of value) {
         const itemKey = `k${keyCounter}`;
         keys.push(itemKey);
+
+        // Degrade gracefully: null / non-object rows (e.g. a null entry from
+        // backend JSON) contribute no field values instead of throwing.
+        const item =
+          rawItem !== null && typeof rawItem === 'object' && !Array.isArray(rawItem)
+            ? (rawItem as Record<string, unknown>)
+            : {};
 
         for (const [fieldId, fieldValue] of Object.entries(item)) {
           values[buildCompositeKey(key, itemKey, fieldId)] = fieldValue;
