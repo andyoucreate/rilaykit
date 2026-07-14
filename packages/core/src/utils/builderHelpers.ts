@@ -1,4 +1,4 @@
-import { DuplicateError } from '../errors';
+import { DuplicateError, ValidationError } from '../errors';
 
 /**
  * Utility for merging partial configurations into existing objects
@@ -32,7 +32,10 @@ export function validateRequired<T>(
   const missing = items.filter((item) => requiredFields.some((field) => !item[field]));
 
   if (missing.length > 0) {
-    throw new Error(`Missing required fields in ${entityName}: ${requiredFields.join(', ')}`);
+    throw new ValidationError(
+      `Missing required fields in ${entityName}: ${requiredFields.join(', ')}`,
+      { entityName, requiredFields: requiredFields.map(String) }
+    );
   }
 }
 

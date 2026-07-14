@@ -9,8 +9,10 @@ import {
   type FormRepeatableRow,
   type FormRowEntry,
   type FormValidationConfig,
+  ConfigurationError,
   IdGenerator,
   NotFoundError,
+  ValidationError,
   type RepeatableFieldConfig,
   type RilayInstance,
   type SubmitOptions,
@@ -233,7 +235,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   private createRow<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): FormFieldRow {
     if (fieldConfigs.length === 0) {
-      throw new Error('At least one field is required');
+      throw new ConfigurationError('At least one field is required');
     }
 
     const fields = fieldConfigs.map((config) => this.createFormField(config));
@@ -287,7 +289,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfig<C, T>[]);
 
     if (fieldConfigs.length === 0) {
-      throw new Error('At least one field is required');
+      throw new ConfigurationError('At least one field is required');
     }
 
     const row = this.createRow(fieldConfigs);
@@ -353,8 +355,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   ): this {
     // Validate ID — brackets are reserved for composite keys
     if (id.includes('[') || id.includes(']')) {
-      throw new Error(
-        `Repeatable ID "${id}" cannot contain "[" or "]" (reserved for composite keys)`
+      throw new ConfigurationError(
+        `Repeatable ID "${id}" cannot contain "[" or "]" (reserved for composite keys)`,
+        { id }
       );
     }
 
@@ -363,7 +366,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     // Nesting check — repeatables cannot contain other repeatables
     if (configured._hasRepeatables()) {
-      throw new Error(`Nested repeatables are not supported (in repeatable "${id}")`);
+      throw new ConfigurationError(`Nested repeatables are not supported (in repeatable "${id}")`, {
+        id,
+      });
     }
 
     const repeatableConfig = configured._build(id);
@@ -414,7 +419,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   updateField(fieldId: string, updates: Partial<Omit<FormFieldConfig, 'id'>>): this {
     const field = this.findField(fieldId);
     if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
+      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
     }
 
     Object.assign(field, {
@@ -650,7 +655,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     );
     const field = this.findField(fieldId);
     if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
+      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
     }
 
     // For legacy support, just update with new config (ignoring validators merge)
@@ -684,7 +689,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   addFieldConditions(fieldId: string, conditions: ConditionalBehavior): this {
     const field = this.findField(fieldId);
     if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
+      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
     }
 
     const updatedConditions: ConditionalBehavior = {
@@ -824,7 +829,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   build(): FormConfiguration<C> {
     const errors = this.validate();
     if (errors.length > 0) {
-      throw new Error(`Form validation failed: ${errors.join(', ')}`);
+      throw new ValidationError(`Form validation failed: ${errors.join(', ')}`, { errors });
     }
 
     // Build repeatableFields index

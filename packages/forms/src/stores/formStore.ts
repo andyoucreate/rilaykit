@@ -6,6 +6,7 @@ import type {
   RepeatableFieldConfig,
   ValidationState,
 } from '@rilaykit/core';
+import { ConfigurationError } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -348,12 +349,12 @@ export const FormStoreContext = createContext<FormStore | null>(null);
 
 /**
  * Get the form store from context
- * @throws Error if used outside of FormProvider
+ * @throws ConfigurationError if used outside of FormProvider
  */
 export function useFormStore(): FormStore {
   const store = useContext(FormStoreContext);
   if (!store) {
-    throw new Error('useFormStore must be used within a FormProvider');
+    throw new ConfigurationError('useFormStore must be used within a FormProvider');
   }
   return store;
 }

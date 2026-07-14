@@ -1,3 +1,4 @@
+import { ConfigurationError } from '../errors';
 import type {
   ConsoleMonitoringAdapter,
   MonitoringAdapter,
@@ -156,7 +157,10 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new ConfigurationError(`HTTP ${response.status}: ${response.statusText}`, {
+            endpoint: this.endpoint,
+            status: response.status,
+          });
         }
 
         // Success - exit retry loop

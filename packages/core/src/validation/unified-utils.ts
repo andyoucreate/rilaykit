@@ -4,6 +4,7 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { InvalidSchemaError } from '../errors';
 import type {
   FieldError,
   FieldValidationConfig,
@@ -41,7 +42,9 @@ export async function validateWithStandardSchema<T extends StandardSchema>(
   value: unknown
 ): Promise<ValidationResult> {
   if (!isStandardSchema(schema)) {
-    throw new Error('Invalid Standard Schema: missing ~standard property or invalid structure');
+    throw new InvalidSchemaError(
+      'Invalid Standard Schema: missing ~standard property or invalid structure'
+    );
   }
 
   try {
@@ -115,7 +118,7 @@ export function getSchemaInfo(schema: StandardSchema): {
   hasTypes: boolean;
 } {
   if (!isStandardSchema(schema)) {
-    throw new Error('Invalid Standard Schema');
+    throw new InvalidSchemaError('Invalid Standard Schema');
   }
 
   return {

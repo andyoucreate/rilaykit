@@ -10,6 +10,9 @@ import {
   type WorkflowConfig,
   type WorkflowContext,
   type WorkflowPlugin,
+  ConfigurationError,
+  NotFoundError,
+  ValidationError,
   deepClone,
   ensureUnique,
   normalizeToArray,
@@ -470,8 +473,9 @@ export class flow {
     try {
       plugin.install(this);
     } catch (error) {
-      throw new Error(
-        `Failed to install plugin "${plugin.name}": ${error instanceof Error ? error.message : String(error)}`
+      throw new ConfigurationError(
+        `Failed to install plugin "${plugin.name}": ${error instanceof Error ? error.message : String(error)}`,
+        { plugin: plugin.name }
       );
     }
 
@@ -493,8 +497,9 @@ export class flow {
     );
 
     if (missingDeps.length > 0) {
-      throw new Error(
-        `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
+      throw new ConfigurationError(
+        `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`,
+        { plugin: plugin.name, missingDeps }
       );
     }
   }
@@ -537,7 +542,7 @@ export class flow {
   updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
-      throw new Error(`Step with ID "${stepId}" not found`);
+      throw new NotFoundError(`Step with ID "${stepId}" not found`, { stepId });
     }
 
     this.steps[stepIndex] = { ...this.steps[stepIndex], ...updates };
@@ -566,7 +571,7 @@ export class flow {
   addStepConditions(stepId: string, conditions: StepConditionalBehavior): this {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
-      throw new Error(`Step with ID "${stepId}" not found`);
+      throw new NotFoundError(`Step with ID "${stepId}" not found`, { stepId });
     }
 
     const updatedConditions: StepConditionalBehavior = {
@@ -785,7 +790,9 @@ export class flow {
   build(): WorkflowConfig {
     const validationErrors = this.validate();
     if (validationErrors.length > 0) {
-      throw new Error(`Workflow validation failed: ${validationErrors.join(', ')}`);
+      throw new ValidationError(`Workflow validation failed: ${validationErrors.join(', ')}`, {
+        errors: validationErrors,
+      });
     }
 
     const finalConfig: WorkflowConfig = {

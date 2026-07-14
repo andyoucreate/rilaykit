@@ -6,6 +6,8 @@ import {
   type FormValidationConfig,
   type RilayInstance,
   type StandardSchema,
+  InvalidSchemaError,
+  NotFoundError,
   email as emailValidator,
   maxLength as maxLengthValidator,
   max as maxValidator,
@@ -709,7 +711,7 @@ export function resolveValidationDescriptor(
     return registry.validators[type](params, message);
   }
 
-  throw new Error(`Unknown validator type: "${type}"`);
+  throw new InvalidSchemaError(`Unknown validator type: "${type}"`, { type });
 }
 
 /**
@@ -752,7 +754,7 @@ function resolveBuiltinValidator(
       }
     }
     default:
-      throw new Error(`Unknown built-in validator: "${type}"`);
+      throw new InvalidSchemaError(`Unknown built-in validator: "${type}"`, { type });
   }
 }
 
@@ -764,7 +766,9 @@ function resolveEffects(effects: FieldSchemaEffect[], registry?: SchemaRegistry)
   return effects.map((effect) => {
     const registryHandler = registry?.effects?.[effect.handler];
     if (!registryHandler) {
-      throw new Error(`Effect handler "${effect.handler}" not found in registry`);
+      throw new NotFoundError(`Effect handler "${effect.handler}" not found in registry`, {
+        handler: effect.handler,
+      });
     }
 
     // Curry params into a standard FieldEffectHandler (2 args)

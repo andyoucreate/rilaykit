@@ -5,6 +5,7 @@ import type {
   RilayInstance,
   ril,
 } from '@rilaykit/core';
+import { ConfigurationError } from '@rilaykit/core';
 import { type FieldConfig, form } from './form';
 
 // =================================================================
@@ -97,21 +98,23 @@ export class RepeatableBuilder<C extends Record<string, any>> {
     const allFields = this.innerForm.getFields();
 
     if (rows.length === 0) {
-      throw new Error(`Repeatable "${id}" must have at least one field`);
+      throw new ConfigurationError(`Repeatable "${id}" must have at least one field`, { id });
     }
 
     // Validate no brackets in template field IDs
     for (const field of allFields) {
       if (field.id.includes('[') || field.id.includes(']')) {
-        throw new Error(
-          `Repeatable template field ID "${field.id}" cannot contain "[" or "]" (reserved for composite keys)`
+        throw new ConfigurationError(
+          `Repeatable template field ID "${field.id}" cannot contain "[" or "]" (reserved for composite keys)`,
+          { id, fieldId: field.id }
         );
       }
     }
 
     if (this._min !== undefined && this._max !== undefined && this._min > this._max) {
-      throw new Error(
-        `Repeatable "${id}": min (${this._min}) cannot be greater than max (${this._max})`
+      throw new ConfigurationError(
+        `Repeatable "${id}": min (${this._min}) cannot be greater than max (${this._max})`,
+        { id, min: this._min, max: this._max }
       );
     }
 
