@@ -854,3 +854,15 @@ export class flow {
     return this;
   }
 }
+
+/**
+ * Resolve a workflow definition to a built {@link WorkflowConfig}.
+ *
+ * Accepts either an already-built configuration (returned as-is) or a
+ * flow builder (auto-built via {@link flow.build}). Single source of
+ * truth for the "config or builder" resolution, mirroring
+ * `resolveFormConfig` from `@rilaykit/forms`.
+ */
+export function resolveWorkflowConfig(value: WorkflowConfig | flow): WorkflowConfig {
+  return value instanceof flow ? value.build() : value;
+}

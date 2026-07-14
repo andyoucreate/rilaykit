@@ -1,10 +1,12 @@
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import {
   type ComponentRenderContext,
+  Flow,
+  FlowBody,
   Form,
   type FormConfiguration,
   type RilayKit,
-  Workflow,
   type WorkflowConfig,
   flow,
   form,
@@ -16,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 const MockInput = ({ id, props, field }: ComponentRenderContext) =>
   React.createElement('input', {
     id,
+    'data-testid': id,
     value: String(field?.value ?? ''),
     placeholder: props.label ? String(props.label) : undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => field?.onChange(e.target.value),
@@ -37,8 +40,24 @@ describe('rilaykit - all-in-one integration', () => {
     expect(Form).toBeDefined();
   });
 
-  it('should re-export workflow components', () => {
-    expect(Workflow).toBeDefined();
+  it('should render the workflow compound components re-exported by rilaykit', () => {
+    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+
+    const contactForm = r
+      .form('contact')
+      .add({ id: 'email', type: 'input', props: { label: 'Email' } });
+
+    const onboarding = r
+      .flow('onboarding', 'Onboarding')
+      .step({ id: 'contact', title: 'Contact', formConfig: contactForm.build() });
+
+    render(
+      <Flow of={onboarding}>
+        <FlowBody />
+      </Flow>
+    );
+
+    expect(screen.getByTestId('email')).toBeInTheDocument();
   });
 
   it('should re-export form builder class', () => {

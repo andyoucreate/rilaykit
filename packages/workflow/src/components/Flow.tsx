@@ -1,7 +1,7 @@
 import type { WorkflowConfig } from '@rilaykit/core';
 import type React from 'react';
 import { useMemo } from 'react';
-import { flow } from '../builders/flow';
+import { type flow, resolveWorkflowConfig } from '../builders/flow';
 import type { WorkflowProviderProps } from './WorkflowProvider';
 import { WorkflowProvider } from './WorkflowProvider';
 
@@ -22,7 +22,7 @@ export type FlowProps = Omit<
  * `defaults` seeds initial values and `onComplete` fires on workflow completion.
  */
 function FlowRoot({ children, of, defaults, onComplete, ...props }: FlowProps) {
-  const resolvedConfig = useMemo(() => (of instanceof flow ? of.build() : of), [of]);
+  const resolvedConfig = useMemo(() => resolveWorkflowConfig(of), [of]);
 
   return (
     <WorkflowProvider

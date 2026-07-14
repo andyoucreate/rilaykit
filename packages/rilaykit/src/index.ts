@@ -14,7 +14,7 @@ export * from '@rilaykit/forms';
 // =============================================================================
 
 // Builder
-export { flow, type StepDefinition } from '@rilaykit/workflow';
+export { flow, resolveWorkflowConfig, type StepDefinition } from '@rilaykit/workflow';
 
 // Components
 export {

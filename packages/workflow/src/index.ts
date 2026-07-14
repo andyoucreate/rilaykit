@@ -1,5 +1,5 @@
 // Core workflow builder
-export { flow } from './builders/flow';
+export { flow, resolveWorkflowConfig } from './builders/flow';
 export type { StepDefinition } from './builders/flow';
 
 // Step context (for after callbacks)
