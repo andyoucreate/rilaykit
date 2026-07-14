@@ -100,56 +100,14 @@ export function FormProvider({
   // dispatching to the latest validator.
   const validateFieldRef = useRef<((fieldId: string) => Promise<unknown>) | null>(null);
 
-  useEffect(() => {
-    effectEngineRef.current?.stop();
-    effectEngineRef.current = null;
-
-    if (formConfig.effectsMap && Object.keys(formConfig.effectsMap).length > 0) {
-      const engine = new EffectEngine({
-        effectsMap: formConfig.effectsMap,
-        store,
-        revalidateField: (fieldId) => {
-          void validateFieldRef.current?.(fieldId);
-        },
-      });
-      engine.start();
-      engine.runInitialEffects();
-      effectEngineRef.current = engine;
-    }
-
-    return () => {
-      effectEngineRef.current?.stop();
-      effectEngineRef.current = null;
-    };
-  }, [formConfig.effectsMap, store]);
-
   // Track form ID changes
   const prevFormIdRef = useRef(formConfig.id);
 
-  // Stable refs for callbacks
-  const onFieldChangeRef = useRef(onFieldChange);
-  onFieldChangeRef.current = onFieldChange;
-
-  // Subscribe to value changes for onFieldChange callback
-  useEffect(() => {
-    if (!onFieldChangeRef.current) return;
-
-    const unsubscribe = store.subscribe(
-      (state) => state.values,
-      (values, prevValues) => {
-        // Find which field changed
-        for (const fieldId of Object.keys(values)) {
-          if (values[fieldId] !== prevValues[fieldId]) {
-            onFieldChangeRef.current?.(fieldId, values[fieldId], values as Record<string, unknown>);
-          }
-        }
-      }
-    );
-
-    return unsubscribe;
-  }, [store]);
-
-  // Reset when form ID changes — reinitialize repeatable configs and min items
+  // Reset when form ID changes — reinitialize repeatable configs and min items.
+  // This MUST run before the effect-engine effect below so that, on a step
+  // transition where both steps share a field id, the new step's initial effects
+  // observe the NEW step's reset values rather than the previous step's leftover
+  // values. React runs effects in declaration order, so this stays first.
   useEffect(() => {
     if (prevFormIdRef.current !== formConfig.id) {
       prevFormIdRef.current = formConfig.id;
@@ -178,6 +136,52 @@ export function FormProvider({
       store.getState()._reset(resetValues);
     }
   }, [formConfig.id, formConfig.repeatableFields, store, defaultValues]);
+
+  useEffect(() => {
+    effectEngineRef.current?.stop();
+    effectEngineRef.current = null;
+
+    if (formConfig.effectsMap && Object.keys(formConfig.effectsMap).length > 0) {
+      const engine = new EffectEngine({
+        effectsMap: formConfig.effectsMap,
+        store,
+        revalidateField: (fieldId) => {
+          void validateFieldRef.current?.(fieldId);
+        },
+      });
+      engine.start();
+      engine.runInitialEffects();
+      effectEngineRef.current = engine;
+    }
+
+    return () => {
+      effectEngineRef.current?.stop();
+      effectEngineRef.current = null;
+    };
+  }, [formConfig.effectsMap, store]);
+
+  // Stable refs for callbacks
+  const onFieldChangeRef = useRef(onFieldChange);
+  onFieldChangeRef.current = onFieldChange;
+
+  // Subscribe to value changes for onFieldChange callback
+  useEffect(() => {
+    if (!onFieldChangeRef.current) return;
+
+    const unsubscribe = store.subscribe(
+      (state) => state.values,
+      (values, prevValues) => {
+        // Find which field changed
+        for (const fieldId of Object.keys(values)) {
+          if (values[fieldId] !== prevValues[fieldId]) {
+            onFieldChangeRef.current?.(fieldId, values[fieldId], values as Record<string, unknown>);
+          }
+        }
+      }
+    );
+
+    return unsubscribe;
+  }, [store]);
 
   // Subscribe to form values for reactive conditions evaluation
   const [formValues, setFormValues] = useState(() => store.getState().values);
