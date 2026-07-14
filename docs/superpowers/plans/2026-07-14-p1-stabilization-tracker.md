@@ -55,12 +55,12 @@
 ## Bug inventory (found by adversarial hunt, iter 1) — TDD-fix each: red → fix → green
 
 ### core (fix this batch)
-- [ ] BUG/high: `evaluateCondition` `matches` throws on invalid regex (non-total) + drops regex flags — conditions/index.ts
-- [ ] BUG/high: catalog entries shallow-copied — nested `meta`/`defaultProps`/`validation` leak by reference — config/ril.ts
-- [ ] BUG/high: `combine()`/`combineSchemas()` declared `async` → always Promise → validateProps rejects sync combined schemas — validators.ts + unified-utils.ts
-- [ ] BUG/med: `combine()` doesn't thread transformed values (each sub-schema sees original input) — validators.ts
-- [ ] BUG/med: `number()`/`min()`/`max()` coerce ''/'   '/[]/'0x10' to numbers — validators.ts
-- [ ] BUG/med: `notContains` returns false (not vacuously true) for non-string/array field value — conditions/index.ts
+- [x] BUG/high: `evaluateCondition` `matches` throws on invalid regex (non-total) + drops regex flags — conditions/index.ts
+- [x] BUG/high: catalog entries shallow-copied — nested `meta`/`defaultProps`/`validation` leak by reference — config/ril.ts
+- [x] BUG/high: `combine()`/`combineSchemas()` declared `async` → always Promise → validateProps rejects sync combined schemas — validators.ts + unified-utils.ts
+- [x] BUG/med: `combine()` doesn't thread transformed values (each sub-schema sees original input) — validators.ts
+- [x] BUG/med: `number()`/`min()`/`max()` coerce ''/'   '/[]/'0x10' to numbers — validators.ts
+- [x] BUG/med: `notContains` returns false (not vacuously true) for non-string/array field value — conditions/index.ts
 
 ### forms (next batch)
 - [ ] BUG/high: async validation has no sequence/cancellation guard — stale result overwrites current — useFormValidationWithStore.ts
@@ -87,4 +87,4 @@
 - [ ] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
 ## Iteration log
-- (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; fixing core batch (6 bugs) TDD.
+- (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green). Next: forms batch.
