@@ -72,13 +72,13 @@
 - [x] BUG/low: flatten/structure round-trip drops item fields outside template — repeatable-data.ts
 
 ### workflow (next batch)
-- [ ] BUG/high: onStepChange stale visibility when onAfterValidation flips a later step mid-nav — useWorkflowNavigation.ts
-- [ ] BUG/high: analytics onStepComplete receives NEW step's stepData not the completed step's — useWorkflowAnalytics.ts
-- [ ] BUG/high: LocalStorage compress:true throws on non-Latin1 (accents/emoji) — persistence/adapters/localStorage.ts
-- [ ] BUG/med: `flow.toJSON()/fromJSON()` mismatched keys — export/import loses id/name/description — builders/flow.ts
-- [ ] BUG/med: skipping a step emits BOTH onStepSkip AND onStepComplete + marks 'passed' — useWorkflowNavigation.ts
-- [ ] BUG/med: resume-from-persistence emits phantom onStepStart/onStepComplete for default step — useWorkflowAnalytics.ts
-- [ ] BUG/low: persistence auto-save loop pins only lastSavedState equality — no regression test — usePersistence.ts
+- [x] BUG/high: onStepChange stale visibility when onAfterValidation flips a later step mid-nav — useWorkflowNavigation.ts
+- [x] BUG/high: analytics onStepComplete receives NEW step's stepData not the completed step's — useWorkflowAnalytics.ts
+- [x] BUG/high: LocalStorage compress:true throws on non-Latin1 (accents/emoji) — persistence/adapters/localStorage.ts
+- [x] BUG/med: `flow.toJSON()/fromJSON()` mismatched keys — export/import loses id/name/description — builders/flow.ts
+- [x] BUG/med: skipping a step emits BOTH onStepSkip AND onStepComplete + marks 'passed' — useWorkflowNavigation.ts
+- [x] BUG/med: resume-from-persistence emits phantom onStepStart/onStepComplete for default step — useWorkflowAnalytics.ts
+- [x] BUG/low: persistence auto-save loop pins only lastSavedState equality — no regression test — usePersistence.ts
 
 ### power-demo e2e (coverage gaps — later batches)
 - [ ] quote-flow.e2e: conditions + async-gated Next + onAfterValidation prefill + repeatables + exact payload
@@ -88,4 +88,5 @@
 
 ## Iteration log
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
+- (iter 3) WORKFLOW batch fixed (7 bugs, TDD): stale step visibility (live eval), onStepComplete data slice, UTF-8-safe base64 compress, toJSON/fromJSON keys, skip no longer marks passed/completes, phantom resume analytics gated, auto-save termination pinned. Full suite 1462 green, mutation-checked. Next: e2e power demos (4).
 - (iter 2) FORMS batch fixed (7 bugs, TDD). A cross-package regression (min-padding was unconditional → broke reset zero-item contract AND min-count validation) root-caused + fixed. Full suite 1454 green. Branch consolidation: a fixer stray-branched (fix/forms-nasa-hardening); fast-forwarded canonical branch + deleted stray. NOTE for future fixers: commit on the CURRENT branch, never checkout -b. Next: workflow batch (7 bugs).
