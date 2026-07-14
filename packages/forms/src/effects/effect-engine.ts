@@ -20,11 +20,18 @@ interface CascadeChain {
 export interface EffectEngineOptions {
   readonly effectsMap: Record<string, FieldEffect[]>;
   readonly store: FormStore;
+  /**
+   * Re-validate a field after an effect writes its value, so a stale error on
+   * that field is cleared/refreshed and `isValid` reflects the new value.
+   * Optional so the engine stays usable without a validation layer.
+   */
+  readonly revalidateField?: (fieldId: string) => void;
 }
 
 export class EffectEngine {
   private readonly effectsMap: Record<string, FieldEffect[]>;
   private readonly store: FormStore;
+  private readonly revalidateField?: (fieldId: string) => void;
   private unsubscribe: (() => void) | null = null;
   private readonly abortControllers = new Map<string, AbortController>();
   // Chain of the cascade currently propagating through a setValue call, if any.
@@ -32,9 +39,10 @@ export class EffectEngine {
   private pendingChain: CascadeChain | null = null;
   private stopped = false;
 
-  constructor({ effectsMap, store }: EffectEngineOptions) {
+  constructor({ effectsMap, store, revalidateField }: EffectEngineOptions) {
     this.effectsMap = effectsMap;
     this.store = store;
+    this.revalidateField = revalidateField;
   }
 
   start(): void {
@@ -149,6 +157,11 @@ export class EffectEngine {
       setValue: (targetFieldId: string, value: unknown) => {
         if (abortController.signal.aborted || this.stopped) return;
         propagate(() => this.store.getState()._setValue(targetFieldId, value));
+        // Re-validate the written field so a stale error (from a previous
+        // invalid value) is cleared/refreshed and `isValid` reflects the new
+        // value. Revalidation only mutates error/validation state — never
+        // `values` — so it cannot re-trigger this value subscription (no loop).
+        this.revalidateField?.(targetFieldId);
       },
       setProps: (targetFieldId: string, props: Record<string, unknown>) => {
         if (abortController.signal.aborted || this.stopped) return;

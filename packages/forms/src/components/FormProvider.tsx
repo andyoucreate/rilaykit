@@ -94,6 +94,11 @@ export function FormProvider({
 
   // Effect engine lifecycle
   const effectEngineRef = useRef<EffectEngine | null>(null);
+  // Stable indirection to the current validateField: the engine is created in an
+  // effect that runs before validateField is defined below, and validateField
+  // changes identity across renders. The ref keeps the engine stable while always
+  // dispatching to the latest validator.
+  const validateFieldRef = useRef<((fieldId: string) => Promise<unknown>) | null>(null);
 
   useEffect(() => {
     effectEngineRef.current?.stop();
@@ -103,6 +108,9 @@ export function FormProvider({
       const engine = new EffectEngine({
         effectsMap: formConfig.effectsMap,
         store,
+        revalidateField: (fieldId) => {
+          void validateFieldRef.current?.(fieldId);
+        },
       });
       engine.start();
       engine.runInitialEffects();
@@ -246,6 +254,8 @@ export function FormProvider({
     formConfig,
     store,
   });
+  // Expose the latest validator to the effect engine (see validateFieldRef).
+  validateFieldRef.current = validateField;
 
   // Initialize submission with store
   const { submit } = useFormSubmissionWithStore({
