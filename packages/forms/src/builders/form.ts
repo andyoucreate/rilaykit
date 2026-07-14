@@ -10,6 +10,7 @@ import {
   type FormRowEntry,
   type FormValidationConfig,
   IdGenerator,
+  NotFoundError,
   type RepeatableFieldConfig,
   type RilayInstance,
   type SubmitOptions,
@@ -159,7 +160,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * @template T - The component type
    * @param fieldConfig - The field configuration to convert
    * @returns A complete FormFieldConfig ready for use
-   * @throws Error if the specified component type is not registered
+   * @throws NotFoundError if the specified component type is not registered
    *
    * @internal
    */
@@ -169,7 +170,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     const component = this.config.getComponent(fieldConfig.type);
 
     if (!component) {
-      throw new Error(`No component found with type "${fieldConfig.type}"`);
+      throw new NotFoundError(`No component found with type "${fieldConfig.type}"`, {
+        key: `component:${fieldConfig.type}`,
+      });
     }
 
     // Combine component validation with field validation

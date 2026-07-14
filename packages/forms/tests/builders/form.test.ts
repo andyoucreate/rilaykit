@@ -1,5 +1,5 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
-import { email, minLength, required, ril } from '@rilaykit/core';
+import { NotFoundError, email, minLength, required, ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
@@ -215,6 +215,9 @@ describe('Form Builder', () => {
       it('should throw error for unknown component type', () => {
         const builder = form.create(rilConfig);
 
+        expect(() => {
+          builder.add({ type: 'unknown' as any, props: { label: 'Test' } });
+        }).toThrow(NotFoundError);
         expect(() => {
           builder.add({ type: 'unknown' as any, props: { label: 'Test' } });
         }).toThrow('No component found with type "unknown"');
