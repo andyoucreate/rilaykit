@@ -1,9 +1,9 @@
-import { FlowBack, FlowNext } from '../../src';
+import { FlowBack, FlowNext, FlowSkip } from '../../src';
 
 /**
- * Shared flow nav buttons for workflow package tests, mirroring
- * tests/e2e/_setup/nav-buttons.tsx. The `testId` prop keeps the
- * historical per-suite test ids configurable.
+ * Shared flow nav buttons for workflow tests. The `testId` prop keeps the
+ * historical per-suite test ids configurable; tests/e2e/_setup/nav-buttons.tsx
+ * re-exports these bound to the e2e ids.
  */
 
 export function NextButton({ testId = 'next' }: { testId?: string }) {
@@ -27,5 +27,17 @@ export function PrevButton({ testId = 'prev' }: { testId?: string }) {
         </button>
       )}
     </FlowBack>
+  );
+}
+
+export function SkipButton({ testId = 'skip' }: { testId?: string }) {
+  return (
+    <FlowSkip>
+      {({ go, canGo }) => (
+        <button type="button" data-testid={testId} onClick={go} disabled={!canGo}>
+          Skip
+        </button>
+      )}
+    </FlowSkip>
   );
 }

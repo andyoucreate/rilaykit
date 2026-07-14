@@ -1,6 +1,5 @@
 import type { StepDataHelper, WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
-import { resolveAllowSkip } from '../utils/resolveAllowSkip';
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
 import type { WorkflowState } from './useWorkflowState';
 
@@ -231,10 +230,16 @@ export function useWorkflowNavigation({
     return goToStep(previousStepIndex);
   }, [workflowState.currentStepIndex, findPreviousVisibleStep, goToStep]);
 
+  // Check if current step can be skipped — conditionsHelpers.isStepSkippable
+  // is the single source of truth: it already combines allowSkip (static or
+  // predicate) with the step's skippable condition, and is bounds-checked.
+  const canSkipCurrentStep = useCallback((): boolean => {
+    return conditionsHelpers.isStepSkippable(workflowState.currentStepIndex);
+  }, [conditionsHelpers, workflowState.currentStepIndex]);
+
   // Skip current step
   const skipStep = useCallback(async (): Promise<boolean> => {
-    const allowSkip = currentStep ? resolveAllowSkip(currentStep, workflowState.allData) : false;
-    if (!allowSkip && !conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)) {
+    if (!canSkipCurrentStep()) {
       return false;
     }
 
@@ -244,15 +249,7 @@ export function useWorkflowNavigation({
 
     // Go to next step (skipping does not trigger validation)
     return goNext();
-  }, [
-    currentStep,
-    conditionsHelpers,
-    workflowState.currentStepIndex,
-    workflowState.allData,
-    workflowConfig.analytics,
-    workflowContext,
-    goNext,
-  ]);
+  }, [canSkipCurrentStep, currentStep, workflowConfig.analytics, workflowContext, goNext]);
 
   // Check if we can navigate to a specific step
   const canGoToStep = useCallback(
@@ -274,16 +271,6 @@ export function useWorkflowNavigation({
     const prevStepIndex = findPreviousVisibleStep(workflowState.currentStepIndex);
     return prevStepIndex !== null && canGoToStep(prevStepIndex);
   }, [workflowState.currentStepIndex, findPreviousVisibleStep, canGoToStep]);
-
-  // Check if current step can be skipped — single source of truth aligned
-  // with skipStep's gate: allowSkip (static or predicate) OR skippable condition
-  const canSkipCurrentStep = useCallback((): boolean => {
-    if (!currentStep) return false;
-    return (
-      resolveAllowSkip(currentStep, workflowState.allData) ||
-      conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
-    );
-  }, [currentStep, workflowState.allData, conditionsHelpers, workflowState.currentStepIndex]);
 
   return {
     goToStep,

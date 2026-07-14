@@ -1,43 +1,23 @@
-import { FlowBack, FlowNext, FlowSkip } from '@rilaykit/workflow';
+import {
+  NextButton as BaseNextButton,
+  PrevButton as BasePrevButton,
+  SkipButton as BaseSkipButton,
+} from '../../../packages/workflow/tests/_helpers/nav-buttons';
 
 // =================================================================
 // SHARED FLOW NAV BUTTONS FOR E2E TESTS
-// Thin wrappers over Flow.Next/Back/Skip exposing the historical
-// test ids (next-btn / prev-btn / skip-btn).
+// Thin wrappers over the workflow package test helpers, binding the
+// historical e2e test ids (next-btn / prev-btn / skip-btn).
 // =================================================================
 
 export function NextButton() {
-  return (
-    <FlowNext>
-      {({ go, submitting }) => (
-        <button type="button" data-testid="next-btn" onClick={go} disabled={submitting}>
-          {submitting ? 'Loading...' : 'Next'}
-        </button>
-      )}
-    </FlowNext>
-  );
+  return <BaseNextButton testId="next-btn" />;
 }
 
 export function PrevButton() {
-  return (
-    <FlowBack>
-      {({ go, canGo }) => (
-        <button type="button" data-testid="prev-btn" onClick={go} disabled={!canGo}>
-          Previous
-        </button>
-      )}
-    </FlowBack>
-  );
+  return <BasePrevButton testId="prev-btn" />;
 }
 
 export function SkipButton() {
-  return (
-    <FlowSkip>
-      {({ go, canGo }) => (
-        <button type="button" data-testid="skip-btn" onClick={go} disabled={!canGo}>
-          Skip
-        </button>
-      )}
-    </FlowSkip>
-  );
+  return <BaseSkipButton testId="skip-btn" />;
 }

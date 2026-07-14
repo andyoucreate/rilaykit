@@ -1,7 +1,7 @@
 import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, flow } from '@rilaykit/workflow';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { Flow, flow, useWorkflowContext, type WorkflowContextValue } from '@rilaykit/workflow';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 const r = ril.create().component('text', {
@@ -22,6 +22,11 @@ const step = (id: string, extra: Record<string, unknown> = {}) => ({
     .build(),
   ...extra,
 });
+
+function ContextProbe({ ctxRef }: { ctxRef: { current: WorkflowContextValue | null } }) {
+  ctxRef.current = useWorkflowContext();
+  return null;
+}
 
 describe('Flow nav buttons', () => {
   it('Next advances to the next step (bare default)', async () => {
@@ -120,6 +125,84 @@ describe('Flow nav buttons', () => {
       </Flow>
     );
     expect(screen.getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+  });
+
+  it('bare Flow.Back renders a disabled default button on the first step', () => {
+    const wf = flow.create(r, 'wf', 'WF').addStep(step('a')).addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Back />
+      </Flow>
+    );
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(back).toBeDisabled();
+    expect(back).toHaveAttribute('data-flow-nav', 'back');
+  });
+
+  it('skipStep resolves false and stays on the step when the allowSkip predicate is false', async () => {
+    const ctxRef: { current: WorkflowContextValue | null } = { current: null };
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(step('a', { allowSkip: () => false }))
+      .addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <ContextProbe ctxRef={ctxRef} />
+      </Flow>
+    );
+    let result: boolean | undefined;
+    await act(async () => {
+      result = await ctxRef.current?.skipStep();
+    });
+    expect(result).toBe(false);
+    expect(ctxRef.current?.workflowState.currentStepIndex).toBe(0);
+    expect(screen.getByTestId('a-f')).toBeInTheDocument();
+  });
+
+  it('skipStep resolves true and advances when the allowSkip predicate is true', async () => {
+    const ctxRef: { current: WorkflowContextValue | null } = { current: null };
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(step('a', { allowSkip: () => true }))
+      .addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <ContextProbe ctxRef={ctxRef} />
+      </Flow>
+    );
+    let result: boolean | undefined;
+    await act(async () => {
+      result = await ctxRef.current?.skipStep();
+    });
+    expect(result).toBe(true);
+    expect(ctxRef.current?.workflowState.currentStepIndex).toBe(1);
+    expect(await screen.findByTestId('b-f')).toBeInTheDocument();
+  });
+
+  it('conditionsHelpers.isStepSkippable reacts to allData for a dynamic allowSkip predicate', async () => {
+    const ctxRef: { current: WorkflowContextValue | null } = { current: null };
+    const wf = flow
+      .create(r, 'wf', 'WF')
+      .addStep(
+        step('a', {
+          allowSkip: ({ allData }: { allData: Record<string, unknown> }) =>
+            (allData.a as Record<string, unknown> | undefined)?.['a-f'] === 'skip me',
+        })
+      )
+      .addStep(step('b'));
+    render(
+      <Flow of={wf}>
+        <Flow.Body />
+        <ContextProbe ctxRef={ctxRef} />
+      </Flow>
+    );
+    expect(ctxRef.current?.conditionsHelpers.isStepSkippable(0)).toBe(false);
+    fireEvent.change(screen.getByTestId('a-f'), { target: { value: 'skip me' } });
+    await waitFor(() => {
+      expect(ctxRef.current?.conditionsHelpers.isStepSkippable(0)).toBe(true);
+    });
   });
 
   it('Skip renders and advances for a step skippable only via conditions', async () => {
