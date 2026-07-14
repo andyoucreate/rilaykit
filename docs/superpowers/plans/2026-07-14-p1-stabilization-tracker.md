@@ -15,7 +15,7 @@
 ## Target areas (checked as hardened + proven)
 
 ### Catalog (core)
-- [ ] `.component/.tool/.part` deep immutability under mutation of a shared entry object
+- [x] `.component/.tool/.part` deep immutability under mutation of a shared entry object
 - [ ] `.renderers()` partial attach (some keys valid, one invalid) — atomicity (no partial mutation)
 - [ ] `validateProps` with non-zod Standard Schema (valibot-shape) + async-guard + nested objects
 - [ ] `.use()` plugin composition order + a plugin that calls `.renderers()`
@@ -23,11 +23,11 @@
 - [ ] `getComponent` generic inference edge cases (union component maps)
 
 ### Forms
-- [ ] Deeply nested repeatables data structuring / flatten round-trip fidelity
+- [x] Deeply nested repeatables data structuring / flatten round-trip fidelity
 - [ ] Conditional required + validation interaction (the MEMORY.md no-op validator caveat)
 - [ ] `Form.Field` overrides precedence full matrix (defaultProps < config < dynamic < overrides < conditions)
-- [ ] Async validation race (debounce + rapid change + blur) determinism
-- [ ] Effects: chained effects, effect that sets a field which triggers another effect
+- [x] Async validation race (debounce + rapid change + blur) determinism
+- [x] Effects: chained effects, effect that sets a field which triggers another effect
 - [ ] Submit with `force`/`skipInvalid` options end-to-end
 - [ ] compileForm/fromSchema hostile inputs (unknown component type, malformed rows)
 
@@ -35,16 +35,16 @@
 - [ ] Persistence save/restore round-trip with repeatables + conditional steps
 - [ ] Persistence `useEffect` stability — no infinite loop when persistence enabled (MEMORY.md)
 - [ ] Conditional-step navigation: all-hidden middle, first step hidden, last step hidden
-- [ ] `onAfterValidation` that changes a later step's visibility mid-navigation
+- [x] `onAfterValidation` that changes a later step's visibility mid-navigation
 - [ ] `setNextStepFields`/`setStepFields` cross-step under skip + back + forward
-- [ ] Analytics full lifecycle (start/complete/skip/abandon/error) exact ordering
+- [x] Analytics full lifecycle (start/complete/skip/abandon/error) exact ordering
 - [ ] Flow with a single step; flow with zero visible steps (degenerate)
 
 ### Integration / e2e (power demos)
-- [ ] A real "quote flow"-style multi-step form (mirrors lilycare) end-to-end
-- [ ] A server-JSON-driven form compiled + rendered + submitted (mirrors stndrds subscription)
-- [ ] Full form: 3-column rows, conditions, async validation, repeatables, submit payload exact
-- [ ] Rerender-isolation: typing in one field does not re-render sibling fields (perf contract)
+- [x] A real "quote flow"-style multi-step form (mirrors lilycare) end-to-end
+- [x] A server-JSON-driven form compiled + rendered + submitted (mirrors stndrds subscription)
+- [x] Full form: 3-column rows, conditions, async validation, repeatables, submit payload exact
+- [x] Rerender-isolation: typing in one field does not re-render sibling fields (perf contract)
 
 ### Cross-cutting
 - [ ] No `any` anywhere in `packages/*/src` (grep gate as a test)
@@ -81,12 +81,13 @@
 - [x] BUG/low: persistence auto-save loop pins only lastSavedState equality — no regression test — usePersistence.ts
 
 ### power-demo e2e (coverage gaps — later batches)
-- [ ] quote-flow.e2e: conditions + async-gated Next + onAfterValidation prefill + repeatables + exact payload
-- [ ] from-schema-server-json.e2e: JSON.parse raw server payload + registry-provided validators/effects → render → submit
-- [ ] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
-- [ ] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
+- [x] quote-flow.e2e: conditions + async-gated Next + onAfterValidation prefill + repeatables + exact payload
+- [x] from-schema-server-json.e2e: JSON.parse raw server payload + registry-provided validators/effects → render → submit
+- [x] rerender-isolation.e2e: prove through real FieldRenderer (render counts), not just store layer
+- [x] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
 ## Iteration log
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
+- (iter 4) E2E POWER DEMOS written (4 flagship tests, real stack, exact payloads). Found + fixed 2 MORE bugs: (a) FormProvider id-change reset rebuilt repeatables against the PREVIOUS step's configs → leaked composite key into next step payload; (b) useFormConditions passed fresh {} literals → churned conditionsHelpers → EVERY FormField re-rendered on every keystroke (perf contract broken for all forms). Full suite 1469 green, both fixes mutation-checked. 21 total bugs fixed. Next: ROUND 2 adversarial hunt (stop condition: 2 consecutive clean rounds → P2).
 - (iter 3) WORKFLOW batch fixed (7 bugs, TDD): stale step visibility (live eval), onStepComplete data slice, UTF-8-safe base64 compress, toJSON/fromJSON keys, skip no longer marks passed/completes, phantom resume analytics gated, auto-save termination pinned. Full suite 1462 green, mutation-checked. Next: e2e power demos (4).
 - (iter 2) FORMS batch fixed (7 bugs, TDD). A cross-package regression (min-padding was unconditional → broke reset zero-item contract AND min-count validation) root-caused + fixed. Full suite 1454 green. Branch consolidation: a fixer stray-branched (fix/forms-nasa-hardening); fast-forwarded canonical branch + deleted stray. NOTE for future fixers: commit on the CURRENT branch, never checkout -b. Next: workflow batch (7 bugs).
