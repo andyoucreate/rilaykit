@@ -313,8 +313,17 @@ export function useWorkflowNavigation({
       return false; // Let the submission hook handle this
     }
 
+    // Signal the analytics hook to suppress completion for this step, but only
+    // for a transition that actually happens. If goToStep fails (e.g.
+    // onStepChange throws and is caught), the step index never changes and the
+    // analytics effect never consumes the signal — leaving it set would wrongly
+    // suppress the NEXT normal advance's onStepComplete. Clear it on failure.
     pendingSkipRef.current = currentStep.id;
-    return goToStep(nextStepIndex);
+    const didTransition = await goToStep(nextStepIndex);
+    if (!didTransition) {
+      pendingSkipRef.current = null;
+    }
+    return didTransition;
   }, [
     canSkipCurrentStep,
     currentStep,
