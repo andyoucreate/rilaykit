@@ -87,6 +87,7 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
 
   private eventQueue: MonitoringEvent[] = [];
   private isProcessing = false;
+  private drainPromise: Promise<void> | null = null;
 
   constructor(config: {
     endpoint: string;
@@ -108,14 +109,44 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
 
   async send(events: MonitoringEvent[]): Promise<void> {
     this.eventQueue.push(...events);
-
-    if (!this.isProcessing) {
-      await this.processQueue();
-    }
+    await this.drain();
   }
 
   async flush(): Promise<void> {
-    await this.processQueue();
+    await this.drain();
+  }
+
+  /**
+   * Awaits a real delivery attempt for whatever is currently queued.
+   *
+   * A caller arriving while a drain is already in flight must NOT get a
+   * false success: it awaits the shared in-flight drain, and if its events
+   * are still queued afterwards (the first drain took an earlier batch, or
+   * failed before reaching them) it re-enters a fresh drain so its own events
+   * are actually attempted. No event is silently stranded, and every caller's
+   * promise reflects the outcome of an attempt that covered its events.
+   */
+  private drain(): Promise<void> {
+    const inFlight = this.drainPromise;
+    if (inFlight) {
+      const reDrainIfPending = (): Promise<void> | void =>
+        this.eventQueue.length > 0 ? this.drain() : undefined;
+      return inFlight.then(reDrainIfPending, (error) => {
+        // The in-flight drain failed. Our events may not have been attempted
+        // yet — if they are still queued, run a fresh drain for them;
+        // otherwise surface the failure to this caller.
+        if (this.eventQueue.length > 0) {
+          return this.drain();
+        }
+        throw error;
+      });
+    }
+
+    const started = this.processQueue().finally(() => {
+      this.drainPromise = null;
+    });
+    this.drainPromise = started;
+    return started;
   }
 
   configure(config: Record<string, any>): void {

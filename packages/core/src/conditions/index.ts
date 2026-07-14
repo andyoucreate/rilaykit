@@ -309,8 +309,12 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
 }
 
 function getFieldValue(data: Record<string, any>, fieldPath: string): any {
-  // Direct key lookup first — supports flat composite keys like "items[k0].type"
-  if (fieldPath in data) {
+  const hasOwn = Object.prototype.hasOwnProperty;
+
+  // Direct key lookup first — supports flat composite keys like "items[k0].type".
+  // Use an own-property check so inherited members (toString, constructor,
+  // __proto__, …) never masquerade as real fields.
+  if (hasOwn.call(data, fieldPath)) {
     return data[fieldPath];
   }
 
@@ -319,7 +323,7 @@ function getFieldValue(data: Record<string, any>, fieldPath: string): any {
   let value: any = data;
 
   for (const part of parts) {
-    if (value && typeof value === 'object' && part in value) {
+    if (value && typeof value === 'object' && hasOwn.call(value, part)) {
       value = value[part];
     } else {
       return undefined;

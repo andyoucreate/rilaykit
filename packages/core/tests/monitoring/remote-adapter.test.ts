@@ -121,4 +121,44 @@ describe('RemoteAdapter', () => {
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('concurrent send (Bug 3)', () => {
+    const eventA: MonitoringEvent = { ...event, id: 'evt-A', source: 'form:A' };
+    const eventB: MonitoringEvent = { ...event, id: 'evt-B', source: 'form:B' };
+
+    it('does not strand a concurrent send and reflects the real (failed) outcome for both callers', async () => {
+      vi.useFakeTimers();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const networkError = new Error('Network down');
+      fetchMock.mockRejectedValue(networkError);
+      const adapter = new RemoteAdapter({ endpoint: ENDPOINT, retryAttempts: 1 });
+
+      // p1 starts the drain; p2 arrives concurrently while p1 is in-flight.
+      const p1 = adapter.send([eventA]).then(
+        () => 'resolved',
+        (e: unknown) => e
+      );
+      const p2 = adapter.send([eventB]).then(
+        () => 'resolved',
+        (e: unknown) => e
+      );
+
+      await vi.runAllTimersAsync();
+      const [r1, r2] = await Promise.all([p1, p2]);
+
+      // Neither caller may get a false success.
+      expect(r1).toBe(networkError);
+      expect(r2).toBe(networkError);
+
+      // Event B must actually be attempted (not silently stranded in the queue).
+      const attemptedBodies = fetchMock.mock.calls.map(
+        (call) => JSON.parse((call[1] as RequestInit).body as string).events
+      );
+      const attemptedIds = attemptedBodies.flat().map((e: MonitoringEvent) => e.id);
+      expect(attemptedIds).toContain('evt-A');
+      expect(attemptedIds).toContain('evt-B');
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });
