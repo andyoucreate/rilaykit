@@ -18,9 +18,9 @@ export { flow, type StepDefinition } from '@rilaykit/workflow';
 
 // Components
 export {
+  Flow,
+  FlowBody,
   useWorkflowContext,
-  Workflow,
-  WorkflowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
   WorkflowProvider,

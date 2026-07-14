@@ -7,8 +7,10 @@ export type { StepContext, StepMetadata } from './context/step-context';
 export { createStepContext } from './context/step-context';
 
 // Components
-export { Workflow } from './components/Workflow';
-export { WorkflowBody } from './components/WorkflowBody';
+export { FlowRoot as Flow } from './components/Flow';
+export type { FlowProps } from './components/Flow';
+export { FlowBody } from './components/FlowBody';
+export type { FlowBodyProps } from './components/FlowBody';
 export { WorkflowNextButton } from './components/WorkflowNextButton';
 export { WorkflowPreviousButton } from './components/WorkflowPreviousButton';
 export { useWorkflowContext, WorkflowProvider } from './components/WorkflowProvider';

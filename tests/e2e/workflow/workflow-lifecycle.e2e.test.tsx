@@ -1,7 +1,7 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  WorkflowBody,
+  FlowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
   WorkflowProvider,
@@ -118,7 +118,7 @@ describe('Workflow Lifecycle — E2E', () => {
     // Act
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -144,7 +144,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -192,7 +192,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
@@ -242,7 +242,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
@@ -295,7 +295,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -339,7 +339,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onStepChange={onStepChange}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -395,7 +395,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -443,7 +443,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultStep="step2">
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -476,7 +476,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
@@ -525,7 +525,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>

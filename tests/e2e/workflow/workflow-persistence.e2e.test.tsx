@@ -2,7 +2,7 @@ import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
   LocalStorageAdapter,
-  WorkflowBody,
+  FlowBody,
   WorkflowNextButton,
   WorkflowProvider,
   flow,
@@ -127,7 +127,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // then use the adapter directly to verify save behavior
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -209,7 +209,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // and the persisted data could be applied to restore state
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -268,7 +268,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // The workflow itself should render fine without persistence
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -325,7 +325,7 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // Render workflow without persistence - should work normally
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>

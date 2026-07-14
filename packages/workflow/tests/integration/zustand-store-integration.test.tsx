@@ -3,7 +3,7 @@ import { form } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowBody, WorkflowNextButton, WorkflowPreviousButton } from '../../src';
+import { FlowBody, WorkflowNextButton, WorkflowPreviousButton } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
 import {
@@ -227,7 +227,7 @@ describe('Workflow Zustand Store Integration', () => {
     it('should navigate forward and backward correctly', async () => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
-          <WorkflowBody />
+          <FlowBody />
           <WorkflowPreviousButton />
           <WorkflowNextButton />
         </WorkflowProvider>
@@ -269,7 +269,7 @@ describe('Workflow Zustand Store Integration', () => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
           <DataDisplay />
-          <WorkflowBody />
+          <FlowBody />
           <WorkflowNextButton />
           <WorkflowPreviousButton />
         </WorkflowProvider>

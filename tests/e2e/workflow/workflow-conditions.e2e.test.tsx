@@ -1,7 +1,7 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import {
-  WorkflowBody,
+  FlowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
   WorkflowProvider,
@@ -140,7 +140,7 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
@@ -196,7 +196,7 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
@@ -265,7 +265,7 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
@@ -329,7 +329,7 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
@@ -397,7 +397,7 @@ describe('Workflow Conditions -- E2E', () => {
         workflowConfig={workflowConfig}
         defaultValues={{ step1: { accountType: 'business' } }}
       >
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <WorkflowStateDisplay />
@@ -496,7 +496,7 @@ describe('Workflow Conditions -- E2E', () => {
         workflowConfig={workflowConfig}
         defaultValues={{ step1: { role: 'admin' } }}
       >
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -538,7 +538,7 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowSkipButton />
         <WorkflowStateDisplay />
@@ -605,7 +605,7 @@ describe('Workflow Conditions -- E2E', () => {
     expect(() => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
-          <WorkflowBody />
+          <FlowBody />
           <WorkflowStateDisplay />
           <StepVisibilityDisplay stepCount={2} />
         </WorkflowProvider>

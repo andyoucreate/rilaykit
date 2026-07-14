@@ -3,7 +3,7 @@ import { form } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowBody, WorkflowNextButton, WorkflowProvider, useWorkflowContext } from '../../src';
+import { FlowBody, WorkflowNextButton, WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
@@ -183,7 +183,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultValues={defaultValues}>
         <NavigationDebugger />
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
       </WorkflowProvider>
     );
@@ -237,7 +237,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultValues={defaultValues}>
         <NavigationDebugger />
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
       </WorkflowProvider>
     );

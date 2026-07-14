@@ -2,7 +2,7 @@ import { required, ril } from '@rilaykit/core';
 import { form, useFormStoreApi } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
 import {
-  WorkflowBody,
+  FlowBody,
   WorkflowNextButton,
   WorkflowPreviousButton,
   WorkflowProvider,
@@ -174,7 +174,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
           },
         }}
       >
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
@@ -217,7 +217,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
@@ -280,7 +280,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
@@ -339,7 +339,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <WorkflowPreviousButton />
         <RepeatableHelper />
@@ -450,7 +450,7 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowNextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />

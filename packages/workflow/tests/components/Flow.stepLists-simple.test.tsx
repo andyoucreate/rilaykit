@@ -3,11 +3,11 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Workflow, useWorkflowContext } from '../../src';
+import { Flow, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
-describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSteps, passedSteps)', () => {
+describe('Flow Component - Three Step Lists (visitedSteps, visibleVisitedSteps, passedSteps)', () => {
   // Component to display all three step lists
   const StepListsDisplay = () => {
     const { context } = useWorkflowContext();
@@ -88,9 +88,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
 
   it('should expose visitedSteps in workflow context', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <StepListsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -103,9 +103,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
 
   it('should expose visibleVisitedSteps in workflow context', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <StepListsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -118,9 +118,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
 
   it('should expose passedSteps in workflow context', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <StepListsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -133,9 +133,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
 
   it('should start with empty lists on first step', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <StepListsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -148,9 +148,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
 
   it('should have passedSteps populated when starting on later step', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder} defaultStep="step-3">
+      <Flow of={workflowBuilder} defaultStep="step-3">
         <StepListsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -184,9 +184,9 @@ describe('Workflow Component - Three Step Lists (visitedSteps, visibleVisitedSte
     };
 
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <TestComponent />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {

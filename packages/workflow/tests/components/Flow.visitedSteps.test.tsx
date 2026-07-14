@@ -3,11 +3,11 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Workflow, useWorkflowContext } from '../../src';
+import { Flow, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
-describe('Workflow Component - VisitedSteps with DefaultStep', () => {
+describe('Flow Component - VisitedSteps with DefaultStep', () => {
   // Component to check visited steps
   const VisitedStepsDisplay = () => {
     const { workflowState, currentStep } = useWorkflowContext();
@@ -83,9 +83,9 @@ describe('Workflow Component - VisitedSteps with DefaultStep', () => {
 
   it('should have no visited steps when starting at first step', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <VisitedStepsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -97,9 +97,9 @@ describe('Workflow Component - VisitedSteps with DefaultStep', () => {
 
   it('should mark previous steps as visited when using defaultStep', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder} defaultStep="details">
+      <Flow of={workflowBuilder} defaultStep="details">
         <VisitedStepsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -111,9 +111,9 @@ describe('Workflow Component - VisitedSteps with DefaultStep', () => {
 
   it('should mark multiple previous steps as visited when starting at later step', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder} defaultStep="summary">
+      <Flow of={workflowBuilder} defaultStep="summary">
         <VisitedStepsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -127,9 +127,9 @@ describe('Workflow Component - VisitedSteps with DefaultStep', () => {
     const builtWorkflow = workflowBuilder.build();
 
     render(
-      <Workflow workflowConfig={builtWorkflow} defaultStep="preferences">
+      <Flow of={builtWorkflow} defaultStep="preferences">
         <VisitedStepsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -147,13 +147,13 @@ describe('Workflow Component - VisitedSteps with DefaultStep', () => {
     };
 
     render(
-      <Workflow
-        workflowConfig={workflowBuilder}
+      <Flow
+        of={workflowBuilder}
         defaultStep="preferences"
-        defaultValues={defaultValues}
+        defaults={defaultValues}
       >
         <VisitedStepsDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {

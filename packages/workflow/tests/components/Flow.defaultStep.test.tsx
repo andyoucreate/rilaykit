@@ -3,11 +3,11 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Workflow, useWorkflowContext } from '../../src';
+import { Flow, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
-describe('Workflow Component - DefaultStep', () => {
+describe('Flow Component - DefaultStep', () => {
   // Component to check current step
   const CurrentStepDisplay = () => {
     const { currentStep, workflowState } = useWorkflowContext();
@@ -70,11 +70,11 @@ describe('Workflow Component - DefaultStep', () => {
       });
   });
 
-  it('should start at step 0 by default with Workflow component', async () => {
+  it('should start at step 0 by default with Flow component', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder}>
+      <Flow of={workflowBuilder}>
         <CurrentStepDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -84,11 +84,11 @@ describe('Workflow Component - DefaultStep', () => {
     });
   });
 
-  it('should start at specified defaultStep with Workflow component', async () => {
+  it('should start at specified defaultStep with Flow component', async () => {
     render(
-      <Workflow workflowConfig={workflowBuilder} defaultStep="details">
+      <Flow of={workflowBuilder} defaultStep="details">
         <CurrentStepDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -102,9 +102,9 @@ describe('Workflow Component - DefaultStep', () => {
     const builtWorkflow = workflowBuilder.build();
 
     render(
-      <Workflow workflowConfig={builtWorkflow} defaultStep="summary">
+      <Flow of={builtWorkflow} defaultStep="summary">
         <CurrentStepDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -125,13 +125,13 @@ describe('Workflow Component - DefaultStep', () => {
     };
 
     render(
-      <Workflow
-        workflowConfig={workflowBuilder}
+      <Flow
+        of={workflowBuilder}
         defaultStep="details"
-        defaultValues={defaultValues}
+        defaults={defaultValues}
       >
         <CurrentStepDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
@@ -144,9 +144,9 @@ describe('Workflow Component - DefaultStep', () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(
-      <Workflow workflowConfig={workflowBuilder} defaultStep="invalid-step">
+      <Flow of={workflowBuilder} defaultStep="invalid-step">
         <CurrentStepDisplay />
-      </Workflow>
+      </Flow>
     );
 
     await waitFor(() => {
