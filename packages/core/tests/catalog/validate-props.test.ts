@@ -1,4 +1,4 @@
-import { ConfigurationError, NotFoundError, ril } from '@rilaykit/core';
+import { ConfigurationError, NotFoundError, combine, minLength, required, ril } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -57,6 +57,18 @@ describe('ril.validateProps()', () => {
     expect(caught).toBeInstanceOf(NotFoundError);
     expect((caught as NotFoundError).message).toBe('Component "ghost" not found in catalog');
     expect((caught as NotFoundError).meta).toEqual({ key: 'component:ghost' });
+  });
+
+  it('accepts a synchronous combine() propsSchema without throwing (Bug 3)', () => {
+    const combined = ril
+      .create()
+      .component('combined', { propsSchema: combine(required(), minLength(3)) as never });
+    expect(combined.validateProps('combined', 'hello')).toEqual({
+      success: true,
+      value: 'hello',
+    });
+    const invalid = combined.validateProps('combined', 'ab');
+    expect(invalid.success).toBe(false);
   });
 
   it('throws ConfigurationError for async schemas', () => {

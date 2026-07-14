@@ -5,6 +5,7 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { InvalidSchemaError } from '../errors';
+import { runCombinedSchemas } from './utils';
 import type {
   FieldError,
   FieldValidationConfig,
@@ -248,27 +249,7 @@ export function combineSchemas<T>(...schemas: StandardSchemaV1<T>[]): StandardSc
     '~standard': {
       version: 1,
       vendor: 'rilaykit-combined',
-      validate: async (value: unknown) => {
-        const allIssues: StandardSchemaV1.Issue[] = [];
-        let finalValue = value;
-
-        for (const schema of schemas) {
-          let result = schema['~standard'].validate(value);
-
-          // Handle async validation
-          if (result instanceof Promise) {
-            result = await result;
-          }
-
-          if (result.issues) {
-            allIssues.push(...result.issues);
-          } else {
-            finalValue = result.value;
-          }
-        }
-
-        return allIssues.length > 0 ? { issues: allIssues } : { value: finalValue as T };
-      },
+      validate: (value: unknown) => runCombinedSchemas(schemas, value),
     },
   };
 }
