@@ -11,10 +11,29 @@ import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
 
 /**
+ * Methods whose return type must be narrowed from RilayInstance to RilayKit
+ * so chaining keeps the enhanced .form()/.flow() surface.
+ */
+type ChainingKeys =
+  | 'component'
+  | 'tool'
+  | 'part'
+  | 'use'
+  | 'renderers'
+  | 'clone'
+  | 'removeComponent'
+  | 'clear';
+
+/**
  * Enhanced RilayKit interface with convenience .form() and .flow() methods.
  * Available when using the all-in-one `rilaykit` package.
+ *
+ * All accessors (getComponent, getTool, validateProps, getStats, validate...)
+ * are inherited from core's RilayInstance so the facade never drifts out of
+ * sync; only the chaining methods are re-declared to return RilayKit.
  */
-export interface RilayKit<C extends Record<string, any>> {
+export interface RilayKit<C extends Record<string, any>>
+  extends Omit<RilayInstance<C>, ChainingKeys> {
   // Catalog registration facades (each preserves the enhanced instance)
   component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
@@ -31,25 +50,6 @@ export interface RilayKit<C extends Record<string, any>> {
   use(plugin: RilayPlugin): RilayKit<C>;
 
   renderers(attachments: RendererAttachments<C>): RilayKit<C>;
-
-  // Component access
-  getComponent: RilayInstance<C>['getComponent'];
-  getAllComponents(): ComponentEntry[];
-  hasComponent(id: string): boolean;
-
-  // Tool and part access
-  getTool(name: string): ToolEntry | undefined;
-  getPart(type: string): PartEntry | undefined;
-  getAllTools(): ToolEntry[];
-  getAllParts(): PartEntry[];
-
-  // Props validation
-  validateProps: RilayInstance<C>['validateProps'];
-
-  getStats(): ReturnType<RilayInstance<C>['getStats']>;
-
-  validate(): string[];
-  validateAsync(): Promise<{ isValid: boolean; errors: string[]; warnings?: string[] }>;
 
   clone(): RilayKit<C>;
   removeComponent(id: string): RilayKit<C>;

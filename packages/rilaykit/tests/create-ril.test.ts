@@ -53,6 +53,31 @@ describe('rilaykit - enhanced ril', () => {
       expect(r.hasComponent('select')).toBe(true);
     });
 
+    it('should list registered tools via getAllTools', () => {
+      const r = ril.create().tool('search', { description: 'Search' });
+
+      const tools = r.getAllTools();
+      expect(tools).toHaveLength(1);
+      expect(tools[0].name).toBe('search');
+      expect(tools[0].kind).toBe('tool');
+    });
+
+    it('should list registered parts via getAllParts', () => {
+      const r = ril.create().part('reasoning', { renderer: MockRenderer });
+
+      const parts = r.getAllParts();
+      expect(parts).toHaveLength(1);
+      expect(parts[0].type).toBe('reasoning');
+      expect(parts[0].kind).toBe('part');
+    });
+
+    it('should validate props via validateProps', () => {
+      const r = ril.create().component('text', { name: 'Text', renderer: MockRenderer });
+
+      const result = r.validateProps('text', { label: 'Name' });
+      expect(result).toEqual({ success: true, value: { label: 'Name' } });
+    });
+
     it('should return stats', () => {
       const r = ril.create().component('text', { name: 'Text', renderer: MockRenderer });
 

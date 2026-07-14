@@ -1,5 +1,5 @@
 import * as kit from 'rilaykit';
-import { ril } from 'rilaykit';
+import { flow, form, ril } from 'rilaykit';
 import { describe, expect, it } from 'vitest';
 
 describe('rilaykit all-in-one surface', () => {
@@ -9,8 +9,20 @@ describe('rilaykit all-in-one surface', () => {
     expect(typeof kit.Flow).toBe('function');
     expect('Progress' in kit.Flow).toBe(true);
     expect(typeof kit.useFlow).toBe('function');
-    expect('Workflow' in kit).toBe(false);
-    expect('WorkflowStepper' in kit).toBe(false);
+    expect(typeof kit.usePersistence).toBe('function');
+  });
+
+  it('no longer exposes the removed legacy workflow exports', () => {
+    expect('WorkflowProvider' in kit).toBe(false);
+    expect('createStepContext' in kit).toBe(false);
+    expect('useStepMetadata' in kit).toBe(false);
+    expect('useWorkflowAnalytics' in kit).toBe(false);
+    expect('useWorkflowConditions' in kit).toBe(false);
+    expect('useWorkflowNavigation' in kit).toBe(false);
+    expect('useWorkflowState' in kit).toBe(false);
+    expect('useWorkflowSubmission' in kit).toBe(false);
+    expect('createWorkflowStore' in kit).toBe(false);
+    expect('WorkflowStoreContext' in kit).toBe(false);
   });
 
   it('enhanced ril chains catalog facades and keeps .form()/.flow()', () => {
@@ -19,9 +31,9 @@ describe('rilaykit all-in-one surface', () => {
       .component('text', { renderer: () => null as never })
       .tool('show_form', {});
     const f = r.form('login');
-    expect(f).toBeDefined();
+    expect(f).toBeInstanceOf(form);
     const w = r.flow('wf', 'WF');
-    expect(w).toBeDefined();
+    expect(w).toBeInstanceOf(flow);
     expect(r.getTool('show_form')?.kind).toBe('tool');
   });
 });
