@@ -266,6 +266,18 @@ function validateRow<C extends Record<string, any>>(
   registry: SchemaRegistry | undefined,
   issues: SchemaIssue[]
 ): void {
+  // A null/undefined/non-object entry must funnel into the typed
+  // SchemaValidationError rather than throwing a raw TypeError from `row.kind`.
+  const rowEntry: unknown = row;
+  if (rowEntry === null || typeof rowEntry !== 'object') {
+    issues.push({
+      path,
+      message: 'Row entry must be an object',
+      severity: 'error',
+    });
+    return;
+  }
+
   if (isRepeatableRow(row)) {
     validateRepeatable(row, path, config, registry, issues);
   } else {
@@ -388,6 +400,18 @@ function validateField<C extends Record<string, any>>(
   registry: SchemaRegistry | undefined,
   issues: SchemaIssue[]
 ): void {
+  // A null/undefined/non-object entry must funnel into the typed
+  // SchemaValidationError rather than throwing a raw TypeError from `field.id`.
+  const fieldEntry: unknown = field;
+  if (fieldEntry === null || typeof fieldEntry !== 'object') {
+    issues.push({
+      path,
+      message: 'Field entry must be an object',
+      severity: 'error',
+    });
+    return;
+  }
+
   if (!field.id || typeof field.id !== 'string') {
     issues.push({
       path: `${path}.id`,

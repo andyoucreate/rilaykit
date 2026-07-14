@@ -146,6 +146,49 @@ describe('validateSchema — edge cases', () => {
     expect(() => validateSchema(schema, rilConfig)).not.toThrow();
   });
 
+  // Bug 4 — a null/non-object entry in rows/fields must funnel into the typed
+  // SchemaValidationError like every other hostile input, not throw a raw
+  // TypeError from `null.kind` / `null.id`.
+  it('rejects a null row entry with SchemaValidationError (not TypeError)', () => {
+    const schema = {
+      id: 'f',
+      rows: [{ kind: 'fields', fields: [{ id: 'a', type: 'text' }] }, null],
+    } as unknown as FormSchema;
+
+    expect(() => validateSchema(schema, rilConfig)).toThrow(SchemaValidationError);
+  });
+
+  it('rejects a null field entry with SchemaValidationError (not TypeError)', () => {
+    const schema = {
+      id: 'f',
+      fields: [{ id: 'a', type: 'text' }, null],
+    } as unknown as FormSchema;
+
+    expect(() => validateSchema(schema, rilConfig)).toThrow(SchemaValidationError);
+  });
+
+  it('funnels a primitive row entry into typed issues', () => {
+    const schema = { id: 'f', rows: [123] } as unknown as FormSchema;
+    try {
+      validateSchema(schema, rilConfig);
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(SchemaValidationError);
+      expect((e as SchemaValidationError).issues.some((i) => i.path === 'rows[0]')).toBe(true);
+    }
+  });
+
+  it('funnels a primitive field entry into typed issues', () => {
+    const schema = { id: 'f', fields: [123] } as unknown as FormSchema;
+    try {
+      validateSchema(schema, rilConfig);
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(SchemaValidationError);
+      expect((e as SchemaValidationError).issues.some((i) => i.path === 'fields[0]')).toBe(true);
+    }
+  });
+
   it('collects multiple errors in a single throw', () => {
     const schema = {
       id: '',
