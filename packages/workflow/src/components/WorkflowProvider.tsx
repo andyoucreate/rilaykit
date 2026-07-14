@@ -1,5 +1,6 @@
 import {
   ConfigurationError,
+  getLogger,
   type FormConfiguration,
   type StepConfig,
   type WorkflowConfig,
@@ -39,6 +40,8 @@ import {
   type WorkflowStoreState,
   createWorkflowStore,
 } from '../stores';
+
+const log = getLogger('workflow:provider');
 
 // =================================================================
 // WORKFLOW CONTEXT VALUE
@@ -156,7 +159,7 @@ export function WorkflowProvider({
 
     const stepIndex = workflowConfig.steps.findIndex((step) => step.id === defaultStep);
     if (stepIndex === -1) {
-      console.warn(`Default step with ID "${defaultStep}" not found. Starting at step 0.`);
+      log.warn(`Default step with ID "${defaultStep}" not found. Starting at step 0.`);
       return 0;
     }
 
@@ -293,7 +296,7 @@ export function WorkflowProvider({
             return;
           }
         } catch (error) {
-          console.error('Failed to load persisted state:', error);
+          log.error('Failed to load persisted state:', error);
         }
       }
       store.getState()._setInitializing(false);

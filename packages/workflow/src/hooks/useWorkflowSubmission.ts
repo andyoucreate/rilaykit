@@ -1,6 +1,9 @@
+import { getLogger } from '@rilaykit/core';
 import type { WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import type { WorkflowState } from './useWorkflowState';
+
+const log = getLogger('workflow:submission');
 
 export interface UseWorkflowSubmissionProps {
   workflowConfig: WorkflowConfig;
@@ -49,7 +52,7 @@ export function useWorkflowSubmission({
         );
       }
     } catch (error) {
-      console.error('Workflow submission failed:', error);
+      log.error('Workflow submission failed:', error);
       if (workflowConfig.analytics?.onError) {
         workflowConfig.analytics.onError(error as Error, workflowContext);
       }

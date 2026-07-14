@@ -1,4 +1,4 @@
-import { ril } from '@rilaykit/core';
+import { ril, setLogSink } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
@@ -131,7 +131,11 @@ describe('Flow Component - DefaultStep', () => {
   });
 
   it('should handle invalid defaultStep gracefully', async () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Runtime code routes warnings through the logger sink, not console.
+    const consoleSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleSpy(message, ...args);
+    });
 
     render(
       <Flow of={workflowBuilder} defaultStep="invalid-step">
@@ -149,6 +153,6 @@ describe('Flow Component - DefaultStep', () => {
       'Default step with ID "invalid-step" not found. Starting at step 0.'
     );
 
-    consoleSpy.mockRestore();
+    setLogSink(null);
   });
 });

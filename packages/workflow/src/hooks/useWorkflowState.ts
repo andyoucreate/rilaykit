@@ -1,6 +1,9 @@
+import { getLogger } from '@rilaykit/core';
 import { useCallback, useMemo, useReducer } from 'react';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
 import { usePersistence } from './usePersistence';
+
+const log = getLogger('workflow:state');
 
 export interface WorkflowState {
   currentStepIndex: number;
@@ -255,7 +258,7 @@ export function useWorkflowState({
         return true;
       }
     } catch (error) {
-      console.error('Failed to load persisted state:', error);
+      log.error('Failed to load persisted state:', error);
     }
 
     // Mark initialization as complete even if loading failed

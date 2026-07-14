@@ -1,4 +1,4 @@
-import { ril, when } from '@rilaykit/core';
+import { ril, setLogSink, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
@@ -108,8 +108,11 @@ describe('WorkflowProvider - DefaultStep', () => {
   });
 
   it('should fallback to step 0 when defaultStep does not exist', async () => {
-    // Mock console.warn to verify the warning is shown
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Runtime code routes warnings through the logger sink, not console.
+    const consoleSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleSpy(message, ...args);
+    });
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultStep="nonexistent">
@@ -127,7 +130,7 @@ describe('WorkflowProvider - DefaultStep', () => {
       'Default step with ID "nonexistent" not found. Starting at step 0.'
     );
 
-    consoleSpy.mockRestore();
+    setLogSink(null);
   });
 
   it('should work with defaultStep and defaultValues together', async () => {

@@ -1,5 +1,8 @@
+import { getLogger } from '@rilaykit/core';
 import type { FieldEffect, FieldEffectContext } from '@rilaykit/core';
 import type { FormStore } from '../stores/formStore';
+
+const log = getLogger('forms:effects');
 
 const MAX_CASCADE_DEPTH = 10;
 
@@ -99,7 +102,7 @@ export class EffectEngine {
     // Cycle detection — carried across async continuations, so A→B→A loops are
     // caught even when each hop happens in a separate microtask.
     if (chain.visited.has(fieldId)) {
-      console.warn(
+      log.warn(
         `[EffectEngine] Cycle detected: field "${fieldId}" is already being processed. Skipping.`
       );
       return;
@@ -107,7 +110,7 @@ export class EffectEngine {
 
     // Cascade depth protection — bounds long distinct chains.
     if (chain.depth >= MAX_CASCADE_DEPTH) {
-      console.warn(
+      log.warn(
         `[EffectEngine] Max cascade depth (${MAX_CASCADE_DEPTH}) reached for field "${fieldId}". Stopping cascade.`
       );
       return;
@@ -171,12 +174,12 @@ export class EffectEngine {
             result.catch((error) => {
               // Ignore AbortError silently
               if (error?.name === 'AbortError') return;
-              console.warn(`[EffectEngine] Async effect error for field "${fieldId}":`, error);
+              log.warn(`[EffectEngine] Async effect error for field "${fieldId}":`, error);
             })
           );
         }
       } catch (error) {
-        console.warn(`[EffectEngine] Sync effect error for field "${fieldId}":`, error);
+        log.warn(`[EffectEngine] Sync effect error for field "${fieldId}":`, error);
       }
     }
 

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { type ComponentRenderContext, onChange, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, onChange, ril, setLogSink } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -89,11 +89,15 @@ describe('FormField Effects — Hardcore Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     config = createConfig();
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Runtime code routes through the logger sink, not console directly.
+    consoleWarnSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleWarnSpy(message, ...args);
+    });
   });
 
   afterEach(() => {
-    consoleWarnSpy.mockRestore();
+    setLogSink(null);
   });
 
   // -----------------------------------------------------------------

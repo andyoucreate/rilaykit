@@ -28,3 +28,6 @@ export * from './conditions';
 
 // Export effects system
 export * from './effects';
+
+// Export internal runtime logger (redirectable logging seam)
+export { getLogger, setLogSink, type LogLevel, type LogSink, type Logger } from './runtime/logger';

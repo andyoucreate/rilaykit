@@ -18,9 +18,12 @@ import {
   type SubmitOptions,
   deepClone,
   ensureUnique,
+  getLogger,
   type ril,
 } from '@rilaykit/core';
 import { RepeatableBuilder } from './repeatable-builder';
+
+const log = getLogger('forms:builder');
 
 /**
  * Configuration for a form field with type safety
@@ -660,7 +663,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   /** @deprecated Use updateField with new validation.validate property instead */
   addFieldValidation(fieldId: string, validationConfig: any): this {
-    console.warn(
+    log.warn(
       'addFieldValidation is deprecated. Use updateField with validation.validate property instead.'
     );
     const field = this.findFieldOrThrow(fieldId);

@@ -5,9 +5,12 @@ import {
   type WorkflowConfig,
   type WorkflowContext,
   evaluateCondition,
+  getLogger,
 } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useRef } from 'react';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+
+const log = getLogger('workflow:navigation');
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
 import type { WorkflowState } from './useWorkflowState';
 
@@ -185,7 +188,7 @@ export function useWorkflowNavigation({
 
         return true;
       } catch (error) {
-        console.error('Step transition failed:', error);
+        log.error('Step transition failed:', error);
         if (workflowConfig.analytics?.onError) {
           workflowConfig.analytics.onError(error as Error, workflowContext);
         }
@@ -242,7 +245,7 @@ export function useWorkflowNavigation({
         const helper = createStepDataHelper();
         await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
       } catch (error) {
-        console.error('onAfterValidation failed:', error);
+        log.error('onAfterValidation failed:', error);
         if (workflowConfig.analytics?.onError) {
           workflowConfig.analytics.onError(error as Error, workflowContext);
         }

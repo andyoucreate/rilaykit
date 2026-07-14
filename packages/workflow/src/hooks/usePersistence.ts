@@ -6,6 +6,7 @@
  * It integrates seamlessly with the existing workflow state management.
  */
 
+import { getLogger } from '@rilaykit/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   PersistedWorkflowData,
@@ -16,6 +17,8 @@ import type {
 import { WorkflowPersistenceError } from '../persistence/types';
 import { debounce, generateStorageKey, workflowStateToPersisted } from '../persistence/utils';
 import type { WorkflowState } from './useWorkflowState';
+
+const log = getLogger('workflow:persistence');
 
 export interface UsePersistenceProps {
   /** Unique workflow identifier */
@@ -103,7 +106,7 @@ export function usePersistence({
           );
 
     setPersistenceError(persistenceError);
-    console.error('[WorkflowPersistence]', persistenceError);
+    log.error('[WorkflowPersistence]', persistenceError);
   }, []);
 
   /**
@@ -146,7 +149,7 @@ export function usePersistence({
       } catch (error) {
         // Error is already handled in saveWorkflowState
         // Just log for debugging
-        console.debug('[WorkflowPersistence] Auto-save failed:', error);
+        log.debug('[WorkflowPersistence] Auto-save failed:', error);
       }
     }, options.debounceMs || 500)
   );

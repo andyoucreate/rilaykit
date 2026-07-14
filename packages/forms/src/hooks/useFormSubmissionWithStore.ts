@@ -1,8 +1,11 @@
+import { getLogger } from '@rilaykit/core';
 import type { SubmitOptions, ValidationResult } from '@rilaykit/core';
 import type React from 'react';
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
 import { structureFormValues } from '../utils/repeatable-data';
+
+const log = getLogger('forms:submission');
 
 export interface UseFormSubmissionWithStoreProps {
   store: FormStore;
@@ -119,7 +122,7 @@ export function useFormSubmissionWithStore({
       } catch (error) {
         state._setSubmitting(false);
         // Don't re-throw - submission errors are handled internally
-        console.error('Form submission error:', error);
+        log.error('Form submission error:', error);
         return false;
       }
     },
