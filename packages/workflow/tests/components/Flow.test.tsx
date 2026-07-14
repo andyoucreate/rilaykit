@@ -39,6 +39,15 @@ describe('<Flow of> + <Flow.Body>', () => {
     expect(screen.getByTestId('input-email')).toBeInTheDocument();
   });
 
+  it('seeds workflow values from defaults', () => {
+    render(
+      <Flow of={wf} defaults={{ personal: { email: 'seed@lovelace.dev' } }}>
+        <FlowBody />
+      </Flow>
+    );
+    expect(screen.getByTestId('input-email')).toHaveValue('seed@lovelace.dev');
+  });
+
   it('supports the render-prop children with step context', () => {
     render(
       <Flow of={wf}>

@@ -11,6 +11,7 @@ import {
   flow,
   form,
   required,
+  resolveWorkflowConfig,
   ril,
 } from 'rilaykit';
 import { describe, expect, it } from 'vitest';
@@ -68,6 +69,19 @@ describe('rilaykit - all-in-one integration', () => {
   it('should re-export flow builder class', () => {
     expect(flow).toBeDefined();
     expect(flow.create).toBeTypeOf('function');
+  });
+
+  it('should re-export resolveWorkflowConfig returning a built config as-is', () => {
+    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+    const contactForm = r
+      .form('contact')
+      .add({ id: 'email', type: 'input', props: { label: 'Email' } });
+    const cfg = r
+      .flow('onboarding', 'Onboarding')
+      .step({ id: 'contact', title: 'Contact', formConfig: contactForm.build() })
+      .build();
+
+    expect(resolveWorkflowConfig(cfg)).toBe(cfg);
   });
 
   it('should support the full all-in-one API', () => {
