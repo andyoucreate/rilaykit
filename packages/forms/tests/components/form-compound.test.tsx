@@ -1,5 +1,5 @@
 import { ril } from '@rilaykit/core';
-import { Form, form } from '@rilaykit/forms';
+import { Form, FormBody, FormField, FormList, FormSubmit, form } from '@rilaykit/forms';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
@@ -16,8 +16,19 @@ describe('Form compound namespace', () => {
     );
     expect(screen.getByTestId('a')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
-    expect(typeof Form.Field).toBe('object'); // React.memo component
-    expect(typeof Form.List).toBe('object');
+    expect(Form.Body).toBe(FormBody);
+    expect(Form.Field).toBe(FormField);
+    expect(Form.Submit).toBe(FormSubmit);
+    expect(Form.List).toBe(FormList);
+  });
+
+  it('renders Form.Field through the compound path', () => {
+    render(
+      <Form of={def}>
+        <Form.Field id="a" />
+      </Form>
+    );
+    expect(screen.getByTestId('a')).toBeInTheDocument();
   });
 
   it('exports useForm and drops useFormConfigContext', async () => {

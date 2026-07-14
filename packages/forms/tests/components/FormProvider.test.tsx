@@ -1,5 +1,5 @@
 import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
-import { ril } from '@rilaykit/core';
+import { ConfigurationError, ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -160,13 +160,24 @@ describe('FormProvider', () => {
   });
 
   describe('useForm Hook', () => {
-    it('should throw error when used outside provider', () => {
+    it('should throw ConfigurationError when used outside provider', () => {
       const TestComponent = () => {
         useForm();
         return null;
       };
 
-      expect(() => render(<TestComponent />)).toThrow('useForm must be used within a FormProvider');
+      let caught: unknown;
+      try {
+        render(<TestComponent />);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ConfigurationError);
+      expect((caught as ConfigurationError).message).toBe(
+        'useForm must be used within a FormProvider'
+      );
+      expect((caught as ConfigurationError).code).toBe('CONFIGURATION');
     });
 
     it('should provide form config', () => {
