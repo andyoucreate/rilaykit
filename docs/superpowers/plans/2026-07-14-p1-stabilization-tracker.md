@@ -63,13 +63,13 @@
 - [x] BUG/med: `notContains` returns false (not vacuously true) for non-string/array field value — conditions/index.ts
 
 ### forms (next batch)
-- [ ] BUG/high: async validation has no sequence/cancellation guard — stale result overwrites current — useFormValidationWithStore.ts
-- [ ] BUG/high: `validation.debounceMs` accepted+resolved but never consumed (silent no-op) — form.ts / validation pipeline
-- [ ] BUG/high: `reset()` wipes `_repeatableOrder`/`_repeatableNextKey`, repeatable rows vanish — formStore.ts
-- [ ] BUG/med: `flattenRepeatableValues` throws on null/non-object item — hostile defaultValues — repeatable-data.ts
-- [ ] BUG/med: async chained effects can infinite-loop (cycle detection only sync) — effect-engine.ts
-- [ ] BUG/med: validation reads field conditions from React state not live store (stale) — useFormValidationWithStore.ts
-- [ ] BUG/low: flatten/structure round-trip drops item fields outside template — repeatable-data.ts
+- [x] BUG/high: async validation has no sequence/cancellation guard — stale result overwrites current — useFormValidationWithStore.ts
+- [x] BUG/high: `validation.debounceMs` accepted+resolved but never consumed (silent no-op) — form.ts / validation pipeline
+- [x] BUG/high: `reset()` wipes `_repeatableOrder`/`_repeatableNextKey`, repeatable rows vanish — formStore.ts
+- [x] BUG/med: `flattenRepeatableValues` throws on null/non-object item — hostile defaultValues — repeatable-data.ts
+- [x] BUG/med: async chained effects can infinite-loop (cycle detection only sync) — effect-engine.ts
+- [x] BUG/med: validation reads field conditions from React state not live store (stale) — useFormValidationWithStore.ts
+- [x] BUG/low: flatten/structure round-trip drops item fields outside template — repeatable-data.ts
 
 ### workflow (next batch)
 - [ ] BUG/high: onStepChange stale visibility when onAfterValidation flips a later step mid-nav — useWorkflowNavigation.ts
@@ -87,4 +87,5 @@
 - [ ] all-features-form.e2e: 3-column variadic .add(a,b,c) maxColumns:3 coercion + full submit payload
 
 ## Iteration log
-- (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green). Next: forms batch.
+- (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
+- (iter 2) FORMS batch fixed (7 bugs, TDD). A cross-package regression (min-padding was unconditional → broke reset zero-item contract AND min-count validation) root-caused + fixed. Full suite 1454 green. Branch consolidation: a fixer stray-branched (fix/forms-nasa-hardening); fast-forwarded canonical branch + deleted stray. NOTE for future fixers: commit on the CURRENT branch, never checkout -b. Next: workflow batch (7 bugs).
