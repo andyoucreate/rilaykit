@@ -11,11 +11,12 @@ export { FlowRoot as Flow } from './components/Flow';
 export type { FlowProps } from './components/Flow';
 export { FlowBody } from './components/FlowBody';
 export type { FlowBodyProps } from './components/FlowBody';
+export { FlowProgress } from './components/FlowProgress';
+export type { FlowProgressProps } from './components/FlowProgress';
 export { WorkflowNextButton } from './components/WorkflowNextButton';
 export { WorkflowPreviousButton } from './components/WorkflowPreviousButton';
 export { useWorkflowContext, WorkflowProvider } from './components/WorkflowProvider';
 export { WorkflowSkipButton } from './components/WorkflowSkipButton';
-export { WorkflowStepper } from './components/WorkflowStepper';
 
 // Hooks
 export * from './hooks';

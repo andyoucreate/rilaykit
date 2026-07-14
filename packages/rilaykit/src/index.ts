@@ -20,12 +20,13 @@ export { flow, resolveWorkflowConfig, type StepDefinition } from '@rilaykit/work
 export {
   Flow,
   FlowBody,
+  FlowProgress,
   useWorkflowContext,
   WorkflowNextButton,
   WorkflowPreviousButton,
   WorkflowProvider,
   WorkflowSkipButton,
-  WorkflowStepper,
+  type FlowProgressProps,
   type WorkflowContextValue,
 } from '@rilaykit/workflow';
 
@@ -38,8 +39,10 @@ export {
 
 // Hooks (except useConditionEvaluation — already exported by forms)
 export {
+  useFlowSteps,
   usePersistence,
   useStepMetadata,
+  type FlowStepsContext,
   useWorkflowAnalytics,
   useWorkflowConditions,
   useWorkflowNavigation,
