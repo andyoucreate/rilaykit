@@ -5,7 +5,7 @@ export { FormField } from './components/FormField';
 export { FormProvider, useFormConfigContext } from './components/FormProvider';
 export type { FormConfigContextValue, FormProviderProps } from './components/FormProvider';
 export { FormRow } from './components/FormRow';
-export { FormSubmitButton } from './components/FormSubmitButton';
+export { FormSubmit } from './components/FormSubmit';
 export { RepeatableField } from './components/repeatable-field';
 export { RepeatableItem } from './components/repeatable-item';
 
