@@ -281,6 +281,19 @@ describe('LocalStorageAdapter', () => {
       });
     });
 
+    it('should round-trip non-Latin1 characters (accents/emoji) when compressed', async () => {
+      const compressedAdapter = new LocalStorageAdapter({ compress: true });
+      const unicodeData: PersistedWorkflowData = {
+        ...testData,
+        allData: { step1: { name: 'François 😀' } },
+      };
+
+      await expect(compressedAdapter.save(testKey, unicodeData)).resolves.toBeUndefined();
+
+      const loaded = await compressedAdapter.load(testKey);
+      expect(loaded?.allData).toEqual({ step1: { name: 'François 😀' } });
+    });
+
     it('should handle compression errors gracefully', async () => {
       const compressedAdapter = new LocalStorageAdapter({ compress: true });
 
