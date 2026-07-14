@@ -58,6 +58,17 @@ export class IdGenerator {
       this.counters.clear();
     }
   }
+
+  /**
+   * Creates an independent copy of this generator that continues numbering
+   * from the current counter state. Used to keep cloned builders from
+   * regenerating ids that already exist on the cloned data.
+   */
+  clone(): IdGenerator {
+    const copy = new IdGenerator();
+    copy.counters = new Map(this.counters);
+    return copy;
+  }
 }
 
 /**

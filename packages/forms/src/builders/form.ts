@@ -727,6 +727,14 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   clone(newFormId?: string): form<C> {
     const cloned = new form<C>(this.config, newFormId || `${this.formId}-clone`);
     cloned.rows = deepClone(this.rows);
+    // Carry the id counter state so the clone keeps numbering after the highest
+    // existing id instead of colliding with already-cloned field/row ids.
+    cloned.idGenerator = this.idGenerator.clone();
+    // Preserve form-level validation and submit options. Deep-clone the plain
+    // data while keeping validator function identity (deepClone returns
+    // functions unchanged since they are not plain objects).
+    cloned.formValidation = this.formValidation ? deepClone(this.formValidation) : undefined;
+    cloned._submitOptions = this._submitOptions ? deepClone(this._submitOptions) : undefined;
     return cloned;
   }
 
