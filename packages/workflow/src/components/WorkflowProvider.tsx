@@ -602,11 +602,30 @@ export function WorkflowProvider({
 
       if (workflowContext.isLastStep) {
         await submitWorkflow();
-      } else {
-        await goNext();
+        return;
+      }
+
+      const advanced = await goNext();
+      // Terminal advance: at click time a later step was visible (isLastStep
+      // false), but `goNext`'s `onAfterValidation` just hid the remaining
+      // step(s), so no next visible step exists and `goNext` returned false
+      // ("let the submission hook handle this"). This step is now the effective
+      // last step — complete the workflow in the SAME click instead of
+      // dead-ending. `canGoNext()` reads live data, so a plain failed advance
+      // (e.g. onAfterValidation threw before hiding anything) still sees the next
+      // step visible and does NOT complete.
+      if (!advanced && !canGoNext()) {
+        await submitWorkflow();
       }
     },
-    [workflowContext.isLastStep, submitWorkflow, goNext, currentStep?.id, setStepDataAction]
+    [
+      workflowContext.isLastStep,
+      submitWorkflow,
+      goNext,
+      canGoNext,
+      currentStep?.id,
+      setStepDataAction,
+    ]
   );
 
   // Memoize context value
