@@ -88,16 +88,16 @@
 
 ## Round 4 hunt inventory (iter 8) — 9 bugs (6 high) + 1 gap; NOT clean
 
-- [ ] BUG/high: `form.clone()` drops form-level validation + submitOptions — forms/builders/form.ts
-- [ ] BUG/high: `form.clone()` resets IdGenerator → duplicate auto-ids when extending clone — forms/builders/form.ts
-- [ ] BUG/high: plugin `use()` non-atomic — plugin stays registered after install() throws — workflow/builders/flow.ts
-- [ ] BUG/high: persisted currentStepIndex never validated/clamped on load → out-of-range — WorkflowProvider.tsx
-- [ ] BUG/high: `useStep()` dereferences currentStep.metadata without null guard → crash on out-of-range index — workflow/hooks/useStep.ts
-- [ ] BUG/high: effect writing a field with an existing error never re-validates → wedges isValid=false, deadlocks submit — forms/effects/effect-engine.ts
-- [ ] BUG/med (regression): RemoteAdapter concurrent-drain now rejects a caller whose events WERE delivered (false-failure) — core/monitoring/adapters.ts
-- [ ] BUG/med: `_moveRepeatableItem` reorders but never sets isDirty → reorder lost silently — forms/stores/formStore.ts
-- [ ] BUG/med: workflow persistence never cleared on completion → re-mount resurrects completed workflow — workflow/hooks/useWorkflowSubmission.ts
-- [ ] GAP/low: step-transition effect ordering — new step effects run against previous step values (effectsMap before form-id reset) — FormProvider.tsx
+- [x] BUG/high: `form.clone()` drops form-level validation + submitOptions — forms/builders/form.ts
+- [x] BUG/high: `form.clone()` resets IdGenerator → duplicate auto-ids when extending clone — forms/builders/form.ts
+- [x] BUG/high: plugin `use()` non-atomic — plugin stays registered after install() throws — workflow/builders/flow.ts
+- [x] BUG/high: persisted currentStepIndex never validated/clamped on load → out-of-range — WorkflowProvider.tsx
+- [x] BUG/high: `useStep()` dereferences currentStep.metadata without null guard → crash on out-of-range index — workflow/hooks/useStep.ts
+- [x] BUG/high: effect writing a field with an existing error never re-validates → wedges isValid=false, deadlocks submit — forms/effects/effect-engine.ts
+- [x] BUG/med (regression): RemoteAdapter concurrent-drain now rejects a caller whose events WERE delivered (false-failure) — core/monitoring/adapters.ts
+- [x] BUG/med: `_moveRepeatableItem` reorders but never sets isDirty → reorder lost silently — forms/stores/formStore.ts
+- [x] BUG/med: workflow persistence never cleared on completion → re-mount resurrects completed workflow — workflow/hooks/useWorkflowSubmission.ts
+- [x] GAP/low: step-transition effect ordering — new step effects run against previous step values (effectsMap before form-id reset) — FormProvider.tsx
 
 ## Round 3 hunt inventory (iter 7) — 8 bugs + 2 config gaps; NOT clean
 
@@ -129,6 +129,7 @@
 - [~] weak-assertion sweep: localStorage.test.ts strengthened (instanceof + exact code + round-trip); full 153-site repo sweep still deferred
 
 ## Iteration log
+- (iter 8) ROUND 4 hunt (least-audited surfaces + r3 regression audit): NOT clean — 9 bugs (6 high) + 1 gap. Fixed all TDD, mutation-checked bug 6 (submit-deadlock) + bug 7 (RemoteAdapter). form.clone validation/submitOptions + IdGenerator.clone(), atomic plugin use(), clamped persisted currentStepIndex + useStep guard + render-time clamp, effect-write revalidation, RemoteAdapter per-send deferred rewrite, move isDirty, clear persistence on completion, step-transition effect ordering. Full suite 1523 green. 44 total bugs fixed. TRAJECTORY: r1=21, r2=5, r3=8, r4=9 — NOT converging; each fresh surface yields a new batch. Core/golden paths are heavily hardened (e2e power demos green); remaining tail is secondary surfaces (clone, plugins, adapter concurrency, corrupt-data resilience). Clean-round counter = 0. Next: ROUND 5 — re-hunt CORE paths to confirm truly clean + audit r4 fixes; if only trivial/secondary remains, make the NASA-grade judgment call (user authorized stopping loop + P2 once good).
 - (iter 7) ROUND 3 hunt: NOT clean — 8 bugs + 2 tree-shaking gaps. Fixed all TDD (fixer was interrupted mid-run but had completed the work; verified full suite green + mutation-checked B1 canSubmit, B2 prototype-lookup, confirmed B3 concurrent-send test). canSubmit visible-last, own-property field lookup, RemoteAdapter drain, typed SchemaValidationError on null entries, forward-only onStepComplete, onWorkflowAbandon on unmount, double-skip guard, persistence-load preserves user input, sideEffects:false. Full suite 1513 green + build green. 34 total bugs fixed. Clean-round counter = 0. Next: ROUND 4 hunt (need 2 consecutive clean → P2; user authorized stopping the loop + P2 once genuinely good).
 - (iter 6) QUALITY pass: internal redirectable logger (getLogger/setLogSink), 22 runtime console.* routed through it, no-console guard test (mutation-checked), RemoteAdapter + DevelopmentAdapter behavioral tests, localStorage assertions strengthened. Full suite 1496 green. Remaining before round 3: full weak-assertion sweep deferred (low value). Next: ROUND 3 hunt (clean-round counter still 0; need 2 consecutive clean → P2).
 - (iter 5) ROUND 2 hunt: NOT clean — 5 bugs (2 fix-regressions from my own hardening) + 5 gaps. Fixed all 5 bugs TDD + StrictMode idempotency guard (passed clean, no double-fire). BUG 2 fix-regression mutation-checked. Full suite 1485 green. 26 total bugs fixed. Clean-round counter = 0. Next: deferred quality gaps (console.* cleanup, adapter coverage, weak-assertion sweep) THEN round 3 hunt (needs 2 consecutive clean rounds → P2).
