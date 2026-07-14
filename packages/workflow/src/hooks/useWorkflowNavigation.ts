@@ -13,6 +13,13 @@ export interface UseWorkflowNavigationProps {
   markStepVisited: (stepIndex: number, stepId: string) => void;
   markStepPassed: (stepId: string) => void;
   setStepData: (data: Record<string, any>, stepId: string) => void;
+  /**
+   * Live accessor for the latest `allData`. The `workflowState` prop is a
+   * render-time snapshot: within a single navigation (onAfterValidation
+   * writing prefill data, then the step transition) it goes stale and the
+   * transition would wipe the freshly written data.
+   */
+  getAllData: () => Record<string, any>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
 }
 
@@ -37,6 +44,7 @@ export function useWorkflowNavigation({
   markStepVisited,
   markStepPassed,
   setStepData,
+  getAllData,
   onStepChange,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
   // Use ref to avoid recreating callbacks when onStepChange changes
@@ -54,20 +62,20 @@ export function useWorkflowNavigation({
       },
 
       setStepFields: (stepId: string, fields: Record<string, any>) => {
-        const existingData = workflowState.allData[stepId] || {};
+        const existingData = getAllData()[stepId] || {};
         const mergedData = { ...existingData, ...fields };
         setStepData(mergedData, stepId);
       },
 
       getStepData: (stepId: string) => {
-        return workflowState.allData[stepId] || {};
+        return getAllData()[stepId] || {};
       },
 
       setNextStepField: (fieldId: string, value: any) => {
         const nextStepIndex = workflowState.currentStepIndex + 1;
         if (nextStepIndex < workflowConfig.steps.length) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
-          const existingData = workflowState.allData[nextStepId] || {};
+          const existingData = getAllData()[nextStepId] || {};
           const mergedData = { ...existingData, [fieldId]: value };
           setStepData(mergedData, nextStepId);
         }
@@ -77,24 +85,24 @@ export function useWorkflowNavigation({
         const nextStepIndex = workflowState.currentStepIndex + 1;
         if (nextStepIndex < workflowConfig.steps.length) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
-          // FIXED: Only get existing data for the next step, don't propagate current step data
-          const existingData = workflowState.allData[nextStepId] || {};
+          // Only get existing data for the next step, don't propagate current step data
+          const existingData = getAllData()[nextStepId] || {};
 
-          // FIXED: Only merge the specified fields, not all current step data
+          // Only merge the specified fields, not all current step data
           const mergedData = { ...existingData, ...fields };
           setStepData(mergedData, nextStepId);
         }
       },
 
       getAllData: () => {
-        return { ...workflowState.allData };
+        return { ...getAllData() };
       },
 
       getSteps: () => {
         return [...workflowConfig.steps];
       },
     };
-  }, [workflowState.allData, workflowState.currentStepIndex, workflowConfig.steps, setStepData]);
+  }, [getAllData, workflowState.currentStepIndex, workflowConfig.steps, setStepData]);
 
   // Core navigation function
   const goToStep = useCallback(
@@ -122,8 +130,10 @@ export function useWorkflowNavigation({
         markStepVisited(stepIndex, newStepId);
 
         // Reset stepData to the target step's existing data to prevent
-        // leaking fields from the previous step into the new step's data
-        const existingStepData = (workflowState.allData[newStepId] || {}) as Record<string, any>;
+        // leaking fields from the previous step into the new step's data.
+        // Read through getAllData(): onAfterValidation may have just written
+        // prefill data that the render-time snapshot does not contain yet.
+        const existingStepData = (getAllData()[newStepId] || {}) as Record<string, any>;
         setStepData(existingStepData, newStepId);
 
         return true;
@@ -142,7 +152,7 @@ export function useWorkflowNavigation({
       workflowConfig.analytics,
       conditionsHelpers,
       workflowState.currentStepIndex,
-      workflowState.allData,
+      getAllData,
       workflowContext,
       setTransitioning,
       setCurrentStep,

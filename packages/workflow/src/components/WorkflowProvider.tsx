@@ -224,6 +224,10 @@ export function WorkflowProvider({
     [store]
   );
 
+  // Live reader for navigation: the workflowState snapshot goes stale within
+  // a single navigation tick (e.g. onAfterValidation prefilling the next step)
+  const getAllData = useCallback(() => store.getState().allData, [store]);
+
   const setFieldValue = useCallback(
     (fieldId: string, value: unknown, stepId: string) =>
       store.getState()._setFieldValue(fieldId, value, stepId),
@@ -421,6 +425,7 @@ export function WorkflowProvider({
     markStepVisited,
     markStepPassed,
     setStepData: setStepDataAction,
+    getAllData,
     onStepChange: onStepChangeRef.current,
   });
 
