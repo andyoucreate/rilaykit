@@ -8,12 +8,6 @@ import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider
 
 // Mock components
 const TestComponent = () => React.createElement('div', null, 'test');
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'form-renderer' }, children);
-const TestStepperRenderer = () =>
-  React.createElement('div', { 'data-testid': 'stepper' }, 'stepper');
-const TestButtonRenderer = ({ children, ...props }: any) =>
-  React.createElement('div', { ...props, role: 'button' }, children);
 
 describe('WorkflowProvider', () => {
   let config: any;
@@ -24,23 +18,15 @@ describe('WorkflowProvider', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter email...' },
-      })
-      .configure({
-        rowRenderer: TestFormRenderer,
-        bodyRenderer: TestFormRenderer,
-        stepperRenderer: TestStepperRenderer,
-        nextButtonRenderer: TestButtonRenderer,
-        previousButtonRenderer: TestButtonRenderer,
-        skipButtonRenderer: TestButtonRenderer,
       });
 
     const personalInfoForm = form

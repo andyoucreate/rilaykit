@@ -1,17 +1,12 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  FlowBody,
-  WorkflowProvider,
-  flow,
-  useFlow,
-} from '@rilaykit/workflow';
-import { useFlowStepIndex, useFlowData, useFlowStore } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
+import { useFlowData, useFlowStepIndex, useFlowStore } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 import { NextButton, PrevButton } from '../_setup/nav-buttons';
+import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // SETUP
@@ -29,10 +24,6 @@ function createWorkflowRilConfig() {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
-    })
-    .configure({
-      bodyRenderer: ({ children }) => <div>{children}</div>,
-      rowRenderer: ({ children }) => <div>{children}</div>,
     });
 }
 

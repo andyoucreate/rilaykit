@@ -15,22 +15,13 @@ const TestComponent = ({ id, field }: ComponentRenderContext) => (
     onChange={(e) => field?.onChange(e.target.value)}
   />
 );
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
 // Create test config
 function createTestConfig() {
-  return ril
-    .create()
-    .component('text', {
-      name: 'Text Input',
-      renderer: TestComponent,
-      defaultProps: {},
-    })
-    .configure({
-      rowRenderer: TestRowRenderer,
-      bodyRenderer: TestFormRenderer,
-    });
+  return ril.create().component('text', {
+    name: 'Text Input',
+    renderer: TestComponent,
+    defaultProps: {},
+  });
 }
 
 describe('Conditions Performance', () => {
@@ -174,17 +165,11 @@ describe('Conditions Performance', () => {
       );
     };
 
-    const trackingConfig = ril
-      .create()
-      .component('text', {
-        name: 'Text Input',
-        renderer: TrackingComponent,
-        defaultProps: {},
-      })
-      .configure({
-        rowRenderer: TestRowRenderer,
-        bodyRenderer: TestFormRenderer,
-      });
+    const trackingConfig = ril.create().component('text', {
+      name: 'Text Input',
+      renderer: TrackingComponent,
+      defaultProps: {},
+    });
 
     const formConfig = form
       .create(trackingConfig, 'isolation-test')

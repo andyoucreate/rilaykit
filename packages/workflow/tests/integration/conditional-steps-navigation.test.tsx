@@ -34,10 +34,6 @@ describe('Conditional steps - navigation bug', () => {
       .component('checkbox', {
         name: 'Checkbox',
         renderer: MockCheckbox,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Reproduce the playground conditional-steps example
@@ -345,11 +341,7 @@ describe('Conditional steps - form submission flow (real Flow.Next path)', () =>
       .create()
       .component('select', { name: 'Select', renderer: MockSelect })
       .component('input', { name: 'Input', renderer: MockInput })
-      .component('checkbox', { name: 'Checkbox', renderer: MockCheckbox })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      });
+      .component('checkbox', { name: 'Checkbox', renderer: MockCheckbox });
 
     conditionalFlow = flow
       .create(config, 'conditional-submit', 'Account Setup')

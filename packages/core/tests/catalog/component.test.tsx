@@ -48,25 +48,16 @@ describe('ril.component()', () => {
     expect(r.getComponent('text')?.description).toBe('Replaced');
   });
 
-  it('keeps addComponent working as a delegate during migration', () => {
-    const r = ril.create().addComponent('legacy', {
-      name: 'Legacy',
-      renderer: () => <span />,
-    });
-    expect(r.hasComponent('legacy')).toBe(true);
-    expect(r.getComponent('legacy')?.name).toBe('Legacy');
-  });
-
-  it('excludes non-component entries from getAllComponents and getStats', () => {
+  it('excludes non-component entries from getAllComponents and getStats components count', () => {
     const empty = ril.create();
     entriesOf(empty).set('tool:x', { kind: 'tool', name: 'x' });
     expect(empty.getAllComponents()).toHaveLength(0);
-    expect(empty.getStats().total).toBe(0);
+    expect(empty.getStats()).toEqual({ total: 1, components: 0, tools: 1, parts: 0 });
 
     const mixed = ril.create().component('text', textEntry);
     entriesOf(mixed).set('tool:search', { kind: 'tool', name: 'search' });
     expect(mixed.getAllComponents()).toHaveLength(1);
     expect(mixed.getAllComponents()[0]?.type).toBe('text');
-    expect(mixed.getStats().total).toBe(1);
+    expect(mixed.getStats()).toEqual({ total: 2, components: 1, tools: 1, parts: 0 });
   });
 });

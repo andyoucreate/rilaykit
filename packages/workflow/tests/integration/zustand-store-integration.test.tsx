@@ -7,8 +7,8 @@ import { FlowBody } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider';
 import {
-  useFlowStepIndex,
   useFlowData,
+  useFlowStepIndex,
   useFlowStore,
   useFlowTransitioning,
 } from '../../src/stores';
@@ -22,9 +22,6 @@ const TestComponent = ({ id, field }: ComponentRenderContext) => (
     onChange={(e) => field?.onChange(e.target.value)}
   />
 );
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
 describe('Workflow Zustand Store Integration', () => {
   let config: ReturnType<typeof ril.create>;
   let workflowConfig: ReturnType<typeof flow.create>['build'] extends () => infer R ? R : never;
@@ -32,17 +29,11 @@ describe('Workflow Zustand Store Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    config = ril
-      .create()
-      .component('text', {
-        name: 'Text Input',
-        renderer: TestComponent,
-        defaultProps: {},
-      })
-      .configure({
-        rowRenderer: TestRowRenderer,
-        bodyRenderer: TestFormRenderer,
-      });
+    config = ril.create().component('text', {
+      name: 'Text Input',
+      renderer: TestComponent,
+      defaultProps: {},
+    });
 
     const step1Form = form
       .create(config, 'step1-form')

@@ -1,15 +1,5 @@
 import { ril } from '@rilaykit/core';
-import {
-  MockCheckboxInput,
-  MockNumberInput,
-  MockSelectInput,
-  MockTextInput,
-  TestBodyRenderer,
-  TestRepeatableItemRenderer,
-  TestRepeatableRenderer,
-  TestRowRenderer,
-  TestSubmitButtonRenderer,
-} from './test-helpers';
+import { MockCheckboxInput, MockNumberInput, MockSelectInput, MockTextInput } from './test-helpers';
 
 // =================================================================
 // RIL CONFIGS
@@ -40,13 +30,6 @@ export function createTestRilConfig() {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },
-    })
-    .configure({
-      bodyRenderer: TestBodyRenderer,
-      rowRenderer: TestRowRenderer,
-      submitButtonRenderer: TestSubmitButtonRenderer,
-      repeatableRenderer: TestRepeatableRenderer,
-      repeatableItemRenderer: TestRepeatableItemRenderer,
     });
 }
 
@@ -65,9 +48,5 @@ export function createMinimalRilConfig() {
       name: 'Select Input',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
-    })
-    .configure({
-      bodyRenderer: TestBodyRenderer,
-      rowRenderer: TestRowRenderer,
     });
 }

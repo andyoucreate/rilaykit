@@ -391,7 +391,6 @@ describe('Form Builder', () => {
       expect(config).toHaveProperty('rows');
       expect(config).toHaveProperty('allFields');
       expect(config).toHaveProperty('config');
-      expect(config).toHaveProperty('renderConfig');
       expect(config).toHaveProperty('validation');
 
       expect(config.allFields).toHaveLength(2);
@@ -642,24 +641,6 @@ describe('Form Builder', () => {
   });
 
   describe('integration with ril configuration', () => {
-    it('should use ril form render configuration', () => {
-      // Set up a render config on ril
-      const configuredRil = rilConfig.configure({
-        bodyRenderer: vi.fn(),
-        rowRenderer: vi.fn(),
-        fieldRenderer: vi.fn(),
-      });
-
-      const builder = form.create(configuredRil).add({ type: 'text', props: { label: 'Test' } });
-
-      const config = builder.build();
-
-      expect(config.renderConfig).toBeDefined();
-      expect(config.renderConfig?.bodyRenderer).toBeDefined();
-      expect(config.renderConfig?.rowRenderer).toBeDefined();
-      expect(config.renderConfig?.fieldRenderer).toBeDefined();
-    });
-
     it('should reference the same ril config instance', () => {
       const builder = form.create(rilConfig).add({ type: 'text', props: { label: 'Test' } });
 

@@ -1,15 +1,10 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  FlowBody,
-  WorkflowProvider,
-  flow,
-  useFlow,
-} from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockCheckboxInput, MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 import { NextButton, PrevButton } from '../_setup/nav-buttons';
+import { MockCheckboxInput, MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // SETUP — Reproduces the playground conditional-steps example
@@ -34,10 +29,6 @@ function createRilConfig() {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },
-    })
-    .configure({
-      bodyRenderer: ({ children }) => <div>{children}</div>,
-      rowRenderer: ({ children }) => <div>{children}</div>,
     });
 }
 

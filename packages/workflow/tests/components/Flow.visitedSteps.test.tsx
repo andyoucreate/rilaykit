@@ -29,16 +29,10 @@ describe('Flow Component - VisitedSteps with DefaultStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    config = ril
-      .create()
-      .component('input', {
-        name: 'Text Input',
-        renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      });
+    config = ril.create().component('input', {
+      name: 'Text Input',
+      renderer: MockInput,
+    });
 
     // Create a workflow builder
     workflowBuilder = flow
@@ -147,11 +141,7 @@ describe('Flow Component - VisitedSteps with DefaultStep', () => {
     };
 
     render(
-      <Flow
-        of={workflowBuilder}
-        defaultStep="preferences"
-        defaults={defaultValues}
-      >
+      <Flow of={workflowBuilder} defaultStep="preferences" defaults={defaultValues}>
         <VisitedStepsDisplay />
       </Flow>
     );

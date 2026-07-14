@@ -796,7 +796,6 @@ export class flow {
       analytics: this.analytics,
       persistence: this.persistenceConfig,
       plugins: this.plugins,
-      renderConfig: this.config.getWorkflowRenderConfig(),
     };
 
     return finalConfig;

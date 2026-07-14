@@ -55,10 +55,6 @@ describe('Form - Field Conditions with DefaultValues', () => {
       .component('input', {
         name: 'Text Input',
         renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Create form with conditional fields

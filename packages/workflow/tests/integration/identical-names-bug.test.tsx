@@ -46,10 +46,6 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
         name: 'Text Input',
         renderer: MockInput,
         defaultProps: {},
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
   });
 

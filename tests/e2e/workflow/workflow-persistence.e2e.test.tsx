@@ -1,35 +1,23 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  LocalStorageAdapter,
-  FlowBody,
-  WorkflowProvider,
-  flow,
-  useFlow,
-} from '@rilaykit/workflow';
+import { FlowBody, LocalStorageAdapter, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
 import { useFlowData } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockTextInput } from '../_setup/test-helpers';
 import { NextButton } from '../_setup/nav-buttons';
+import { MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // SETUP
 // ============================================================================
 
 const STORAGE_KEY = 'rilay_workflow_test-workflow';
-const rilConfig = ril
-  .create()
-  .component('text', {
-    name: 'Text',
-    renderer: MockTextInput,
-    defaultProps: { label: '' },
-  })
-  .configure({
-    bodyRenderer: ({ children }) => <div>{children}</div>,
-    rowRenderer: ({ children }) => <div>{children}</div>,
-  });
+const rilConfig = ril.create().component('text', {
+  name: 'Text',
+  renderer: MockTextInput,
+  defaultProps: { label: '' },
+});
 
 // ============================================================================
 // HELPERS

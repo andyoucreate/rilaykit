@@ -17,7 +17,6 @@ import {
   ensureUnique,
   type ril,
 } from '@rilaykit/core';
-import { getLegacyComponentConfig } from '../utils/legacy-component-config';
 import { RepeatableBuilder } from './repeatable-builder';
 
 /**
@@ -62,8 +61,8 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  *
  *   const rilConfig = ril
  *     .create()
- *     .addComponent('text', { name: 'Text', renderer: TextInput })
- *     .addComponent('email', { name: 'Email', renderer: EmailInput });
+ *     .component('text', { name: 'Text', renderer: TextInput })
+ *     .component('email', { name: 'Email', renderer: EmailInput });
  *
  *   const myForm = form
  *     .create(rilConfig, 'contact-form')
@@ -93,7 +92,7 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  * - Array:    .add([fieldA, fieldB]) => explicit single row
  *
  * Output of .build(): FormConfiguration<C>
- * - id, rows, allFields, renderConfig (from ril), optional validation
+ * - id, rows, allFields, optional validation
  */
 export class form<C extends Record<string, any> = Record<string, never>> {
   /** The ril configuration instance containing component definitions */
@@ -167,7 +166,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   private createFormField<T extends keyof C & string>(
     fieldConfig: FieldConfig<C, T>
   ): FormFieldConfig {
-    const component = getLegacyComponentConfig(this.config, fieldConfig.type);
+    const component = this.config.getComponent(fieldConfig.type);
 
     if (!component) {
       throw new Error(`No component found with type "${fieldConfig.type}"`);
@@ -207,7 +206,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     return {
       id: fieldConfig.id || this.idGenerator.next('field'),
-      // Catalog entries are keyed by type; legacy addComponent set id === type
+      // Catalog entries are keyed by type
       componentId: fieldConfig.type,
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: combinedValidation,
@@ -871,7 +870,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       allFields,
       repeatableFields,
       config: this.config,
-      renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
       submitOptions: this._submitOptions,
       effectsMap: Object.keys(effectsMap).length > 0 ? effectsMap : undefined,

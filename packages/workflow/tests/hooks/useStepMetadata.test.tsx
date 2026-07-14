@@ -16,7 +16,7 @@ describe('useStepMetadata', () => {
 
   beforeEach(() => {
     // Mock configuration
-    mockRilConfig = ril.create().addComponent('text', {
+    mockRilConfig = ril.create().component('text', {
       name: 'Text Input',
       renderer: () => React.createElement('input'),
       defaultProps: { label: '', placeholder: 'Enter text' },

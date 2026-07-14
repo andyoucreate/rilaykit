@@ -10,12 +10,12 @@ describe('Workflow Conditions', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => null,
         defaultProps: { placeholder: '' },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => null,
         defaultProps: { options: [] },

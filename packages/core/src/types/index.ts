@@ -102,161 +102,43 @@ export interface FormValidationConfig<T extends Record<string, any> = Record<str
 // Legacy types completely removed - use unified Standard Schema API
 
 // =================================================================
-// 3. COMPONENT SYSTEM
+// 3. FIELD & FORM STATE
 // =================================================================
 
-export type ComponentRenderer<TProps = any> = (
-  props: ComponentRenderProps<TProps>
-) => React.ReactElement;
+export type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
 
-export type RendererChildrenFunction<TProps = any> = (props: TProps) => React.ReactNode;
-
-export interface ComponentRendererBaseProps<TProps = any> {
-  className?: string;
-  children?: React.ReactNode | RendererChildrenFunction<TProps>;
-  renderAs?: 'default' | 'children' | boolean;
-}
-
-export interface ComponentRendererWrapperProps<TProps = any>
-  extends Omit<ComponentRendererBaseProps<TProps>, 'className'> {
-  name: string;
-  props: TProps;
-  renderer?: RendererChildrenFunction<TProps>;
-}
-
-export interface ComponentRenderProps<TProps = any> {
-  id: string;
-  props: TProps;
-  value?: any;
-  onChange?: (value: any) => void;
-  onBlur?: () => void;
-  disabled?: boolean;
-  error?: FieldError[];
-  isValidating?: boolean;
-  [key: string]: any;
+/**
+ * Field state without actions - used for selectors
+ */
+export interface FieldState {
+  readonly value: unknown;
+  readonly errors: FieldError[];
+  readonly validationState: ValidationState;
+  readonly touched: boolean;
+  readonly dirty: boolean;
 }
 
 /**
- * Property editor definition for builder property panel
- * Generic and extensible to support any custom editor type
+ * Field conditions - visibility, disabled, required, readonly
  */
-export interface PropertyEditorDefinition<TValue = any> {
-  /** Property key in component props */
-  readonly key: string;
-  /** Display label in property panel */
-  readonly label: string;
-  /**
-   * Editor type - can be any string to support custom editors
-   * Built-in types: 'text', 'number', 'boolean', 'select', 'multiselect', 'color', 'textarea', 'json'
-   * Custom types: 'phone', 'currency', 'location', 'rating', 'file-upload', etc.
-   */
-  readonly editorType: string;
-  /** Optional description/help text */
-  readonly helpText?: string;
-  /** Default value for this property */
-  readonly defaultValue?: TValue;
-  /** Options for select/multiselect editors */
-  readonly options?: Array<{ label: string; value: any; [key: string]: any }>;
-  /** Validation function for the property value */
-  readonly validate?: (value: TValue) => boolean | string | Promise<boolean | string>;
-  /** Group/section for organizing properties */
-  readonly group?: string;
-  /** Whether this property is required */
-  readonly required?: boolean;
-  /** Placeholder text for input fields */
-  readonly placeholder?: string;
-  /** Custom editor component for advanced use cases */
-  readonly customEditor?: React.ComponentType<PropertyEditorProps<TValue>>;
-  /** Additional configuration specific to the editor type */
-  readonly editorConfig?: Record<string, any>;
-  /** Dependencies - other properties that affect this one */
-  readonly dependencies?: string[];
-  /** Conditional rendering based on other property values */
-  readonly visible?: (props: Record<string, any>) => boolean;
-  /** Transform value before saving */
-  readonly transform?: (value: TValue) => any;
-  /** Parse value when loading */
-  readonly parse?: (value: any) => TValue;
+export interface FieldConditions {
+  readonly visible: boolean;
+  readonly disabled: boolean;
+  readonly required: boolean;
+  readonly readonly: boolean;
 }
 
 /**
- * Props passed to custom property editors
+ * Form state without actions - used for selectors
  */
-export interface PropertyEditorProps<TValue = any> {
-  /** Current property value */
-  readonly value: TValue;
-  /** Callback to update the value */
-  readonly onChange: (value: TValue) => void;
-  /** Property definition */
-  readonly definition: PropertyEditorDefinition<TValue>;
-  /** All current property values (for dependencies) */
-  readonly allValues: Record<string, any>;
-  /** Whether the field is disabled */
-  readonly disabled?: boolean;
-  /** Validation errors */
-  readonly errors?: string[];
-}
-
-/**
- * Builder metadata for visual editing capabilities
- * This is optional and only used by @rilaykit/builder
- * Fully generic to support any component type and configuration
- */
-export interface ComponentBuilderMetadata<TProps = any> {
-  /** Category for grouping in component palette (e.g., 'Input', 'Layout', 'Advanced') */
-  readonly category?: string;
-  /** Icon identifier (e.g., 'text', 'email', 'calendar') */
-  readonly icon?: string;
-  /** Whether this component should be hidden from the builder palette */
-  readonly hidden?: boolean;
-  /** Preview component or description for the palette */
-  readonly preview?: React.ReactNode;
-  /** Editable properties configuration for property panel */
-  readonly editableProps?: PropertyEditorDefinition[];
-  /** Tags for search and filtering */
-  readonly tags?: string[];
-  /**
-   * Custom field schema for advanced type systems
-   * Allows defining complex field types with their own validation and structure
-   */
-  readonly fieldSchema?: FieldSchemaDefinition<TProps>;
-}
-
-/**
- * Field schema definition for complex field types
- * Supports defining custom field types with validation, defaults, and metadata
- */
-export interface FieldSchemaDefinition<TProps = any> {
-  /** Field type identifier (e.g., 'location', 'phone', 'currency') */
-  readonly type: string;
-  /** Schema validation (Zod, Yup, or any Standard Schema) */
-  readonly schema?: any;
-  /** Default configuration for this field type */
-  readonly defaultConfig?: Partial<TProps>;
-  /** Sub-fields for complex types (e.g., Location has address, city, country) */
-  readonly subFields?: Array<{
-    key: string;
-    label: string;
-    type: string;
-    required?: boolean;
-  }>;
-  /** Custom serialization for complex data structures */
-  readonly serialize?: (value: any) => any;
-  /** Custom deserialization for complex data structures */
-  readonly deserialize?: (value: any) => any;
-}
-
-export interface ComponentConfig<TProps = any> {
-  readonly id: string;
-  readonly type: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly renderer: ComponentRenderer<TProps>;
-  readonly defaultProps?: Partial<TProps>;
-  readonly useFieldRenderer?: boolean;
-  readonly validation?: FieldValidationConfig;
-  /** Optional builder metadata for visual editing (only used by @rilaykit/builder) */
-  readonly builder?: ComponentBuilderMetadata;
+export interface FormState {
+  readonly values: Record<string, unknown>;
+  readonly errors: Record<string, FieldError[]>;
+  readonly validationStates: Record<string, ValidationState>;
+  readonly touched: Record<string, boolean>;
+  readonly isDirty: boolean;
+  readonly isSubmitting: boolean;
+  readonly isValid: boolean;
 }
 
 // =================================================================
@@ -322,35 +204,7 @@ export interface FormRepeatableRow {
 
 export type FormRowEntry = FormFieldRow | FormRepeatableRow;
 
-// 5.3. Repeatable Renderers
-export interface RepeatableFieldRendererProps {
-  readonly repeatableId: string;
-  readonly items: RepeatableFieldItem[];
-  readonly canAdd: boolean;
-  readonly canRemove: boolean;
-  readonly onAdd: () => void;
-  readonly min?: number;
-  readonly max?: number;
-  readonly children: React.ReactNode;
-}
-
-export interface RepeatableItemRendererProps {
-  readonly item: RepeatableFieldItem;
-  readonly index: number;
-  readonly total: number;
-  readonly canRemove: boolean;
-  readonly canMoveUp: boolean;
-  readonly canMoveDown: boolean;
-  readonly onRemove: () => void;
-  readonly onMoveUp: () => void;
-  readonly onMoveDown: () => void;
-  readonly children: React.ReactNode;
-}
-
-export type RepeatableFieldRenderer = RendererChildrenFunction<RepeatableFieldRendererProps>;
-export type RepeatableItemRenderer = RendererChildrenFunction<RepeatableItemRendererProps>;
-
-// 5.4. Submit Options
+// 5.3. Submit Options
 export interface SubmitOptions {
   /** Skip validation entirely and force submit with current values */
   readonly force?: boolean;
@@ -358,66 +212,17 @@ export interface SubmitOptions {
   readonly skipInvalid?: boolean;
 }
 
-// 5.5. Form Configuration
+// 5.4. Form Configuration
 export interface FormConfiguration<C extends Record<string, any> = Record<string, never>> {
   readonly id: string;
   readonly config: RilayInstance<C>;
   readonly rows: FormRowEntry[];
   readonly allFields: FormFieldConfig[];
   readonly repeatableFields?: Record<string, RepeatableFieldConfig>;
-  readonly renderConfig?: FormRenderConfig;
   readonly validation?: FormValidationConfig;
   readonly submitOptions?: SubmitOptions;
   readonly effectsMap?: Record<string, FieldEffect[]>;
 }
-
-export interface FormRenderConfig {
-  readonly rowRenderer?: FormRowRenderer;
-  readonly bodyRenderer?: FormBodyRenderer;
-  readonly submitButtonRenderer?: FormSubmitButtonRenderer;
-  readonly fieldRenderer?: FieldRenderer;
-  readonly repeatableRenderer?: RepeatableFieldRenderer;
-  readonly repeatableItemRenderer?: RepeatableItemRenderer;
-}
-
-// 4.3. Form Renderers
-export interface FormComponentRendererProps {
-  children: React.ReactNode;
-}
-
-export interface FormRowRendererProps {
-  row: FormFieldRow;
-  children: React.ReactNode;
-  className?: string;
-}
-
-export interface FormBodyRendererProps {
-  formConfig: FormConfiguration;
-  children: React.ReactNode;
-  className?: string;
-}
-
-export interface FormSubmitButtonRendererProps {
-  isSubmitting: boolean;
-  onSubmit: () => void;
-  className?: string;
-  children?: React.ReactNode;
-}
-
-export interface FieldRendererProps {
-  children: React.ReactNode;
-  id: string;
-  disabled?: boolean;
-  error?: FieldError[];
-  isValidating?: boolean;
-  touched?: boolean;
-  [key: string]: any;
-}
-
-export type FormRowRenderer = RendererChildrenFunction<FormRowRendererProps>;
-export type FormBodyRenderer = RendererChildrenFunction<FormBodyRendererProps>;
-export type FormSubmitButtonRenderer = RendererChildrenFunction<FormSubmitButtonRendererProps>;
-export type FieldRenderer = RendererChildrenFunction<FieldRendererProps>;
 
 // =================================================================
 // 6. WORKFLOW SYSTEM
@@ -511,14 +316,6 @@ export interface WorkflowConfig {
     userId?: string;
   };
   readonly plugins?: WorkflowPlugin[];
-  readonly renderConfig?: WorkflowRenderConfig;
-}
-
-export interface WorkflowRenderConfig {
-  readonly stepperRenderer?: WorkflowStepperRenderer;
-  readonly nextButtonRenderer?: WorkflowNextButtonRenderer;
-  readonly previousButtonRenderer?: WorkflowPreviousButtonRenderer;
-  readonly skipButtonRenderer?: WorkflowSkipButtonRenderer;
 }
 
 // 6.3. Workflow Plugins & Analytics
@@ -543,49 +340,6 @@ export interface WorkflowPlugin {
   readonly install: (workflow: any) => void;
   readonly dependencies?: string[];
 }
-
-// 6.4. Workflow Renderers
-export interface WorkflowComponentRendererBaseProps {
-  children?: React.ReactNode;
-  className?: string;
-  currentStep: StepConfig;
-  stepData: Record<string, any>;
-  allData: Record<string, any>;
-  context: WorkflowContext;
-}
-
-export interface WorkflowStepperRendererProps {
-  readonly steps: StepConfig[];
-  readonly currentStepIndex: number;
-  readonly visitedSteps: Set<string>;
-  readonly onStepClick?: (stepIndex: number) => void;
-  readonly className?: string;
-}
-
-export type WorkflowNextButtonRendererProps = WorkflowComponentRendererBaseProps & {
-  isLastStep: boolean;
-  canGoNext: boolean;
-  isSubmitting: boolean;
-  onSubmit: (event?: React.FormEvent) => void;
-};
-
-export type WorkflowPreviousButtonRendererProps = WorkflowComponentRendererBaseProps & {
-  canGoPrevious: boolean;
-  isSubmitting: boolean;
-  onPrevious: (event?: React.FormEvent) => void;
-};
-
-export type WorkflowSkipButtonRendererProps = WorkflowComponentRendererBaseProps & {
-  canSkip: boolean;
-  isSubmitting: boolean;
-  onSkip: (event?: React.FormEvent) => void;
-};
-
-export type WorkflowStepperRenderer = RendererChildrenFunction<WorkflowStepperRendererProps>;
-export type WorkflowNextButtonRenderer = RendererChildrenFunction<WorkflowNextButtonRendererProps>;
-export type WorkflowPreviousButtonRenderer =
-  RendererChildrenFunction<WorkflowPreviousButtonRendererProps>;
-export type WorkflowSkipButtonRenderer = RendererChildrenFunction<WorkflowSkipButtonRendererProps>;
 
 // =================================================================
 // 7. MONITORING & PERFORMANCE SYSTEM
@@ -788,13 +542,7 @@ export interface FieldEffect {
 export type FieldEffects = readonly FieldEffect[];
 
 // =================================================================
-// 10. UNIFIED CONTEXT TYPES (V2)
-// =================================================================
-
-export * from './context';
-
-// =================================================================
-// 11. UNIFIED CATALOG (components / tools / parts)
+// 10. UNIFIED CATALOG (components / tools / parts)
 // =================================================================
 
 export * from './catalog';

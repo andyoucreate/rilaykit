@@ -46,16 +46,9 @@ const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
 
 let rilConfig: any;
 
-const TestBodyRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
 function buildForm(opts?: { min?: number }): FormConfiguration {
-  const cfg = rilConfig.configure({
-    bodyRenderer: TestBodyRenderer,
-    rowRenderer: TestRowRenderer,
-  });
   return form
-    .create(cfg, 'test-form')
+    .create(rilConfig, 'test-form')
     .add({ id: 'title', type: 'text', props: { label: 'Title' } })
     .addRepeatable('items', (r) => {
       let b = r.add(

@@ -1,14 +1,10 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { ril } from '../../src/config/ril';
-import { entriesOf } from '../helpers/entries';
+import { DuplicateError } from '../../src/errors';
 
 const TestComponent = () => React.createElement('div', null, 'test');
 const TestRenderer = () => React.createElement('div', null, 'renderer');
-const TestFormRowRenderer = () => React.createElement('div', null, 'form-row');
-const TestFormBodyRenderer = () => React.createElement('div', null, 'form-body');
-const TestWorkflowStepperRenderer = () => React.createElement('div', null, 'workflow-stepper');
-const TestWorkflowNavRenderer = () => React.createElement('div', null, 'workflow-nav');
 
 describe('ril', () => {
   describe('Basic Configuration', () => {
@@ -21,7 +17,7 @@ describe('ril', () => {
     });
 
     it('should add a component configuration', () => {
-      const config = ril.create().addComponent('text', {
+      const config = ril.create().component('text', {
         name: 'Text Input',
         renderer: TestComponent,
       });
@@ -36,8 +32,8 @@ describe('ril', () => {
     it('should allow method chaining', () => {
       const config = ril
         .create()
-        .addComponent('text', { name: 'Text Input', renderer: TestComponent })
-        .addComponent('email', { name: 'Email Input', renderer: TestRenderer });
+        .component('text', { name: 'Text Input', renderer: TestComponent })
+        .component('email', { name: 'Email Input', renderer: TestRenderer });
 
       const textComponent = config.getComponent('text');
       const emailComponent = config.getComponent('email');
@@ -46,16 +42,28 @@ describe('ril', () => {
       expect(emailComponent).toBeDefined();
     });
 
-    it('should overwrite component with the same type', () => {
+    it('should throw DuplicateError when registering the same type twice', () => {
+      const config = ril.create().component('text', {
+        name: 'Text Input 1',
+        renderer: TestComponent,
+      });
+
+      expect(() =>
+        config.component('text', { name: 'Text Input 2', renderer: TestRenderer })
+      ).toThrow(DuplicateError);
+    });
+
+    it('should overwrite component with the same type using replace', () => {
       const config = ril
         .create()
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input 1',
           renderer: TestComponent,
         })
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input 2',
           renderer: TestRenderer,
+          replace: true,
         });
 
       const components = config.getAllComponents();
@@ -68,7 +76,7 @@ describe('ril', () => {
     it('should support default props', () => {
       const defaultProps = { placeholder: 'Enter text...', required: true };
 
-      const config = ril.create().addComponent('text', {
+      const config = ril.create().component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps,
@@ -83,8 +91,8 @@ describe('ril', () => {
     it('should get all components', () => {
       const config = ril
         .create()
-        .addComponent('text', { name: 'Text Input', renderer: TestComponent })
-        .addComponent('heading', { name: 'Heading', renderer: TestRenderer });
+        .component('text', { name: 'Text Input', renderer: TestComponent })
+        .component('heading', { name: 'Heading', renderer: TestRenderer });
 
       const allComponents = config.getAllComponents();
 
@@ -94,7 +102,7 @@ describe('ril', () => {
     });
 
     it('should check if component exists', () => {
-      const config = ril.create().addComponent('text', {
+      const config = ril.create().component('text', {
         name: 'Text Input',
         renderer: TestComponent,
       });
@@ -104,7 +112,7 @@ describe('ril', () => {
     });
 
     it('should remove components', () => {
-      const config = ril.create().addComponent('text', {
+      const config = ril.create().component('text', {
         name: 'Text Input',
         renderer: TestComponent,
       });
@@ -119,8 +127,8 @@ describe('ril', () => {
     it('should clear all components', () => {
       const config = ril
         .create()
-        .addComponent('text', { name: 'Text Input', renderer: TestComponent })
-        .addComponent('email', { name: 'Email Input', renderer: TestRenderer });
+        .component('text', { name: 'Text Input', renderer: TestComponent })
+        .component('email', { name: 'Email Input', renderer: TestRenderer });
 
       expect(config.getAllComponents()).toHaveLength(2);
       const clearedConfig = config.clear();
@@ -130,145 +138,50 @@ describe('ril', () => {
     });
   });
 
-  describe('Form Renderers', () => {
-    it('should set custom row renderer using configure', () => {
-      const config = ril.create().configure({
-        rowRenderer: TestFormRowRenderer,
-      });
-
-      const renderConfig = config.getFormRenderConfig();
-      expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
-    });
-
-    it('should set custom body renderer using configure', () => {
-      const config = ril.create().configure({
-        bodyRenderer: TestFormBodyRenderer,
-      });
-
-      const renderConfig = config.getFormRenderConfig();
-      expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
-    });
-
-    it('should set custom submit button renderer using configure', () => {
-      const config = ril.create().configure({
-        submitButtonRenderer: TestRenderer,
-      });
-
-      const renderConfig = config.getFormRenderConfig();
-      expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
-    });
-
-    it('should set multiple form renderers using configure', () => {
-      const config = ril.create().configure({
-        rowRenderer: TestFormRowRenderer,
-        bodyRenderer: TestFormBodyRenderer,
-        submitButtonRenderer: TestRenderer,
-      });
-
-      const renderConfig = config.getFormRenderConfig();
-      expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
-      expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
-      expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
-    });
-
-    it('should set complete form render configuration using configure', () => {
-      const config = ril.create().configure({
-        rowRenderer: TestFormRowRenderer,
-        bodyRenderer: TestFormBodyRenderer,
-        submitButtonRenderer: TestRenderer,
-        fieldRenderer: TestRenderer,
-      });
-
-      const renderConfig = config.getFormRenderConfig();
-      expect(renderConfig.rowRenderer).toBe(TestFormRowRenderer);
-      expect(renderConfig.bodyRenderer).toBe(TestFormBodyRenderer);
-      expect(renderConfig.submitButtonRenderer).toBe(TestRenderer);
-      expect(renderConfig.fieldRenderer).toBe(TestRenderer);
-    });
-  });
-
-  describe('Workflow Renderers', () => {
-    it('should set custom stepper renderer using configure', () => {
-      const config = ril.create().configure({
-        stepperRenderer: TestWorkflowStepperRenderer,
-      });
-
-      const renderConfig = config.getWorkflowRenderConfig();
-      expect(renderConfig.stepperRenderer).toBe(TestWorkflowStepperRenderer);
-    });
-
-    it('should set multiple workflow renderers using configure', () => {
-      const config = ril.create().configure({
-        stepperRenderer: TestWorkflowStepperRenderer,
-        nextButtonRenderer: TestWorkflowNavRenderer,
-        previousButtonRenderer: TestWorkflowNavRenderer,
-        skipButtonRenderer: TestWorkflowNavRenderer,
-      });
-
-      const renderConfig = config.getWorkflowRenderConfig();
-      expect(renderConfig.stepperRenderer).toBe(TestWorkflowStepperRenderer);
-      expect(renderConfig.nextButtonRenderer).toBe(TestWorkflowNavRenderer);
-      expect(renderConfig.previousButtonRenderer).toBe(TestWorkflowNavRenderer);
-      expect(renderConfig.skipButtonRenderer).toBe(TestWorkflowNavRenderer);
-    });
-  });
-
   describe('Statistics', () => {
-    it('should get stats correctly', () => {
+    it('should count entries by kind', () => {
       const config = ril
         .create()
-        .addComponent('text', {
-          name: 'Text Input',
-          renderer: TestComponent,
-        })
-        .addComponent('email', {
-          name: 'Email Input',
-          renderer: TestRenderer,
-        })
-        .addComponent('heading', {
-          name: 'Heading',
-          renderer: TestComponent,
-        })
-        .configure({
-          rowRenderer: TestFormRowRenderer,
-          stepperRenderer: TestWorkflowStepperRenderer,
-        });
+        .component('text', { name: 'Text Input', renderer: TestComponent })
+        .component('email', { name: 'Email Input', renderer: TestRenderer })
+        .tool('search', { description: 'Search tool' })
+        .part('reasoning', { renderer: TestRenderer });
 
-      const stats = config.getStats();
+      expect(config.getStats()).toEqual({ total: 4, components: 2, tools: 1, parts: 1 });
+    });
 
-      expect(stats.total).toBe(3);
-      expect(stats.byType.text).toBe(1);
-      expect(stats.byType.email).toBe(1);
-      expect(stats.byType.heading).toBe(1);
-      expect(stats.hasCustomRenderers.row).toBe(true);
-      expect(stats.hasCustomRenderers.body).toBe(false);
-      expect(stats.hasCustomRenderers.stepper).toBe(true);
+    it('should report zero counts on an empty catalog', () => {
+      expect(ril.create().getStats()).toEqual({ total: 0, components: 0, tools: 0, parts: 0 });
     });
   });
 
   describe('Validation', () => {
     it('should validate configuration without errors', () => {
-      const config = ril.create().addComponent('text', {
+      const config = ril.create().component('text', {
         name: 'Text Input',
         renderer: TestComponent,
       });
 
-      const errors = config.validate();
-      expect(errors).toHaveLength(0);
+      expect(config.validate()).toEqual([]);
     });
 
-    it('should detect components without renderer', () => {
-      const config = ril.create();
-      // Manually add a component without renderer (this shouldn't happen in normal usage)
-      entriesOf(config).set('component:invalid-component', {
-        kind: 'component',
-        type: 'invalid-component',
-        name: 'Invalid Component',
-        renderer: undefined,
+    it('should accept renderer-less blueprint components', () => {
+      const config = ril.create().component('blueprint', {
+        description: 'Blueprint without renderer',
       });
 
-      const errors = config.validate();
-      expect(errors).toContain('Components without renderer: invalid-component');
+      expect(config.validate()).toEqual([]);
+    });
+
+    it('should surface renderer-less components as a warning in validateAsync', async () => {
+      const config = ril.create().component('blueprint', {
+        description: 'Blueprint without renderer',
+      });
+
+      const result = await config.validateAsync();
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toContain('Components without renderer: blueprint');
     });
   });
 });

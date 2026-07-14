@@ -79,10 +79,6 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
       .component('input', {
         name: 'Text Input',
         renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Reproduit exactement la structure problématique du QuotePricingFlow

@@ -1,6 +1,5 @@
 import type React from 'react';
 import { ConfigurationError, DuplicateError, NotFoundError, ValidationError } from '../errors';
-import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
 import type {
   ComponentEntry,
   ComponentRenderContext,
@@ -9,33 +8,6 @@ import type {
   ToolEntry,
 } from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
-
-/**
- * Deep merge utility for nested configuration objects
- */
-function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
-  const result = { ...target };
-
-  for (const key in source) {
-    const sourceValue = source[key];
-    const targetValue = result[key];
-
-    if (
-      sourceValue &&
-      typeof sourceValue === 'object' &&
-      !Array.isArray(sourceValue) &&
-      targetValue &&
-      typeof targetValue === 'object' &&
-      !Array.isArray(targetValue)
-    ) {
-      result[key] = deepMerge(targetValue, sourceValue);
-    } else {
-      result[key] = sourceValue as T[Extract<keyof T, string>];
-    }
-  }
-
-  return result;
-}
 
 /**
  * Canonical key of a catalog entry in the namespaced catalog map.
@@ -94,12 +66,6 @@ export interface RilayInstance<C> {
     entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): RilayInstance<C & { [K in NewType]: TProps }>;
 
-  /** @deprecated Use .component() — removed in Task 16 */
-  addComponent<NewType extends string, TProps = Record<string, unknown>>(
-    type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
-  ): RilayInstance<C & { [K in NewType]: TProps }>;
-
   tool<TInput = unknown, TOutput = unknown>(
     name: string,
     entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
@@ -113,8 +79,6 @@ export interface RilayInstance<C> {
   use(plugin: RilayPlugin): RilayInstance<C>;
 
   renderers(attachments: RendererAttachments<C>): RilayInstance<C>;
-
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayInstance<C>;
 
   // Component access methods
   getComponent<T extends string>(
@@ -132,27 +96,8 @@ export interface RilayInstance<C> {
   // Props validation
   validateProps(type: string, props: unknown): PropsValidationResult;
 
-  // Configuration getters
-  getFormRenderConfig(): FormRenderConfig;
-  getWorkflowRenderConfig(): WorkflowRenderConfig;
-
   // Utility methods
-  getStats(): {
-    total: number;
-    byType: Record<string, number>;
-    hasCustomRenderers: {
-      row: boolean;
-      body: boolean;
-      submitButton: boolean;
-      field: boolean;
-      repeatable: boolean;
-      repeatableItem: boolean;
-      stepper: boolean;
-      workflowNextButton: boolean;
-      workflowPreviousButton: boolean;
-      workflowSkipButton: boolean;
-    };
-  };
+  getStats(): { total: number; components: number; tools: number; parts: number };
 
   // Validation methods
   validate(): string[];
@@ -170,8 +115,6 @@ export interface RilayInstance<C> {
  */
 export class ril<C> implements RilayInstance<C> {
   private entries = new Map<string, unknown>();
-  private formRenderConfig: FormRenderConfig = {};
-  private workflowRenderConfig: WorkflowRenderConfig = {};
 
   /**
    * Static factory method to create a new ril instance
@@ -183,8 +126,6 @@ export class ril<C> implements RilayInstance<C> {
   private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
     const next = new ril<C>();
     next.entries = new Map(this.entries);
-    next.formRenderConfig = { ...this.formRenderConfig };
-    next.workflowRenderConfig = { ...this.workflowRenderConfig };
     mutate?.(next.entries);
     return next;
   }
@@ -324,95 +265,6 @@ export class ril<C> implements RilayInstance<C> {
     });
   }
 
-  /** @deprecated Use .component() — removed in Task 16 */
-  addComponent<NewType extends string, TProps = Record<string, unknown>>(
-    type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
-  ): ril<C & { [K in NewType]: TProps }> {
-    const { renderer, ...rest } = config;
-    // Legacy shim: keeps `id`, the flat renderer shape and overwrite semantics
-    // of addComponent alive at runtime until Task 16 deletes it.
-    const legacyEntry = {
-      ...rest,
-      id: type,
-      replace: true,
-      renderer: renderer as unknown as ComponentEntry<TProps>['renderer'],
-    };
-    return this.component<NewType, TProps>(
-      type,
-      legacyEntry as Omit<ComponentEntry<TProps>, 'kind' | 'type'>
-    );
-  }
-
-  /**
-   * Universal configuration method with deep merge support (immutable)
-   *
-   * This method provides a unified API to configure both form and workflow renderers
-   * in a single call, automatically categorizing and applying the appropriate configurations
-   * using recursive deep merge.
-   *
-   * @param config - Configuration object containing renderer settings
-   * @returns A new ril instance with the updated configuration
-   *
-   * @example
-   * ```typescript
-   * // Configure with nested settings
-   * const config = ril.create()
-   *   .configure({
-   *     rowRenderer: CustomRowRenderer,
-   *     submitButtonRenderer: CustomSubmitButton,
-   *   });
-   * ```
-   */
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): ril<C> {
-    // Define renderer categories for automatic classification
-    const formKeys: (keyof FormRenderConfig)[] = [
-      'rowRenderer',
-      'bodyRenderer',
-      'submitButtonRenderer',
-      'fieldRenderer',
-      'repeatableRenderer',
-      'repeatableItemRenderer',
-    ];
-    const workflowKeys: (keyof WorkflowRenderConfig)[] = [
-      'stepperRenderer',
-      'nextButtonRenderer',
-      'previousButtonRenderer',
-      'skipButtonRenderer',
-    ];
-
-    // Initialize configuration containers
-    const formRenderers: Partial<FormRenderConfig> = {};
-    const workflowRenderers: Partial<WorkflowRenderConfig> = {};
-
-    // Categorize and extract renderers by type
-    for (const [key, value] of Object.entries(config)) {
-      if (formKeys.includes(key as keyof FormRenderConfig)) {
-        (formRenderers as any)[key] = value;
-      } else if (workflowKeys.includes(key as keyof WorkflowRenderConfig)) {
-        (workflowRenderers as any)[key] = value;
-      }
-    }
-
-    // Create new instance (immutable) and apply configurations using deep merge strategy
-    const next = this.cloneWith();
-    next.formRenderConfig = deepMerge(this.formRenderConfig, formRenderers);
-    next.workflowRenderConfig = deepMerge(this.workflowRenderConfig, workflowRenderers);
-
-    return next;
-  }
-
-  /**
-   * Configuration getters
-   */
-  getFormRenderConfig(): FormRenderConfig {
-    return { ...this.formRenderConfig };
-  }
-
-  getWorkflowRenderConfig(): WorkflowRenderConfig {
-    return { ...this.workflowRenderConfig };
-  }
-
   /**
    * Component management methods
    */
@@ -521,59 +373,30 @@ export class ril<C> implements RilayInstance<C> {
    * Create a deep copy of the current ril instance
    */
   clone(): ril<C> {
-    const next = this.cloneWith();
-    next.formRenderConfig = deepMerge({}, this.formRenderConfig);
-    next.workflowRenderConfig = deepMerge({}, this.workflowRenderConfig);
-    return next;
+    return this.cloneWith();
   }
 
   /**
-   * Enhanced statistics with more detailed information
+   * Flat catalog statistics: entry counts by kind
    */
-  getStats(): {
-    total: number;
-    byType: Record<string, number>;
-    hasCustomRenderers: {
-      row: boolean;
-      body: boolean;
-      submitButton: boolean;
-      field: boolean;
-      repeatable: boolean;
-      repeatableItem: boolean;
-      stepper: boolean;
-      workflowNextButton: boolean;
-      workflowPreviousButton: boolean;
-      workflowSkipButton: boolean;
-    };
-  } {
-    const components = this.getAllComponents();
-
+  getStats(): { total: number; components: number; tools: number; parts: number } {
+    const counts = { component: 0, tool: 0, part: 0 };
+    for (const entry of this.entries.values()) {
+      counts[(entry as { kind: 'component' | 'tool' | 'part' }).kind] += 1;
+    }
     return {
-      total: components.length,
-      byType: components.reduce(
-        (acc, comp) => {
-          acc[comp.type] = (acc[comp.type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
-      hasCustomRenderers: {
-        row: Boolean(this.formRenderConfig.rowRenderer),
-        body: Boolean(this.formRenderConfig.bodyRenderer),
-        submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
-        field: Boolean(this.formRenderConfig.fieldRenderer),
-        repeatable: Boolean(this.formRenderConfig.repeatableRenderer),
-        repeatableItem: Boolean(this.formRenderConfig.repeatableItemRenderer),
-        stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
-        workflowNextButton: Boolean(this.workflowRenderConfig.nextButtonRenderer),
-        workflowPreviousButton: Boolean(this.workflowRenderConfig.previousButtonRenderer),
-        workflowSkipButton: Boolean(this.workflowRenderConfig.skipButtonRenderer),
-      },
+      total: this.entries.size,
+      components: counts.component,
+      tools: counts.tool,
+      parts: counts.part,
     };
   }
 
   /**
    * Synchronous validation using shared utilities
+   *
+   * Renderer-less components are legit blueprints and never error here;
+   * validateAsync surfaces them as warnings instead.
    */
   validate(): string[] {
     const errors: string[] = [];
@@ -585,48 +408,6 @@ export class ril<C> implements RilayInstance<C> {
       ensureUnique(types, 'component');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
-    }
-
-    // Check for components without renderers
-    const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
-    if (componentsWithoutRenderer.length > 0) {
-      errors.push(
-        `Components without renderer: ${componentsWithoutRenderer
-          .map((comp) => comp.type)
-          .join(', ')}`
-      );
-    }
-
-    // Check for invalid renderer configurations
-    const formRendererKeys = Object.keys(this.formRenderConfig);
-    const workflowRendererKeys = Object.keys(this.workflowRenderConfig);
-
-    const validFormKeys = [
-      'rowRenderer',
-      'bodyRenderer',
-      'submitButtonRenderer',
-      'fieldRenderer',
-      'repeatableRenderer',
-      'repeatableItemRenderer',
-    ];
-    const validWorkflowKeys = [
-      'stepperRenderer',
-      'nextButtonRenderer',
-      'previousButtonRenderer',
-      'skipButtonRenderer',
-    ];
-
-    const invalidFormKeys = formRendererKeys.filter((key) => !validFormKeys.includes(key));
-    const invalidWorkflowKeys = workflowRendererKeys.filter(
-      (key) => !validWorkflowKeys.includes(key)
-    );
-
-    if (invalidFormKeys.length > 0) {
-      errors.push(`Invalid form renderer keys: ${invalidFormKeys.join(', ')}`);
-    }
-
-    if (invalidWorkflowKeys.length > 0) {
-      errors.push(`Invalid workflow renderer keys: ${invalidWorkflowKeys.join(', ')}`);
     }
 
     return errors;
@@ -645,6 +426,16 @@ export class ril<C> implements RilayInstance<C> {
       // Basic synchronous validations
       const syncErrors = this.validate();
       errors.push(...syncErrors);
+
+      // Renderer-less entries are legit blueprints — surface them as warnings only
+      const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
+      if (componentsWithoutRenderer.length > 0) {
+        warnings.push(
+          `Components without renderer: ${componentsWithoutRenderer
+            .map((comp) => comp.type)
+            .join(', ')}`
+        );
+      }
 
       // Advanced asynchronous validations
       const componentValidationPromises = components.map(async (comp) => {

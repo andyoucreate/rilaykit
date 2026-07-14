@@ -1,18 +1,13 @@
 import { required, ril } from '@rilaykit/core';
 import { form, useFormStoreApi } from '@rilaykit/forms';
 import { useRepeatableField } from '@rilaykit/forms';
-import {
-  FlowBody,
-  WorkflowProvider,
-  flow,
-  useFlow,
-} from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
 import { useFlowData } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 import { NextButton, PrevButton } from '../_setup/nav-buttons';
+import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
 // RIL CONFIG
@@ -29,10 +24,6 @@ const rilConfig = ril
     name: 'Number',
     renderer: MockNumberInput,
     defaultProps: { label: '' },
-  })
-  .configure({
-    bodyRenderer: ({ children }) => <div>{children}</div>,
-    rowRenderer: ({ children }) => <div>{children}</div>,
   });
 
 // ============================================================================

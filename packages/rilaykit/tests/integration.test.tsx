@@ -42,7 +42,7 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should render the workflow compound components re-exported by rilaykit', () => {
-    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().component('input', { name: 'Input', renderer: MockInput });
 
     const contactForm = r
       .form('contact')
@@ -72,7 +72,7 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should re-export resolveWorkflowConfig returning a built config as-is', () => {
-    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().component('input', { name: 'Input', renderer: MockInput });
     const contactForm = r
       .form('contact')
       .add({ id: 'email', type: 'input', props: { label: 'Email' } });
@@ -87,8 +87,8 @@ describe('rilaykit - all-in-one integration', () => {
   it('should support the full all-in-one API', () => {
     const r = ril
       .create()
-      .addComponent('input', { name: 'Input', renderer: MockInput })
-      .addComponent('select', { name: 'Select', renderer: MockSelect });
+      .component('input', { name: 'Input', renderer: MockInput })
+      .component('select', { name: 'Select', renderer: MockSelect });
 
     // Build a form using r.form()
     const contactForm = r
@@ -115,7 +115,7 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should allow mixing r.form() with standalone form.create()', () => {
-    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().component('input', { name: 'Input', renderer: MockInput });
 
     // Using the enhanced API
     const form1 = r
@@ -129,7 +129,7 @@ describe('rilaykit - all-in-one integration', () => {
   });
 
   it('should work with validation', () => {
-    const r = ril.create().addComponent('input', { name: 'Input', renderer: MockInput });
+    const r = ril.create().component('input', { name: 'Input', renderer: MockInput });
 
     const formConfig = r
       .form('validated')
@@ -147,8 +147,8 @@ describe('rilaykit - all-in-one integration', () => {
   it('should support multi-step workflow with multiple forms', () => {
     const r = ril
       .create()
-      .addComponent('input', { name: 'Input', renderer: MockInput })
-      .addComponent('select', { name: 'Select', renderer: MockSelect });
+      .component('input', { name: 'Input', renderer: MockInput })
+      .component('select', { name: 'Select', renderer: MockSelect });
 
     const step1Form = r
       .form('step1')

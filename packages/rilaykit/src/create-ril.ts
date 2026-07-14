@@ -1,10 +1,4 @@
-import {
-  type ComponentConfig,
-  type FormRenderConfig,
-  ril as OriginalRil,
-  type RilayInstance,
-  type WorkflowRenderConfig,
-} from '@rilaykit/core';
+import { type ComponentEntry, ril as OriginalRil, type RilayInstance } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
 
@@ -13,20 +7,14 @@ import { flow } from '@rilaykit/workflow';
  * Available when using the all-in-one `rilaykit` package.
  */
 export interface RilayKit<C extends Record<string, any>> {
-  addComponent<NewType extends string, TProps = any>(
+  component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): RilayKit<C & { [K in NewType]: TProps }>;
 
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayKit<C>;
-
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined;
-  getAllComponents(): ComponentConfig[];
+  getComponent: RilayInstance<C>['getComponent'];
+  getAllComponents(): ComponentEntry[];
   hasComponent(id: string): boolean;
-
-  getFormRenderConfig(): FormRenderConfig;
-  getWorkflowRenderConfig(): WorkflowRenderConfig;
 
   getStats(): ReturnType<RilayInstance<C>['getStats']>;
 
@@ -43,26 +31,16 @@ export interface RilayKit<C extends Record<string, any>> {
 
 function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit<C> {
   return {
-    addComponent<NewType extends string, TProps = any>(
+    component<NewType extends string, TProps = Record<string, unknown>>(
       type: NewType,
-      config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+      entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
     ): RilayKit<C & { [K in NewType]: TProps }> {
-      return wrapRil(inner.addComponent<NewType, TProps>(type, config));
+      return wrapRil(inner.component<NewType, TProps>(type, entry));
     },
 
-    configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayKit<C> {
-      return wrapRil(inner.configure(config));
-    },
-
-    // Legacy ComponentConfig-shaped surface until Task 17 aligns the all-in-one
-    // package with the new catalog entry types.
-    getComponent: inner.getComponent.bind(inner) as unknown as RilayKit<C>['getComponent'],
-    getAllComponents: inner.getAllComponents.bind(
-      inner
-    ) as unknown as RilayKit<C>['getAllComponents'],
+    getComponent: inner.getComponent.bind(inner),
+    getAllComponents: inner.getAllComponents.bind(inner),
     hasComponent: inner.hasComponent.bind(inner),
-    getFormRenderConfig: inner.getFormRenderConfig.bind(inner),
-    getWorkflowRenderConfig: inner.getWorkflowRenderConfig.bind(inner),
     getStats: inner.getStats.bind(inner),
     validate: inner.validate.bind(inner),
     validateAsync: inner.validateAsync.bind(inner),

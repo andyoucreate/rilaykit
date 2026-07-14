@@ -4,8 +4,6 @@ export * from './types';
 // Export typed error hierarchy
 export * from './errors';
 
-export * from './components/ComponentRendererWrapper';
-
 // Export configuration
 export {
   catalogEntryKey,
@@ -17,7 +15,6 @@ export {
 
 // Export shared utilities
 export * from './utils/builderHelpers';
-export * from './utils/componentHelpers';
 
 // Export validation system
 export * from './validation';

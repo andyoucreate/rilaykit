@@ -4,10 +4,10 @@ import { ValidationError } from '../../src/errors';
 import { entriesOf } from '../helpers/entries';
 
 describe('ril - Immutable API', () => {
-  describe('addComponent immutability', () => {
+  describe('component immutability', () => {
     it('should return a new instance when adding components', () => {
       const original = ril.create();
-      const withText = original.addComponent('text', {
+      const withText = original.component('text', {
         name: 'Text Input',
         renderer: vi.fn(),
       });
@@ -23,9 +23,9 @@ describe('ril - Immutable API', () => {
     });
 
     it('should preserve existing components in new instance', () => {
-      const original = ril.create().addComponent('text', { name: 'Text', renderer: vi.fn() });
+      const original = ril.create().component('text', { name: 'Text', renderer: vi.fn() });
 
-      const withEmail = original.addComponent('email', {
+      const withEmail = original.component('email', {
         name: 'Email',
         renderer: vi.fn(),
       });
@@ -42,67 +42,21 @@ describe('ril - Immutable API', () => {
     it('should maintain type safety with chaining', () => {
       const config = ril
         .create()
-        .addComponent('text', { name: 'Text', renderer: vi.fn() })
-        .addComponent('email', { name: 'Email', renderer: vi.fn() });
+        .component('text', { name: 'Text', renderer: vi.fn() })
+        .component('email', { name: 'Email', renderer: vi.fn() });
 
       // TypeScript should infer the correct types
       const textComponent = config.getComponent('text');
       const emailComponent = config.getComponent('email');
 
-      expect(textComponent).toBeDefined();
-      expect(emailComponent).toBeDefined();
-    });
-  });
-
-  describe('configure immutability', () => {
-    it('should return new instance with merged configuration', () => {
-      const original = ril.create();
-      const configured = original.configure({
-        rowRenderer: vi.fn(),
-        stepperRenderer: vi.fn(),
-      });
-
-      // Should be different instances
-      expect(configured).not.toBe(original);
-
-      // Original should not have renderers
-      const originalStats = original.getStats();
-      expect(originalStats.hasCustomRenderers.row).toBe(false);
-      expect(originalStats.hasCustomRenderers.stepper).toBe(false);
-
-      // New instance should have renderers
-      const configuredStats = configured.getStats();
-      expect(configuredStats.hasCustomRenderers.row).toBe(true);
-      expect(configuredStats.hasCustomRenderers.stepper).toBe(true);
-    });
-
-    it('should deep merge nested configurations', () => {
-      const mockRenderer1 = vi.fn();
-      const mockRenderer2 = vi.fn();
-
-      const base = ril.create().configure({
-        rowRenderer: mockRenderer1,
-      });
-
-      const extended = base.configure({
-        fieldRenderer: mockRenderer2,
-      });
-
-      // Should preserve existing renderer while adding new one
-      expect(extended.getFormRenderConfig().rowRenderer).toBe(mockRenderer1);
-      expect(extended.getFormRenderConfig().fieldRenderer).toBe(mockRenderer2);
-
-      // Original should not have field renderer
-      expect(base.getFormRenderConfig().fieldRenderer).toBeUndefined();
+      expect(textComponent?.type).toBe('text');
+      expect(emailComponent?.type).toBe('email');
     });
   });
 
   describe('clone method', () => {
     it('should create independent copy', () => {
-      const original = ril
-        .create()
-        .addComponent('text', { name: 'Text', renderer: vi.fn() })
-        .configure({ rowRenderer: vi.fn() });
+      const original = ril.create().component('text', { name: 'Text', renderer: vi.fn() });
 
       const cloned = original.clone();
 
@@ -111,10 +65,9 @@ describe('ril - Immutable API', () => {
 
       // Should have same content
       expect(cloned.hasComponent('text')).toBe(true);
-      expect(cloned.getStats().hasCustomRenderers.row).toBe(true);
 
       // Modifications to clone should not affect original
-      const modified = cloned.addComponent('email', {
+      const modified = cloned.component('email', {
         name: 'Email',
         renderer: vi.fn(),
       });
@@ -127,34 +80,9 @@ describe('ril - Immutable API', () => {
 });
 
 describe('ril - Enhanced Validation', () => {
-  describe('synchronous validation', () => {
-    it('should detect invalid renderer configurations', () => {
-      const config = ril.create();
-      // Manually add invalid config for testing
-      (config as any).formRenderConfig = { invalidRenderer: vi.fn() };
-
-      const errors = config.validate();
-      expect(errors).toContain('Invalid form renderer keys: invalidRenderer');
-    });
-
-    it('should detect components without renderers', () => {
-      const config = ril.create();
-      // Add component without renderer
-      entriesOf(config).set('component:broken', {
-        kind: 'component',
-        type: 'broken',
-        name: 'Broken Component',
-        // Missing renderer
-      });
-
-      const errors = config.validate();
-      expect(errors).toContain('Components without renderer: broken');
-    });
-  });
-
   describe('asynchronous validation', () => {
     it('should return success result for valid configuration', async () => {
-      const config = ril.create().addComponent('text', { name: 'Text Input', renderer: vi.fn() });
+      const config = ril.create().component('text', { name: 'Text Input', renderer: vi.fn() });
 
       const result = await config.validateAsync();
 
@@ -162,7 +90,7 @@ describe('ril - Enhanced Validation', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should throw ValidationError for invalid configuration', async () => {
+    it('should throw ValidationError for invalid renderer type', async () => {
       const config = ril.create();
       // Add invalid component
       entriesOf(config).set('component:invalid', {
@@ -178,7 +106,7 @@ describe('ril - Enhanced Validation', () => {
     it('should include warnings for non-standard naming', async () => {
       const config = ril
         .create()
-        .addComponent('text-input', { name: 'Text Input', renderer: vi.fn() });
+        .component('text-input', { name: 'Text Input', renderer: vi.fn() });
 
       const result = await config.validateAsync();
 
@@ -193,7 +121,7 @@ describe('ril - Enhanced Validation', () => {
 
       // Add many components to trigger warning
       for (let i = 0; i < 51; i++) {
-        config = config.addComponent(`component${i}`, {
+        config = config.component(`component${i}`, {
           name: `Component ${i}`,
           renderer: vi.fn(),
         });
@@ -211,7 +139,7 @@ describe('ril - Enhanced Validation', () => {
 describe('ril - Type Safety', () => {
   it('should maintain type constraints with Record bounds', () => {
     // This should compile without issues
-    const config = ril.create<{ text: { label: string } }>().addComponent('text', {
+    const config = ril.create<{ text: { label: string } }>().component('text', {
       name: 'Text Input',
       renderer: vi.fn(),
       defaultProps: { label: 'Default' },
@@ -221,14 +149,13 @@ describe('ril - Type Safety', () => {
   });
 
   it('should provide correct component typing', () => {
-    const config = ril.create().addComponent('text', {
+    const config = ril.create().component('text', {
       name: 'Text',
       renderer: vi.fn(),
       defaultProps: { placeholder: 'Enter text' },
     });
 
     const component = config.getComponent('text');
-    expect(component).toBeDefined();
     expect(component?.name).toBe('Text');
     expect(component?.defaultProps).toEqual({ placeholder: 'Enter text' });
   });
@@ -246,12 +173,12 @@ describe('ril - Error Hierarchy', () => {
 
   it('should include metadata in async validation errors', async () => {
     const config = ril.create();
-    // Force error condition
+    // Force error condition with an invalid renderer type
     entriesOf(config).set('component:broken', {
       kind: 'component',
       type: 'broken',
       name: 'Broken',
-      // Missing renderer
+      renderer: 'not-a-function',
     });
 
     try {
