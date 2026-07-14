@@ -36,6 +36,13 @@ export interface FormStoreState extends FormState {
   _setValidationState: (fieldId: string, state: ValidationState) => void;
   _setSubmitting: (isSubmitting: boolean) => void;
   _reset: (values?: Record<string, unknown>) => void;
+  /**
+   * Replace the default-values baseline. Called when the mounted form's
+   * identity changes so `reset()` (no args) and the per-field dirty flag
+   * (`value !== _defaultValues[fieldId]`) track the CURRENT form, not the
+   * previous one whose defaults were frozen at store creation.
+   */
+  _setDefaultValues: (values: Record<string, unknown>) => void;
   _setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
   _setFieldProps: (fieldId: string, props: Record<string, unknown>) => void;
   _updateIsValid: () => void;
@@ -171,6 +178,10 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
           _repeatableOrder: order,
           _repeatableNextKey: nextKeys,
         });
+      },
+
+      _setDefaultValues: (values) => {
+        set({ _defaultValues: { ...values } });
       },
 
       _setFieldConditions: (fieldId, conditions) => {

@@ -158,6 +158,13 @@ export function FormProvider({
       // Flatten default arrays, reconstruct order and pad to min counts.
       const { values: resetValues } = initializeRepeatableState(defaultValues, repeatableConfigs);
 
+      // Refresh the default-values baseline to THIS form before resetting.
+      // `_defaultValues` was frozen at store creation for the previous form; a
+      // later no-arg `reset()` would otherwise restore the previous form's
+      // defaults (leaking stale composite keys) and corrupt the dirty flag
+      // (`value !== _defaultValues[fieldId]`).
+      store.getState()._setDefaultValues(resetValues);
+
       // Reset with computed values — `_reset` rebuilds order/next-keys from the
       // now-current configs.
       store.getState()._reset(resetValues);
