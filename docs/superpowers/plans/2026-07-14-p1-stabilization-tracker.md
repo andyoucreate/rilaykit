@@ -88,16 +88,16 @@
 
 ## Round 3 hunt inventory (iter 7) — 8 bugs + 2 config gaps; NOT clean
 
-- [ ] BUG/high: `canSubmit` uses RAW last index vs visible-last → custom submit never enables when last step hidden — useWorkflowSubmission.ts
-- [ ] BUG/med: `getFieldValue` uses `in` (prototype-inclusive) → field named toString/constructor resolves inherited → exists/notExists inverted — core/conditions/index.ts
-- [ ] BUG/med (race): RemoteAdapter concurrent send() strands events + resolves 2nd caller as false success — core/monitoring/adapters.ts
-- [ ] BUG/med (error-path): fromSchema/validateSchema throws raw TypeError on null row/field instead of typed SchemaValidationError — forms/schema/from-schema.ts
-- [ ] BUG/med: onStepComplete fires on BACKWARD navigation → inflates completion counts — useWorkflowAnalytics.ts
-- [ ] BUG/med (race): async persistence load overwrites in-flight user input (full allData replace) — WorkflowProvider.tsx
-- [ ] BUG/low: onWorkflowAbandon declared but NEVER invoked (dead analytics contract) — needs unmount handler
-- [ ] BUG/low: rapid double-skip emits duplicate onStepSkip — useWorkflowNavigation.ts
-- [ ] GAP/low: rilaykit all-in-one package.json missing `sideEffects: false` (defeats tree-shaking) — packages/rilaykit/package.json
-- [ ] GAP/low: forms `sideEffects` glob points at non-published src/ path (matches no shipped module) — packages/forms/package.json
+- [x] BUG/high: `canSubmit` uses RAW last index vs visible-last → custom submit never enables when last step hidden — useWorkflowSubmission.ts
+- [x] BUG/med: `getFieldValue` uses `in` (prototype-inclusive) → field named toString/constructor resolves inherited → exists/notExists inverted — core/conditions/index.ts
+- [x] BUG/med (race): RemoteAdapter concurrent send() strands events + resolves 2nd caller as false success — core/monitoring/adapters.ts
+- [x] BUG/med (error-path): fromSchema/validateSchema throws raw TypeError on null row/field instead of typed SchemaValidationError — forms/schema/from-schema.ts
+- [x] BUG/med: onStepComplete fires on BACKWARD navigation → inflates completion counts — useWorkflowAnalytics.ts
+- [x] BUG/med (race): async persistence load overwrites in-flight user input (full allData replace) — WorkflowProvider.tsx
+- [x] BUG/low: onWorkflowAbandon declared but NEVER invoked (dead analytics contract) — needs unmount handler
+- [x] BUG/low: rapid double-skip emits duplicate onStepSkip — useWorkflowNavigation.ts
+- [x] GAP/low: rilaykit all-in-one package.json missing `sideEffects: false` (defeats tree-shaking) — packages/rilaykit/package.json
+- [x] GAP/low: forms `sideEffects` glob points at non-published src/ path (matches no shipped module) — packages/forms/package.json
 
 ## Round 2 hunt inventory (iter 5) — 5 bugs + 5 gaps; NOT a clean round
 
@@ -116,6 +116,7 @@
 - [~] weak-assertion sweep: localStorage.test.ts strengthened (instanceof + exact code + round-trip); full 153-site repo sweep still deferred
 
 ## Iteration log
+- (iter 7) ROUND 3 hunt: NOT clean — 8 bugs + 2 tree-shaking gaps. Fixed all TDD (fixer was interrupted mid-run but had completed the work; verified full suite green + mutation-checked B1 canSubmit, B2 prototype-lookup, confirmed B3 concurrent-send test). canSubmit visible-last, own-property field lookup, RemoteAdapter drain, typed SchemaValidationError on null entries, forward-only onStepComplete, onWorkflowAbandon on unmount, double-skip guard, persistence-load preserves user input, sideEffects:false. Full suite 1513 green + build green. 34 total bugs fixed. Clean-round counter = 0. Next: ROUND 4 hunt (need 2 consecutive clean → P2; user authorized stopping the loop + P2 once genuinely good).
 - (iter 6) QUALITY pass: internal redirectable logger (getLogger/setLogSink), 22 runtime console.* routed through it, no-console guard test (mutation-checked), RemoteAdapter + DevelopmentAdapter behavioral tests, localStorage assertions strengthened. Full suite 1496 green. Remaining before round 3: full weak-assertion sweep deferred (low value). Next: ROUND 3 hunt (clean-round counter still 0; need 2 consecutive clean → P2).
 - (iter 5) ROUND 2 hunt: NOT clean — 5 bugs (2 fix-regressions from my own hardening) + 5 gaps. Fixed all 5 bugs TDD + StrictMode idempotency guard (passed clean, no double-fire). BUG 2 fix-regression mutation-checked. Full suite 1485 green. 26 total bugs fixed. Clean-round counter = 0. Next: deferred quality gaps (console.* cleanup, adapter coverage, weak-assertion sweep) THEN round 3 hunt (needs 2 consecutive clean rounds → P2).
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
