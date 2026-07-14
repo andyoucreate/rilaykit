@@ -3,7 +3,7 @@ import { form } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useWorkflowContext } from '../../src';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 import { NextButton } from '../_helpers/nav-buttons';
@@ -40,7 +40,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
       canGoPrevious,
       conditionsHelpers,
       workflowConfig,
-    } = useWorkflowContext();
+    } = useFlow();
 
     // Debug step visibility for testing
     const stepVisibilities = workflowConfig.steps.map((step, index) => ({

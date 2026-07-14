@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useWorkflowContext } from '../components/WorkflowProvider';
+import { useFlow } from '../components/WorkflowProvider';
 
 /**
  * Hook return type for step metadata access
@@ -107,7 +107,7 @@ export interface UseStepMetadataReturn {
  * ```
  */
 export function useStepMetadata(): UseStepMetadataReturn {
-  const { workflowConfig, currentStep } = useWorkflowContext();
+  const { workflowConfig, currentStep } = useFlow();
 
   // Memoize current step metadata
   const current = useMemo(() => {

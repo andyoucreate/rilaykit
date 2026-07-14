@@ -4,9 +4,9 @@ import {
   FlowBody,
   WorkflowProvider,
   flow,
-  useWorkflowContext,
+  useFlow,
 } from '@rilaykit/workflow';
-import { useCurrentStepIndex, useWorkflowAllData, useWorkflowStore } from '@rilaykit/workflow';
+import { useFlowStepIndex, useFlowData, useFlowStore } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,7 +43,7 @@ let rilConfig: ReturnType<typeof createWorkflowRilConfig>;
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState, context } = useWorkflowContext();
+  const { workflowState, context } = useFlow();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>

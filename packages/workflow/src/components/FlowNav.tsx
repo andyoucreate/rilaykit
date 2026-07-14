@@ -1,7 +1,7 @@
 import type { StepConfig } from '@rilaykit/core';
 import { useForm, useFormSubmitting } from '@rilaykit/forms';
 import React, { useCallback, useMemo } from 'react';
-import { useWorkflowContext } from './WorkflowProvider';
+import { useFlow } from './WorkflowProvider';
 
 export interface FlowNavContext {
   go: () => void;
@@ -27,7 +27,7 @@ function useFlowNav(direction: Direction): FlowNavContext & { hidden: boolean } 
     skipStep,
     canGoPrevious,
     canSkipCurrentStep,
-  } = useWorkflowContext();
+  } = useFlow();
   const { submit } = useForm();
   const formSubmitting = useFormSubmitting();
 

@@ -3,14 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
+import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput, MockSelect } from '../_helpers/mock-components';
 
 describe('Workflow - Conditions with DefaultValues', () => {
   // Test component to check step visibility
   const StepVisibilityChecker = () => {
-    const { workflowConfig, conditionsHelpers } = useWorkflowContext();
+    const { workflowConfig, conditionsHelpers } = useFlow();
 
     return (
       <div data-testid="step-visibility-checker">
@@ -248,7 +248,7 @@ describe('Workflow - Conditions with DefaultValues', () => {
     };
 
     const ComplexStepChecker = () => {
-      const { workflowConfig, conditionsHelpers } = useWorkflowContext();
+      const { workflowConfig, conditionsHelpers } = useFlow();
 
       return (
         <div data-testid="complex-step-checker">

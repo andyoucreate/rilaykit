@@ -1,7 +1,7 @@
 import type { StepConfig } from '@rilaykit/core';
 import { FormBody } from '@rilaykit/forms';
 import React from 'react';
-import { useWorkflowContext } from './WorkflowProvider';
+import { useFlow } from './WorkflowProvider';
 
 export interface FlowBodyProps {
   stepId?: string;
@@ -13,7 +13,7 @@ export interface FlowBodyProps {
  * Precedence: custom `step.renderer(step)` -> render-prop/children -> `<FormBody />` default.
  */
 export const FlowBody = React.memo(function FlowBody({ stepId, children }: FlowBodyProps) {
-  const { currentStep } = useWorkflowContext();
+  const { currentStep } = useFlow();
 
   if (!currentStep) {
     return null;

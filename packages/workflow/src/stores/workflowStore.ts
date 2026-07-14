@@ -1,3 +1,4 @@
+import { ConfigurationError } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -167,12 +168,12 @@ export const WorkflowStoreContext = createContext<WorkflowStore | null>(null);
 
 /**
  * Get the workflow store from context
- * @throws Error if used outside of WorkflowProvider
+ * @throws ConfigurationError if used outside of WorkflowProvider
  */
-export function useWorkflowStore(): WorkflowStore {
+export function useFlowStore(): WorkflowStore {
   const store = useContext(WorkflowStoreContext);
   if (!store) {
-    throw new Error('useWorkflowStore must be used within a WorkflowProvider');
+    throw new ConfigurationError('useFlowStore must be used within a WorkflowProvider');
   }
   return store;
 }
@@ -184,48 +185,48 @@ export function useWorkflowStore(): WorkflowStore {
 /**
  * Select current step index - re-renders only when step changes
  */
-export function useCurrentStepIndex(): number {
-  const store = useWorkflowStore();
+export function useFlowStepIndex(): number {
+  const store = useFlowStore();
   return useStore(store, (state) => state.currentStepIndex);
 }
 
 /**
  * Select transitioning state
  */
-export function useWorkflowTransitioning(): boolean {
-  const store = useWorkflowStore();
+export function useFlowTransitioning(): boolean {
+  const store = useFlowStore();
   return useStore(store, (state) => state.isTransitioning);
 }
 
 /**
  * Select initializing state
  */
-export function useWorkflowInitializing(): boolean {
-  const store = useWorkflowStore();
+export function useFlowInitializing(): boolean {
+  const store = useFlowStore();
   return useStore(store, (state) => state.isInitializing);
 }
 
 /**
  * Select submitting state
  */
-export function useWorkflowSubmitting(): boolean {
-  const store = useWorkflowStore();
+export function useFlowSubmitting(): boolean {
+  const store = useFlowStore();
   return useStore(store, (state) => state.isSubmitting);
 }
 
 /**
  * Select all workflow data
  */
-export function useWorkflowAllData(): Record<string, unknown> {
-  const store = useWorkflowStore();
+export function useFlowData(): Record<string, unknown> {
+  const store = useFlowStore();
   return useStore(store, (state) => state.allData);
 }
 
 /**
  * Select current step data
  */
-export function useWorkflowStepData(): Record<string, unknown> {
-  const store = useWorkflowStore();
+export function useStepData(): Record<string, unknown> {
+  const store = useFlowStore();
   return useStore(store, (state) => state.stepData);
 }
 
@@ -233,7 +234,7 @@ export function useWorkflowStepData(): Record<string, unknown> {
  * Select data for a specific step
  */
 export function useStepDataById(stepId: string): Record<string, unknown> | undefined {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   return useStore(store, (state) => state.allData[stepId] as Record<string, unknown> | undefined);
 }
 
@@ -241,7 +242,7 @@ export function useStepDataById(stepId: string): Record<string, unknown> | undef
  * Select visited steps
  */
 export function useVisitedSteps(): Set<string> {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   return useStore(store, (state) => state.visitedSteps);
 }
 
@@ -249,7 +250,7 @@ export function useVisitedSteps(): Set<string> {
  * Select passed steps
  */
 export function usePassedSteps(): Set<string> {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   return useStore(store, (state) => state.passedSteps);
 }
 
@@ -257,7 +258,7 @@ export function usePassedSteps(): Set<string> {
  * Check if a specific step is visited
  */
 export function useIsStepVisited(stepId: string): boolean {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   return useStore(store, (state) => state.visitedSteps.has(stepId));
 }
 
@@ -265,19 +266,19 @@ export function useIsStepVisited(stepId: string): boolean {
  * Check if a specific step is passed
  */
 export function useIsStepPassed(stepId: string): boolean {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   return useStore(store, (state) => state.passedSteps.has(stepId));
 }
 
 /**
  * Select navigation state for buttons - minimal re-renders
  */
-export function useWorkflowNavigationState(): {
+export function useFlowNavigationState(): {
   currentStepIndex: number;
   isTransitioning: boolean;
   isSubmitting: boolean;
 } {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   const currentStepIndex = useStore(store, (state) => state.currentStepIndex);
   const isTransitioning = useStore(store, (state) => state.isTransitioning);
   const isSubmitting = useStore(store, (state) => state.isSubmitting);
@@ -288,12 +289,12 @@ export function useWorkflowNavigationState(): {
 /**
  * Select submit state for workflow - minimal re-renders
  */
-export function useWorkflowSubmitState(): {
+export function useFlowSubmitState(): {
   isSubmitting: boolean;
   isTransitioning: boolean;
   isInitializing: boolean;
 } {
-  const store = useWorkflowStore();
+  const store = useFlowStore();
   const isSubmitting = useStore(store, (state) => state.isSubmitting);
   const isTransitioning = useStore(store, (state) => state.isTransitioning);
   const isInitializing = useStore(store, (state) => state.isInitializing);
@@ -323,8 +324,8 @@ export interface UseWorkflowActionsResult {
  * Get stable action references for workflow
  * Actions don't cause re-renders
  */
-export function useWorkflowActions(): UseWorkflowActionsResult {
-  const store = useWorkflowStore();
+export function useFlowActions(): UseWorkflowActionsResult {
+  const store = useFlowStore();
 
   return {
     setCurrentStep: (stepIndex) => store.getState()._setCurrentStep(stepIndex),
@@ -345,6 +346,6 @@ export function useWorkflowActions(): UseWorkflowActionsResult {
 /**
  * Get the raw store for advanced use cases
  */
-export function useWorkflowStoreApi(): WorkflowStore {
-  return useWorkflowStore();
+export function useFlowStoreApi(): WorkflowStore {
+  return useFlowStore();
 }

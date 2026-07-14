@@ -1,6 +1,6 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, FlowBody, FlowProgress, flow, useWorkflowContext } from '@rilaykit/workflow';
+import { Flow, FlowBody, FlowProgress, flow, useFlow } from '@rilaykit/workflow';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MockInput } from '../_helpers/mock-components';
@@ -23,7 +23,7 @@ const hiddenWf = flow
   .addStep({ ...step('x'), conditions: { visible: when('x.x-f').equals('never') } });
 
 function OriginalIndexProbe() {
-  const { workflowState } = useWorkflowContext();
+  const { workflowState } = useFlow();
   return <output data-testid="original-index">{workflowState.currentStepIndex}</output>;
 }
 

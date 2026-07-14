@@ -1,6 +1,6 @@
 import type { StepConfig } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
-import { useWorkflowContext } from '../components/WorkflowProvider';
+import { useFlow } from '../components/WorkflowProvider';
 
 export interface FlowStepsContext {
   steps: StepConfig[];
@@ -15,7 +15,7 @@ export interface FlowStepsContext {
  * Visibility computation ported verbatim from WorkflowStepper.tsx (deleted in this task).
  */
 export function useFlowSteps(): FlowStepsContext {
-  const { workflowConfig, workflowState, goToStep, conditionsHelpers } = useWorkflowContext();
+  const { workflowConfig, workflowState, goToStep, conditionsHelpers } = useFlow();
 
   const { visibleSteps, visibleToOriginal, originalToVisible } = useMemo(() => {
     const visible: StepConfig[] = [];

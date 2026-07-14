@@ -3,14 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Flow, useWorkflowContext } from '../../src';
+import { Flow, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
 describe('Flow Component - Three Step Lists (visitedSteps, visibleVisitedSteps, passedSteps)', () => {
   // Component to display all three step lists
   const StepListsDisplay = () => {
-    const { context } = useWorkflowContext();
+    const { context } = useFlow();
 
     return (
       <div data-testid="step-lists-info">
@@ -168,7 +168,7 @@ describe('Flow Component - Three Step Lists (visitedSteps, visibleVisitedSteps, 
 
   it('should show all three lists are Sets with correct API', async () => {
     const TestComponent = () => {
-      const { context } = useWorkflowContext();
+      const { context } = useFlow();
 
       // Verify they are Sets
       const areAllSets =

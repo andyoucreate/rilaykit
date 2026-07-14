@@ -15,7 +15,7 @@ export { FlowBack, FlowNext, FlowSkip } from './components/FlowNav';
 export type { FlowNavContext, FlowNavProps } from './components/FlowNav';
 export { FlowProgress } from './components/FlowProgress';
 export type { FlowProgressProps } from './components/FlowProgress';
-export { useWorkflowContext, WorkflowProvider } from './components/WorkflowProvider';
+export { useFlow, WorkflowProvider } from './components/WorkflowProvider';
 
 // Hooks
 export * from './hooks';

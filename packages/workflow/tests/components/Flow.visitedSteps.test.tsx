@@ -3,14 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Flow, useWorkflowContext } from '../../src';
+import { Flow, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
 describe('Flow Component - VisitedSteps with DefaultStep', () => {
   // Component to check visited steps
   const VisitedStepsDisplay = () => {
-    const { workflowState, currentStep } = useWorkflowContext();
+    const { workflowState, currentStep } = useFlow();
 
     return (
       <div data-testid="workflow-visited-info">

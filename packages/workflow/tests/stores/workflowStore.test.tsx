@@ -5,20 +5,20 @@ import {
   type CreateWorkflowStoreOptions,
   WorkflowStoreContext,
   createWorkflowStore,
-  useCurrentStepIndex,
+  useFlowStepIndex,
   useIsStepPassed,
   useIsStepVisited,
   usePassedSteps,
   useVisitedSteps,
-  useWorkflowActions,
-  useWorkflowAllData,
-  useWorkflowInitializing,
-  useWorkflowNavigationState,
-  useWorkflowStepData,
-  useWorkflowStore,
-  useWorkflowSubmitState,
-  useWorkflowSubmitting,
-  useWorkflowTransitioning,
+  useFlowActions,
+  useFlowData,
+  useFlowInitializing,
+  useFlowNavigationState,
+  useStepData,
+  useFlowStore,
+  useFlowSubmitState,
+  useFlowSubmitting,
+  useFlowTransitioning,
 } from '../../src/stores/workflowStore';
 
 // Helper to create a wrapper with store context
@@ -231,15 +231,15 @@ describe('workflowStore', () => {
   });
 
   describe('Selector Hooks', () => {
-    it('useWorkflowStore should throw outside provider', () => {
-      expect(() => renderHook(() => useWorkflowStore())).toThrow(
-        'useWorkflowStore must be used within a WorkflowProvider'
+    it('useFlowStore should throw outside provider', () => {
+      expect(() => renderHook(() => useFlowStore())).toThrow(
+        'useFlowStore must be used within a WorkflowProvider'
       );
     });
 
-    it('useCurrentStepIndex should return current step', () => {
+    it('useFlowStepIndex should return current step', () => {
       const { Wrapper, store } = createWrapper({ defaultStepIndex: 2 });
-      const { result } = renderHook(() => useCurrentStepIndex(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowStepIndex(), { wrapper: Wrapper });
 
       expect(result.current).toBe(2);
 
@@ -250,9 +250,9 @@ describe('workflowStore', () => {
       expect(result.current).toBe(5);
     });
 
-    it('useWorkflowTransitioning should return transitioning state', () => {
+    it('useFlowTransitioning should return transitioning state', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowTransitioning(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowTransitioning(), { wrapper: Wrapper });
 
       expect(result.current).toBe(false);
 
@@ -263,9 +263,9 @@ describe('workflowStore', () => {
       expect(result.current).toBe(true);
     });
 
-    it('useWorkflowInitializing should return initializing state', () => {
+    it('useFlowInitializing should return initializing state', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowInitializing(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowInitializing(), { wrapper: Wrapper });
 
       expect(result.current).toBe(true);
 
@@ -276,9 +276,9 @@ describe('workflowStore', () => {
       expect(result.current).toBe(false);
     });
 
-    it('useWorkflowSubmitting should return submitting state', () => {
+    it('useFlowSubmitting should return submitting state', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowSubmitting(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowSubmitting(), { wrapper: Wrapper });
 
       expect(result.current).toBe(false);
 
@@ -289,11 +289,11 @@ describe('workflowStore', () => {
       expect(result.current).toBe(true);
     });
 
-    it('useWorkflowAllData should return all data', () => {
+    it('useFlowData should return all data', () => {
       const { Wrapper, store } = createWrapper({
         defaultValues: { step1: { field1: 'value1' } },
       });
-      const { result } = renderHook(() => useWorkflowAllData(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowData(), { wrapper: Wrapper });
 
       expect(result.current).toEqual({ step1: { field1: 'value1' } });
 
@@ -304,9 +304,9 @@ describe('workflowStore', () => {
       expect(result.current.step2).toEqual({ field2: 'value2' });
     });
 
-    it('useWorkflowStepData should return current step data', () => {
+    it('useStepData should return current step data', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowStepData(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useStepData(), { wrapper: Wrapper });
 
       expect(result.current).toEqual({});
 
@@ -381,9 +381,9 @@ describe('workflowStore', () => {
       expect(result2.current).toBe(true);
     });
 
-    it('useWorkflowNavigationState should return navigation state', () => {
+    it('useFlowNavigationState should return navigation state', () => {
       const { Wrapper, store } = createWrapper({ defaultStepIndex: 1 });
-      const { result } = renderHook(() => useWorkflowNavigationState(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowNavigationState(), { wrapper: Wrapper });
 
       expect(result.current).toEqual({
         currentStepIndex: 1,
@@ -403,9 +403,9 @@ describe('workflowStore', () => {
       });
     });
 
-    it('useWorkflowSubmitState should return submit state', () => {
+    it('useFlowSubmitState should return submit state', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowSubmitState(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowSubmitState(), { wrapper: Wrapper });
 
       expect(result.current).toEqual({
         isSubmitting: false,
@@ -427,9 +427,9 @@ describe('workflowStore', () => {
   });
 
   describe('Action Hooks', () => {
-    it('useWorkflowActions should provide all expected actions', () => {
+    it('useFlowActions should provide all expected actions', () => {
       const { Wrapper } = createWrapper();
-      const { result } = renderHook(() => useWorkflowActions(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowActions(), { wrapper: Wrapper });
 
       // Verify all expected actions are available
       expect(typeof result.current.setCurrentStep).toBe('function');
@@ -445,9 +445,9 @@ describe('workflowStore', () => {
       expect(typeof result.current.loadPersistedState).toBe('function');
     });
 
-    it('useWorkflowActions should update store state', () => {
+    it('useFlowActions should update store state', () => {
       const { Wrapper, store } = createWrapper();
-      const { result } = renderHook(() => useWorkflowActions(), { wrapper: Wrapper });
+      const { result } = renderHook(() => useFlowActions(), { wrapper: Wrapper });
 
       act(() => {
         result.current.setCurrentStep(3);

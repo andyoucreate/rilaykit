@@ -1,6 +1,6 @@
 import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, flow, useWorkflowContext, type WorkflowContextValue } from '@rilaykit/workflow';
+import { Flow, flow, useFlow, type WorkflowContextValue } from '@rilaykit/workflow';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
@@ -24,7 +24,7 @@ const step = (id: string, extra: Record<string, unknown> = {}) => ({
 });
 
 function ContextProbe({ ctxRef }: { ctxRef: { current: WorkflowContextValue | null } }) {
-  ctxRef.current = useWorkflowContext();
+  ctxRef.current = useFlow();
   return null;
 }
 

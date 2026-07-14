@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useCallback } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
+import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockCheckbox, MockInput, MockSelect } from '../_helpers/mock-components';
 
@@ -118,7 +118,7 @@ describe('Conditional steps - navigation bug', () => {
   // Test helper component
   function WorkflowTestHarness() {
     const { workflowState, workflowConfig, conditionsHelpers, goNext, setValue, currentStep } =
-      useWorkflowContext();
+      useFlow();
 
     return (
       <div>
@@ -426,7 +426,7 @@ describe('Conditional steps - form submission flow (real Flow.Next path)', () =>
    * which triggers onFieldChange → workflow store update. Both stores stay in sync.
    */
   function FormSubmitTestHarness() {
-    const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useWorkflowContext();
+    const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useFlow();
 
     // Access submit from FormProvider — same as Flow.Next
     const { submit } = useForm();

@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   WorkflowStoreContext,
   createWorkflowStore,
-  useCurrentStepIndex,
+  useFlowStepIndex,
   usePassedSteps,
   useVisitedSteps,
-  useWorkflowAllData,
-  useWorkflowSubmitting,
-  useWorkflowTransitioning,
+  useFlowData,
+  useFlowSubmitting,
+  useFlowTransitioning,
 } from '../../src/stores/workflowStore';
 
 function createWrapper() {
@@ -215,10 +215,10 @@ describe('WorkflowStore Stress Tests', () => {
 
       // Create many different subscriptions
       for (let i = 0; i < 50; i++) {
-        hooks.push(renderHook(() => useCurrentStepIndex(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowAllData(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowTransitioning(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowSubmitting(), { wrapper: Wrapper }));
+        hooks.push(renderHook(() => useFlowStepIndex(), { wrapper: Wrapper }));
+        hooks.push(renderHook(() => useFlowData(), { wrapper: Wrapper }));
+        hooks.push(renderHook(() => useFlowTransitioning(), { wrapper: Wrapper }));
+        hooks.push(renderHook(() => useFlowSubmitting(), { wrapper: Wrapper }));
       }
 
       const start = performance.now();
@@ -244,7 +244,7 @@ describe('WorkflowStore Stress Tests', () => {
       const { Wrapper, store } = createWrapper();
 
       for (let i = 0; i < 500; i++) {
-        const { unmount } = renderHook(() => useCurrentStepIndex(), {
+        const { unmount } = renderHook(() => useFlowStepIndex(), {
           wrapper: Wrapper,
         });
         unmount();
@@ -314,7 +314,7 @@ describe('WorkflowStore Stress Tests', () => {
   });
 
   describe('Selector Performance', () => {
-    it('useCurrentStepIndex should be efficient with large allData', () => {
+    it('useFlowStepIndex should be efficient with large allData', () => {
       const { Wrapper, store } = createWrapper();
 
       // Fill with lots of data
@@ -328,7 +328,7 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const { result } = renderHook(() => useCurrentStepIndex(), {
+      const { result } = renderHook(() => useFlowStepIndex(), {
         wrapper: Wrapper,
       });
 

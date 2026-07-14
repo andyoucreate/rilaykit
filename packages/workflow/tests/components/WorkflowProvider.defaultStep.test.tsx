@@ -3,14 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
+import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
 
 describe('WorkflowProvider - DefaultStep', () => {
   // Component to check current step
   const CurrentStepChecker = () => {
-    const { currentStep, workflowState } = useWorkflowContext();
+    const { currentStep, workflowState } = useFlow();
 
     return (
       <div data-testid="current-step-info">
@@ -210,7 +210,7 @@ describe('WorkflowProvider - DefaultStep', () => {
     };
 
     const ConditionalStepChecker = () => {
-      const { currentStep, conditionsHelpers } = useWorkflowContext();
+      const { currentStep, conditionsHelpers } = useFlow();
 
       return (
         <div data-testid="conditional-step-info">

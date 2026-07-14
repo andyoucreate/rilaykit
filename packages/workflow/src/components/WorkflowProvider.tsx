@@ -1,8 +1,9 @@
-import type {
-  FormConfiguration,
-  StepConfig,
-  WorkflowConfig,
-  WorkflowContext,
+import {
+  ConfigurationError,
+  type FormConfiguration,
+  type StepConfig,
+  type WorkflowConfig,
+  type WorkflowContext,
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
 import type React from 'react';
@@ -654,10 +655,10 @@ export function WorkflowProvider({
   );
 }
 
-export function useWorkflowContext(): WorkflowContextValue {
+export function useFlow(): WorkflowContextValue {
   const context = useContext(WorkflowReactContext);
   if (!context) {
-    throw new Error('useWorkflowContext must be used within a WorkflowProvider');
+    throw new ConfigurationError('useFlow must be used within a WorkflowProvider');
   }
   return context;
 }

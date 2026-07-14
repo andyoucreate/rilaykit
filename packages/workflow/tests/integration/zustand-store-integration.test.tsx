@@ -5,12 +5,12 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FlowBody } from '../../src';
 import { flow } from '../../src/builders/flow';
-import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
+import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider';
 import {
-  useCurrentStepIndex,
-  useWorkflowAllData,
-  useWorkflowStore,
-  useWorkflowTransitioning,
+  useFlowStepIndex,
+  useFlowData,
+  useFlowStore,
+  useFlowTransitioning,
 } from '../../src/stores';
 import { NextButton, PrevButton } from '../_helpers/nav-buttons';
 
@@ -81,10 +81,10 @@ describe('Workflow Zustand Store Integration', () => {
 
   describe('Store Context Access', () => {
     it('should provide store context to children', () => {
-      let storeFromContext: ReturnType<typeof useWorkflowStore> | null = null;
+      let storeFromContext: ReturnType<typeof useFlowStore> | null = null;
 
       const TestChild = () => {
-        storeFromContext = useWorkflowStore();
+        storeFromContext = useFlowStore();
         return <div data-testid="child">Child</div>;
       };
 
@@ -100,7 +100,7 @@ describe('Workflow Zustand Store Integration', () => {
 
     it('should allow direct state access via store', () => {
       const TestChild = () => {
-        const store = useWorkflowStore();
+        const store = useFlowStore();
         const state = store.getState();
         return (
           <div>
@@ -122,10 +122,10 @@ describe('Workflow Zustand Store Integration', () => {
   });
 
   describe('Granular Selectors', () => {
-    it('useCurrentStepIndex should update when navigating', async () => {
+    it('useFlowStepIndex should update when navigating', async () => {
       const TestChild = () => {
-        const stepIndex = useCurrentStepIndex();
-        const { goNext } = useWorkflowContext();
+        const stepIndex = useFlowStepIndex();
+        const { goNext } = useFlow();
         return (
           <div>
             <div data-testid="step">{stepIndex}</div>
@@ -153,9 +153,9 @@ describe('Workflow Zustand Store Integration', () => {
       });
     });
 
-    it('useWorkflowAllData should return initial data', () => {
+    it('useFlowData should return initial data', () => {
       const TestChild = () => {
-        const allData = useWorkflowAllData();
+        const allData = useFlowData();
         return <div data-testid="data">{JSON.stringify(allData)}</div>;
       };
 
@@ -172,13 +172,13 @@ describe('Workflow Zustand Store Integration', () => {
       expect(data.step1?.field1).toBe('initial');
     });
 
-    it('useWorkflowTransitioning should update during navigation', async () => {
+    it('useFlowTransitioning should update during navigation', async () => {
       const transitionStates: boolean[] = [];
 
       const TestChild = () => {
-        const isTransitioning = useWorkflowTransitioning();
+        const isTransitioning = useFlowTransitioning();
         transitionStates.push(isTransitioning);
-        const { goNext } = useWorkflowContext();
+        const { goNext } = useFlow();
         return (
           <div>
             <div data-testid="transitioning">{isTransitioning ? 'yes' : 'no'}</div>
@@ -246,7 +246,7 @@ describe('Workflow Zustand Store Integration', () => {
       let allData: Record<string, unknown> = {};
 
       const DataDisplay = () => {
-        const data = useWorkflowAllData();
+        const data = useFlowData();
         allData = data;
         return null;
       };
@@ -307,13 +307,13 @@ describe('Workflow Zustand Store Integration', () => {
       let store2State: { currentStepIndex: number } | null = null;
 
       const Workflow1Child = () => {
-        const store = useWorkflowStore();
+        const store = useFlowStore();
         store1State = { currentStepIndex: store.getState().currentStepIndex };
         return <div data-testid="workflow1">Workflow 1</div>;
       };
 
       const Workflow2Child = () => {
-        const store = useWorkflowStore();
+        const store = useFlowStore();
         store2State = { currentStepIndex: store.getState().currentStepIndex };
         return <div data-testid="workflow2">Workflow 2</div>;
       };
@@ -336,12 +336,12 @@ describe('Workflow Zustand Store Integration', () => {
 
   describe('Reset Functionality', () => {
     it('should reset workflow state via store', async () => {
-      let storeRef: ReturnType<typeof useWorkflowStore> | null = null;
+      let storeRef: ReturnType<typeof useFlowStore> | null = null;
 
       const TestChild = () => {
-        const store = useWorkflowStore();
+        const store = useFlowStore();
         storeRef = store;
-        const stepIndex = useCurrentStepIndex();
+        const stepIndex = useFlowStepIndex();
         return <div data-testid="step">{stepIndex}</div>;
       };
 
