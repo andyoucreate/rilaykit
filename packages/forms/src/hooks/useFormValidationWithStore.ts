@@ -215,6 +215,16 @@ export function useFormValidationWithStore({
         // stale result overwrite the current one.
         if (isStale()) return result;
 
+        // The field may have become invisible while we awaited (a condition on
+        // another field flipped). Writing errors on a now-hidden field would
+        // wedge the global isValid with no visible error. Mirror the pre-await
+        // and validateForm invisible handling: clear and skip.
+        if (!isFieldVisibleLive(fieldId)) {
+          state._setErrors(fieldId, []);
+          state._setValidationState(fieldId, 'valid');
+          return createSuccessResult();
+        }
+
         // Check if conditionally required
         const isConditionallyRequired = isFieldRequiredLive(fieldId);
 
@@ -253,6 +263,12 @@ export function useFormValidationWithStore({
         };
         // Superseded by a newer run — drop this stale error.
         if (isStale()) return errorResult;
+        // Field became invisible while we awaited — do not write errors on it.
+        if (!isFieldVisibleLive(fieldId)) {
+          state._setErrors(fieldId, []);
+          state._setValidationState(fieldId, 'valid');
+          return createSuccessResult();
+        }
         state._setErrors(fieldId, errorResult.errors);
         state._setValidationState(fieldId, 'invalid');
         return errorResult;
