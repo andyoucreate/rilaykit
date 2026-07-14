@@ -7,7 +7,7 @@
  */
 
 import { getLogger } from '@rilaykit/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 import type {
   PersistedWorkflowData,
   PersistenceOptions,
@@ -31,6 +31,12 @@ export interface UsePersistenceProps {
   options?: PersistenceOptions;
   /** Optional user ID for multi-user scenarios */
   userId?: string;
+  /**
+   * Shared flag flipped once the workflow completes. When set, the auto-persist
+   * effect must NOT schedule further saves: completion clears the persisted data
+   * and any subsequent save would resurrect the finished workflow.
+   */
+  workflowCompletedRef?: MutableRefObject<boolean>;
 }
 
 /**
@@ -63,6 +69,7 @@ export function usePersistence({
   adapter,
   options = {},
   userId,
+  workflowCompletedRef,
 }: UsePersistenceProps): UsePersistenceReturn {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<WorkflowPersistenceError | null>(null);
@@ -214,6 +221,11 @@ export function usePersistence({
   const clearPersistedData = useCallback(async (): Promise<void> => {
     clearError();
 
+    // Cancel any pending debounced save first: a save scheduled from the last
+    // edit / navigation transition would otherwise fire after the remove below
+    // and re-persist data we just cleared (resurrecting a completed workflow).
+    debouncedSave.current.cancel();
+
     try {
       await adapterRef.current.remove(storageKey);
 
@@ -243,6 +255,11 @@ export function usePersistence({
    */
   useEffect(() => {
     if (!optionsRef.current.autoPersist) return;
+
+    // Once the workflow has completed, never schedule another save: completion
+    // clears the persisted data, so a later auto-save would resurrect the
+    // finished workflow on the next mount.
+    if (workflowCompletedRef?.current) return;
 
     // Skip if currently persisting, loading, initializing, or in transition states
     if (

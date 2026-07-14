@@ -259,6 +259,12 @@ export function WorkflowProvider({
 
   const resetWorkflow = useCallback(() => store.getState()._reset(), [store]);
 
+  // Shared flag: submission flips this on completion so the analytics abandon
+  // cleanup does not treat a normal completion as an abandonment on unmount,
+  // and so the persistence auto-save stops scheduling after completion (a save
+  // after clear-on-completion would resurrect the finished workflow).
+  const workflowCompletedRef = useRef<boolean>(false);
+
   // Initialize persistence unconditionally (Rules of Hooks)
   const hasPersistence = !!workflowConfig.persistence?.adapter;
 
@@ -268,6 +274,7 @@ export function WorkflowProvider({
     adapter: workflowConfig.persistence?.adapter ?? NOOP_PERSISTENCE_ADAPTER,
     options: workflowConfig.persistence?.options,
     userId: workflowConfig.persistence?.userId,
+    workflowCompletedRef,
   });
 
   // Ref to avoid re-triggering effect when persistenceHook identity changes
@@ -450,10 +457,6 @@ export function WorkflowProvider({
   // Shared signal: skipStep sets the id of a skipped step so analytics can
   // suppress onStepComplete for it (a skip is not a completion).
   const pendingSkipRef = useRef<string | null>(null);
-
-  // Shared flag: submission flips this on completion so the analytics abandon
-  // cleanup does not treat a normal completion as an abandonment on unmount.
-  const workflowCompletedRef = useRef<boolean>(false);
 
   // Initialize analytics tracking
   const { analyticsStartTime } = useWorkflowAnalytics({

@@ -89,23 +89,47 @@ export function generateStorageKey(workflowId: string, userId?: string): string 
 }
 
 /**
- * Debounce function for auto-persistence
+ * A debounced function exposing a `cancel` to drop a pending invocation.
+ */
+export interface DebouncedFunction<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  /** Cancel any pending (scheduled-but-not-yet-fired) invocation. */
+  cancel: () => void;
+}
+
+/**
+ * Debounce function for auto-persistence.
+ *
+ * The returned function carries a `cancel()` so callers can drop a pending
+ * save — e.g. after clearing persisted data or on workflow completion, where a
+ * save scheduled from the last edit would otherwise fire and re-persist state
+ * that was just removed.
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): DebouncedFunction<T> {
   let timeout: NodeJS.Timeout | null = null;
 
-  return (...args: Parameters<T>) => {
+  const debounced = (...args: Parameters<T>) => {
     if (timeout) {
       clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
+      timeout = null;
       func(...args);
     }, wait);
   };
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return debounced;
 }
 
 /**
