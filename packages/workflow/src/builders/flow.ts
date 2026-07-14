@@ -2,6 +2,7 @@ import {
   type CustomStepRenderer,
   type FormConfiguration,
   IdGenerator,
+  type StepAllowSkip,
   type StepConditionalBehavior,
   type StepConfig,
   type StepDataHelper,
@@ -58,7 +59,7 @@ export interface StepDefinition {
    * Accepts a static boolean or a predicate evaluated against the workflow data.
    * @default false
    */
-  allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
+  allowSkip?: StepAllowSkip;
 
   /**
    * Custom renderer for the step

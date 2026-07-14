@@ -474,12 +474,18 @@ export interface StepDataHelper {
   getSteps: () => StepConfig[];
 }
 
+/**
+ * Skip permission for a workflow step: a static boolean or a predicate
+ * evaluated against the collected workflow data.
+ */
+export type StepAllowSkip = boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
+
 export interface StepConfig {
   readonly id: string;
   readonly title: string;
   readonly description?: string;
   readonly formConfig: FormConfiguration;
-  readonly allowSkip?: boolean | ((ctx: { allData: Record<string, unknown> }) => boolean);
+  readonly allowSkip?: StepAllowSkip;
   readonly renderer?: CustomStepRenderer;
   readonly conditions?: StepConditionalBehavior;
   readonly metadata?: Record<string, any>;

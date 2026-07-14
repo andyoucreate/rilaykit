@@ -5,6 +5,7 @@ import { Flow, FlowBody, flow } from '@rilaykit/workflow';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MockInput } from '../_helpers/mock-components';
+import { NextButton } from '../_helpers/nav-buttons';
 
 const r = ril.create().component('text', { name: 'Text', renderer: MockInput });
 const stepForm = form.create(r, 's1').add({ id: 'email', type: 'text', props: {} });
@@ -65,13 +66,7 @@ describe('<Flow of> + <Flow.Body>', () => {
     render(
       <Flow of={wf} onComplete={onComplete}>
         <FlowBody />
-        <Flow.Next>
-          {({ go, submitting }) => (
-            <button type="button" data-testid="next-btn" onClick={go} disabled={submitting}>
-              Next
-            </button>
-          )}
-        </Flow.Next>
+        <NextButton testId="next-btn" />
       </Flow>
     );
 

@@ -7,12 +7,12 @@ export type { StepContext, StepMetadata } from './context/step-context';
 export { createStepContext } from './context/step-context';
 
 // Components
-export { Flow, FlowRoot } from './components/Flow';
+export { Flow } from './components/Flow';
 export type { FlowProps } from './components/Flow';
 export { FlowBody } from './components/FlowBody';
 export type { FlowBodyProps } from './components/FlowBody';
 export { FlowBack, FlowNext, FlowSkip } from './components/FlowNav';
-export type { FlowNavContext } from './components/FlowNav';
+export type { FlowNavContext, FlowNavProps } from './components/FlowNav';
 export { FlowProgress } from './components/FlowProgress';
 export type { FlowProgressProps } from './components/FlowProgress';
 export { useWorkflowContext, WorkflowProvider } from './components/WorkflowProvider';

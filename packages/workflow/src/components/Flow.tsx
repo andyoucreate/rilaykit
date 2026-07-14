@@ -47,6 +47,4 @@ export const Flow = Object.assign(FlowRoot, {
   Skip: FlowSkip,
 });
 
-export { FlowRoot };
-
 export default Flow;

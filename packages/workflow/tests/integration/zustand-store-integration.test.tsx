@@ -3,7 +3,7 @@ import { form } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBack, FlowBody, FlowNext } from '../../src';
+import { FlowBody } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
 import {
@@ -12,6 +12,7 @@ import {
   useWorkflowStore,
   useWorkflowTransitioning,
 } from '../../src/stores';
+import { NextButton, PrevButton } from '../_helpers/nav-buttons';
 
 // Mock components
 const TestComponent = ({ id, field }: ComponentRenderContext) => (
@@ -212,20 +213,8 @@ describe('Workflow Zustand Store Integration', () => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
           <FlowBody />
-          <FlowBack>
-            {({ go, canGo }) => (
-              <button type="button" onClick={go} data-testid="prev" disabled={!canGo}>
-                Previous
-              </button>
-            )}
-          </FlowBack>
-          <FlowNext>
-            {({ go, submitting }) => (
-              <button type="button" onClick={go} data-testid="next" disabled={submitting}>
-                {submitting ? 'Loading...' : 'Next'}
-              </button>
-            )}
-          </FlowNext>
+          <PrevButton />
+          <NextButton />
         </WorkflowProvider>
       );
 
@@ -266,20 +255,8 @@ describe('Workflow Zustand Store Integration', () => {
         <WorkflowProvider workflowConfig={workflowConfig}>
           <DataDisplay />
           <FlowBody />
-          <FlowNext>
-            {({ go, submitting }) => (
-              <button type="button" onClick={go} data-testid="next" disabled={submitting}>
-                {submitting ? 'Loading...' : 'Next'}
-              </button>
-            )}
-          </FlowNext>
-          <FlowBack>
-            {({ go, canGo }) => (
-              <button type="button" onClick={go} data-testid="prev" disabled={!canGo}>
-                Previous
-              </button>
-            )}
-          </FlowBack>
+          <NextButton />
+          <PrevButton />
         </WorkflowProvider>
       );
 
@@ -371,13 +348,7 @@ describe('Workflow Zustand Store Integration', () => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
           <TestChild />
-          <FlowNext>
-            {({ go, submitting }) => (
-              <button type="button" onClick={go} data-testid="next" disabled={submitting}>
-                {submitting ? 'Loading...' : 'Next'}
-              </button>
-            )}
-          </FlowNext>
+          <NextButton />
         </WorkflowProvider>
       );
 

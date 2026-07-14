@@ -3,9 +3,10 @@ import { form } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBody, FlowNext, WorkflowProvider, useWorkflowContext } from '../../src';
+import { FlowBody, WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { MockInput } from '../_helpers/mock-components';
+import { NextButton } from '../_helpers/nav-buttons';
 
 describe('Workflow - onAfterValidation Navigation Bug', () => {
   // Mock components
@@ -179,13 +180,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
       <WorkflowProvider workflowConfig={workflowConfig} defaultValues={defaultValues}>
         <NavigationDebugger />
         <FlowBody />
-        <FlowNext>
-          {({ go }) => (
-            <button type="button" onClick={go} data-testid="next-button">
-              Next
-            </button>
-          )}
-        </FlowNext>
+        <NextButton testId="next-button" />
       </WorkflowProvider>
     );
 
@@ -239,13 +234,7 @@ describe('Workflow - onAfterValidation Navigation Bug', () => {
       <WorkflowProvider workflowConfig={workflowConfig} defaultValues={defaultValues}>
         <NavigationDebugger />
         <FlowBody />
-        <FlowNext>
-          {({ go }) => (
-            <button type="button" onClick={go} data-testid="next-button">
-              Next
-            </button>
-          )}
-        </FlowNext>
+        <NextButton testId="next-button" />
       </WorkflowProvider>
     );
 

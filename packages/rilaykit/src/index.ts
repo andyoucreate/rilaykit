@@ -27,6 +27,7 @@ export {
   useWorkflowContext,
   WorkflowProvider,
   type FlowNavContext,
+  type FlowNavProps,
   type FlowProgressProps,
   type WorkflowContextValue,
 } from '@rilaykit/workflow';

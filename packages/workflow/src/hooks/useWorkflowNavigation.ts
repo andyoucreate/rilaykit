@@ -275,11 +275,12 @@ export function useWorkflowNavigation({
     return prevStepIndex !== null && canGoToStep(prevStepIndex);
   }, [workflowState.currentStepIndex, findPreviousVisibleStep, canGoToStep]);
 
-  // Check if current step can be skipped
+  // Check if current step can be skipped — single source of truth aligned
+  // with skipStep's gate: allowSkip (static or predicate) OR skippable condition
   const canSkipCurrentStep = useCallback((): boolean => {
     if (!currentStep) return false;
     return (
-      resolveAllowSkip(currentStep, workflowState.allData) &&
+      resolveAllowSkip(currentStep, workflowState.allData) ||
       conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
     );
   }, [currentStep, workflowState.allData, conditionsHelpers, workflowState.currentStepIndex]);

@@ -1,7 +1,6 @@
 import type { StepConfig } from '@rilaykit/core';
 import { useForm, useFormSubmitting } from '@rilaykit/forms';
 import React, { useCallback, useMemo } from 'react';
-import { resolveAllowSkip } from '../utils/resolveAllowSkip';
 import { useWorkflowContext } from './WorkflowProvider';
 
 export interface FlowNavContext {
@@ -20,19 +19,27 @@ export interface FlowNavProps {
 type Direction = 'next' | 'back' | 'skip';
 
 function useFlowNav(direction: Direction): FlowNavContext & { hidden: boolean } {
-  const { context, workflowState, currentStep, goPrevious, skipStep } = useWorkflowContext();
+  const {
+    context,
+    workflowState,
+    currentStep,
+    goPrevious,
+    skipStep,
+    canGoPrevious,
+    canSkipCurrentStep,
+  } = useWorkflowContext();
   const { submit } = useForm();
   const formSubmitting = useFormSubmitting();
 
   const submitting = formSubmitting || workflowState.isSubmitting;
   const busy = workflowState.isTransitioning || submitting;
-  const allowSkip = resolveAllowSkip(currentStep, context.allData);
+  const allowSkip = canSkipCurrentStep();
 
   const canGo = useMemo(() => {
-    if (direction === 'back') return !context.isFirstStep && !busy;
+    if (direction === 'back') return canGoPrevious() && !busy;
     if (direction === 'skip') return allowSkip && !busy;
     return !busy;
-  }, [direction, context.isFirstStep, allowSkip, busy]);
+  }, [direction, canGoPrevious, allowSkip, busy]);
 
   const go = useCallback(() => {
     if (!canGo) return;
