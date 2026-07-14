@@ -1,6 +1,7 @@
 import type {
   ConditionBuilder,
   ConditionConfig,
+  ConditionalBehavior,
   FormConfiguration,
   FormFieldConfig,
   RepeatableFieldConfig,
@@ -17,11 +18,28 @@ import {
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
 import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
-import type { UseFormConditionsReturn } from './useFormConditions';
+import { scopeConditions } from '../utils/scope-conditions';
 
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
   return { isValid: true, errors: [] };
+}
+
+/**
+ * Evaluate a single condition against form data, returning false on error.
+ */
+function evaluateConditionLive(
+  condition: ConditionConfig | ConditionBuilder,
+  formData: Record<string, unknown>
+): boolean {
+  try {
+    if (typeof condition === 'object' && condition && 'build' in condition) {
+      return evaluateCondition(condition.build(), formData);
+    }
+    return evaluateCondition(condition, formData);
+  } catch {
+    return false;
+  }
 }
 
 function evaluateTemplateVisibleCondition(
@@ -29,15 +47,7 @@ function evaluateTemplateVisibleCondition(
   formData: Record<string, unknown>
 ): boolean {
   if (!condition) return true;
-
-  try {
-    if (typeof condition === 'object' && 'build' in condition) {
-      return evaluateCondition(condition.build(), formData);
-    }
-    return evaluateCondition(condition, formData);
-  } catch {
-    return false;
-  }
+  return evaluateConditionLive(condition, formData);
 }
 
 function isRepeatableVisible(
@@ -52,21 +62,70 @@ function isRepeatableVisible(
 export interface UseFormValidationWithStoreProps {
   formConfig: FormConfiguration;
   store: FormStore;
-  conditionsHelpers: Omit<UseFormConditionsReturn, 'fieldConditions'>;
 }
 
 export function useFormValidationWithStore({
   formConfig,
   store,
-  conditionsHelpers,
 }: UseFormValidationWithStoreProps) {
   // Use refs for stable references to avoid recreating callbacks
   const formConfigRef = useRef(formConfig);
-  const conditionsHelpersRef = useRef(conditionsHelpers);
 
   // Update refs when props change
   formConfigRef.current = formConfig;
-  conditionsHelpersRef.current = conditionsHelpers;
+
+  // Resolve a field's conditional behavior (scoping repeatable template
+  // conditions to the concrete item). Used to evaluate conditions against LIVE
+  // store values at validation time — the render-derived conditions snapshot
+  // lags a tick behind and would evaluate against stale data.
+  const resolveConditionalBehavior = useCallback(
+    (fieldId: string): ConditionalBehavior | undefined => {
+      const staticField = formConfigRef.current.allFields.find((f) => f.id === fieldId);
+      if (staticField) return staticField.conditions;
+
+      const parsed = parseCompositeKey(fieldId);
+      if (parsed && formConfigRef.current.repeatableFields) {
+        const repeatableConfig = formConfigRef.current.repeatableFields[parsed.repeatableId];
+        const templateField = repeatableConfig?.allFields.find((f) => f.id === parsed.fieldId);
+        if (repeatableConfig && templateField?.conditions) {
+          const templateFieldIds = new Set(repeatableConfig.allFields.map((f) => f.id));
+          return scopeConditions(
+            templateField.conditions,
+            parsed.repeatableId,
+            parsed.itemKey,
+            templateFieldIds
+          );
+        }
+      }
+
+      return undefined;
+    },
+    []
+  );
+
+  const isFieldVisibleLive = useCallback(
+    (fieldId: string): boolean => {
+      const conditions = resolveConditionalBehavior(fieldId);
+      if (!conditions?.visible) return true;
+      return evaluateConditionLive(
+        conditions.visible,
+        store.getState().values as Record<string, unknown>
+      );
+    },
+    [resolveConditionalBehavior, store]
+  );
+
+  const isFieldRequiredLive = useCallback(
+    (fieldId: string): boolean => {
+      const conditions = resolveConditionalBehavior(fieldId);
+      if (!conditions?.required) return false;
+      return evaluateConditionLive(
+        conditions.required,
+        store.getState().values as Record<string, unknown>
+      );
+    },
+    [resolveConditionalBehavior, store]
+  );
 
   // Optimized field validation with stable dependencies
   const validateField = useCallback(
@@ -97,7 +156,7 @@ export function useFormValidationWithStore({
       }
 
       // Skip if field is invisible (clear errors)
-      if (!conditionsHelpersRef.current.isFieldVisible(fieldId)) {
+      if (!isFieldVisibleLive(fieldId)) {
         state._setErrors(fieldId, []);
         state._setValidationState(fieldId, 'valid');
         return createSuccessResult();
@@ -105,7 +164,7 @@ export function useFormValidationWithStore({
 
       // No base validation configured — still check conditional required
       if (!fieldConfig.validation || !hasUnifiedValidation(fieldConfig.validation)) {
-        const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(fieldId);
+        const isConditionallyRequired = isFieldRequiredLive(fieldId);
         const valueToCheck = value !== undefined ? value : state.values[fieldId];
 
         if (isConditionallyRequired && isEmptyValue(valueToCheck)) {
@@ -143,7 +202,7 @@ export function useFormValidationWithStore({
         );
 
         // Check if conditionally required
-        const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(fieldId);
+        const isConditionallyRequired = isFieldRequiredLive(fieldId);
 
         if (isConditionallyRequired && isEmptyValue(valueToValidate)) {
           const hasRequiredError = result.errors.some(
@@ -183,7 +242,7 @@ export function useFormValidationWithStore({
         return errorResult;
       }
     },
-    [store]
+    [store, isFieldVisibleLive, isFieldRequiredLive]
   );
 
   // Optimized form validation with stable dependencies
@@ -192,17 +251,17 @@ export function useFormValidationWithStore({
 
     // Get visible fields with validation or conditional required
     const fieldsToValidate = formConfigRef.current.allFields.filter((field) => {
-      const isVisible = conditionsHelpersRef.current.isFieldVisible(field.id);
+      const isVisible = isFieldVisibleLive(field.id);
       if (!isVisible) return false;
 
       const hasValidation = field.validation && hasUnifiedValidation(field.validation);
-      const isConditionallyRequired = conditionsHelpersRef.current.isFieldRequired(field.id);
+      const isConditionallyRequired = isFieldRequiredLive(field.id);
       return hasValidation || isConditionallyRequired;
     });
 
     // Clear errors for invisible fields
     const invisibleFields = formConfigRef.current.allFields.filter(
-      (field) => !conditionsHelpersRef.current.isFieldVisible(field.id)
+      (field) => !isFieldVisibleLive(field.id)
     );
     for (const field of invisibleFields) {
       state._setErrors(field.id, []);
@@ -228,7 +287,7 @@ export function useFormValidationWithStore({
           const compositeId = buildCompositeKey(repeatableId, itemKey, templateField.id);
 
           // Skip invisible fields
-          if (!conditionsHelpersRef.current.isFieldVisible(compositeId)) {
+          if (!isFieldVisibleLive(compositeId)) {
             state._setErrors(compositeId, []);
             state._setValidationState(compositeId, 'valid');
             continue;
@@ -269,7 +328,7 @@ export function useFormValidationWithStore({
     ) {
       const visibleFormData = Object.keys(state.values).reduce(
         (acc, fieldId) => {
-          if (conditionsHelpersRef.current.isFieldVisible(fieldId)) {
+          if (isFieldVisibleLive(fieldId)) {
             acc[fieldId] = state.values[fieldId];
           }
           return acc;
@@ -310,7 +369,7 @@ export function useFormValidationWithStore({
         ...formResult.errors,
       ],
     };
-  }, [store, validateField]);
+  }, [store, validateField, isFieldVisibleLive, isFieldRequiredLive]);
 
   return {
     validateField,

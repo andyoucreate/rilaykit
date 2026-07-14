@@ -244,7 +244,6 @@ export function FormProvider({
   const { validateField, validateForm } = useFormValidationWithStore({
     formConfig,
     store,
-    conditionsHelpers,
   });
 
   // Initialize submission with store
