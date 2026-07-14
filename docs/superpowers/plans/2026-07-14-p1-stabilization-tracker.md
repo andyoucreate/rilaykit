@@ -89,12 +89,12 @@
 ## Round 2 hunt inventory (iter 5) — 5 bugs + 5 gaps; NOT a clean round
 
 ### bugs (fix TDD this batch)
-- [ ] BUG/high: `isEmptyValue` treats Date/File/Map/Set as empty → `required()` fails on filled date/file fields — core/validation/utils.ts
-- [ ] BUG/high (fix-regression): stale `_defaultValues` after form-id change → `reset()` restores previous form's defaults + corrupts dirty flag — forms/stores/formStore.ts + FormProvider
-- [ ] BUG/med (race): async validation writes errors to a field that went invisible mid-flight → poisons global isValid (stuck-invalid) — useFormValidationWithStore.ts (needs post-await visibility recheck)
-- [ ] BUG/med (fix-regression): `pendingSkipRef` leaks when a skip transition fails → suppresses the NEXT real onStepComplete — useWorkflowNavigation.ts
-- [ ] BUG/low: `clonePlainData` no cycle guard → circular meta/defaultProps stack-overflows registration — core/config/ril.ts
-- [ ] GAP/high: StrictMode double-mount idempotency untested (analytics double-fire risk) — write test; fix source if it double-fires
+- [x] BUG/high: `isEmptyValue` treats Date/File/Map/Set as empty → `required()` fails on filled date/file fields — core/validation/utils.ts
+- [x] BUG/high (fix-regression): stale `_defaultValues` after form-id change → `reset()` restores previous form's defaults + corrupts dirty flag — forms/stores/formStore.ts + FormProvider
+- [x] BUG/med (race): async validation writes errors to a field that went invisible mid-flight → poisons global isValid (stuck-invalid) — useFormValidationWithStore.ts (needs post-await visibility recheck)
+- [x] BUG/med (fix-regression): `pendingSkipRef` leaks when a skip transition fails → suppresses the NEXT real onStepComplete — useWorkflowNavigation.ts
+- [x] BUG/low: `clonePlainData` no cycle guard → circular meta/defaultProps stack-overflows registration — core/config/ril.ts
+- [x] GAP/high: StrictMode double-mount idempotency untested (analytics double-fire risk) — write test; fix source if it double-fires
 
 ### gaps (next iteration — quality/coverage)
 - [ ] console.* ~20 sites outside monitoring adapters (DNA violation) + guard test
@@ -103,6 +103,7 @@
 - [ ] weak-assertion sweep (not.toThrow/toBeDefined where exact value exists, ~153 sites)
 
 ## Iteration log
+- (iter 5) ROUND 2 hunt: NOT clean — 5 bugs (2 fix-regressions from my own hardening) + 5 gaps. Fixed all 5 bugs TDD + StrictMode idempotency guard (passed clean, no double-fire). BUG 2 fix-regression mutation-checked. Full suite 1485 green. 26 total bugs fixed. Clean-round counter = 0. Next: deferred quality gaps (console.* cleanup, adapter coverage, weak-assertion sweep) THEN round 3 hunt (needs 2 consecutive clean rounds → P2).
 - (iter 1) tracker created; gap-hunt found 19 bugs + 5 gaps; CORE batch fixed (6 bugs, TDD, +16 tests → 1444 green).
 - (iter 4) E2E POWER DEMOS written (4 flagship tests, real stack, exact payloads). Found + fixed 2 MORE bugs: (a) FormProvider id-change reset rebuilt repeatables against the PREVIOUS step's configs → leaked composite key into next step payload; (b) useFormConditions passed fresh {} literals → churned conditionsHelpers → EVERY FormField re-rendered on every keystroke (perf contract broken for all forms). Full suite 1469 green, both fixes mutation-checked. 21 total bugs fixed. Next: ROUND 2 adversarial hunt (stop condition: 2 consecutive clean rounds → P2).
 - (iter 3) WORKFLOW batch fixed (7 bugs, TDD): stale step visibility (live eval), onStepComplete data slice, UTF-8-safe base64 compress, toJSON/fromJSON keys, skip no longer marks passed/completes, phantom resume analytics gated, auto-save termination pinned. Full suite 1462 green, mutation-checked. Next: e2e power demos (4).
