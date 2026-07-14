@@ -12,9 +12,11 @@ export interface StepContextValue {
  */
 export function useStep(): StepContextValue {
   const { currentStep, context } = useFlow();
+  // Defensive: an out-of-range index (e.g. from corrupt persisted state)
+  // leaves currentStep undefined. Return a safe shape instead of dereferencing.
   return {
     step: currentStep,
     index: context.currentStepIndex,
-    metadata: currentStep.metadata ?? {},
+    metadata: currentStep?.metadata ?? {},
   };
 }

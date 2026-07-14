@@ -468,8 +468,10 @@ export class flow {
    */
   use(plugin: WorkflowPlugin): this {
     this.validatePluginDependencies(plugin);
-    this.plugins.push(plugin);
 
+    // Install BEFORE registering: if install() throws, the plugin must not be
+    // left registered (which would corrupt dependency validation, build() and
+    // toJSON()). Only record the plugin once installation succeeds.
     try {
       plugin.install(this);
     } catch (error) {
@@ -478,6 +480,8 @@ export class flow {
         { plugin: plugin.name }
       );
     }
+
+    this.plugins.push(plugin);
 
     return this;
   }

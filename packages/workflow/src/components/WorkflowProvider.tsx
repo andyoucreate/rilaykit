@@ -303,14 +303,28 @@ export function WorkflowProvider({
               mergedAllData[stepId] = { ...base, ...edits };
             }
 
-            const persistedStepId = workflowConfig.steps[persistedData.currentStepIndex]?.id;
+            // Clamp a corrupt/out-of-range persisted index into a valid step
+            // range so we never restore into a non-existent step.
+            const lastIndex = Math.max(0, workflowConfig.steps.length - 1);
+            const rawIndex = persistedData.currentStepIndex;
+            const safeIndex =
+              Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex <= lastIndex
+                ? rawIndex
+                : Math.min(Math.max(0, Math.trunc(rawIndex) || 0), lastIndex);
+            if (safeIndex !== rawIndex) {
+              log.warn(
+                `Persisted currentStepIndex ${rawIndex} is out of range; clamping to ${safeIndex}.`
+              );
+            }
+
+            const persistedStepId = workflowConfig.steps[safeIndex]?.id;
             const mergedStepData = persistedStepId
               ? ((mergedAllData[persistedStepId] as Record<string, unknown> | undefined) ??
                 persistedData.stepData)
               : persistedData.stepData;
 
             store.getState()._loadPersistedState({
-              currentStepIndex: persistedData.currentStepIndex,
+              currentStepIndex: safeIndex,
               allData: mergedAllData,
               stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),
@@ -368,11 +382,16 @@ export function WorkflowProvider({
     ]
   );
 
-  // Get current step info
-  const currentStep = useMemo(
-    () => workflowConfig.steps[workflowState.currentStepIndex],
-    [workflowConfig.steps, workflowState.currentStepIndex]
-  );
+  // Get current step info. Clamp a corrupt/out-of-range live index into range
+  // so downstream consumers (FormProvider, useStep, ...) never see an undefined
+  // step. This is the render-time safety net complementing the persistence clamp.
+  const currentStep = useMemo(() => {
+    const steps = workflowConfig.steps;
+    if (steps.length === 0) return undefined as unknown as StepConfig;
+    const index = workflowState.currentStepIndex;
+    if (index >= 0 && index < steps.length) return steps[index];
+    return steps[Math.min(Math.max(0, index), steps.length - 1)];
+  }, [workflowConfig.steps, workflowState.currentStepIndex]);
 
   // Memoize formConfig
   const formConfig = useMemo(() => currentStep?.formConfig, [currentStep?.formConfig]);
