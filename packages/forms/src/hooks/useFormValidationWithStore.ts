@@ -74,6 +74,11 @@ export function useFormValidationWithStore({
   // Update refs when props change
   formConfigRef.current = formConfig;
 
+  // Per-field validation generation tokens. Each validateField run bumps the
+  // token; a run only writes results if it is still the latest for that field,
+  // so a slow earlier run cannot overwrite a fast later one (stale-overwrite race).
+  const validationSeqRef = useRef<Map<string, number>>(new Map());
+
   // Resolve a field's conditional behavior (scoping repeatable template
   // conditions to the concrete item). Used to evaluate conditions against LIVE
   // store values at validation time — the render-derived conditions snapshot
@@ -184,6 +189,11 @@ export function useFormValidationWithStore({
 
       const valueToValidate = value !== undefined ? value : state.values[fieldId];
 
+      // Claim a generation token for this run of the field.
+      const seq = (validationSeqRef.current.get(fieldId) ?? 0) + 1;
+      validationSeqRef.current.set(fieldId, seq);
+      const isStale = () => validationSeqRef.current.get(fieldId) !== seq;
+
       // Create validation context
       const context = createValidationContext({
         fieldId,
@@ -200,6 +210,10 @@ export function useFormValidationWithStore({
           valueToValidate,
           context
         );
+
+        // A newer run for this field started while we awaited — do not let this
+        // stale result overwrite the current one.
+        if (isStale()) return result;
 
         // Check if conditionally required
         const isConditionallyRequired = isFieldRequiredLive(fieldId);
@@ -237,6 +251,8 @@ export function useFormValidationWithStore({
             },
           ],
         };
+        // Superseded by a newer run — drop this stale error.
+        if (isStale()) return errorResult;
         state._setErrors(fieldId, errorResult.errors);
         state._setValidationState(fieldId, 'invalid');
         return errorResult;
