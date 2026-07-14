@@ -74,6 +74,39 @@ export class ConsoleAdapter implements ConsoleMonitoringAdapter {
 }
 
 /**
+ * Tracks the delivery outcome for a single send() call. `remaining` counts its
+ * not-yet-delivered events; `settled` guards against double resolve/reject.
+ */
+interface SendGroup {
+  remaining: number;
+  settled: boolean;
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+  readonly reject: (error: Error) => void;
+}
+
+/** A single queued event paired with the send() group that owns its outcome. */
+interface QueuedEvent {
+  readonly event: MonitoringEvent;
+  readonly owner: SendGroup;
+}
+
+/** Creates a manually-settled promise. */
+function deferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (error: Error) => void;
+} {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/**
  * Remote monitoring adapter
  * Sends events to a remote endpoint
  */
@@ -85,9 +118,9 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
   readonly batchSize: number;
   readonly retryAttempts: number;
 
-  private eventQueue: MonitoringEvent[] = [];
+  private eventQueue: QueuedEvent[] = [];
   private isProcessing = false;
-  private drainPromise: Promise<void> | null = null;
+  private processingPromise: Promise<void> | null = null;
 
   constructor(config: {
     endpoint: string;
@@ -107,46 +140,47 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
     this.retryAttempts = config.retryAttempts || 3;
   }
 
+  /**
+   * Queues the caller's events and returns a promise that settles according to
+   * the delivery outcome of THIS caller's events specifically.
+   *
+   * Each send() owns a deferred whose fate is decided per queued event: it
+   * resolves only once all of its events have been delivered, and rejects only
+   * if one of its events actually failed to send. Because the outcome is tracked
+   * per batch of network work, a caller whose events are delivered by a later
+   * (recovery) network batch fulfills even if an earlier batch — carrying a
+   * different caller's events — failed. No false-success, no false-failure, and
+   * no event is ever sent twice.
+   */
   async send(events: MonitoringEvent[]): Promise<void> {
-    this.eventQueue.push(...events);
-    await this.drain();
+    if (events.length === 0) return;
+
+    const owner: SendGroup = { remaining: events.length, settled: false, ...deferred() };
+    for (const event of events) {
+      this.eventQueue.push({ event, owner });
+    }
+
+    this.drain();
+    return owner.promise;
   }
 
   async flush(): Promise<void> {
-    await this.drain();
+    this.drain();
+    await this.processingPromise;
   }
 
   /**
-   * Awaits a real delivery attempt for whatever is currently queued.
-   *
-   * A caller arriving while a drain is already in flight must NOT get a
-   * false success: it awaits the shared in-flight drain, and if its events
-   * are still queued afterwards (the first drain took an earlier batch, or
-   * failed before reaching them) it re-enters a fresh drain so its own events
-   * are actually attempted. No event is silently stranded, and every caller's
-   * promise reflects the outcome of an attempt that covered its events.
+   * Ensures a single processing loop is running. New events pushed while the
+   * loop is active are picked up by the loop's own iteration, so at most one
+   * loop runs at a time and every queued event is attempted exactly once.
    */
-  private drain(): Promise<void> {
-    const inFlight = this.drainPromise;
-    if (inFlight) {
-      const reDrainIfPending = (): Promise<void> | void =>
-        this.eventQueue.length > 0 ? this.drain() : undefined;
-      return inFlight.then(reDrainIfPending, (error) => {
-        // The in-flight drain failed. Our events may not have been attempted
-        // yet — if they are still queued, run a fresh drain for them;
-        // otherwise surface the failure to this caller.
-        if (this.eventQueue.length > 0) {
-          return this.drain();
-        }
-        throw error;
-      });
-    }
-
-    const started = this.processQueue().finally(() => {
-      this.drainPromise = null;
+  private drain(): void {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    this.processingPromise = this.processQueue().finally(() => {
+      this.isProcessing = false;
+      this.processingPromise = null;
     });
-    this.drainPromise = started;
-    return started;
   }
 
   configure(config: Record<string, any>): void {
@@ -156,17 +190,39 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
   }
 
   private async processQueue(): Promise<void> {
-    if (this.isProcessing || this.eventQueue.length === 0) return;
-
-    this.isProcessing = true;
-
-    try {
-      while (this.eventQueue.length > 0) {
-        const batch = this.eventQueue.splice(0, this.batchSize);
-        await this.sendBatch(batch);
+    while (this.eventQueue.length > 0) {
+      const batch = this.eventQueue.splice(0, this.batchSize);
+      const events = batch.map((entry) => entry.event);
+      try {
+        await this.sendBatch(events);
+        this.settleBatch(batch, null);
+      } catch (error) {
+        this.settleBatch(batch, error as Error);
       }
-    } finally {
-      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Resolves/rejects the deferreds owning the events in a completed network
+   * batch. On success each owner's outstanding count decrements and the owner
+   * resolves once all of its events are delivered; on failure the owner rejects
+   * immediately (its events are not retried beyond sendBatch's own attempts).
+   */
+  private settleBatch(batch: QueuedEvent[], error: Error | null): void {
+    for (const { owner } of batch) {
+      if (owner.settled) continue;
+
+      if (error) {
+        owner.settled = true;
+        owner.reject(error);
+        continue;
+      }
+
+      owner.remaining -= 1;
+      if (owner.remaining <= 0) {
+        owner.settled = true;
+        owner.resolve();
+      }
     }
   }
 
