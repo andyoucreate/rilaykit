@@ -1,4 +1,4 @@
-import type { StepConditionalBehavior, StepConfig } from '@rilaykit/core';
+import type { StepAllowSkip, StepConditionalBehavior, StepConfig } from '@rilaykit/core';
 import type { Bindings, FormSchema } from '@rilaykit/forms';
 
 // =================================================================
@@ -6,7 +6,7 @@ import type { Bindings, FormSchema } from '@rilaykit/forms';
 // =================================================================
 
 /** Predicate deciding whether a step may be skipped, given the collected data. */
-export type AllowSkipPredicate = (ctx: { allData: Record<string, unknown> }) => boolean;
+export type AllowSkipPredicate = Exclude<StepAllowSkip, boolean>;
 
 /** Handler run after a step's validation succeeds. */
 export type AfterValidationHandler = NonNullable<StepConfig['onAfterValidation']>;
@@ -26,7 +26,7 @@ export interface FlowSchemaStep {
   readonly form: FormSchema;
   readonly conditions?: StepConditionalBehavior;
   /** Static boolean, or a `{ binding }` reference into `FlowBindings.allowSkip`. */
-  readonly allowSkip?: boolean | { readonly binding: string };
+  readonly allowSkip?: Extract<StepAllowSkip, boolean> | { readonly binding: string };
   readonly metadata?: Record<string, unknown>;
   /** Binding key into `FlowBindings.after`. */
   readonly onAfterValidation?: string;

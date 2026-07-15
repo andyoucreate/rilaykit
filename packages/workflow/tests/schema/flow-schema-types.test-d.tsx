@@ -1,4 +1,17 @@
-import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
+import type {
+  StepConditionalBehavior,
+  StepConfig,
+  StepDataHelper,
+  WorkflowContext,
+} from '@rilaykit/core';
+import type {
+  AfterValidationHandler,
+  AllowSkipPredicate,
+  CompileFlowOptions,
+  FlowBindings,
+  FlowSchema,
+  FlowSchemaStep,
+} from '@rilaykit/workflow';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('FlowSchema types', () => {
@@ -16,6 +29,15 @@ describe('FlowSchema types', () => {
           allowSkip: { binding: 'vipSkip' },
           onAfterValidation: 'lookupCompany',
         },
+        {
+          id: 'c',
+          title: 'C',
+          description: 'third',
+          form: { version: 1, id: 'c', fields: [] },
+          conditions: { visible: { field: 'x', operator: 'equals', value: 1 } },
+          metadata: { analyticsId: 'c' },
+          allowSkip: true,
+        },
       ],
     };
     expectTypeOf(schema.steps[0]!.form.id).toEqualTypeOf<string>();
@@ -26,9 +48,26 @@ describe('FlowSchema types', () => {
       string | undefined
     >();
 
+    // Step passthrough fields consumed by `compileFlow` keep their core contract.
+    expectTypeOf<FlowSchemaStep['conditions']>().toEqualTypeOf<
+      StepConditionalBehavior | undefined
+    >();
+    expectTypeOf<FlowSchemaStep['metadata']>().toEqualTypeOf<Record<string, unknown> | undefined>();
+    expectTypeOf<FlowSchemaStep['description']>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<FlowSchema['version']>().toEqualTypeOf<1 | undefined>();
+
+    // @ts-expect-error — version is the literal 1, not an arbitrary number
+    const badVersion: FlowSchema = { version: 2, id: 'wf', name: 'n', steps: [] };
+
     const bindings: FlowBindings = {
       allowSkip: { vipSkip: (ctx) => ctx.allData.vip === true },
-      after: { lookupCompany: async () => {} },
+      after: {
+        lookupCompany: async (stepData, helper, context) => {
+          void stepData;
+          void helper;
+          void context;
+        },
+      },
     };
 
     // FlowBindings extends the forms `Bindings`: a single object resolves both
@@ -54,9 +93,30 @@ describe('FlowSchema types', () => {
     const missingName: FlowSchema = { id: 'wf', steps: [] };
 
     void schema;
+    void badVersion;
     void bindings;
     void combined;
     void bad;
     void missingName;
+  });
+
+  it('exposes the full binding contracts through the package barrel', () => {
+    // `AllowSkipPredicate` stays the predicate arm of core's `StepAllowSkip`.
+    expectTypeOf<AllowSkipPredicate>().toEqualTypeOf<
+      (ctx: { allData: Record<string, unknown> }) => boolean
+    >();
+
+    // `AfterValidationHandler` stays core's step hook, parameters included.
+    expectTypeOf<AfterValidationHandler>().toEqualTypeOf<
+      NonNullable<StepConfig['onAfterValidation']>
+    >();
+    expectTypeOf<Parameters<AfterValidationHandler>>().toEqualTypeOf<
+      [Record<string, any>, StepDataHelper, WorkflowContext]
+    >();
+    expectTypeOf<ReturnType<AfterValidationHandler>>().toEqualTypeOf<void | Promise<void>>();
+
+    // `CompileFlowOptions` carries the bindings `compileFlow` resolves against.
+    expectTypeOf<CompileFlowOptions>().toEqualTypeOf<{ readonly bindings?: FlowBindings }>();
+    expectTypeOf<CompileFlowOptions['bindings']>().toEqualTypeOf<FlowBindings | undefined>();
   });
 });
