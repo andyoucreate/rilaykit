@@ -70,6 +70,12 @@ string-keyed lookup on a plain object indexed by untrusted schema input must use
 - [x] BUG/med (golden): step `title` never validated — a title-less backend step compiles into `StepConfig { title: undefined }` — validate-flow-schema.ts
 
 ## Iteration log
+- (r2) 12 bugs found (8 golden), ALL REAL (zero false positives). Fixed TDD in 6 batches. Full gate: 172 files / 1703 tests (+41), type-check 4/4, build 6/6. Suite verified deterministic: 12 consecutive clean runs incl. one under 4 CPU-saturating busy loops.
+  - The prototype class bit a THIRD time — inside its own fix: reusing clonePlainData re-broke r1's `__proto__` defaults fix (the clone did `cloned[key] = ...`); r1's own regression test caught it. clonePlainData now defines own properties.
+  - Batch A's sweep found MORE than reported: a 3rd crash site (useFormConditions.ts:86) AND the class extended past repeatable tables to plain FIELD ids — a field named `toString` resolved an inherited method and silently rendered HIDDEN (vanished from the form).
+  - Batch B's root cause was NOT the compiled path: WorkflowProvider hands FormProvider only the current step's values, so cross-step conditions collapse to hidden/not-required. HAND-BUILT flows shared the defect identically. Fixed once at the shared layer (new `conditionValues` prop). The negative cases had been passing VACUOUSLY (field always hidden) — only reverting the fix proved the red.
+  - Batch D caught a packaging trap: importing `@standard-schema/spec` directly into forms relied on hoisting and would break the published package; rewired through core's exported PropsValidationResult.
+  - Loose thread (investigated, not reproduced): one unnamed test failed once during a Batch F gate run. 12 consecutive clean runs since, including under CPU saturation. Treated as a transient environment hiccup, not a race.
 - (r2) 12 bugs found (8 golden), ALL REAL (zero false positives). Fixed TDD in 6 batches. Full gate
   green: 172 files / 1703 tests (+41), type-check 4/4, build 6/6.
   - Batch A (my r1 miss) swept properly. The reported 11 store sites + the hook were only part of it:
