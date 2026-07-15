@@ -1,3 +1,4 @@
+export { isFlowSchema, validateFlowSchema } from './validate-flow-schema';
 export type {
   AfterValidationHandler,
   AllowSkipPredicate,
