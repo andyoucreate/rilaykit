@@ -6,7 +6,7 @@
  * converting between different data formats.
  */
 
-import type { WorkflowState } from '../hooks/useWorkflowState';
+import type { WorkflowState } from '../hooks/workflow-state';
 import type { PersistedWorkflowData } from './types';
 
 /**

@@ -11,7 +11,7 @@
  * a simple API for common use cases.
  */
 
-import type { WorkflowState } from '../hooks/useWorkflowState';
+import type { WorkflowState } from '../hooks/workflow-state';
 
 /**
  * Persistent workflow data that gets saved/loaded

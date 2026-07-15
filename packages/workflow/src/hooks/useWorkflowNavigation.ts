@@ -13,7 +13,7 @@ import { structureStepSlice, structureWorkflowData } from '../utils/structureWor
 
 const log = getLogger('workflow:navigation');
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 export interface UseWorkflowNavigationProps {
   workflowConfig: WorkflowConfig;

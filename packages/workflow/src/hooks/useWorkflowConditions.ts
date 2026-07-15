@@ -9,7 +9,7 @@ import {
   useMultipleConditionEvaluation,
   useMultipleStepConditionEvaluation,
 } from './useConditionEvaluation';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 export interface UseWorkflowConditionsProps {
   workflowConfig: WorkflowConfig;

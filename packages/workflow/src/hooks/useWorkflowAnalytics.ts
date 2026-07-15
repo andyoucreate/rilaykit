@@ -6,7 +6,7 @@ import {
 } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 export interface UseWorkflowAnalyticsProps {
   workflowConfig: WorkflowConfig;

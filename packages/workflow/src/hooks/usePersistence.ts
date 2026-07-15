@@ -16,7 +16,7 @@ import type {
 } from '../persistence/types';
 import { WorkflowPersistenceError } from '../persistence/types';
 import { debounce, generateStorageKey, workflowStateToPersisted } from '../persistence/utils';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 const log = getLogger('workflow:persistence');
 

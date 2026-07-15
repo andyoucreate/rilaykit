@@ -2,7 +2,7 @@ import { getLogger } from '@rilaykit/core';
 import type { WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import { structureWorkflowData } from '../utils/structureWorkflowData';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 const log = getLogger('workflow:submission');
 
