@@ -754,13 +754,46 @@ export function WorkflowProvider({
     ]
   );
 
+  // Skipping the LAST visible step completes the workflow.
+  //
+  // Same contract as `handleSubmit`'s terminal-advance fall-through, and it
+  // belongs at the same altitude: `skipStep` is a navigation primitive in
+  // `useWorkflowNavigation`, which knows nothing about submission — it reports
+  // "no next visible step" by returning false and leaves the decision to the
+  // owner of `submitWorkflow`, exactly as `goNext` does. Without this, a flow
+  // whose final step is optional renders an ENABLED Skip button that does
+  // nothing: no navigation, no completion, no way to finish the flow.
+  //
+  // Wrapping here (rather than in the button) also keeps `useFlow().skipStep`
+  // honest for hosts driving navigation themselves — the dead-end was in the
+  // contract, not in the button.
+  //
+  // `canSkipCurrentStep()` is the guard that makes this a fall-through and not
+  // a back door: a false from `skipStep` on a step that FORBIDS skipping must
+  // stay a no-op rather than completing the workflow.
+  const handleSkip = useCallback(async (): Promise<boolean> => {
+    const skipped = await skipStep();
+    if (skipped) return true;
+
+    if (canSkipCurrentStep() && !canGoNext()) {
+      // A skip is still not a completion for analytics: `skipStep` already
+      // emitted `onStepSkip`, and it never marks the step passed nor lets
+      // `onStepComplete` fire (that one is bound to a step CHANGE, which a
+      // terminal skip does not perform).
+      await submitWorkflow();
+      return true;
+    }
+
+    return false;
+  }, [skipStep, canSkipCurrentStep, canGoNext, submitWorkflow]);
+
   // Memoize context value
   const navigationMethods = useMemo(
     () => ({
       goToStep,
       goNext,
       goPrevious,
-      skipStep,
+      skipStep: handleSkip,
       canGoToStep,
       canGoNext,
       canGoPrevious,
@@ -770,7 +803,7 @@ export function WorkflowProvider({
       goToStep,
       goNext,
       goPrevious,
-      skipStep,
+      handleSkip,
       canGoToStep,
       canGoNext,
       canGoPrevious,
