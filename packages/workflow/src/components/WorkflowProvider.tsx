@@ -909,22 +909,26 @@ export function WorkflowProvider({
     [workflowState?.allData, workflowState?.stepData]
   );
 
-  // A reset wipes THIS store, but the mounted form is a separate store the
-  // workflow cannot write into. FormProvider re-seeds itself only when the form
-  // it renders changes, and a reset changes no form (same step, same config) —
-  // so without this the inputs would keep showing the pre-reset values while
-  // this store believed it was empty, and the next submit would mix cleared
-  // workflow data with stale form values.
+  // A reset or a persistence restore replaces THIS store's data, but the
+  // mounted form is a separate store the workflow cannot write into.
+  // FormProvider re-seeds itself only when the form it renders changes, and
+  // neither replacement changes a form (same step, same config) — so without
+  // this the inputs would keep showing the old values while this store held the
+  // new ones, and the next submit would mix them.
   //
-  // Folding the reset generation into the key remounts the form, which re-seeds
-  // it from `formProviderDefaultValues` — the reset store's now-default data —
-  // by the very same path the initial mount uses. That is the point: a reset
-  // should leave the form exactly as a fresh mount would.
-  const resetCount = useStore(store, (state) => state._resetCount);
-  const formProviderKey = useMemo(
-    () => `${workflowState.isInitializing}:${resetCount}`,
-    [workflowState.isInitializing, resetCount]
-  );
+  // Folding the seed generation into the key remounts the form, which re-seeds
+  // it from `formProviderDefaultValues` — the store's new data — by the very
+  // same path the initial mount uses. That is the point: a new seed should
+  // leave the form exactly as a fresh mount would.
+  //
+  // The key deliberately does NOT carry `isInitializing`. This form is
+  // INTERACTIVE while the adapter's `load()` is in flight, so folding in a flag
+  // that flips when the load merely RESOLVES remounted the subtree under a user
+  // who was typing into it — wiping the validation error they were reading and
+  // ejecting their focus to the body — even when the load restored nothing at
+  // all. A restore that does deliver data bumps the generation itself.
+  const seedGeneration = useStore(store, (state) => state._seedGeneration);
+  const formProviderKey = useMemo(() => `seed:${seedGeneration}`, [seedGeneration]);
 
   return (
     <WorkflowStoreContext.Provider value={store}>

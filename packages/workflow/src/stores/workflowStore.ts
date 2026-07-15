@@ -58,20 +58,33 @@ export interface WorkflowStoreState {
    */
   _repeatableOrders: Record<string, Record<string, string[]>>;
   /**
-   * Bumped by every `_reset`. The mounted form is a SEPARATE store that this one
-   * cannot write into: it re-seeds itself when the form it renders is swapped,
-   * and a reset swaps no form (same step, same form id), so without a signal the
-   * inputs would keep showing the pre-reset values while this store believed it
-   * was empty — two stores silently diverging. WorkflowProvider folds this
-   * counter into the FormProvider's key, so a reset re-seeds the form exactly
-   * the way the initial mount does.
+   * Bumped every time this store's data is REPLACED wholesale underneath the
+   * mounted form — a `_reset`, or a `_loadPersistedState` restore.
    *
-   * A counter rather than a flag: consecutive resets must each be observable,
-   * and it lives in the STORE rather than in the provider because `_reset` has
-   * two entry points (`useFlow().resetWorkflow` and `useFlowActions().reset`)
-   * and both must propagate.
+   * The mounted form is a SEPARATE store that this one cannot write into: it
+   * re-seeds itself when the form it renders is swapped, and neither a reset nor
+   * a restore swaps a form (same step, same form id), so without a signal the
+   * inputs would keep showing the old values while this store held new ones —
+   * two stores silently diverging. WorkflowProvider folds this counter into the
+   * FormProvider's key, so a replacement re-seeds the form exactly the way the
+   * initial mount does.
+   *
+   * WHY A REPLACEMENT AND NOT "INITIALIZATION FINISHED": the key used to carry
+   * `isInitializing`, which flipped when the adapter's `load()` RESOLVED —
+   * whether or not it restored anything. The provider renders an interactive
+   * form during that window, so a slow adapter let the user type, then remounted
+   * the subtree under them: the validation error they were looking at vanished
+   * and their focus was ejected to the body mid-keystroke, for a load that had
+   * nothing to restore. A remount is the re-seed mechanism, so it is owed to a
+   * new seed and to nothing else.
+   *
+   * A counter rather than a flag: consecutive replacements must each be
+   * observable, and it lives in the STORE rather than in the provider because
+   * every entry point (`useFlow().resetWorkflow`, `useFlowActions().reset`,
+   * `useFlowActions().loadPersistedState`, the provider's own restore) must
+   * propagate.
    */
-  _resetCount: number;
+  _seedGeneration: number;
 
   // Actions (internal - prefixed with _)
   _setCurrentStep: (stepIndex: number, stepId?: string) => void;
@@ -218,7 +231,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       _defaultStepIndex: defaultStepIndex,
       _currentStepId: currentStepId,
       _repeatableOrders: {},
-      _resetCount: 0,
+      _seedGeneration: 0,
 
       // Actions
       _setCurrentStep: (stepIndex, stepId) => {
@@ -351,8 +364,8 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           isSubmitting: false,
           isTransitioning: false,
           isInitializing: false,
-          // Signal the reset to the mounted form, which is a separate store.
-          _resetCount: state._resetCount + 1,
+          // A new seed: signal it to the mounted form, a separate store.
+          _seedGeneration: state._seedGeneration + 1,
         });
       },
 
@@ -369,6 +382,11 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
               }
             : {}),
           isInitializing: false,
+          // A restore REPLACES the seed the mounted form was built from, so the
+          // form owes itself a re-seed. This is the only thing that earns a
+          // remount here: the load merely RESOLVING earns nothing, and used to
+          // cost the user their validation errors and their focus.
+          _seedGeneration: state._seedGeneration + 1,
         }));
       },
     }))
