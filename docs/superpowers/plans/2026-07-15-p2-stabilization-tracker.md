@@ -163,6 +163,79 @@ No memory required; the structure enforces it.
 
 Gate: 197 files / 1833 tests, 3× identical, type-check 4/4, build 6/6.
 
+> **CORRECTION (r8+): the claim above was premature and wrong.** The *flat-shape* invariant was closed. The
+> CLASS was not: it was one member of a family — *a thing keyed to a step's identity that does not know which
+> step it is* — and the family had **eleven more live members**. See below. The lesson is not "we missed some";
+> it is that **closing an invariant is not closing its class**, and only a runtime-derived enumeration that
+> fails on a member added tomorrow can tell the difference.
+
+## Round 8 — 2 bugs, `cleanOnGoldenPath: TRUE`, 0 vacuous tests (mutation hunt over 12-15 top tests)
+
+- [x] HIGH: `useFlowActions().setCurrentStep` dropped the stepId → the `stepData` mirror desynced permanently.
+      Fixed by DERIVING `_currentStepId` inside the store; the param and the `currentStepId` option removed —
+      no caller is asked to remember, so none can forget. Its new enumeration caught a SECOND door
+      (`loadPersistedState`) before any fix was written. Commit `9d7ce5c`.
+- [x] CRITICAL: the flat-shape invariant was FROZEN AT MOUNT (`createWorkflowStore` closed over `steps`).
+      Fixed with a `getSteps()` live accessor; the static array REMOVED so frozen-at-mount is unrepresentable.
+      Commit `4f28fe6`.
+
+## The step-identity class — 12 live members, closed one enumeration at a time (r8 extension)
+
+Round 8's fixer flagged `_repeatableOrders` as "the natural next enumeration — no exported door today, which is
+the only reason it hasn't bitten; the same 'true of the internal caller' reasoning that died four times." Since
+P3 adds public API, that flag was worth acting on. Each enumeration then found the next member. Every bug below
+is **real, verified by repro, and was live on `main`'s golden path** unless marked inert.
+
+| # | Member | Bite | Commit |
+|---|---|---|---|
+| 3 | `_repeatableOrders` | Two normalisers; the "blind" one was written for store CREATION (mirror empty by construction) and later routed two PUBLIC actions. Host re-read its own array **reversed**. | `4421586` |
+| 4 | `allData` orphan slices | `structureWorkflowData` seeded from all data but iterated only LIVE steps → a removed step's slice shipped **internal flat keys** to the host's backend. | `18ac832` |
+| 5 | `_defaultValues` | Normalised once at creation against a LIVE step set → `reset()` re-seeded a raw authored array for a now-live step, with a row `_removeFieldValues` could not reach. | `ab1d887` |
+| 6 | `allData` creation seed | A step born after mount, **zero actions**: field conditions evaluated against authored shape → wrong UI. Disclosed that `ab1d887` had introduced a live regression. | `c0ccae8` |
+| 7 | `stepData` publishing | `setAllData` never published the mirror → conditions read superseded values. `stepData` is spread LAST in the condition merge: it **actively overwrote** the fresh data it mirrors. | `2d5bb3f` |
+| 8 | `_currentStepId` owner | Re-derived only on index-moving writes, never when the step set moved UNDER a fixed index. A recompile → user rendered `intro`, mirror a view of `main`. | `ddf22a8` |
+| 9 | order-mirror claims | The reported bug **did not exist as diagnosed**; the real one was worse and needed no recompile. | `1c60a7a` |
+| 10 | form store identity | **Cross-step data leak**: two steps sharing a form id + shape are ONE form. Submit step B untouched → step A's secret copied into B's slice and shipped. Six members leaked, not one. | `cb482ac` |
+| 11 | `_reset`'s hand-list | Flagged "inert, out of scope" — **both were wrong**. Live via #12/5. Cure was ~30 lines, zero regressions. | `084c776` |
+| 12 | seam engines (5 carriers) | In-flight async validation, effect engine, in-flight submit, debounce timer, `_fieldConditions` — all crossed a step swap. #5 needs **no async at all**: xray's unconditional field inherits alpha's `visible:false` → **unfillable step**. | `084c776` |
+
+**What actually killed the class** (same as prototype-keys before it): not instance fixes — **runtime-derived
+enumerations that fail when a member is added tomorrow**. `stepIdentityMembers()` reads a real store's state at
+runtime; a planted fake `_stepNotes` made it fail. The seam's form-store diff does the same. `_reset` is now
+built from `createInitialFormData()`, so planting a member **fails compilation** (`TS2741`) until given a birth
+value — the only *unrepresentable* result of the series; the rest are honestly recorded as **proved-today**.
+
+**The differential that found 4 of the last 5**: *a store that MOUNTED with the step and a store that had it
+BORN must be indistinguishable.* It names no shapes, so anything computed at mount from the step set differs by
+that very fact.
+
+**Agents refuted me on 12 of 12 rounds, every time correctly.** They demolished a false product tradeoff I
+posed; proved a bug needed zero actions where I claimed two; disclosed that the *previous* round's fix had
+introduced a live regression; twice refused to claim unrepresentability when they had only reached proved-today;
+refuted the very bug I sent them and found a worse one behind it; refuted **both** candidate fixes I passed
+along (compile-time form-id uniqueness is a **breaking change dressed as a fix** — sharing a form id across
+steps is legitimate; a step-keyed `formProviderKey` remounts the host's entire subtree because `children` renders
+INSIDE `FormProvider`); and refuted my "inert, out of scope" call on #11. Two caught themselves nearly shipping
+**self-proving tests** (a repro that passes under mutation proves nothing). One discarded an `if (false)` mutation
+as dishonest: it made the code throw, so the test passed for the wrong reason.
+
+Gate: 203 files / 1956 tests, 3× identical, type-check 4/4, build 6/6.
+
+## Standing constraints carried into P3
+- **(b) STANDS**: anything owning a live step set and a store owes it `_reconcileStepSet`. `WorkflowProvider`
+  discharges it (`WorkflowProvider.tsx:259`); a directly-built store carries the same obligation. **If P3 mounts
+  parts against stores built outside the provider, that obligation travels with them.**
+- **(c) RETIRED**: shared form ids across steps are legitimate input. `compileFlow` may freely emit them; do
+  **not** add a form-id uniqueness check.
+- **(12th, carried as documented)**: *anything below `FormProvider` holding work that outlives a render must key
+  on `configSignature`* — no enforcement. Inert; the risk door is authoring new code under the provider, which
+  is exactly what P3's parts are.
+- **GATE ON HITL RESOLVE, not on P3**: every leak of the final round was **in-flight work crossing a swap**. HITL
+  resolve is in-flight work at the **workflow** altitude, where `instanceId`/`formInstanceKey` do not reach and
+  where the only sweep to date (`stepIdentityMembers()`) targeted *state*, never *in-flight work*. P3 makes swaps
+  routine rather than rare. **Sweep the workflow store for in-flight work before HITL resolve lands.** The
+  technique transfers directly: mounted-vs-navigated + a derived member diff.
+
 ## Campaign trajectory (honest)
 P1: 50 bugs / 8 rounds. P2: 46 bugs / 4 rounds (10, 12, 13, 11). ~96 total. NOT converging by bug-count.
 What IS converging: the CLASSES. prototype-keys (closed via an exhaustive lifecycle test after 7 escapes);
