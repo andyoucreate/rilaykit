@@ -108,7 +108,12 @@ describe('FlowSchema types', () => {
     expectTypeOf<Parameters<AfterValidationHandler>>().toEqualTypeOf<[StepContext]>();
     expectTypeOf<ReturnType<AfterValidationHandler>>().toEqualTypeOf<void | Promise<void>>();
 
-    // `CompileFlowOptions` carries the bindings `compileFlow` resolves against.
-    expectTypeOf<CompileFlowOptions>().toEqualTypeOf<{ readonly bindings?: FlowBindings }>();
+    // `CompileFlowOptions` carries the bindings `compileFlow` resolves against,
+    // and `validateProps` — the mirror of `CompileFormOptions.validateProps`,
+    // without which a flow's props violations were unreportable.
+    expectTypeOf<CompileFlowOptions>().toEqualTypeOf<{
+      readonly bindings?: FlowBindings;
+      readonly validateProps?: boolean;
+    }>();
   });
 });
