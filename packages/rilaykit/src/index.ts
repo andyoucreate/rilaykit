@@ -31,6 +31,19 @@ export {
   type WorkflowContextValue,
 } from '@rilaykit/workflow';
 
+// Schema layer (JSON flow definitions)
+export {
+  compileFlow,
+  isFlowSchema,
+  validateFlowSchema,
+  type AfterValidationHandler,
+  type AllowSkipPredicate,
+  type CompileFlowOptions,
+  type FlowBindings,
+  type FlowSchema,
+  type FlowSchemaStep,
+} from '@rilaykit/workflow';
+
 // Hooks (except useConditionEvaluation — already exported by forms)
 export {
   useFlowSteps,

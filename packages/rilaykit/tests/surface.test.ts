@@ -12,6 +12,14 @@ describe('rilaykit all-in-one surface', () => {
     expect(typeof kit.usePersistence).toBe('function');
   });
 
+  it('re-exports the full schema surface (compileForm + compileFlow + guards)', () => {
+    expect(typeof kit.compileForm).toBe('function');
+    expect(typeof kit.compileFlow).toBe('function');
+    expect(typeof kit.isFormSchema).toBe('function');
+    expect(typeof kit.isFlowSchema).toBe('function');
+    expect(typeof kit.validateFlowSchema).toBe('function');
+  });
+
   it('no longer exposes the removed legacy workflow exports', () => {
     expect('WorkflowProvider' in kit).toBe(false);
     expect('createStepContext' in kit).toBe(false);
