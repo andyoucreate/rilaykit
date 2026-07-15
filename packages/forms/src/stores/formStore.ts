@@ -6,7 +6,7 @@ import type {
   RepeatableFieldConfig,
   ValidationState,
 } from '@rilaykit/core';
-import { ConfigurationError } from '@rilaykit/core';
+import { ConfigurationError, getOwn } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -198,7 +198,7 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         set((state) => ({
           _fieldProps: {
             ...state._fieldProps,
-            [fieldId]: { ...(state._fieldProps[fieldId] ?? {}), ...props },
+            [fieldId]: { ...(getOwn(state._fieldProps, fieldId) ?? {}), ...props },
           },
         }));
       },
@@ -221,13 +221,13 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
 
       _appendRepeatableItem: (repeatableId, defaultValue) => {
         const state = get();
-        const config = state._repeatableConfigs[repeatableId];
+        const config = getOwn(state._repeatableConfigs, repeatableId);
         if (!config) return null;
 
-        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        const currentOrder = getOwn(state._repeatableOrder, repeatableId) ?? [];
         if (config.max !== undefined && currentOrder.length >= config.max) return null;
 
-        const nextKeyNum = state._repeatableNextKey[repeatableId] ?? 0;
+        const nextKeyNum = getOwn(state._repeatableNextKey, repeatableId) ?? 0;
         const itemKey = `k${nextKeyNum}`;
         const itemDefaults = defaultValue ?? config.defaultValue ?? {};
 
@@ -256,10 +256,10 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
 
       _removeRepeatableItem: (repeatableId, key) => {
         const state = get();
-        const config = state._repeatableConfigs[repeatableId];
+        const config = getOwn(state._repeatableConfigs, repeatableId);
         if (!config) return false;
 
-        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        const currentOrder = getOwn(state._repeatableOrder, repeatableId) ?? [];
         if (config.min !== undefined && currentOrder.length <= config.min) return false;
         if (!currentOrder.includes(key)) return false;
 
@@ -301,7 +301,7 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
 
       _moveRepeatableItem: (repeatableId, fromIndex, toIndex) => {
         const state = get();
-        const currentOrder = state._repeatableOrder[repeatableId];
+        const currentOrder = getOwn(state._repeatableOrder, repeatableId);
         if (!currentOrder) return;
         if (fromIndex < 0 || fromIndex >= currentOrder.length) return;
         if (toIndex < 0 || toIndex >= currentOrder.length) return;
@@ -322,13 +322,13 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
 
       _insertRepeatableItem: (repeatableId, index, defaultValue) => {
         const state = get();
-        const config = state._repeatableConfigs[repeatableId];
+        const config = getOwn(state._repeatableConfigs, repeatableId);
         if (!config) return null;
 
-        const currentOrder = state._repeatableOrder[repeatableId] ?? [];
+        const currentOrder = getOwn(state._repeatableOrder, repeatableId) ?? [];
         if (config.max !== undefined && currentOrder.length >= config.max) return null;
 
-        const nextKeyNum = state._repeatableNextKey[repeatableId] ?? 0;
+        const nextKeyNum = getOwn(state._repeatableNextKey, repeatableId) ?? 0;
         const itemKey = `k${nextKeyNum}`;
         const itemDefaults = defaultValue ?? config.defaultValue ?? {};
 
@@ -393,7 +393,7 @@ const EMPTY_FIELD_ERRORS: FieldError[] = [];
  */
 export function useFieldValue<T = unknown>(fieldId: string): T {
   const store = useFormStore();
-  return useStore(store, (state) => state.values[fieldId] as T);
+  return useStore(store, (state) => getOwn(state.values, fieldId) as T);
 }
 
 /**
@@ -401,7 +401,7 @@ export function useFieldValue<T = unknown>(fieldId: string): T {
  */
 export function useFieldErrors(fieldId: string): FieldError[] {
   const store = useFormStore();
-  return useStore(store, (state) => state.errors[fieldId] ?? EMPTY_FIELD_ERRORS);
+  return useStore(store, (state) => getOwn(state.errors, fieldId) ?? EMPTY_FIELD_ERRORS);
 }
 
 /**
@@ -409,7 +409,7 @@ export function useFieldErrors(fieldId: string): FieldError[] {
  */
 export function useFieldTouched(fieldId: string): boolean {
   const store = useFormStore();
-  return useStore(store, (state) => state.touched[fieldId] ?? false);
+  return useStore(store, (state) => getOwn(state.touched, fieldId) ?? false);
 }
 
 /**
@@ -417,7 +417,7 @@ export function useFieldTouched(fieldId: string): boolean {
  */
 export function useFieldValidationState(fieldId: string): ValidationState {
   const store = useFormStore();
-  return useStore(store, (state) => state.validationStates[fieldId] ?? 'idle');
+  return useStore(store, (state) => getOwn(state.validationStates, fieldId) ?? 'idle');
 }
 
 /**
@@ -435,7 +435,7 @@ const DEFAULT_FIELD_CONDITIONS: FieldConditions = {
  */
 export function useFieldConditions(fieldId: string): FieldConditions {
   const store = useFormStore();
-  return useStore(store, (state) => state._fieldConditions[fieldId] ?? DEFAULT_FIELD_CONDITIONS);
+  return useStore(store, (state) => getOwn(state._fieldConditions, fieldId) ?? DEFAULT_FIELD_CONDITIONS);
 }
 
 /**
@@ -448,7 +448,7 @@ const EMPTY_FIELD_PROPS: Record<string, unknown> = {};
  */
 export function useFieldProps(fieldId: string): Record<string, unknown> {
   const store = useFormStore();
-  return useStore(store, (state) => state._fieldProps[fieldId] ?? EMPTY_FIELD_PROPS);
+  return useStore(store, (state) => getOwn(state._fieldProps, fieldId) ?? EMPTY_FIELD_PROPS);
 }
 
 /**
@@ -458,13 +458,13 @@ export function useFieldState(fieldId: string): FieldState {
   const store = useFormStore();
 
   // Use individual selectors to avoid creating new objects
-  const value = useStore(store, (state) => state.values[fieldId]);
-  const errors = useStore(store, (state) => state.errors[fieldId] ?? EMPTY_FIELD_ERRORS);
+  const value = useStore(store, (state) => getOwn(state.values, fieldId));
+  const errors = useStore(store, (state) => getOwn(state.errors, fieldId) ?? EMPTY_FIELD_ERRORS);
   const validationState = useStore(
     store,
-    (state) => (state.validationStates[fieldId] ?? 'idle') as ValidationState
+    (state) => (getOwn(state.validationStates, fieldId) ?? 'idle') as ValidationState
   );
-  const touched = useStore(store, (state) => state.touched[fieldId] ?? false);
+  const touched = useStore(store, (state) => getOwn(state.touched, fieldId) ?? false);
   const defaultValue = useStore(store, (state) => state._defaultValues[fieldId]);
 
   return {
@@ -537,7 +537,7 @@ const EMPTY_KEYS: string[] = [];
  */
 export function useRepeatableKeys(repeatableId: string): string[] {
   const store = useFormStore();
-  return useStore(store, (state) => state._repeatableOrder[repeatableId] ?? EMPTY_KEYS);
+  return useStore(store, (state) => getOwn(state._repeatableOrder, repeatableId) ?? EMPTY_KEYS);
 }
 
 // =================================================================

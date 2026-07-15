@@ -4,6 +4,7 @@ import type {
   RepeatableFieldConfig,
   RepeatableFieldItem,
 } from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { useForm } from '../components/FormProvider';
 import { useFormStore, useRepeatableKeys } from '../stores';
@@ -64,7 +65,7 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
   const orderedKeys = useRepeatableKeys(repeatableId);
 
   // Get the repeatable config from the form config
-  const repeatableConfig = formConfig.repeatableFields?.[repeatableId];
+  const repeatableConfig = getOwn(formConfig.repeatableFields, repeatableId);
 
   // Build set of template field IDs (for condition scoping)
   const templateFieldIds = useMemo(() => {

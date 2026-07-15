@@ -1,4 +1,5 @@
 import type { ConditionalBehavior, FormConfiguration } from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { buildCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
@@ -77,7 +78,7 @@ export function useFormConditions({
     // Repeatable item fields — scope conditions to each active item
     if (repeatableOrder && formConfig.repeatableFields) {
       for (const [repeatableId, config] of Object.entries(formConfig.repeatableFields)) {
-        const keys = repeatableOrder[repeatableId] ?? [];
+        const keys = getOwn(repeatableOrder, repeatableId) ?? [];
         if (keys.length === 0) continue;
 
         // Build template field IDs set once per repeatable
@@ -116,7 +117,7 @@ export function useFormConditions({
   // Helper function to get condition result for a specific field
   const getFieldCondition = useCallback(
     (fieldId: string): ConditionEvaluationResult | undefined => {
-      return fieldConditions[fieldId];
+      return getOwn(fieldConditions, fieldId);
     },
     [fieldConditions]
   );
@@ -124,7 +125,7 @@ export function useFormConditions({
   // Helper function to check if field is visible
   const isFieldVisible = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.visible : true;
     },
     [fieldConditions]
@@ -133,7 +134,7 @@ export function useFormConditions({
   // Helper function to check if field is disabled
   const isFieldDisabled = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.disabled : false;
     },
     [fieldConditions]
@@ -142,7 +143,7 @@ export function useFormConditions({
   // Helper function to check if field is required
   const isFieldRequired = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.required : false;
     },
     [fieldConditions]
@@ -151,7 +152,7 @@ export function useFormConditions({
   // Helper function to check if field is readonly
   const isFieldReadonly = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.readonly : false;
     },
     [fieldConditions]

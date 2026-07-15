@@ -1,5 +1,5 @@
 import type { ComponentEntry, ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
-import { NotFoundError, catalogEntryKey } from '@rilaykit/core';
+import { NotFoundError, catalogEntryKey, getOwn } from '@rilaykit/core';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   useFieldActions,
@@ -50,7 +50,7 @@ export const FormField = React.memo(function FormField({
     // Try composite key lookup for repeatable fields
     const parsed = parseCompositeKey(fieldId);
     if (parsed && formConfig.repeatableFields) {
-      const repeatableConfig = formConfig.repeatableFields[parsed.repeatableId];
+      const repeatableConfig = getOwn(formConfig.repeatableFields, parsed.repeatableId);
       if (repeatableConfig) {
         const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
         if (templateField) {

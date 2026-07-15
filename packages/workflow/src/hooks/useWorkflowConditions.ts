@@ -1,4 +1,5 @@
 import type { ConditionalBehavior, StepConfig, WorkflowConfig } from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import { resolveAllowSkip } from '../utils/resolveAllowSkip';
@@ -185,7 +186,7 @@ export function useWorkflowConditions({
   // Helper functions for field-level conditions (use full field condition system)
   const isFieldVisible = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition?.visible ?? true;
     },
     [fieldConditions]
@@ -193,7 +194,7 @@ export function useWorkflowConditions({
 
   const isFieldDisabled = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition?.disabled ?? false;
     },
     [fieldConditions]
@@ -201,7 +202,7 @@ export function useWorkflowConditions({
 
   const isFieldRequired = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition?.required ?? false;
     },
     [fieldConditions]
@@ -209,7 +210,7 @@ export function useWorkflowConditions({
 
   const isFieldReadonly = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition?.readonly ?? false;
     },
     [fieldConditions]

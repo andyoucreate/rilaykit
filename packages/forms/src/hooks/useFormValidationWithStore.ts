@@ -10,6 +10,7 @@ import type {
 import {
   createValidationContext,
   evaluateCondition,
+  getOwn,
   hasUnifiedValidation,
   isEmptyValue,
   validateFormWithUnifiedConfig,
@@ -91,7 +92,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
 
       const parsed = parseCompositeKey(fieldId);
       if (parsed && formConfigRef.current.repeatableFields) {
-        const repeatableConfig = formConfigRef.current.repeatableFields[parsed.repeatableId];
+        const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
         const templateField = repeatableConfig?.allFields.find((f) => f.id === parsed.fieldId);
         if (repeatableConfig && templateField?.conditions) {
           const templateFieldIds = new Set(repeatableConfig.allFields.map((f) => f.id));
@@ -144,7 +145,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
       if (!fieldConfig) {
         const parsed = parseCompositeKey(fieldId);
         if (parsed && formConfigRef.current.repeatableFields) {
-          const repeatableConfig = formConfigRef.current.repeatableFields[parsed.repeatableId];
+          const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
           if (repeatableConfig) {
             const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
             if (templateField) {
@@ -171,7 +172,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
       // No base validation configured — still check conditional required
       if (!fieldConfig.validation || !hasUnifiedValidation(fieldConfig.validation)) {
         const isConditionallyRequired = isFieldRequiredLive(fieldId);
-        const valueToCheck = value !== undefined ? value : state.values[fieldId];
+        const valueToCheck = value !== undefined ? value : getOwn(state.values, fieldId);
 
         if (isConditionallyRequired && isEmptyValue(valueToCheck)) {
           const result = {
@@ -188,7 +189,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
         return createSuccessResult();
       }
 
-      const valueToValidate = value !== undefined ? value : state.values[fieldId];
+      const valueToValidate = value !== undefined ? value : getOwn(state.values, fieldId);
 
       // Claim a generation token for this run of the field.
       const seq = (validationSeqRef.current.get(fieldId) ?? 0) + 1;
@@ -311,7 +312,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
       if (!isFieldVisibleLive(field.id)) continue;
       const hasValidation = field.validation && hasUnifiedValidation(field.validation);
       if (hasValidation || isFieldRequiredLive(field.id)) continue;
-      if (holdsOnlyConditionalRequiredError(state.errors[field.id])) {
+      if (holdsOnlyConditionalRequiredError(getOwn(state.errors, field.id))) {
         state._setErrors(field.id, []);
         state._setValidationState(field.id, 'valid');
       }
@@ -328,7 +329,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
     const repeatableResults: ValidationResult[] = [];
 
     for (const [repeatableId, config] of Object.entries(repeatableConfigs)) {
-      const order = state._repeatableOrder[repeatableId] ?? [];
+      const order = getOwn(state._repeatableOrder, repeatableId) ?? [];
 
       // Validate each item's fields
       for (const itemKey of order) {
@@ -378,7 +379,7 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
       const visibleFormData = Object.keys(state.values).reduce(
         (acc, fieldId) => {
           if (isFieldVisibleLive(fieldId)) {
-            acc[fieldId] = state.values[fieldId];
+            acc[fieldId] = getOwn(state.values, fieldId);
           }
           return acc;
         },
