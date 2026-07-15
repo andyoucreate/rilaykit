@@ -133,6 +133,36 @@ loses a corrected input.
 
 Gate: 196 files / 1825 tests, 3× identical, type-check 4/4, build 6/6.
 
+## Round 7 — 3 bugs (2 golden). THE COUNT COLLAPSED: 10, 12, 13, 11, 7, 11, 3.
+
+- [x] CRITICAL: the shape class re-entered a FOURTH time — through the ONE action r6 explicitly EXEMPTED.
+      `_setFieldValue` skipped normalisation with a comment justifying it ("flat by nature: the form reports
+      composite key ids") — TRUE of the form's calls, FALSE of the public `useFlowActions().setFieldValue`
+      (re-exported by the all-in-one, documented in the skill). A host prefilling the natural way planted an
+      authored array: the form rendered ZERO rows (user could not see or delete them) and the ghost rows were
+      SUBMITTED. **Four re-entries, every one through an exemption someone reasoned their way into. An invariant
+      with an exception is not an invariant.** Fixed; the exemption comment deleted.
+- [x] MEDIUM: an async persistence load remounted the step form, wiping the visible validation error and ejecting
+      keyboard focus (values survived). The fixer REJECTED my proposed option as "a symptom rule" and reframed:
+      the key asked the wrong question — `isInitializing` means "the load resolved", but a remount is owed only to
+      a NEW SEED. `_resetCount` → `_seedGeneration`, bumped by the two things that actually replace data.
+- [x] MEDIUM: WorkflowContext.allData/.stepData published RAW flat keys to onStepChange, onAfterValidation's 3rd
+      param and every analytics callback — so one invocation handed the host `data.lines=[{...}]` beside
+      `context.allData.items={'lines[k0].label':...}`. The fixer REFUTED the report's "serves two masters"
+      premise by grepping every consumer: nothing internal reads them, so the collision justifying "leave it flat"
+      did not exist. Structured.
+- Refuted honestly: `_removeFieldValues` was NOT a sixth door — the test went unexpectedly GREEN, so the fixer
+  DELETED the tautology rather than keep a test that proves nothing. Four `isLikelyRealBug:false` observations
+  reported, source untouched.
+
+**THE CLASS IS NOW STRUCTURALLY CLOSED.** `store-enforces-flat-shape.test.tsx` enumerates ALL 11 actions of
+`useFlowActions()`, classifies each, and asserts `Object.keys(actions)` equals the classified set — so an action
+added tomorrow without normalisation fails on the ENUMERATION, and one that writes a slice unnormalised fails on
+the shape. Mutation-verified independently: reopening the fifth door fails 2 tests including the enumeration.
+No memory required; the structure enforces it.
+
+Gate: 197 files / 1833 tests, 3× identical, type-check 4/4, build 6/6.
+
 ## Campaign trajectory (honest)
 P1: 50 bugs / 8 rounds. P2: 46 bugs / 4 rounds (10, 12, 13, 11). ~96 total. NOT converging by bug-count.
 What IS converging: the CLASSES. prototype-keys (closed via an exhaustive lifecycle test after 7 escapes);
