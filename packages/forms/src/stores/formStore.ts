@@ -68,27 +68,59 @@ export interface FormStoreState extends FormState {
 
 export type FormStore = ReturnType<typeof createFormStore>;
 
+/** The data members of a form store — everything that is state rather than behaviour. */
+export type FormStoreData = Omit<
+  FormStoreState,
+  {
+    [K in keyof FormStoreState]: FormStoreState[K] extends (...args: never[]) => unknown
+      ? K
+      : never;
+  }[keyof FormStoreState]
+>;
+
+/**
+ * Every DATA member of a form store at its birth value: the single definition of
+ * "a form nobody has touched yet".
+ *
+ * `_reset` is BUILT FROM THIS, rather than from a hand-written list of members to
+ * clear, and the inversion is the whole point: RESET IS THE DEFAULT, PRESERVE IS
+ * OPT-IN. A member added to `FormStoreState` tomorrow has to be added here for
+ * the store to typecheck at all, and it is then reset for free.
+ *
+ * Under the hand-list this replaces, the incentive ran exactly backwards: a new
+ * member was PRESERVED for free — it silently survived every `reset()` and every
+ * form swap, and nothing in the type system objected. That was not hypothetical.
+ * `_fieldConditions` was missing from the list, so on a workflow step transition
+ * a field that declared NO conditions inherited the previous step's stored
+ * `visible: false` and rendered nothing at all: an unfillable step, from two
+ * ordinary steps that happened to share a field id.
+ */
+function createInitialFormData(initialValues: Record<string, unknown> = {}): FormStoreData {
+  return {
+    values: { ...initialValues },
+    errors: {},
+    validationStates: {},
+    touched: {},
+    isDirty: false,
+    isSubmitting: false,
+    isValid: true,
+
+    // Internal state
+    _defaultValues: { ...initialValues },
+    _fieldConditions: {},
+    _fieldProps: {},
+
+    // Repeatable state
+    _repeatableConfigs: {},
+    _repeatableOrder: {},
+    _repeatableNextKey: {},
+  };
+}
+
 export function createFormStore(initialValues: Record<string, unknown> = {}) {
   return createStore<FormStoreState>()(
     subscribeWithSelector((set, get) => ({
-      // Initial state
-      values: { ...initialValues },
-      errors: {},
-      validationStates: {},
-      touched: {},
-      isDirty: false,
-      isSubmitting: false,
-      isValid: true,
-
-      // Internal state
-      _defaultValues: { ...initialValues },
-      _fieldConditions: {},
-      _fieldProps: {},
-
-      // Repeatable state
-      _repeatableConfigs: {},
-      _repeatableOrder: {},
-      _repeatableNextKey: {},
+      ...createInitialFormData(initialValues),
 
       // Actions
       _setValue: (fieldId, value) => {
@@ -170,14 +202,20 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         } = initializeRepeatableState(resetValues, state._repeatableConfigs, repeatableOrder);
 
         set({
+          // Reset is the DEFAULT: start from a form nobody has touched.
+          ...createInitialFormData(),
+
+          // Then carry over ONLY what a reset must not destroy — each named with
+          // its reason. These are the mounted form's IDENTITY, installed by the
+          // mounting layer, never authored by the user: `_defaultValues` is the
+          // baseline a no-arg `reset()` restores to and that `isDirty` compares
+          // against, and `_repeatableConfigs` is the shape this form was mounted
+          // with (which `initializeRepeatableState` above has just read).
+          _defaultValues: state._defaultValues,
+          _repeatableConfigs: state._repeatableConfigs,
+
+          // ...plus what this reset just computed.
           values: { ...rebuiltValues },
-          errors: {},
-          validationStates: {},
-          touched: {},
-          isDirty: false,
-          isSubmitting: false,
-          isValid: true,
-          _fieldProps: {},
           _repeatableOrder: order,
           _repeatableNextKey: nextKeys,
         });

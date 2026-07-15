@@ -67,9 +67,24 @@ function isRepeatableVisible(
 export interface UseFormValidationWithStoreProps {
   formConfig: FormConfiguration;
   store: FormStore;
+  /**
+   * Identity of the form currently mounted — `FormProvider`'s `configSignature`,
+   * which leads with WHO the form is mounted for (`instanceId`) and then what it
+   * can hold. A change to it is a form swap, and every validation run still in
+   * flight is thereby invalidated: its verdict was computed for a field of a
+   * form that is no longer mounted, from a value that no longer exists anywhere.
+   *
+   * Optional so the hook stays usable on its own; a caller that omits it gets a
+   * form whose identity never changes, which is exactly the standalone case.
+   */
+  instanceKey?: string;
 }
 
-export function useFormValidationWithStore({ formConfig, store }: UseFormValidationWithStoreProps) {
+export function useFormValidationWithStore({
+  formConfig,
+  store,
+  instanceKey,
+}: UseFormValidationWithStoreProps) {
   // Use refs for stable references to avoid recreating callbacks
   const formConfigRef = useRef(formConfig);
 
@@ -80,6 +95,27 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
   // token; a run only writes results if it is still the latest for that field,
   // so a slow earlier run cannot overwrite a fast later one (stale-overwrite race).
   const validationSeqRef = useRef<Map<string, number>>(new Map());
+
+  // Generation of the MOUNTED FORM, bumped on every swap. The per-field tokens
+  // above cannot stand in for this: they only order runs of one field against
+  // each other, and a run that nothing supersedes is never stale by that measure
+  // — so an async run started on the previous step, with no successor on the new
+  // one, sailed straight through and wrote the previous step's verdict onto the
+  // new step's field of the same id. Field ids are not unique across a flow and
+  // were never meant to be (workflow data is keyed by STEP id), so two ordinary
+  // steps both naming a field `note` was all it took; the new step need not even
+  // declare validation on it.
+  //
+  // Clearing the token map instead would be both insufficient and wrong: after a
+  // swap the new step's first run for that field claims token 1 again, which the
+  // stale run then MATCHES, and it would overwrite a verdict that is genuinely
+  // the new step's.
+  const generationRef = useRef(0);
+  const instanceKeyRef = useRef(instanceKey);
+  if (instanceKeyRef.current !== instanceKey) {
+    instanceKeyRef.current = instanceKey;
+    generationRef.current += 1;
+  }
 
   // Resolve a field's conditional behavior (scoping repeatable template
   // conditions to the concrete item). Used to evaluate conditions against LIVE
@@ -197,10 +233,15 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
 
       const valueToValidate = value !== undefined ? value : getOwn(state.values, fieldId);
 
-      // Claim a generation token for this run of the field.
+      // Claim a generation token for this run of the field, and record WHICH
+      // MOUNTED FORM it is a run of. A run is stale if a newer run of the same
+      // field superseded it, OR if the form it was started for has been swapped
+      // out from under it — the second is not implied by the first.
       const seq = (validationSeqRef.current.get(fieldId) ?? 0) + 1;
       validationSeqRef.current.set(fieldId, seq);
-      const isStale = () => validationSeqRef.current.get(fieldId) !== seq;
+      const generation = generationRef.current;
+      const isStale = () =>
+        generationRef.current !== generation || validationSeqRef.current.get(fieldId) !== seq;
 
       // Create validation context
       const context = createValidationContext({

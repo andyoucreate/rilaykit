@@ -26,6 +26,17 @@ export interface FormConfigContextValue {
   validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
   submit: (eventOrOptions?: React.FormEvent | SubmitOptions) => Promise<boolean>;
+  /**
+   * Opaque identity of the form CURRENTLY mounted. Treat the value as
+   * meaningless and only ever compare it for equality: it changes exactly when
+   * this provider swaps forms — a workflow step transition, or a schema
+   * re-emitted with a new shape — and never on an ordinary re-render.
+   *
+   * Anything below the provider that holds STEP-SCOPED work must key on it.
+   * `formConfig` cannot stand in: two workflow steps may be handed the SAME
+   * built config, and then it is reference-identical across the crossing.
+   */
+  formInstanceKey: string;
 }
 
 const FormConfigContext = createContext<FormConfigContextValue | null>(null);
@@ -260,6 +271,17 @@ export function FormProvider({
   // transition where both steps share a field id, the new step's initial effects
   // observe the NEW step's reset values rather than the previous step's leftover
   // values. Layout effects run before passive effects, so this stays first.
+  //
+  // ORDERING IS NOT OWNERSHIP, and this comment used to imply it was. Running
+  // first only decides what the engine's effects OBSERVE *if* the engine is
+  // rebuilt at all; it says nothing about WHICH form the engine belongs to. The
+  // engine below keyed only on `formConfig.effectsMap`, so when two steps were
+  // handed the same built config it was never rebuilt on the crossing — and the
+  // previous step's engine stayed live, un-aborted, writing into this step. The
+  // same blind spot covered every other thing this seam holds that outlives a
+  // render: an in-flight validation run, a pending debounced run, an in-flight
+  // submit. All four now key on `configSignature` — the one value here that
+  // knows a swap happened.
   useIsomorphicLayoutEffect(() => {
     if (prevConfigSignatureRef.current !== configSignature) {
       prevConfigSignatureRef.current = configSignature;
@@ -298,6 +320,32 @@ export function FormProvider({
     }
   }, [configSignature, formConfig.repeatableFields, store, defaultValues, defaultRepeatableOrder]);
 
+  // The effect engine is STEP-SCOPED STATE, even though it looks like plumbing:
+  // it owns a live subscription to the store and the abort handles of the
+  // in-flight async effects the CURRENT form's user set off. So it must be torn
+  // down and rebuilt on exactly the event the reset above fires on — a form swap
+  // — and `configSignature` is the only value here that knows about one.
+  //
+  // `formConfig.effectsMap` alone was NOT enough, and the gap was precisely the
+  // case `instanceId` exists for. `StepDefinition.formConfig` is typed
+  // `FormConfiguration | form`, and only the BUILDER arm gets `.build()` called
+  // per step — hand the same already-BUILT config to two `addStep` calls and both
+  // steps share ONE object. `effectsMap` is then reference-identical across the
+  // crossing, this effect never fired, and the engine mounted for the previous
+  // step stayed subscribed with its in-flight effects un-aborted: their writes
+  // landed in the NEW step's values and were submitted as the new step's data.
+  //
+  // Both deps are load-bearing and neither implies the other: `configSignature`
+  // catches a swap that reuses one config object, `effectsMap` catches effects
+  // that change under an identical shape (a re-emitted schema — the signature
+  // deliberately ignores everything that orphans no value, and effects are not
+  // in it).
+  //
+  // `configSignature` is deliberately a dependency the BODY does not read: it
+  // exists to make this effect tear the engine down and rebuild it on a swap. The
+  // rule below reasons about what a body READS; here the engine's LIFETIME is the
+  // point, not its inputs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: lifetime trigger, not an input
   useEffect(() => {
     effectEngineRef.current?.stop();
     effectEngineRef.current = null;
@@ -319,7 +367,7 @@ export function FormProvider({
       effectEngineRef.current?.stop();
       effectEngineRef.current = null;
     };
-  }, [formConfig.effectsMap, store]);
+  }, [configSignature, formConfig.effectsMap, store]);
 
   // Stable refs for callbacks
   const onFieldChangeRef = useRef(onFieldChange);
@@ -525,6 +573,10 @@ export function FormProvider({
   const { validateField, validateForm } = useFormValidationWithStore({
     formConfig,
     store,
+    // A validation run in flight is state OF the form that started it. The store
+    // is reset on a swap but is the same object throughout, so nothing keyed on
+    // it notices; `configSignature` is what a swap changes.
+    instanceKey: configSignature,
   });
   // Expose the latest validator to the effect engine (see validateFieldRef).
   validateFieldRef.current = validateField;
@@ -535,6 +587,8 @@ export function FormProvider({
     onSubmit,
     validateForm,
     defaultSubmitOptions: formConfig.submitOptions,
+    // A submit in flight is work started ON this form; a swap abandons it.
+    instanceKey: configSignature,
   });
 
   // Memoize form config context
@@ -545,8 +599,9 @@ export function FormProvider({
       validateField,
       validateForm,
       submit,
+      formInstanceKey: configSignature,
     }),
-    [formConfig, conditionsHelpers, validateField, validateForm, submit]
+    [formConfig, conditionsHelpers, validateField, validateForm, submit, configSignature]
   );
 
   return (

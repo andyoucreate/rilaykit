@@ -30,7 +30,7 @@ export const FormField = React.memo(function FormField({
   forceVisible = false,
 }: FormFieldProps) {
   // Get form config (stable reference)
-  const { formConfig, validateField, conditionsHelpers } = useForm();
+  const { formConfig, validateField, conditionsHelpers, formInstanceKey } = useForm();
 
   // Granular selectors - only re-render when THIS field changes
   const value = useFieldValue(fieldId);
@@ -92,9 +92,26 @@ export const FormField = React.memo(function FormField({
   );
 
   // Per-field debounce timer for change-triggered validation. Cleared on
-  // unmount and whenever a newer change supersedes a pending run.
+  // unmount, whenever a newer change supersedes a pending run, and — see below
+  // — whenever the mounted form is swapped.
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // A pending debounced run is work scheduled BY, and FOR, the form mounted when
+  // the user typed. It closes over the value they typed and passes it to
+  // `validateField` EXPLICITLY, so once it fires it is not a stale run that can
+  // be recognised and dropped downstream — it is a brand-new, perfectly current
+  // run carrying a value from a form that no longer exists.
+  //
+  // Unmount does not cover this. A step transition re-renders the same
+  // `FormField` in the same position with the same field id, so React reconciles
+  // it rather than remounting it: the timer survives, fires on the new step, and
+  // validates the PREVIOUS step's text against the NEW step's rules — leaving an
+  // error on a field the user is looking at empty and has never touched.
+  // `formInstanceKey` is deliberately a dependency the BODY does not read: its
+  // whole job is to make this effect re-run — i.e. to fire the cleanup — when the
+  // mounted form is swapped. The rule below reasons about what a body READS, and
+  // cannot see that a cleanup-only effect's deps are its TRIGGER, not its inputs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup trigger, not an input
   useEffect(
     () => () => {
       if (debounceTimerRef.current !== null) {
@@ -102,7 +119,7 @@ export const FormField = React.memo(function FormField({
         debounceTimerRef.current = null;
       }
     },
-    []
+    [formInstanceKey]
   );
 
   // Stable change handler

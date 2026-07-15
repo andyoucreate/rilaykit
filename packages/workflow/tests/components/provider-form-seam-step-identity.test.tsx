@@ -28,14 +28,26 @@ import { flow } from '../../src/builders/flow';
  * an `instanceId`, the workflow passes the step id, and a step change becomes a
  * form swap through the reset `FormProvider` ALREADY runs for a shape change.
  *
- * WHAT THIS DOES NOT ACHIEVE, stated plainly. The swap is honoured by
- * `formStore._reset`, which names the members it clears BY HAND. So "no form
- * state survives a step crossing" is PROVED TODAY, not unrepresentable: a member
- * added to the form store tomorrow without a matching line in `_reset` will
- * cross, and nothing in the type system objects. That ceiling is not new — every
- * form swap has always gone through the same hand-list — but this test is now
- * the thing that catches it, which is exactly why the enumeration below is
- * DERIVED FROM A REAL STORE rather than written out here.
+ * WHAT THIS DOES NOT ACHIEVE — REVISED, and the revision is the point.
+ *
+ * This used to read: the swap is honoured by `formStore._reset`, which names the
+ * members it clears BY HAND, so "no form state survives a step crossing" is
+ * PROVED TODAY and a member added tomorrow without a matching `_reset` line will
+ * cross. That was not a latent risk. It had ALREADY HAPPENED, in this file's
+ * blind spot: `_fieldConditions` had no line in the hand-list, so a step whose
+ * field declared no conditions inherited the previous step's `visible: false`
+ * and rendered nothing — an unfillable step. This enumeration missed it because
+ * it derives its members from what a USER AUTHORS, and conditions are written by
+ * the provider, not by the user. See `provider-form-seam-engines`, which diffs a
+ * MOUNTED step against a NAVIGATED one across every member and so has no such
+ * blind spot.
+ *
+ * `_reset` has since been INVERTED: it is built from `createInitialFormData()`,
+ * the one definition of a pristine form, and preserves only the two members it
+ * names with a reason. Reset is now the DEFAULT and preserve is OPT-IN, so a
+ * member added to `FormStoreState` tomorrow fails to compile until it is given a
+ * birth value, and is then reset for free. That much is UNREPRESENTABLE rather
+ * than proved-today.
  *
  * (The alternative — folding the step id into `WorkflowProvider`'s
  * `formProviderKey` so the crossing REMOUNTS — would be unrepresentable, since a
