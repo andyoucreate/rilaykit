@@ -7,7 +7,6 @@ import {
   getLogger,
 } from '@rilaykit/core';
 import { FormProvider, parseCompositeKey } from '@rilaykit/forms';
-import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import type React from 'react';
 import {
   createContext,
@@ -18,6 +17,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useStore } from 'zustand';
 import {
   useWorkflowAnalytics,
   useWorkflowConditions,
@@ -27,6 +27,7 @@ import {
 import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
+import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -235,6 +236,11 @@ export function WorkflowProvider({
   const setFieldValue = useCallback(
     (fieldId: string, value: unknown, stepId: string) =>
       store.getState()._setFieldValue(fieldId, value, stepId),
+    [store]
+  );
+
+  const removeFieldValues = useCallback(
+    (fieldIds: string[], stepId: string) => store.getState()._removeFieldValues(fieldIds, stepId),
     [store]
   );
 
@@ -586,6 +592,45 @@ export function WorkflowProvider({
     [setFieldValue, currentStep?.id, hasPersistence]
   );
 
+  // Sibling of `setValue`: the form reports field ids that ceased to exist
+  // (a removed repeatable row's composite keys). Without this the step's
+  // captured data is an append-only mirror of the form — a deleted row would
+  // still be submitted, and would be restored on step re-entry.
+  const removeValues = useCallback(
+    (fieldIds: string[]) => {
+      const stepId = currentStep?.id;
+      if (!stepId) return;
+      // A removal racing an unresolved persistence load must also drop the
+      // recorded edit, or the load merge would replay the deleted row.
+      if (hasPersistence && !persistLoadResolvedRef.current) {
+        const existing = userEditsBeforeLoadRef.current.get(stepId);
+        if (existing) {
+          for (const fieldId of fieldIds) {
+            delete existing[fieldId];
+          }
+        }
+      }
+      removeFieldValues(fieldIds, stepId);
+    },
+    [removeFieldValues, currentStep?.id, hasPersistence]
+  );
+
+  // Mirror the step's live repeatable row order so re-entry can restore it.
+  const handleRepeatableOrderChange = useCallback(
+    (order: Record<string, string[]>) => {
+      const stepId = currentStep?.id;
+      if (!stepId) return;
+      store.getState()._setRepeatableOrder(stepId, order);
+    },
+    [store, currentStep?.id]
+  );
+
+  const repeatableOrders = useStore(store, (state) => state._repeatableOrders);
+  const currentStepRepeatableOrder = useMemo(
+    () => (currentStep?.id ? repeatableOrders[currentStep.id] : undefined),
+    [repeatableOrders, currentStep?.id]
+  );
+
   // Create step data setter
   const handleSetStepData = useCallback(
     (data: Record<string, unknown>) => {
@@ -770,6 +815,9 @@ export function WorkflowProvider({
           defaultValues={formProviderDefaultValues}
           conditionValues={conditionValues}
           onFieldChange={setValue}
+          onFieldsRemove={removeValues}
+          onRepeatableOrderChange={handleRepeatableOrderChange}
+          defaultRepeatableOrder={currentStepRepeatableOrder}
           data-workflow-id={workflowConfig.id}
           className={className}
           onSubmit={handleSubmit}

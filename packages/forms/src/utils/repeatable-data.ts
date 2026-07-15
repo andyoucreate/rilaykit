@@ -248,10 +248,16 @@ function collectItemKeysFromFlat(
  *  - Otherwise the order is reconstructed from any composite keys already
  *    present in the flat values (the reset case, where values are already flat).
  *  - The result is padded up to the repeatable's `min` with default rows.
+ *  - When an `explicitOrder` is supplied for a repeatable, it wins over the
+ *    reconstruction: the rows resolved above are re-sequenced to match it.
+ *    Reconstruction can only ever recover the INSERTION order of the flat keys,
+ *    so a user reorder is invisible to it — a host that captured the live order
+ *    (e.g. a workflow mirroring a step) must be able to hand it back.
  */
 export function initializeRepeatableState(
   rawValues: Record<string, unknown>,
-  repeatableConfigs: Record<string, RepeatableFieldConfig>
+  repeatableConfigs: Record<string, RepeatableFieldConfig>,
+  explicitOrder?: Record<string, string[]>
 ): {
   values: Record<string, unknown>;
   order: Record<string, string[]>;
@@ -299,6 +305,20 @@ export function initializeRepeatableState(
       const reconstructed = collectItemKeysFromFlat(values, id);
       keys = reconstructed.keys;
       nextKey = reconstructed.nextKey;
+    }
+
+    // Re-sequence to the caller-supplied order. Only keys that actually resolved
+    // above may survive — a captured order naming a row whose values are gone
+    // (the user deleted it) must not resurrect it — and any row the order does
+    // not mention keeps its resolved position at the end.
+    const capturedOrder = explicitOrder ? getOwn(explicitOrder, id) : undefined;
+    if (capturedOrder) {
+      const resolved = new Set(keys);
+      const mentioned = new Set(capturedOrder);
+      keys = [
+        ...capturedOrder.filter((key) => resolved.has(key)),
+        ...keys.filter((key) => !mentioned.has(key)),
+      ];
     }
 
     // Pad up to `min` ONLY when no explicit items were provided. A repeatable

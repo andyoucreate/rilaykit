@@ -4,7 +4,7 @@ import type {
   SubmitOptions,
   ValidationResult,
 } from '@rilaykit/core';
-import { ConfigurationError } from '@rilaykit/core';
+import { ConfigurationError, hasOwn } from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { EffectEngine } from '../effects/effect-engine';
@@ -52,6 +52,32 @@ export interface FormProviderProps {
   defaultValues?: Record<string, unknown>;
   onSubmit?: (data: Record<string, unknown>) => void | Promise<void>;
   onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
+  /**
+   * Fired when field ids DISAPPEAR from the store — today only when a
+   * repeatable row is removed, which deletes that row's composite keys.
+   *
+   * `onFieldChange` can never carry this: it reports a key's new value, and a
+   * removed key has none. A host that mirrors the form's values (a workflow
+   * step's captured data) and only listens to `onFieldChange` therefore builds
+   * an APPEND-ONLY mirror — deleted rows stay in it, get submitted to the
+   * backend, and are restored the next time the form is rebuilt from it.
+   *
+   * Not fired for the wholesale value swap of a form-id change: that is the
+   * host replacing one form with another, not the user deleting anything.
+   */
+  onFieldsRemove?: (fieldIds: string[], formData: Record<string, unknown>) => void;
+  /**
+   * Fired whenever the live repeatable row order changes, so a host that
+   * rebuilds this form from its flat values can hand the order back through
+   * `defaultRepeatableOrder`.
+   */
+  onRepeatableOrderChange?: (order: Record<string, string[]>) => void;
+  /**
+   * Row order to restore, per repeatable id. Wins over the order reconstructed
+   * from the insertion order of `defaultValues`' composite keys, which cannot
+   * represent a user reorder (a move rewrites the order, never the values).
+   */
+  defaultRepeatableOrder?: Record<string, string[]>;
   className?: string;
   /**
    * Extra read-only values that field conditions may reference. They never
@@ -80,6 +106,9 @@ export function FormProvider({
   defaultValues = {},
   onSubmit,
   onFieldChange,
+  onFieldsRemove,
+  onRepeatableOrderChange,
+  defaultRepeatableOrder,
   className,
   conditionValues,
 }: FormProviderProps) {
@@ -93,7 +122,7 @@ export function FormProvider({
       values: initialValues,
       order: initialOrder,
       nextKeys: initialNextKeys,
-    } = initializeRepeatableState(defaultValues, repeatableConfigs);
+    } = initializeRepeatableState(defaultValues, repeatableConfigs, defaultRepeatableOrder);
 
     const s = createFormStore(initialValues);
 
@@ -120,6 +149,12 @@ export function FormProvider({
 
   // Track form ID changes
   const prevFormIdRef = useRef(formConfig.id);
+
+  // Brackets the form-id reset so the values subscription can tell a wholesale
+  // form swap (every previous key disappears at once) from a genuine user
+  // removal. Zustand fires subscribers synchronously inside `set`, so the flag
+  // reliably covers exactly the reset's own notification.
+  const isResettingRef = useRef(false);
 
   // Reset when form ID changes — reinitialize repeatable configs and min items.
   //
@@ -152,7 +187,11 @@ export function FormProvider({
       store.setState({ _repeatableConfigs: repeatableConfigs });
 
       // Flatten default arrays, reconstruct order and pad to min counts.
-      const { values: resetValues } = initializeRepeatableState(defaultValues, repeatableConfigs);
+      const { values: resetValues } = initializeRepeatableState(
+        defaultValues,
+        repeatableConfigs,
+        defaultRepeatableOrder
+      );
 
       // Refresh the default-values baseline to THIS form before resetting.
       // `_defaultValues` was frozen at store creation for the previous form; a
@@ -163,9 +202,14 @@ export function FormProvider({
 
       // Reset with computed values — `_reset` rebuilds order/next-keys from the
       // now-current configs.
-      store.getState()._reset(resetValues);
+      isResettingRef.current = true;
+      try {
+        store.getState()._reset(resetValues, defaultRepeatableOrder);
+      } finally {
+        isResettingRef.current = false;
+      }
     }
-  }, [formConfig.id, formConfig.repeatableFields, store, defaultValues]);
+  }, [formConfig.id, formConfig.repeatableFields, store, defaultValues, defaultRepeatableOrder]);
 
   useEffect(() => {
     effectEngineRef.current?.stop();
@@ -193,19 +237,33 @@ export function FormProvider({
   // Stable refs for callbacks
   const onFieldChangeRef = useRef(onFieldChange);
   onFieldChangeRef.current = onFieldChange;
+  const onFieldsRemoveRef = useRef(onFieldsRemove);
+  onFieldsRemoveRef.current = onFieldsRemove;
 
-  // Subscribe to value changes for onFieldChange callback
+  // Subscribe to value changes for the onFieldChange / onFieldsRemove callbacks.
+  //
+  // The diff walks the UNION of the new and previous keys. Iterating the new
+  // keys alone can only ever report additions and updates — a key that is gone
+  // is not in `values` to be compared — which makes every listener's copy of
+  // the form data append-only.
   useEffect(() => {
-    if (!onFieldChangeRef.current) return;
-
     const unsubscribe = store.subscribe(
       (state) => state.values,
       (values, prevValues) => {
-        // Find which field changed
         for (const fieldId of Object.keys(values)) {
           if (values[fieldId] !== prevValues[fieldId]) {
             onFieldChangeRef.current?.(fieldId, values[fieldId], values as Record<string, unknown>);
           }
+        }
+
+        // A form-id swap replaces the whole value set; that is not a removal.
+        if (isResettingRef.current) return;
+
+        const removedFieldIds = Object.keys(prevValues).filter(
+          (fieldId) => !hasOwn(values, fieldId)
+        );
+        if (removedFieldIds.length > 0) {
+          onFieldsRemoveRef.current?.(removedFieldIds, values as Record<string, unknown>);
         }
       }
     );
@@ -224,13 +282,20 @@ export function FormProvider({
     return unsubscribe;
   }, [store]);
 
-  // Subscribe to repeatable order for reactive conditions evaluation
+  // Subscribe to repeatable order for reactive conditions evaluation, and to
+  // report it to a host that needs to restore it later (a move rewrites only
+  // the order, so the values alone cannot carry it).
   const [repeatableOrder, setRepeatableOrder] = useState(() => store.getState()._repeatableOrder);
+  const onRepeatableOrderChangeRef = useRef(onRepeatableOrderChange);
+  onRepeatableOrderChangeRef.current = onRepeatableOrderChange;
 
   useEffect(() => {
     const unsubscribe = store.subscribe(
       (state) => state._repeatableOrder,
-      (order) => setRepeatableOrder(order)
+      (order) => {
+        setRepeatableOrder(order);
+        onRepeatableOrderChangeRef.current?.(order);
+      }
     );
     return unsubscribe;
   }, [store]);

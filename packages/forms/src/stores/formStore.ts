@@ -35,7 +35,7 @@ export interface FormStoreState extends FormState {
   _clearErrors: (fieldId: string) => void;
   _setValidationState: (fieldId: string, state: ValidationState) => void;
   _setSubmitting: (isSubmitting: boolean) => void;
-  _reset: (values?: Record<string, unknown>) => void;
+  _reset: (values?: Record<string, unknown>, repeatableOrder?: Record<string, string[]>) => void;
   /**
    * Replace the default-values baseline. Called when the mounted form's
    * identity changes so `reset()` (no args) and the per-field dirty flag
@@ -155,17 +155,19 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         set({ isSubmitting });
       },
 
-      _reset: (values) => {
+      _reset: (values, repeatableOrder) => {
         const state = get();
         const resetValues = values ?? state._defaultValues;
 
         // Rebuild the repeatable order + next-keys from the reset values so rows
         // (and their default/min items) survive a reset instead of vanishing.
+        // A caller-supplied `repeatableOrder` re-sequences them: key insertion
+        // order cannot express a reorder the user performed.
         const {
           values: rebuiltValues,
           order,
           nextKeys,
-        } = initializeRepeatableState(resetValues, state._repeatableConfigs);
+        } = initializeRepeatableState(resetValues, state._repeatableConfigs, repeatableOrder);
 
         set({
           values: { ...rebuiltValues },
@@ -435,7 +437,10 @@ const DEFAULT_FIELD_CONDITIONS: FieldConditions = {
  */
 export function useFieldConditions(fieldId: string): FieldConditions {
   const store = useFormStore();
-  return useStore(store, (state) => getOwn(state._fieldConditions, fieldId) ?? DEFAULT_FIELD_CONDITIONS);
+  return useStore(
+    store,
+    (state) => getOwn(state._fieldConditions, fieldId) ?? DEFAULT_FIELD_CONDITIONS
+  );
 }
 
 /**

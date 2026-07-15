@@ -1,4 +1,4 @@
-import { ConfigurationError } from '@rilaykit/core';
+import { ConfigurationError, getOwn, hasOwn } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -27,12 +27,23 @@ export interface WorkflowStoreState {
   // Internal state
   _defaultValues: Record<string, unknown>;
   _defaultStepIndex: number;
+  /**
+   * Live repeatable row order per step, mirrored from each step's form.
+   *
+   * Deliberately NOT part of `allData`: `allData` is the payload handed to the
+   * host on completion, and a bookkeeping key has no business in it. The order
+   * is unreconstructable from the values (a move rewrites the order only), so
+   * re-entering a step would silently revert the user's reorder without it.
+   */
+  _repeatableOrders: Record<string, Record<string, string[]>>;
 
   // Actions (internal - prefixed with _)
   _setCurrentStep: (stepIndex: number) => void;
   _setStepData: (data: Record<string, unknown>, stepId: string) => void;
   _setAllData: (data: Record<string, unknown>) => void;
   _setFieldValue: (fieldId: string, value: unknown, stepId: string) => void;
+  _removeFieldValues: (fieldIds: string[], stepId: string) => void;
+  _setRepeatableOrder: (stepId: string, order: Record<string, string[]>) => void;
   _setSubmitting: (isSubmitting: boolean) => void;
   _setTransitioning: (isTransitioning: boolean) => void;
   _setInitializing: (isInitializing: boolean) => void;
@@ -40,6 +51,22 @@ export interface WorkflowStoreState {
   _markStepPassed: (stepId: string) => void;
   _reset: () => void;
   _loadPersistedState: (state: Partial<WorkflowStoreState>) => void;
+}
+
+/**
+ * Value equality for a step's repeatable order map, so a re-report of the same
+ * order does not publish a fresh state object (and re-render every consumer).
+ */
+function isSameRepeatableOrder(a: Record<string, string[]>, b: Record<string, string[]>): boolean {
+  const aIds = Object.keys(a);
+  const bIds = Object.keys(b);
+  if (aIds.length !== bIds.length) return false;
+  return aIds.every((id) => {
+    const aKeys = getOwn(a, id);
+    const bKeys = getOwn(b, id);
+    if (!aKeys || !bKeys || aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key, index) => key === bKeys[index]);
+  });
 }
 
 // =================================================================
@@ -78,6 +105,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       // Internal state
       _defaultValues: { ...defaultValues },
       _defaultStepIndex: defaultStepIndex,
+      _repeatableOrders: {},
 
       // Actions
       _setCurrentStep: (stepIndex) => {
@@ -107,6 +135,48 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
               ...state.allData,
               [stepId]: newStepData,
             },
+          };
+        });
+      },
+
+      /**
+       * Delete field ids from a step's captured data.
+       *
+       * The mirror of `_setFieldValue`, and the reason the step slice is not
+       * merge-only: a repeatable row the user removed has no value to write, it
+       * has keys that must cease to exist. Deleting the reported keys (rather
+       * than replacing the whole slice with the form's values) keeps every
+       * non-form writer of the slice — prefill bindings, `onAfterValidation` —
+       * authoritative for the keys it owns.
+       */
+      _removeFieldValues: (fieldIds, stepId) => {
+        set((state) => {
+          const newStepData = { ...state.stepData };
+          let removed = false;
+          for (const fieldId of fieldIds) {
+            if (hasOwn(newStepData, fieldId)) {
+              delete newStepData[fieldId];
+              removed = true;
+            }
+          }
+          if (!removed) return {};
+
+          return {
+            stepData: newStepData,
+            allData: {
+              ...state.allData,
+              [stepId]: newStepData,
+            },
+          };
+        });
+      },
+
+      _setRepeatableOrder: (stepId, order) => {
+        set((state) => {
+          const current = getOwn(state._repeatableOrders, stepId);
+          if (current && isSameRepeatableOrder(current, order)) return {};
+          return {
+            _repeatableOrders: { ...state._repeatableOrders, [stepId]: order },
           };
         });
       },
@@ -141,6 +211,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           currentStepIndex: state._defaultStepIndex,
           allData: { ...state._defaultValues },
           stepData: {},
+          _repeatableOrders: {},
           visitedSteps: new Set(),
           passedSteps: new Set(),
           isSubmitting: false,
