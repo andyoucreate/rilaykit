@@ -4,6 +4,7 @@ export {
   resolveFieldValidation,
   resolveValidationDescriptor,
   validateConditionConfig,
+  validateFieldProps,
   validateSchema,
 } from './compile-form';
 export {

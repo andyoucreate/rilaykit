@@ -103,7 +103,7 @@ export function compileFlow<C extends Record<string, unknown>>(
   // escape from this function's error contract. Handing the validator an empty
   // table says "these are the bindings", so every reference is reported at its
   // own path like any other schema defect.
-  validateFlowSchema(schema, catalog, bindings ?? {});
+  validateFlowSchema(schema, catalog, bindings ?? {}, { validateProps: options?.validateProps });
 
   const builder = flow.create(catalog, schema.id, schema.name, schema.description);
   // A Map accumulator, not a plain object: `step.id` is untrusted, and

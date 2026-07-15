@@ -65,6 +65,17 @@ export type FlowBindings = Bindings & {
 export type CompileFlowOptions = {
   /** Resolution for the schema's allowSkip/after/validator/effect string references. */
   readonly bindings?: FlowBindings;
+  /**
+   * Check every step's field props against their component's `propsSchema`,
+   * the mirror of `CompileFormOptions.validateProps`.
+   *
+   * Off by default, as for a form. On, a violation throws
+   * `SchemaValidationError` carrying every offending prop across every step in
+   * one `issues[]` — each with a `steps[i].form.fields[j].props.<key>` path and
+   * the component's `expectedKeys` — so a schema's author, human or agent, can
+   * correct the whole document in one round trip.
+   */
+  readonly validateProps?: boolean;
 };
 
 /**

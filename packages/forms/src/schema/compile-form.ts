@@ -933,7 +933,7 @@ function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * @throws ConfigurationError if a component's propsSchema validates asynchronously
  *   — a catalog defect, not a schema defect, so it is never collected as an issue
  */
-function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): void {
+export function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): void {
   const issues: SchemaIssue[] = [];
 
   for (const { field, path } of collectFieldsWithPaths(schema)) {

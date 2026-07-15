@@ -6,6 +6,7 @@ import {
   SchemaValidationError,
   isSchemaEnvelope,
   validateConditionConfig,
+  validateFieldProps,
   validateObjectEntry,
   validateSchema,
   validateSchemaEnvelope,
@@ -27,12 +28,19 @@ import type { FlowBindings, FlowSchema, FlowSchemaStep } from './flow-schema-typ
  * `bindings` resolves the schema's string references (validators, effects) —
  * without it, every such reference is reported as unresolved.
  *
+ * `options.validateProps` additionally checks every step's field props against
+ * their component's `propsSchema`, exactly as `compileForm`'s option of the same
+ * name does for a standalone form. Opt-in for the same reason: a catalog may
+ * declare no propsSchema at all, and a host compiling its own hand-written
+ * schema has already type-checked it.
+ *
  * @throws {SchemaValidationError} when any `error`-severity issue is found.
  */
 export function validateFlowSchema<C extends Record<string, unknown>>(
   schema: FlowSchema,
   catalog: RilayInstance<C>,
-  bindings?: FlowBindings
+  bindings?: FlowBindings,
+  options?: { readonly validateProps?: boolean }
 ): void {
   const issues: SchemaIssue[] = [];
 
@@ -61,7 +69,15 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
   } else {
     const seen = new Set<string>();
     for (let i = 0; i < schema.steps.length; i++) {
-      validateStep(schema.steps[i], `steps[${i}]`, catalog, bindings, seen, issues);
+      validateStep(
+        schema.steps[i],
+        `steps[${i}]`,
+        catalog,
+        bindings,
+        seen,
+        issues,
+        options?.validateProps === true
+      );
     }
   }
 
@@ -95,7 +111,8 @@ function validateStep<C extends Record<string, unknown>>(
   catalog: RilayInstance<C>,
   bindings: FlowBindings | undefined,
   seen: Set<string>,
-  issues: SchemaIssue[]
+  issues: SchemaIssue[],
+  validateProps: boolean
 ): void {
   if (!validateObjectEntry(step, path, 'Step', issues)) return;
 
@@ -134,7 +151,7 @@ function validateStep<C extends Record<string, unknown>>(
       severity: 'error',
     });
   } else {
-    collectFormIssues(step.form, path, catalog, bindings, issues);
+    collectFormIssues(step.form, path, catalog, bindings, issues, validateProps);
   }
 
   validateAllowSkip(step.allowSkip, path, bindings, issues);
@@ -274,10 +291,30 @@ function collectFormIssues<C extends Record<string, unknown>>(
   path: string,
   catalog: RilayInstance<C>,
   bindings: FlowBindings | undefined,
-  issues: SchemaIssue[]
+  issues: SchemaIssue[],
+  validateProps: boolean
 ): void {
+  collectRemapped(() => validateSchema(form, catalog, bindings), path, issues);
+
+  // Opt-in props checking, the mirror of `compileForm`'s own `validateProps`.
+  // Runs as part of THIS pass rather than at compile time so a flow reports
+  // every step's props violations in one throw — the self-correction loop
+  // reading `issues[]` fixes the whole schema per round trip, not one step per
+  // round trip. Structural issues first: an unknown component type has no
+  // propsSchema to check props against, and `validateFieldProps` skips it.
+  if (validateProps) {
+    collectRemapped(() => validateFieldProps(form, catalog), path, issues);
+  }
+}
+
+/**
+ * Runs a forms-level validation and re-maps every issue it raises under this
+ * step's `steps[i].form.` prefix — a flow's caller authored a FlowSchema, so an
+ * issue path has to locate the defect in THAT document.
+ */
+function collectRemapped(validate: () => void, path: string, issues: SchemaIssue[]): void {
   try {
-    validateSchema(form, catalog, bindings);
+    validate();
   } catch (error) {
     if (!(error instanceof SchemaValidationError)) {
       throw error;

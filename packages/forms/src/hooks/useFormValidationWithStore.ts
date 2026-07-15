@@ -92,7 +92,10 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
 
       const parsed = parseCompositeKey(fieldId);
       if (parsed && formConfigRef.current.repeatableFields) {
-        const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
+        const repeatableConfig = getOwn(
+          formConfigRef.current.repeatableFields,
+          parsed.repeatableId
+        );
         const templateField = repeatableConfig?.allFields.find((f) => f.id === parsed.fieldId);
         if (repeatableConfig && templateField?.conditions) {
           const templateFieldIds = new Set(repeatableConfig.allFields.map((f) => f.id));
@@ -145,7 +148,10 @@ export function useFormValidationWithStore({ formConfig, store }: UseFormValidat
       if (!fieldConfig) {
         const parsed = parseCompositeKey(fieldId);
         if (parsed && formConfigRef.current.repeatableFields) {
-          const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
+          const repeatableConfig = getOwn(
+            formConfigRef.current.repeatableFields,
+            parsed.repeatableId
+          );
           if (repeatableConfig) {
             const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
             if (templateField) {
