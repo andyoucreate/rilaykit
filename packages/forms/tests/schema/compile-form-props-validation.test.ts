@@ -1,4 +1,4 @@
-import { ril } from '@rilaykit/core';
+import { ConfigurationError, type StandardSchema, ril } from '@rilaykit/core';
 import { SchemaValidationError, compileForm } from '@rilaykit/forms';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +13,23 @@ function makeCatalog() {
       renderer: () => React.createElement('select'),
     })
     .component('text', { name: 'Text', renderer: () => React.createElement('input') });
+}
+
+/** A Standard Schema whose validate() is async — an illegal propsSchema. */
+const asyncPropsSchema: StandardSchema<Record<string, unknown>, Record<string, unknown>> = {
+  '~standard': {
+    version: 1,
+    vendor: 'test',
+    validate: async (value) => ({ value: value as Record<string, unknown> }),
+  },
+};
+
+function makeAsyncCatalog() {
+  return ril.create().component('a', {
+    name: 'Async',
+    propsSchema: asyncPropsSchema,
+    renderer: () => React.createElement('input'),
+  });
 }
 
 describe('compileForm validateProps option', () => {
@@ -50,10 +67,20 @@ describe('compileForm validateProps option', () => {
       caught = error as SchemaValidationError;
     }
     expect(caught).toBeInstanceOf(SchemaValidationError);
-    // `label` is the wrong type and `options` is missing → two zod issues.
-    expect(caught?.issues.length).toBe(2);
-    expect(caught?.issues.every((issue) => issue.path === 's')).toBe(true);
-    expect(caught?.issues.every((issue) => issue.severity === 'error')).toBe(true);
+    // `label` is the wrong type and `options` is missing → two zod issues, each
+    // carrying the vendor's own diagnostic through to SchemaIssue.message.
+    expect(caught?.issues).toEqual([
+      {
+        path: 's',
+        message: 'Invalid input: expected string, received number',
+        severity: 'error',
+      },
+      {
+        path: 's',
+        message: 'Invalid input: expected array, received undefined',
+        severity: 'error',
+      },
+    ]);
   });
 
   it('ignores prop errors when validateProps is not set (default)', () => {
@@ -74,6 +101,20 @@ describe('compileForm validateProps option', () => {
     };
     const { formConfig } = compileForm(schema, makeCatalog(), { validateProps: true });
     expect(formConfig.id).toBe('f');
+  });
+
+  it('lets a catalog defect (async propsSchema) surface as ConfigurationError', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [{ id: 'a', type: 'a', props: {} }],
+    };
+    expect(() => compileForm(schema, makeAsyncCatalog(), { validateProps: true })).toThrowError(
+      ConfigurationError
+    );
+    expect(() => compileForm(schema, makeAsyncCatalog(), { validateProps: true })).toThrowError(
+      'propsSchema of "a" is async — props schemas must validate synchronously'
+    );
   });
 
   it('validates props of fields nested in rows and repeatables', () => {

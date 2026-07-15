@@ -8,7 +8,6 @@ import {
   type FormValidationConfig,
   InvalidSchemaError,
   NotFoundError,
-  type PropsValidationResult,
   type RilayInstance,
   type StandardSchema,
   email as emailValidator,
@@ -662,25 +661,18 @@ function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * one pass instead of one violation per round-trip.
  *
  * @throws SchemaValidationError if any field's props violate its propsSchema
+ * @throws ConfigurationError if a component's propsSchema validates asynchronously
+ *   — a catalog defect, not a schema defect, so it is never collected as an issue
  */
-function validateFieldProps<C extends Record<string, any>>(
-  rows: FormSchemaRow[],
-  config: RilayInstance<C>
-): void {
+function validateFieldProps<C>(rows: FormSchemaRow[], config: RilayInstance<C>): void {
   const issues: SchemaIssue[] = [];
 
   for (const field of collectAllFields(rows)) {
-    let result: PropsValidationResult;
-    try {
-      result = config.validateProps(field.type, field.props ?? {});
-    } catch (error) {
-      // An unknown component type is already reported by validateSchema, so a
-      // NotFoundError here would only duplicate it. Anything else (e.g. an async
-      // propsSchema → ConfigurationError) is a real catalog defect: let it out.
-      if (error instanceof NotFoundError) continue;
-      throw error;
-    }
+    // Unknown component types are already reported by validateSchema (see
+    // validateField, same hasComponent check) — don't duplicate the issue.
+    if (!config.hasComponent(field.type)) continue;
 
+    const result = config.validateProps(field.type, field.props ?? {});
     if (result.success) continue;
 
     for (const issue of result.issues) {
