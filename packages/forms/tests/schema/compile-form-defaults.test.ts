@@ -23,6 +23,31 @@ describe('compileForm per-field inline default', () => {
     expect(defaultValues).toEqual({ a: 'A' });
   });
 
+  it('collects falsy inline defaults (false, 0, empty string, null)', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [
+        { id: 'checked', type: 'text', default: false },
+        { id: 'count', type: 'text', default: 0 },
+        { id: 'note', type: 'text', default: '' },
+        { id: 'nil', type: 'text', default: null },
+      ],
+    };
+    const { defaultValues } = compileForm(schema, makeCatalog());
+    expect(defaultValues).toEqual({ checked: false, count: 0, note: '', nil: null });
+  });
+
+  it('omits a field that declares an explicit `default: undefined`', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [{ id: 'a', type: 'text', default: undefined }],
+    };
+    const { defaultValues } = compileForm(schema, makeCatalog());
+    expect(defaultValues).toBeUndefined();
+  });
+
   it('top-level defaultValues overrides a per-field default for the same id', () => {
     const schema = {
       version: 1 as const,
