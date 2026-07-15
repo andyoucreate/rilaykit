@@ -161,10 +161,11 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
 
         // Rebuild the repeatable order + next-keys from the reset values so rows
         // (and their default/min items) survive a reset instead of vanishing.
-        const { values: rebuiltValues, order, nextKeys } = initializeRepeatableState(
-          resetValues,
-          state._repeatableConfigs
-        );
+        const {
+          values: rebuiltValues,
+          order,
+          nextKeys,
+        } = initializeRepeatableState(resetValues, state._repeatableConfigs);
 
         set({
           values: { ...rebuiltValues },

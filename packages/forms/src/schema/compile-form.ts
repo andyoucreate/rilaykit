@@ -776,7 +776,9 @@ function resolveRuleSchemas<T = unknown>(
 ): StandardSchema<T> | StandardSchema<T>[] | undefined {
   if (!rules) return undefined;
   const descriptors = Array.isArray(rules) ? rules : [rules];
-  const schemas = descriptors.map((descriptor) => resolveValidationDescriptor(descriptor, registry));
+  const schemas = descriptors.map((descriptor) =>
+    resolveValidationDescriptor(descriptor, registry)
+  );
   // Descriptors are resolved from string keys at runtime, so the schema's input
   // type cannot be known statically — the caller's `T` is the contract. This is
   // the single, deliberate cast of the schema-resolution path.

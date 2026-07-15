@@ -35,8 +35,8 @@ describe('flow.use() atomicity (round-4)', () => {
     expect(built.plugins.some((p) => p.name === 'bad')).toBe(false);
 
     // A later plugin depending on the failed one must fail dependency validation.
-    expect(() =>
-      f.use({ name: 'dep', dependencies: ['bad'], version: '1', install() {} })
-    ).toThrow(ConfigurationError);
+    expect(() => f.use({ name: 'dep', dependencies: ['bad'], version: '1', install() {} })).toThrow(
+      ConfigurationError
+    );
   });
 });

@@ -6,7 +6,12 @@ import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormProvider, useForm } from '../../src/components/FormProvider';
-import { useFieldErrors, useFieldValidationState, useFormStoreApi, useFormValid } from '../../src/stores';
+import {
+  useFieldErrors,
+  useFieldValidationState,
+  useFormStoreApi,
+  useFormValid,
+} from '../../src/stores';
 
 const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>

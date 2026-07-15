@@ -33,7 +33,10 @@ function buildFormA(): FormConfiguration {
     .create(rilConfig, 'formA')
     .add({ id: 'name', type: 'text', props: { label: 'Name' } })
     .addRepeatable('items', (r) =>
-      r.add({ id: 'label', type: 'text', props: { label: 'L' } }).min(1).defaultValue({ label: '' })
+      r
+        .add({ id: 'label', type: 'text', props: { label: 'L' } })
+        .min(1)
+        .defaultValue({ label: '' })
     )
     .build();
 }
@@ -43,7 +46,10 @@ function buildFormB(): FormConfiguration {
     .create(rilConfig, 'formB')
     .add({ id: 'other', type: 'text', props: { label: 'Other' } })
     .addRepeatable('tags', (r) =>
-      r.add({ id: 'tag', type: 'text', props: { label: 'T' } }).min(1).defaultValue({ tag: '' })
+      r
+        .add({ id: 'tag', type: 'text', props: { label: 'T' } })
+        .min(1)
+        .defaultValue({ tag: '' })
     )
     .build();
 }

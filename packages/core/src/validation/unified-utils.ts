@@ -5,7 +5,6 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { InvalidSchemaError } from '../errors';
-import { runCombinedSchemas } from './utils';
 import type {
   FieldError,
   FieldValidationConfig,
@@ -14,6 +13,7 @@ import type {
   ValidationContext,
   ValidationResult,
 } from '../types';
+import { runCombinedSchemas } from './utils';
 // =================================================================
 // STANDARD SCHEMA CORE FUNCTIONS
 // =================================================================

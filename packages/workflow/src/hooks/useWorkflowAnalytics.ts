@@ -67,11 +67,7 @@ export function useWorkflowAnalytics({
   useEffect(() => {
     return () => {
       const analytics = configRef.current.analytics;
-      if (
-        hasStartedRef.current &&
-        !workflowCompletedRef.current &&
-        analytics?.onWorkflowAbandon
-      ) {
+      if (hasStartedRef.current && !workflowCompletedRef.current && analytics?.onWorkflowAbandon) {
         analytics.onWorkflowAbandon(
           configRef.current.id,
           currentStepRef.current ?? '',

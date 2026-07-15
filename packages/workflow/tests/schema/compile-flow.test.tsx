@@ -144,10 +144,16 @@ describe('compileFlow', () => {
       caught = error;
     }
 
-    expect(caught).toBeInstanceOf(NotFoundError);
-    expect((caught as NotFoundError).message).toBe(
-      'allowSkip binding "toString" not found for step "a"'
-    );
+    // Reported by validateFlowSchema up front (bindings were supplied), so the
+    // reference never reaches resolveBinding's NotFoundError.
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    expect((caught as SchemaValidationError).issues).toEqual([
+      {
+        path: 'steps[0].allowSkip',
+        message: 'allowSkip binding "toString" not found in bindings',
+        severity: 'error',
+      },
+    ]);
   });
 
   it('keeps a step id of "__proto__" as a real defaultValues key', () => {
@@ -511,5 +517,54 @@ describe('compileFlow', () => {
     );
     expect((caught as NotFoundError).code).toBe('NOT_FOUND');
     expect((caught as NotFoundError).meta).toEqual({ binding: 'ghost', stepId: 'a' });
+  });
+});
+
+describe('compileFlow — step identity in errors', () => {
+  function makeCatalogLocal() {
+    return ril
+      .create()
+      .component('text', { name: 'Text', renderer: () => React.createElement('input') });
+  }
+
+  // A form the STRUCTURAL pass accepts but the BUILDER rejects: two fields
+  // sharing an id. The failure therefore escapes from inside the per-step
+  // compileForm, where step identity is otherwise lost.
+  const duplicateIdForm = {
+    version: 1 as const,
+    id: 'second-form',
+    fields: [
+      { id: 'dup', type: 'text' },
+      { id: 'dup', type: 'text' },
+    ],
+  };
+
+  it("names the failing step's id and index when its form fails to compile", () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'first',
+          title: 'First',
+          form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+        },
+        { id: 'second', title: 'Second', form: duplicateIdForm },
+      ],
+    };
+
+    let caught: unknown;
+    try {
+      compileFlow(schema, makeCatalogLocal());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain('steps[1]');
+    expect((caught as Error).message).toContain('second');
+    // The original failure is preserved, not swallowed.
+    expect((caught as Error).message).toContain('dup');
   });
 });

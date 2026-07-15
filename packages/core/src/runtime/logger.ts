@@ -18,12 +18,7 @@ export type LogLevel = 'debug' | 'warn' | 'error';
  * A sink receives every log emitted by the library. Implement one and register
  * it with {@link setLogSink} to redirect, structure, or silence library logs.
  */
-export type LogSink = (
-  level: LogLevel,
-  scope: string,
-  message: string,
-  ...args: unknown[]
-) => void;
+export type LogSink = (level: LogLevel, scope: string, message: string, ...args: unknown[]) => void;
 
 /**
  * Default sink: routes `warn`/`error` to the corresponding console method with a

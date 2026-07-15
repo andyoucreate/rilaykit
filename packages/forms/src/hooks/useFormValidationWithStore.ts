@@ -68,10 +68,7 @@ export interface UseFormValidationWithStoreProps {
   store: FormStore;
 }
 
-export function useFormValidationWithStore({
-  formConfig,
-  store,
-}: UseFormValidationWithStoreProps) {
+export function useFormValidationWithStore({ formConfig, store }: UseFormValidationWithStoreProps) {
   // Use refs for stable references to avoid recreating callbacks
   const formConfigRef = useRef(formConfig);
 

@@ -80,7 +80,10 @@ describe('Flow Builder', () => {
         .addStep({ title: 'S', formConfig: sampleForm });
 
       const json = JSON.parse(JSON.stringify(builder.toJSON()));
-      const built = flow.create(rilConfig as any).fromJSON(json).build();
+      const built = flow
+        .create(rilConfig as any)
+        .fromJSON(json)
+        .build();
 
       expect(built.id).toBe('wf-1');
       expect(built.name).toBe('My Flow');

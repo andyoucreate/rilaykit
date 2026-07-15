@@ -7,6 +7,7 @@ import type {
   FlowBindings,
   FlowSchema,
   FlowSchemaResult,
+  FlowSchemaStep,
 } from './flow-schema-types';
 import { validateFlowSchema } from './validate-flow-schema';
 
@@ -34,6 +35,31 @@ function resolveBinding<T>(
     });
   }
   return value;
+}
+
+/**
+ * Compiles one step's form, tagging any failure with that step's identity.
+ *
+ * A form failure raised from inside the per-step `compileForm` otherwise escapes
+ * naming only the field it tripped over — on a flow of any size that leaves the
+ * caller no way to tell WHICH step carried the bad form. The original error is
+ * re-thrown as-is (same class, same `issues`/`meta`), gaining only the step
+ * context on its message.
+ */
+function compileStepForm<C extends Record<string, unknown>>(
+  step: FlowSchemaStep,
+  index: number,
+  catalog: RilayInstance<C>,
+  bindings: FlowBindings | undefined
+): ReturnType<typeof compileForm<C>> {
+  try {
+    return compileForm(step.form, catalog, { bindings });
+  } catch (error) {
+    if (error instanceof Error) {
+      error.message = `steps[${index}] (step "${step.id}"): ${error.message}`;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -72,10 +98,13 @@ export function compileFlow<C extends Record<string, unknown>>(
   // instead of recording a key — silently discarding that step's defaults.
   const defaultValues = new Map<string, unknown>();
 
-  for (const step of schema.steps) {
-    const { formConfig, defaultValues: stepDefaults } = compileForm(step.form, catalog, {
-      bindings,
-    });
+  for (const [index, step] of schema.steps.entries()) {
+    const { formConfig, defaultValues: stepDefaults } = compileStepForm(
+      step,
+      index,
+      catalog,
+      bindings
+    );
 
     if (stepDefaults !== undefined) {
       defaultValues.set(step.id, stepDefaults);

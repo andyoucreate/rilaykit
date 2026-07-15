@@ -26,10 +26,7 @@ describe('Step-transition initial-effect ordering (round-4, Gap 10)', () => {
     const observed: unknown[] = [];
 
     // Step 1: plain shared field, no effects.
-    const step1 = form
-      .create(config, 'step-1')
-      .add({ id: 'shared', type: 'text' })
-      .build();
+    const step1 = form.create(config, 'step-1').add({ id: 'shared', type: 'text' }).build();
 
     // Step 2: shares 'shared' and adds an initial effect watching it.
     const step2 = form

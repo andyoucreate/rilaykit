@@ -149,7 +149,8 @@ describe('compileForm — prototype-key lookups', () => {
       expect(defaultValues).toBeDefined();
       expect(Object.keys(defaultValues as Record<string, unknown>)).toEqual(['__proto__']);
       expect(
-        Object.getOwnPropertyDescriptor(defaultValues as Record<string, unknown>, '__proto__')?.value
+        Object.getOwnPropertyDescriptor(defaultValues as Record<string, unknown>, '__proto__')
+          ?.value
       ).toBe('kept');
     });
   });

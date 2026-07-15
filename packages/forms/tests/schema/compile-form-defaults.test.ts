@@ -156,4 +156,4 @@ describe('compileForm defaultValues isolation', () => {
 
     expect(schema.defaultValues).toEqual({ y: 'original' });
   });
-})
+});

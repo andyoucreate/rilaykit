@@ -107,9 +107,7 @@ export function createStepContext(
         // The after() callback runs BEFORE navigation (in goNext()),
         // so we cannot redirect to a different step from within this callback.
         // To conditionally show/hide steps, use step conditions with `when()`.
-        log.warn(
-          'step.workflow.goto() is not supported. Use step conditions with when() instead.'
-        );
+        log.warn('step.workflow.goto() is not supported. Use step conditions with when() instead.');
       },
     },
 

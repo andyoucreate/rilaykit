@@ -18,6 +18,8 @@ export const CONDITIONAL_REQUIRED_CODE = 'CONDITIONAL_REQUIRED';
  */
 export function holdsOnlyConditionalRequiredError(errors: FieldError[] | undefined): boolean {
   return (
-    !!errors && errors.length > 0 && errors.every((error) => error.code === CONDITIONAL_REQUIRED_CODE)
+    !!errors &&
+    errors.length > 0 &&
+    errors.every((error) => error.code === CONDITIONAL_REQUIRED_CODE)
   );
 }

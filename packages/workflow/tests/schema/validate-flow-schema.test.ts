@@ -219,9 +219,7 @@ describe('validateFlowSchema', () => {
           form: {
             version: 1,
             id: 'a',
-            fields: [
-              { id: 'x', type: 'text', effects: [{ watch: 'x', handler: 'h', set: 'x' }] },
-            ],
+            fields: [{ id: 'x', type: 'text', effects: [{ watch: 'x', handler: 'h', set: 'x' }] }],
           },
         },
       ],
@@ -462,5 +460,108 @@ describe('isFlowSchema', () => {
     expect(isFlowSchema({ id: '', name: 'W', steps: [] })).toBe(false);
     expect(isFlowSchema({ id: 'w', name: 'W', version: 2, steps: [] })).toBe(false);
     expect(isFlowSchema({ id: 'w', name: 'W', version: 1, steps: [] })).toBe(true);
+  });
+});
+
+describe('validateFlowSchema — step title', () => {
+  function makeSchema(step: Record<string, unknown>) {
+    return {
+      version: 1 as const,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        { id: 'a', form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] }, ...step },
+      ],
+    };
+  }
+
+  for (const [label, title] of [
+    ['missing', undefined],
+    ['empty', ''],
+    ['not a string', 42],
+  ] as const) {
+    it(`reports a step whose title is ${label}`, () => {
+      // @ts-expect-error — untrusted JSON: the public type declares title: string
+      const issues = issuesOf(() => validateFlowSchema(makeSchema({ title }), makeCatalog()));
+
+      expect(issues).toEqual([
+        {
+          path: 'steps[0].title',
+          message: 'Step must have a non-empty "title"',
+          severity: 'error',
+        },
+      ]);
+    });
+  }
+
+  it('accepts a step with a non-empty title', () => {
+    expect(() => validateFlowSchema(makeSchema({ title: 'A' }), makeCatalog())).not.toThrow();
+  });
+});
+
+describe('validateFlowSchema — binding resolution', () => {
+  function makeSchema(step: Record<string, unknown>) {
+    return {
+      version: 1 as const,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'a',
+          title: 'A',
+          form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+          ...step,
+        },
+      ],
+    };
+  }
+
+  it('reports an unresolvable allowSkip binding when bindings are supplied', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(makeSchema({ allowSkip: { binding: 'missing' } }), makeCatalog(), {
+        allowSkip: {},
+      })
+    );
+
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].allowSkip',
+        message: 'allowSkip binding "missing" not found in bindings',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('reports an unresolvable onAfterValidation binding when bindings are supplied', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(makeSchema({ onAfterValidation: 'missing' }), makeCatalog(), { after: {} })
+    );
+
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].onAfterValidation',
+        message: 'onAfterValidation binding "missing" not found in bindings',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('resolves bindings that are present', () => {
+    expect(() =>
+      validateFlowSchema(
+        makeSchema({ allowSkip: { binding: 'ok' }, onAfterValidation: 'done' }),
+        makeCatalog(),
+        { allowSkip: { ok: () => true }, after: { done: () => {} } }
+      )
+    ).not.toThrow();
+  });
+
+  it('skips binding checks entirely when no bindings are supplied (structure-only pass)', () => {
+    expect(() =>
+      validateFlowSchema(
+        makeSchema({ allowSkip: { binding: 'missing' }, onAfterValidation: 'missing' }),
+        makeCatalog()
+      )
+    ).not.toThrow();
   });
 });

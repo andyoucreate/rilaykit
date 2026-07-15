@@ -3,13 +3,13 @@ import { form } from '@rilaykit/forms';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowProvider, useFlow } from '../../src';
-import { useFlowStore } from '../../src/stores/workflowStore';
 import { flow } from '../../src/builders/flow';
 import { useStep } from '../../src/hooks/useStep';
 import type {
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,
 } from '../../src/persistence/types';
+import { useFlowStore } from '../../src/stores/workflowStore';
 import { MockInput } from '../_helpers/mock-components';
 
 describe('WorkflowProvider currentStepIndex clamping (round-4)', () => {

@@ -1,7 +1,7 @@
+import { ril } from '@rilaykit/core';
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ril } from '@rilaykit/core';
 import { form } from '../../src/builders/form';
 
 describe('form.clone() round-4 hardening', () => {

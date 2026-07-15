@@ -1,9 +1,10 @@
 import type { RilayInstance } from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import {
   type FormSchema,
-  isSchemaEnvelope,
   type SchemaIssue,
   SchemaValidationError,
+  isSchemaEnvelope,
   validateConditionConfig,
   validateObjectEntry,
   validateSchema,
@@ -110,6 +111,17 @@ function validateStep<C extends Record<string, unknown>>(
     seen.add(step.id);
   }
 
+  // The public type declares `title: string`, but a backend-authored step is
+  // untrusted JSON: without this guard a title-less step compiles straight into
+  // a `StepConfig { title: undefined }`.
+  if (!step.title || typeof step.title !== 'string') {
+    issues.push({
+      path: `${path}.title`,
+      message: 'Step must have a non-empty "title"',
+      severity: 'error',
+    });
+  }
+
   const form: unknown = step.form;
   if (form === null || typeof form !== 'object') {
     issues.push({
@@ -121,7 +133,8 @@ function validateStep<C extends Record<string, unknown>>(
     collectFormIssues(step.form, path, catalog, bindings, issues);
   }
 
-  validateAllowSkip(step.allowSkip, path, issues);
+  validateAllowSkip(step.allowSkip, path, bindings, issues);
+  validateAfterRef(step.onAfterValidation, path, bindings, issues);
 
   if (step.conditions?.visible) {
     validateConditionConfig(step.conditions.visible, `${path}.conditions.visible`, issues);
@@ -136,12 +149,12 @@ function validateStep<C extends Record<string, unknown>>(
  *
  * `typeof null === 'object'`, so without this a `null` (or any non-`{ binding }`
  * object) payload would reach `step.allowSkip.binding` and throw a raw
- * TypeError instead of the typed SchemaValidationError. A well-formed but
- * unresolved binding key stays `compileFlow`'s NotFoundError to report.
+ * TypeError instead of the typed SchemaValidationError.
  */
 function validateAllowSkip(
   allowSkip: FlowSchemaStep['allowSkip'],
   path: string,
+  bindings: FlowBindings | undefined,
   issues: SchemaIssue[]
 ): void {
   if (allowSkip === undefined || typeof allowSkip === 'boolean') {
@@ -157,6 +170,81 @@ function validateAllowSkip(
     issues.push({
       path: `${path}.allowSkip`,
       message: 'Step "allowSkip" must be a boolean or a { binding } reference',
+      severity: 'error',
+    });
+    return;
+  }
+
+  validateBindingRef(
+    bindings,
+    bindings?.allowSkip,
+    binding,
+    `${path}.allowSkip`,
+    'allowSkip',
+    issues
+  );
+}
+
+/**
+ * Guards the `onAfterValidation` binding key and its resolvability.
+ */
+function validateAfterRef(
+  onAfterValidation: FlowSchemaStep['onAfterValidation'],
+  path: string,
+  bindings: FlowBindings | undefined,
+  issues: SchemaIssue[]
+): void {
+  if (onAfterValidation === undefined) {
+    return;
+  }
+
+  if (typeof onAfterValidation !== 'string' || onAfterValidation.length === 0) {
+    issues.push({
+      path: `${path}.onAfterValidation`,
+      message: 'Step "onAfterValidation" must be a non-empty binding key',
+      severity: 'error',
+    });
+    return;
+  }
+
+  validateBindingRef(
+    bindings,
+    bindings?.after,
+    onAfterValidation,
+    `${path}.onAfterValidation`,
+    'onAfterValidation',
+    issues
+  );
+}
+
+/**
+ * Reports a step binding reference that no supplied binding resolves.
+ *
+ * Validation must catch what `compileFlow` would otherwise only discover at
+ * resolution time (a NotFoundError from deep inside the compile), so a schema
+ * gets one complete verdict up front rather than one failure per round-trip.
+ *
+ * No-op when the caller supplied NO bindings at all: validating a schema's
+ * structure alone — before its bindings exist, or without ever intending to
+ * compile it — is a legitimate use, and every reference would read unresolved.
+ *
+ * The lookup is own-property only: `key` is untrusted, so a `toString`
+ * reference must read as absent rather than resolve an inherited method.
+ */
+function validateBindingRef(
+  bindings: FlowBindings | undefined,
+  table: Record<string, unknown> | undefined,
+  key: string,
+  path: string,
+  kind: 'allowSkip' | 'onAfterValidation',
+  issues: SchemaIssue[]
+): void {
+  if (bindings === undefined) return;
+
+  if (getOwn(table, key) === undefined) {
+    issues.push({
+      path,
+      message: `${kind} binding "${key}" not found in bindings`,
       severity: 'error',
     });
   }

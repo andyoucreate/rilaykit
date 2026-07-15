@@ -176,9 +176,17 @@ describe('compileForm validateProps option', () => {
     expect(caught).toBeInstanceOf(SchemaValidationError);
     expect(caught?.issues).toEqual([
       { path: 'a', message: 'Invalid input: expected string, received number', severity: 'error' },
-      { path: 'a', message: 'Invalid input: expected array, received undefined', severity: 'error' },
+      {
+        path: 'a',
+        message: 'Invalid input: expected array, received undefined',
+        severity: 'error',
+      },
       { path: 'b', message: 'Invalid input: expected string, received number', severity: 'error' },
-      { path: 'b', message: 'Invalid input: expected array, received undefined', severity: 'error' },
+      {
+        path: 'b',
+        message: 'Invalid input: expected array, received undefined',
+        severity: 'error',
+      },
     ]);
   });
 });
