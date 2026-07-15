@@ -1,6 +1,7 @@
 import {
   type ConditionConfig,
   type ConditionalBehavior,
+  type FieldConfigFor,
   type FieldEffect,
   type FieldValidationConfig,
   type FormValidationConfig,
@@ -19,7 +20,6 @@ import {
   required as requiredValidator,
   url as urlValidator,
 } from '@rilaykit/core';
-import type { FieldConfig } from '../builders/form';
 import { form } from '../builders/form';
 import type {
   Bindings,
@@ -118,8 +118,8 @@ export function compileForm<C extends Record<string, any>>(
       const rep = row.repeatable;
       builder.addRepeatable(rep.id, (r) => {
         for (const fieldRow of rep.rows) {
-          const resolved = resolveFields(fieldRow.fields, registry);
-          r.add(...(resolved as FieldConfig<C, string & keyof C>[]));
+          const resolved = resolveFields<C>(fieldRow.fields, registry);
+          r.add(...resolved);
         }
         if (rep.min !== undefined) r.min(rep.min);
         if (rep.max !== undefined) r.max(rep.max);
@@ -129,8 +129,8 @@ export function compileForm<C extends Record<string, any>>(
       });
     } else {
       const fieldRow = row as FormSchemaFieldRow;
-      const resolved = resolveFields(fieldRow.fields, registry);
-      builder.add(...(resolved as FieldConfig<C, string & keyof C>[]));
+      const resolved = resolveFields<C>(fieldRow.fields, registry);
+      builder.add(...resolved);
     }
   }
 
@@ -668,10 +668,16 @@ function mergeDefaultValues(
 }
 
 /**
- * Converts schema fields to FieldConfig objects.
+ * Converts schema fields into catalog-typed field configs.
  * Resolves validation descriptors and effect references.
+ *
+ * The lone cast is the schema→catalog boundary. A JSON schema carries an opaque
+ * `type: string`; only `validateSchema` (via `config.hasComponent`) proves it is
+ * a key of `C`, and that runtime proof cannot be expressed to the compiler. So
+ * the narrowing is asserted here exactly once — every consumer downstream, the
+ * builder's `.add(...)` included, then type-checks with no cast of its own.
  */
-function resolveFields(
+function resolveFields<C extends Record<string, any>>(
   fields: {
     id: string;
     type: string;
@@ -681,27 +687,22 @@ function resolveFields(
     effects?: FieldSchemaEffect[];
   }[],
   registry?: Bindings
-): FieldConfig<Record<string, any>, string>[] {
+): FieldConfigFor<C>[] {
   return fields.map((field) => {
-    const resolved: FieldConfig<Record<string, any>, string> = {
+    const resolved = {
       id: field.id,
       type: field.type,
-      props: field.props as Record<string, any>,
+      props: field.props,
+      ...(field.validation
+        ? { validation: resolveFieldValidation(field.validation, registry) }
+        : {}),
+      ...(field.conditions ? { conditions: field.conditions } : {}),
+      ...(field.effects && field.effects.length > 0
+        ? { effects: resolveEffects(field.effects, registry) }
+        : {}),
     };
 
-    if (field.validation) {
-      (resolved as any).validation = resolveFieldValidation(field.validation, registry);
-    }
-
-    if (field.conditions) {
-      (resolved as any).conditions = field.conditions;
-    }
-
-    if (field.effects && field.effects.length > 0) {
-      (resolved as any).effects = resolveEffects(field.effects, registry);
-    }
-
-    return resolved;
+    return resolved as unknown as FieldConfigFor<C>;
   });
 }
 

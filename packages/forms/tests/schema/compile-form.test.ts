@@ -1,7 +1,7 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
 import { ril } from '@rilaykit/core';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { type Bindings, compileForm, fromSchema } from '../../src/schema';
 
 function makeCatalog() {
@@ -73,5 +73,49 @@ describe('compileForm', () => {
 
     const validate = result.formConfig.allFields[0].validation.validate;
     expect(validate['~standard'].validate('foo')).toEqual({ issues: [{ message: 'no foo' }] });
+  });
+
+  it('carries props, conditions and effects onto the resolved field config', () => {
+    const conditions = { visible: { field: 'other', operator: 'equals', value: 'yes' } };
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [
+        { id: 'other', type: 'text' },
+        {
+          id: 'name',
+          type: 'text',
+          props: { label: 'Name' },
+          conditions,
+          effects: [{ watch: 'other', handler: 'setName', params: { to: 'Ada' } }],
+        },
+      ],
+    };
+    const bindings: Bindings = {
+      effects: { setName: (_value, context, params) => context.setValue('name', params.to) },
+    };
+
+    const field = compileForm(schema, makeCatalog(), { bindings }).formConfig.allFields[1];
+
+    expect(field.props).toEqual({ label: 'Name' });
+    expect(field.conditions).toEqual(conditions);
+    expect(field.effects).toHaveLength(1);
+    expect(field.effects[0].trigger).toBe('change');
+    expect(field.effects[0].watchFieldId).toBe('other');
+
+    // The bound handler is curried with its schema params — drive it to prove it.
+    const setValue = vi.fn();
+    field.effects[0].handler('trigger', { setValue });
+    expect(setValue).toHaveBeenCalledWith('name', 'Ada');
+  });
+
+  it('leaves validation, conditions and effects unset when the schema field declares none', () => {
+    const schema = { version: 1 as const, id: 'f', fields: [{ id: 'a', type: 'text' }] };
+
+    const field = compileForm(schema, makeCatalog()).formConfig.allFields[0];
+
+    expect(field.validation).toBeUndefined();
+    expect(field.conditions).toBeUndefined();
+    expect(field.effects).toBeUndefined();
   });
 });

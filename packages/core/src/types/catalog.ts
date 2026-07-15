@@ -1,6 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type React from 'react';
-import type { FieldConditions, FieldError, FieldValidationConfig } from './index';
+import type {
+  ConditionalBehavior,
+  FieldConditions,
+  FieldEffects,
+  FieldError,
+  FieldValidationConfig,
+} from './index';
 
 export type ToolState = 'streaming' | 'ready' | 'done' | 'error';
 
@@ -74,6 +80,38 @@ export interface PartEntry<TPart = unknown> {
 }
 
 export type CatalogEntry = ComponentEntry<never> | ToolEntry<never, never> | PartEntry<never>;
+
+/**
+ * The discriminated union of valid field configs for a catalog `C` (the map
+ * `{ componentType → propsType }`). Enables fully-typed dynamic/runtime field
+ * building against the registered component types — no `any`.
+ *
+ * Each union member pins `type` to one registered key `K` and narrows `props`
+ * to that component's own props, so an unregistered `type` or a prop of the
+ * wrong shape is a compile error:
+ *
+ * ```typescript
+ * type Cat = { text: { label?: string }; num: { min?: number } };
+ * const ok: FieldConfigFor<Cat> = { id: 'a', type: 'text', props: { label: 'L' } };
+ * const bad: FieldConfigFor<Cat> = { type: 'ghost' };                  // ✗ unknown type
+ * const alsoBad: FieldConfigFor<Cat> = { type: 'text', props: { label: 42 } }; // ✗ wrong prop
+ * ```
+ *
+ * The `validation` / `conditions` / `effects` slots use the core types the form
+ * builder's own `FieldConfig<C, T>` uses, so a `FieldConfigFor<C>` is directly
+ * assignable to the builder's `.add(...)` — no cast at the builder boundary.
+ */
+export type FieldConfigFor<C> = {
+  [K in keyof C & string]: {
+    readonly id?: string;
+    readonly type: K;
+    readonly props?: Partial<C[K]>;
+    readonly validation?: FieldValidationConfig;
+    readonly conditions?: ConditionalBehavior;
+    readonly effects?: FieldEffects;
+    readonly default?: unknown;
+  };
+}[keyof C & string];
 
 export type PropsValidationResult =
   | { readonly success: true; readonly value: unknown }
