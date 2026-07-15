@@ -100,6 +100,32 @@ export interface FormProviderProps {
 // FORM PROVIDER IMPLEMENTATION
 // =================================================================
 
+/**
+ * Cheap STRUCTURAL identity of a built config: which values it can hold.
+ *
+ * The reset used to key on `formConfig.id` alone, but a form id is stable
+ * BUSINESS identity while the schema behind it evolves. A backend re-emitting an
+ * evolved schema under the same id — the server-driven case — left the store
+ * holding values for fields that no longer existed, and they were still
+ * submitted.
+ *
+ * Deliberately NOT the config object's identity: a config is rebuilt on every
+ * parent render in normal usage, so resetting on identity would wipe the user's
+ * input on each one. Only the shape of what can be STORED is compared — the
+ * field ids and the repeatable ids with their own field ids — so a re-emitted
+ * identical schema (new objects, same shape) does not reset, while a schema that
+ * adds or drops a field does. Presentation-only churn (labels, props, row
+ * layout) is intentionally invisible here: it orphans no value.
+ */
+function buildConfigSignature(formConfig: FormConfiguration): string {
+  const fieldIds = (formConfig.allFields ?? []).map((field) => field.id).sort();
+  const repeatables = Object.entries(formConfig.repeatableFields ?? {})
+    .map(([id, config]) => [id, (config.allFields ?? []).map((field) => field.id).sort()] as const)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+
+  return JSON.stringify([formConfig.id, fieldIds, repeatables]);
+}
+
 export function FormProvider({
   children,
   formConfig,
@@ -147,8 +173,12 @@ export function FormProvider({
   // dispatching to the latest validator.
   const validateFieldRef = useRef<((fieldId: string) => Promise<unknown>) | null>(null);
 
-  // Track form ID changes
-  const prevFormIdRef = useRef(formConfig.id);
+  // Track genuine config changes — see `buildConfigSignature`. A form swap is
+  // any change to WHAT THE FORM CAN HOLD, not just to its id: a workflow step
+  // transition (id changes) and a hot-swapped schema under a stable id (only the
+  // field set changes) are the same event as far as the store is concerned.
+  const configSignature = useMemo(() => buildConfigSignature(formConfig), [formConfig]);
+  const prevConfigSignatureRef = useRef(configSignature);
 
   // Brackets the form-id reset so the values subscription can tell a wholesale
   // form swap (every previous key disappears at once) from a genuine user
@@ -156,7 +186,8 @@ export function FormProvider({
   // reliably covers exactly the reset's own notification.
   const isResettingRef = useRef(false);
 
-  // Reset when form ID changes — reinitialize repeatable configs and min items.
+  // Reset when the form's structure changes — reinitialize repeatable configs
+  // and min items.
   //
   // This MUST be a LAYOUT effect, not a passive one. The form id changes when the
   // mounted form is swapped (e.g. a workflow step transition), and the store still
@@ -174,8 +205,8 @@ export function FormProvider({
   // observe the NEW step's reset values rather than the previous step's leftover
   // values. Layout effects run before passive effects, so this stays first.
   useIsomorphicLayoutEffect(() => {
-    if (prevFormIdRef.current !== formConfig.id) {
-      prevFormIdRef.current = formConfig.id;
+    if (prevConfigSignatureRef.current !== configSignature) {
+      prevConfigSignatureRef.current = configSignature;
 
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
@@ -209,7 +240,7 @@ export function FormProvider({
         isResettingRef.current = false;
       }
     }
-  }, [formConfig.id, formConfig.repeatableFields, store, defaultValues, defaultRepeatableOrder]);
+  }, [configSignature, formConfig.repeatableFields, store, defaultValues, defaultRepeatableOrder]);
 
   useEffect(() => {
     effectEngineRef.current?.stop();
