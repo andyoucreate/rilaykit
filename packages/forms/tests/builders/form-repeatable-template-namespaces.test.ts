@@ -41,6 +41,21 @@ describe('repeatable template field namespaces', () => {
     expect(() => builder.build()).toThrow(/Duplicate field IDs: name/);
   });
 
+  it('reports a duplicate TOP-LEVEL field id exactly once, whatever the repeatable count', () => {
+    // Per-repeatable scoping re-runs the uniqueness check with the whole
+    // top-level id list folded in, so an unrelated top-level duplicate is
+    // re-reported once per repeatable (plus once by the payload-namespace
+    // check). One defect, one message.
+    const builder = form
+      .create(makeCatalog(), 'f')
+      .add({ id: 'dup', type: 'text', props: {} })
+      .add({ id: 'dup', type: 'text', props: {} })
+      .addRepeatable('addresses', (r) => r.add({ id: 'street', type: 'text', props: {} }))
+      .addRepeatable('contacts', (r) => r.add({ id: 'phone', type: 'text', props: {} }));
+
+    expect(builder.validate()).toEqual(['Duplicate field IDs: dup']);
+  });
+
   it('still rejects two colliding template field ids WITHIN one repeatable', () => {
     const builder = form.create(makeCatalog(), 'f').addRepeatable('addresses', (r) =>
       r

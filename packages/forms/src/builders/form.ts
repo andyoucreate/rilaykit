@@ -795,12 +795,23 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       errors.push(error instanceof Error ? error.message : String(error));
     }
 
+    // Scoped per repeatable, and reporting only what THIS repeatable is guilty
+    // of: its own duplicate template ids, plus any template id shadowing a
+    // top-level field. Re-running ensureUnique over the whole top-level list
+    // made one duplicate top-level id surface once per repeatable — N+2 copies
+    // of a single defect that the check above already reported.
+    const uniqueTopLevelIds = new Set(topLevelFieldIds);
     for (const row of repeatableRows) {
       const templateIds = row.repeatable.allFields.map((field) => field.id);
       try {
-        ensureUnique([...topLevelFieldIds, ...templateIds], 'field');
+        ensureUnique(templateIds, 'field');
       } catch (error) {
         errors.push(error instanceof Error ? error.message : String(error));
+      }
+
+      const shadowed = [...new Set(templateIds)].filter((id) => uniqueTopLevelIds.has(id));
+      if (shadowed.length > 0) {
+        errors.push(`Duplicate field IDs: ${shadowed.join(', ')}`);
       }
     }
 
@@ -814,8 +825,12 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     // Repeatable TEMPLATE fields are deliberately exempt: they submit under
     // composite keys (`items[k0].name`), never as a top-level payload key, so a
     // template field may legitimately reuse its own repeatable's id.
+    // Deduplicated first: this check owns the field-vs-repeatable collision
+    // only. A duplicate among the top-level ids themselves is already reported
+    // above, and feeding the raw list in here reported it a second time under a
+    // different wording.
     const repeatableIds = repeatableRows.map((row) => row.repeatable.id);
-    const payloadIds = [...allFields.map((field) => field.id), ...repeatableIds];
+    const payloadIds = [...uniqueTopLevelIds, ...repeatableIds];
     try {
       ensureUnique(payloadIds, 'field or repeatable');
     } catch (error) {

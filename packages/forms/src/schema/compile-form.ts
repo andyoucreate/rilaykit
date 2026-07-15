@@ -304,6 +304,27 @@ export function validateSchema<C extends Record<string, any>>(
   const hasFields = Array.isArray(schema.fields);
   const hasRows = Array.isArray(schema.rows);
 
+  // A PRESENT-but-not-an-array `fields`/`rows` is a defect in its own right. It
+  // must be named as one: the Array.isArray checks above read it as absent, so
+  // a truthy non-array `rows` alongside a valid `fields` satisfies the one-of
+  // guard below and then reaches normalizeToRows, which returns it untouched
+  // for a for..of to explode on as a raw TypeError.
+  if (schema.fields !== undefined && !hasFields) {
+    issues.push({
+      path: 'fields',
+      message: 'Form schema "fields" must be an array',
+      severity: 'error',
+    });
+  }
+
+  if (schema.rows !== undefined && !hasRows) {
+    issues.push({
+      path: 'rows',
+      message: 'Form schema "rows" must be an array',
+      severity: 'error',
+    });
+  }
+
   if (!hasFields && !hasRows) {
     issues.push({
       path: '',
@@ -614,10 +635,20 @@ function validateValidationDescriptors(
       } else if (!ALL_BUILTIN_NAMES.has(type)) {
         // Check registry — own-property only: the bindings table is a plain
         // object supplied by the consumer, and `type` is untrusted.
-        if (getOwn(registry?.validators, type) === undefined) {
+        const factory = getOwn(registry?.validators, type);
+        if (factory === undefined) {
           issues.push({
             path: descPath,
             message: `Unknown validator type "${type}". Not a built-in and not found in registry.`,
+            severity: 'error',
+          });
+        } else if (typeof factory !== 'function') {
+          // Present but not callable: resolveValidationDescriptor invokes it as
+          // a factory, so a mere existence check lets it escape as a raw
+          // TypeError. Mirrors the effect-handler check in validateEffect.
+          issues.push({
+            path: descPath,
+            message: `Validator "${type}" in bindings is not a function`,
             severity: 'error',
           });
         }
@@ -1069,8 +1100,15 @@ export function resolveValidationDescriptor(
 
   // Registry lookup — own-property only (see validateValidationDescriptors).
   const factory = getOwn(registry?.validators, type);
-  if (factory) {
+  if (typeof factory === 'function') {
     return factory(params, message);
+  }
+
+  // Present but not callable. compileForm rejects this earlier with a
+  // SchemaValidationError issue; this is the direct-call path, and it must name
+  // the offending binding rather than let `factory(...)` raise a raw TypeError.
+  if (factory !== undefined) {
+    throw new InvalidSchemaError(`Validator "${type}" in bindings is not a function`, { type });
   }
 
   throw new InvalidSchemaError(`Unknown validator type: "${type}"`, { type });
