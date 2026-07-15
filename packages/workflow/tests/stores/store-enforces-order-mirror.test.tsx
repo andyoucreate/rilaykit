@@ -1,5 +1,5 @@
 import { ril } from '@rilaykit/core';
-import { form, useRepeatableField } from '@rilaykit/forms';
+import { form, parseCompositeKey, useRepeatableField } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -279,6 +279,12 @@ describe('the store enforces its order-mirror invariant on EVERY internal path',
     _setAllData: (store) => store.getState()._setAllData({ items: { lines: AUTHORED } }),
     _setFieldValue: (store) => store.getState()._setFieldValue('lines', AUTHORED, 'items'),
     _removeFieldValues: null,
+    // It re-authors no rows — it writes no slice and re-keys nothing — so it
+    // owes THIS table nothing. It is not otherwise harmless, and the `null` used
+    // to be read as saying so: this action IS the mirror, and it is the one door
+    // that writes it without a normaliser. Its own invariant, and the door's own
+    // enumeration, are below — see `the mirror admits no claim a step's own
+    // slice does not bear out`.
     _setRepeatableOrder: null,
     _setSubmitting: null,
     _setTransitioning: null,
@@ -468,5 +474,193 @@ describe('the order mirror carries the user reorder to the host', () => {
     await waitFor(() => expect(onWorkflowComplete).toHaveBeenCalledTimes(1));
 
     expect(onWorkflowComplete.mock.calls[0][0].items.lines).toEqual(AUTHORED);
+  });
+});
+
+// =================================================================
+// THE MIRROR'S OWN WRITE DOOR — `_setRepeatableOrder`
+// =================================================================
+
+/**
+ * THE NINTH MEMBER OF THE CLASS, and the first found at the door that IS the
+ * mirror rather than at a door that disturbs it.
+ *
+ * Every enumeration above drives an action that re-authors ROWS and asks whether
+ * it left the mirror describing them. `_setRepeatableOrder` re-authors no rows,
+ * so it answered `null` to all of them and was never driven — and "no driver" was
+ * read as "cannot desync". It writes `_repeatableOrders[stepId] = order`
+ * verbatim: it was the only door with no normaliser between it and the mirror,
+ * because it had no slice to normalise.
+ *
+ * WHAT THE PAIR ACTUALLY IS. `WorkflowProvider.handleRepeatableOrderChange`
+ * builds `(stepId, order)` from two different places: `order` is whatever the
+ * mounted form reported, `stepId` is `currentStep?.id` read at CALL TIME. Those
+ * are about the same step only because the form is normally reset in the same
+ * commit that moves `currentStep`. That is an incidental synchronisation of two
+ * independent things, which is this class's signature — and the diagnosis this
+ * test was written to confirm (`the report is misattributed on a recompile that
+ * moves the step set under the index`) is NOT what breaks it. On a recompile the
+ * form DOES reset, and reports the incoming step's own fresh order, correctly
+ * attributed. The empty entry that recompile leaves behind is real but is the
+ * incoming step's own — an empty CLAIM where the mirror means to have no opinion,
+ * not a misattribution.
+ *
+ * THE SYNCHRONISATION BREAKS WITHOUT ANY RECOMPILE AT ALL. `FormProvider` resets
+ * on the form's STRUCTURAL identity — `[formConfig.id, field shapes, repeatable
+ * shapes]` — deliberately, so a config rebuilt on every parent render does not
+ * wipe the user's input. Two steps carrying the same form id and the same shape
+ * are therefore ONE form to it, and it does not reset between them. Nothing
+ * forbids that flow: `flow.build()` and `validateFlowSchema` check STEP ids for
+ * uniqueness and say nothing about form ids. So `goNext()` — the plainest
+ * exported door there is — leaves the outgoing step's form mounted, the user
+ * drags a row, and the report lands under the INCOMING step's id, naming rows
+ * only the outgoing step's slice holds.
+ *
+ * THE FIX IS THE CLASS'S OWN LESSON. The provider cannot be made to name the
+ * right step here — the form that produced the report IS the previous step's
+ * form, and it knows no step ids to carry one. So the pair is not trusted: the
+ * store asks the STEP'S OWN SLICE whether it holds the rows the claim is about,
+ * and admits only what the data bears out. Which step the caller named stops
+ * mattering. See {@link admissibleStepOrder}.
+ */
+
+/**
+ * THE INVARIANT ITSELF, over the WHOLE mirror, derived from the store — never a
+ * hand-written list of the entries a test happens to expect.
+ *
+ * Every claim in `_repeatableOrders` must be about rows the step it is filed
+ * under actually holds. Read off the store's real state by parsing the flat
+ * composite keys of each slice, so an entry filed under a step this test never
+ * thought to name fails just the same.
+ *
+ * Returns the offending claims, so a failure says WHICH step is claiming rows it
+ * does not have rather than just `false !== true`.
+ */
+function claimsNoStepBearsOut(store: WorkflowStore): Record<string, string[]> {
+  const { allData, _repeatableOrders: orders } = store.getState();
+  const unborne: Record<string, string[]> = {};
+
+  for (const [stepId, order] of Object.entries(orders)) {
+    const slice = allData[stepId];
+    const held = new Set<string>();
+    if (slice && typeof slice === 'object' && !Array.isArray(slice)) {
+      for (const key of Object.keys(slice as Record<string, unknown>)) {
+        const parsed = parseCompositeKey(key);
+        if (parsed) held.add(`${parsed.repeatableId}:${parsed.itemKey}`);
+      }
+    }
+
+    for (const [repeatableId, rowKeys] of Object.entries(order)) {
+      const unheld = rowKeys.filter((rowKey) => !held.has(`${repeatableId}:${rowKey}`));
+      // Not `unheld.length > 0`: a row the user appended and has not typed into
+      // holds no composite key yet, and the mirror is entitled to arrange it.
+      // A claim NO row of which the slice holds is a claim about someone else's
+      // rows.
+      if (unheld.length === rowKeys.length) unborne[`${stepId}.${repeatableId}`] = rowKeys;
+    }
+  }
+
+  return unborne;
+}
+
+/** Two steps whose forms share an id AND a shape — one form to `FormProvider`. */
+function buildTwinFormFlow() {
+  const twinForm = () =>
+    form
+      .create(catalog, 'lines-form')
+      .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} }));
+
+  return flow
+    .create(catalog, 'wf-twin', 'Twin')
+    .addStep({ id: 'alpha', title: 'Alpha', formConfig: twinForm() })
+    .addStep({ id: 'xray', title: 'Xray', formConfig: twinForm() })
+    .build();
+}
+
+describe('the mirror admits no claim a step’s own slice does not bear out', () => {
+  let capturedStore: WorkflowStore;
+  let capturedActions: UseFlowActionsResult;
+
+  function TwinHarness() {
+    capturedStore = useFlowStoreApi();
+    capturedActions = useFlowActions();
+    return <LinesProbe />;
+  }
+
+  async function renderTwinAndReorderAlpha() {
+    render(
+      <WorkflowProvider
+        workflowConfig={buildTwinFormFlow()}
+        defaultValues={{ alpha: { lines: [{ label: 'alpha' }, { label: 'beta' }] } }}
+      >
+        <TwinHarness />
+      </WorkflowProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('lines-order').textContent).toBe('k0,k1'));
+  }
+
+  it('a drag on the NEXT step does not file the previous step’s rows under it', async () => {
+    await renderTwinAndReorderAlpha();
+
+    // The user is on `alpha` and drags. This is `alpha`'s form, holding `alpha`'s
+    // rows: the arrangement is `alpha`'s and the mirror says so.
+    fireEvent.click(screen.getByTestId('move-0-1'));
+    await waitFor(() => expect(screen.getByTestId('lines-order').textContent).toBe('k1,k0'));
+    expect(capturedStore.getState()._repeatableOrders).toEqual({ alpha: { lines: ['k1', 'k0'] } });
+
+    // The plainest navigation there is. `xray` is a different step with a
+    // different (empty) slice — but the same form id and shape, so the mounted
+    // form is not reset and goes on holding `alpha`'s rows.
+    act(() => capturedActions.setCurrentStep(1));
+
+    // The user drags again. `currentStep?.id` now reads `xray`, so the report is
+    // filed under `xray` — an arrangement of `k0`/`k1`, which are rows of
+    // `alpha`'s slice. `xray`'s slice holds no rows at all.
+    fireEvent.click(screen.getByTestId('move-0-1'));
+
+    // EXACTLY `alpha`'s entry, unchanged, and nothing under `xray`. Not "xray's
+    // entry is empty" — an absent entry is the mirror declining to have an
+    // opinion, which the read boundary answers by reconstructing insertion order
+    // from the flat keys. An empty one says the same thing while riding into
+    // every persistence snapshot.
+    expect(capturedStore.getState()._repeatableOrders).toEqual({ alpha: { lines: ['k1', 'k0'] } });
+  });
+
+  it('leaves NO claim anywhere in the mirror that its own step cannot bear out', async () => {
+    await renderTwinAndReorderAlpha();
+
+    fireEvent.click(screen.getByTestId('move-0-1'));
+    await waitFor(() => expect(screen.getByTestId('lines-order').textContent).toBe('k1,k0'));
+    act(() => capturedActions.setCurrentStep(1));
+    fireEvent.click(screen.getByTestId('move-0-1'));
+
+    // THE GENERAL PROPERTY, not the `xray` symptom: whatever the mirror holds
+    // when the dust settles, every claim in it is about rows its own step's
+    // slice actually has. This is the assertion that must survive mutation —
+    // the one above names the step this bug happened to reach.
+    expect(claimsNoStepBearsOut(capturedStore)).toEqual({});
+  });
+
+  it('still records the arrangement of rows the user has not typed into', async () => {
+    // THE OTHER HALF OF THE RULE, and the reason it is not key EQUALITY. A row
+    // the user appended but left empty contributes no composite key, so the
+    // slice legitimately holds FEWER rows than the form is arranging. Demanding
+    // an exact match would throw away the arrangement of every half-filled
+    // repeatable — a real user's drag, silently dropped, which is precisely the
+    // failure the mirror exists to prevent.
+    render(
+      <WorkflowProvider workflowConfig={buildSingleStepFlow()} defaultValues={LIVE_DEFAULTS}>
+        <TwinHarness />
+      </WorkflowProvider>
+    );
+    await waitFor(() => expect(screen.getByTestId('lines-order').textContent).toBe('k0,k1'));
+
+    // A third row, never typed into: `lines[k2].label` is nowhere in the slice.
+    act(() => capturedStore.getState()._setRepeatableOrder('items', { lines: ['k2', 'k1', 'k0'] }));
+
+    expect(capturedStore.getState()._repeatableOrders).toEqual({
+      items: { lines: ['k2', 'k1', 'k0'] },
+    });
   });
 });

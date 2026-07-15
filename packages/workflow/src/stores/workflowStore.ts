@@ -4,6 +4,7 @@ import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import {
+  admissibleStepOrder,
   flattenAuthoredSlice,
   normalizeRepeatableSlices,
   reconcileRepeatableOrders,
@@ -709,12 +710,37 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           });
         },
 
+        /**
+         * The mirror's ONE write boundary — see {@link admissibleStepOrder} for
+         * why it derives what this step may claim instead of storing the pair it
+         * is handed.
+         *
+         * The caller is `WorkflowProvider`, pairing a form's order report with
+         * `currentStep?.id` read at CALL TIME. The two halves of that pair come
+         * from different places and are only reliably about the same step
+         * because the mounted form is normally reset in the same commit that
+         * moves `currentStep` — an incidental synchronisation, not a guarantee.
+         * When it does not hold (two steps sharing a form id and a shape are ONE
+         * form to `FormProvider`, which therefore never resets between them), the
+         * outgoing step's form reports its arrangement and this action files it
+         * under the incoming step's id. So the pair is checked against the one
+         * thing that cannot be mistaken about which rows exist: the step's own
+         * slice.
+         */
         _setRepeatableOrder: (stepId, order) => {
           set((state) => {
+            const admitted = admissibleStepOrder(readStepSlice(state.allData, stepId), order);
             const current = getOwn(state._repeatableOrders, stepId);
-            if (current && isSameRepeatableOrder(current, order)) return {};
+
+            // Nothing this step can bear out. An absent entry is not an empty
+            // claim but no claim at all, so there is nothing to write — and
+            // nothing to retract either: an entry already here describes rows
+            // this report simply says nothing about.
+            if (!admitted) return {};
+            if (current && isSameRepeatableOrder(current, admitted)) return {};
+
             return {
-              _repeatableOrders: { ...state._repeatableOrders, [stepId]: order },
+              _repeatableOrders: { ...state._repeatableOrders, [stepId]: admitted },
             };
           });
         },

@@ -165,6 +165,94 @@ export function reconcileRepeatableOrders(
 }
 
 /**
+ * The row keys one step slice ACTUALLY HOLDS, per repeatable, derived from the
+ * slice alone.
+ *
+ * DERIVED, NOT ASKED. A flat composite key is self-describing — `lines[k0].label`
+ * names the repeatable, the row and the field — so this consults no config and no
+ * step list. That is the lesson the fifth member of this class paid for: a
+ * boundary that asks the config which keys are a repeatable's rows is a boundary
+ * that answers wrongly the moment the config and the data disagree, and they
+ * disagree exactly when the step set moves.
+ *
+ * Insertion order of the returned keys is meaningless — this answers WHICH rows
+ * the slice holds, never in what arrangement. The arrangement is the mirror's
+ * whole job, and it is unreconstructable from here (a move rewrites the order
+ * and nothing else).
+ */
+function heldRowKeys(slice: Record<string, unknown>): Map<string, Set<string>> {
+  const held = new Map<string, Set<string>>();
+
+  for (const key of Object.keys(slice)) {
+    const parsed = parseCompositeKey(key);
+    if (!parsed) continue;
+
+    const keys = held.get(parsed.repeatableId) ?? new Set<string>();
+    keys.add(parsed.itemKey);
+    held.set(parsed.repeatableId, keys);
+  }
+
+  return held;
+}
+
+/**
+ * The part of an order report a step is ENTITLED TO — the claims that are about
+ * rows this step's own slice holds.
+ *
+ * THE THIRD INVARIANT, ENFORCED AT THE ONE DOOR THAT WROTE THE MIRROR BLIND.
+ * `_setRepeatableOrder` is the only action that writes `_repeatableOrders`
+ * without going through a normaliser, because it is the only one whose whole
+ * purpose IS the mirror — so it had nothing to normalise, and wrote whatever
+ * `(stepId, order)` pair it was handed. That was safe only while the pair was
+ * guaranteed well-formed, and its one caller forms the pair by reading the
+ * step id from `currentStep?.id` at call time while the order comes from a form
+ * that may not be the one that step mounted. The pair is an ASSUMPTION at the
+ * call site; here it is a question the slice can answer.
+ *
+ * A claim is admitted when the rows the slice holds for that repeatable are all
+ * named by it. Not equality: a row the user just appended and has not typed into
+ * contributes no composite key, so the slice legitimately holds FEWER rows than
+ * the form is arranging, and rejecting that would throw away the arrangement of
+ * every half-filled repeatable. What cannot be tolerated is the reverse — a
+ * claim that fails to name a row the slice holds is not describing these rows,
+ * and {@link structureStepSlice} applies the mirror unconditionally, so it would
+ * re-sequence the host's rows against an arrangement that was never theirs.
+ *
+ * A step whose slice holds no rows for a repeatable at all therefore admits NO
+ * claim about it: there are no rows here to arrange. That is what makes a
+ * foreign form's arrangement unrepresentable rather than merely unlikely — it
+ * does not matter which step the caller named, only whether that step's own data
+ * bears the claim out.
+ *
+ * `undefined` when nothing survives, and the caller must write NO ENTRY rather
+ * than an empty one. An absent entry is the mirror declining to have an opinion,
+ * which the read boundary answers by reconstructing insertion order from the
+ * flat keys; an empty entry says the same thing while putting a bookkeeping key
+ * into every persistence snapshot. See {@link reconcileStepOrder}.
+ */
+export function admissibleStepOrder(
+  slice: Record<string, unknown>,
+  order: Record<string, string[]>
+): Record<string, string[]> | undefined {
+  const held = heldRowKeys(slice);
+  // A Map: a repeatable id is author data, and `admitted['__proto__'] = keys` on
+  // a plain object reassigns the prototype instead of recording the key.
+  const admitted = new Map<string, string[]>();
+
+  for (const [repeatableId, claimedKeys] of Object.entries(order)) {
+    const heldKeys = held.get(repeatableId);
+    if (!heldKeys || heldKeys.size === 0) continue;
+
+    const claimed = new Set(claimedKeys);
+    if (![...heldKeys].every((key) => claimed.has(key))) continue;
+
+    admitted.set(repeatableId, claimedKeys);
+  }
+
+  return admitted.size === 0 ? undefined : Object.fromEntries(admitted);
+}
+
+/**
  * Normalises every step slice of a workflow `allData` to the store's ONE
  * internal representation: flat composite keys (`lines[k0].label`).
  *
