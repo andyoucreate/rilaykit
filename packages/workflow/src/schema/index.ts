@@ -1,3 +1,4 @@
+export { compileFlow } from './compile-flow';
 export { isFlowSchema, validateFlowSchema } from './validate-flow-schema';
 export type {
   AfterValidationHandler,
