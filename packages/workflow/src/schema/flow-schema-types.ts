@@ -26,7 +26,7 @@ export interface FlowSchemaStep {
   readonly form: FormSchema;
   readonly conditions?: StepConditionalBehavior;
   /** Static boolean, or a `{ binding }` reference into `FlowBindings.allowSkip`. */
-  readonly allowSkip?: Extract<StepAllowSkip, boolean> | { readonly binding: string };
+  readonly allowSkip?: boolean | { readonly binding: string };
   readonly metadata?: Record<string, unknown>;
   /** Binding key into `FlowBindings.after`. */
   readonly onAfterValidation?: string;

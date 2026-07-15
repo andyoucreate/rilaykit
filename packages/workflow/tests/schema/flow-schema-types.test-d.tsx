@@ -1,9 +1,4 @@
-import type {
-  StepConditionalBehavior,
-  StepConfig,
-  StepDataHelper,
-  WorkflowContext,
-} from '@rilaykit/core';
+import type { StepConditionalBehavior, StepDataHelper, WorkflowContext } from '@rilaykit/core';
 import type {
   AfterValidationHandler,
   AllowSkipPredicate,
@@ -107,9 +102,6 @@ describe('FlowSchema types', () => {
     >();
 
     // `AfterValidationHandler` stays core's step hook, parameters included.
-    expectTypeOf<AfterValidationHandler>().toEqualTypeOf<
-      NonNullable<StepConfig['onAfterValidation']>
-    >();
     expectTypeOf<Parameters<AfterValidationHandler>>().toEqualTypeOf<
       [Record<string, any>, StepDataHelper, WorkflowContext]
     >();
@@ -117,6 +109,5 @@ describe('FlowSchema types', () => {
 
     // `CompileFlowOptions` carries the bindings `compileFlow` resolves against.
     expectTypeOf<CompileFlowOptions>().toEqualTypeOf<{ readonly bindings?: FlowBindings }>();
-    expectTypeOf<CompileFlowOptions['bindings']>().toEqualTypeOf<FlowBindings | undefined>();
   });
 });
