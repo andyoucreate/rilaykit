@@ -1,7 +1,9 @@
-import { ConfigurationError } from '@rilaykit/core';
+import { ConfigurationError, ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { flow } from '../../src/builders/flow';
 import {
   type CreateWorkflowStoreOptions,
   WorkflowStoreContext,
@@ -30,6 +32,25 @@ function createWrapper(options: CreateWorkflowStoreOptions = {}) {
   );
   return { Wrapper, store };
 }
+
+/**
+ * `stepData` is a VIEW of `allData[_currentStepId]`, and the store names that
+ * owner from its OWN steps — so a test that asserts anything about the mirror
+ * hands the store steps, the same configuration `WorkflowProvider` builds. A
+ * store without them cannot name a current step at all, which makes a mirror
+ * assertion vacuous rather than strict. The same reasoning, and the same
+ * `getSteps`, as `workflowStore.crossStepWrite.test.ts`.
+ *
+ * Every OTHER test in this file deliberately keeps its bare store: an index, a
+ * flag, a visited set and `allData` itself are all answerable without steps.
+ */
+const catalog = ril.create();
+const STEPS = flow
+  .create(catalog, 'wf', 'W')
+  .addStep({ id: 'step1', title: 'Step 1', formConfig: form.create(catalog, 'f1') })
+  .addStep({ id: 'step2', title: 'Step 2', formConfig: form.create(catalog, 'f2') })
+  .build().steps;
+const getSteps = () => STEPS;
 
 describe('workflowStore', () => {
   describe('createWorkflowStore', () => {
@@ -74,7 +95,7 @@ describe('workflowStore', () => {
     });
 
     it('should set step data and update allData', () => {
-      const store = createWorkflowStore();
+      const store = createWorkflowStore({ getSteps });
       const stepData = { field1: 'value1', field2: 'value2' };
 
       store.getState()._setStepData(stepData, 'step1');
@@ -93,7 +114,7 @@ describe('workflowStore', () => {
     });
 
     it('should set field value and update both stepData and allData', () => {
-      const store = createWorkflowStore();
+      const store = createWorkflowStore({ getSteps });
 
       store.getState()._setFieldValue('field1', 'value1', 'step1');
 
@@ -316,7 +337,7 @@ describe('workflowStore', () => {
     });
 
     it('useStepData should return current step data', () => {
-      const { Wrapper, store } = createWrapper();
+      const { Wrapper, store } = createWrapper({ getSteps });
       const { result } = renderHook(() => useStepData(), { wrapper: Wrapper });
 
       expect(result.current).toEqual({});
@@ -457,16 +478,19 @@ describe('workflowStore', () => {
     });
 
     it('useFlowActions should update store state', () => {
-      const { Wrapper, store } = createWrapper();
+      const { Wrapper, store } = createWrapper({ getSteps });
       const { result } = renderHook(() => useFlowActions(), { wrapper: Wrapper });
 
+      // A step this store HAS, so the write below names the step the mirror is
+      // a view of. (`setCurrentStep` accepting an out-of-range index is its own
+      // test above, on a store with nothing to be in range of.)
       act(() => {
-        result.current.setCurrentStep(3);
+        result.current.setCurrentStep(1);
       });
-      expect(store.getState().currentStepIndex).toBe(3);
+      expect(store.getState().currentStepIndex).toBe(1);
 
       act(() => {
-        result.current.setStepData({ field1: 'value1' }, 'step1');
+        result.current.setStepData({ field1: 'value1' }, 'step2');
       });
       expect(store.getState().stepData).toEqual({ field1: 'value1' });
 

@@ -1,7 +1,10 @@
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import type React from 'react';
 import { memo, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { flow } from '../../src/builders/flow';
 import {
   type CreateWorkflowStoreOptions,
   WorkflowStoreContext,
@@ -21,6 +24,14 @@ function createWrapper(options: CreateWorkflowStoreOptions = {}) {
   );
   return { Wrapper, store };
 }
+
+const catalog = ril.create();
+const STEPS = flow
+  .create(catalog, 'wf', 'W')
+  .addStep({ id: 'step1', title: 'Step 1', formConfig: form.create(catalog, 'f1') })
+  .addStep({ id: 'step2', title: 'Step 2', formConfig: form.create(catalog, 'f2') })
+  .build().steps;
+const getSteps = () => STEPS;
 
 describe('Workflow Selector Hooks - Re-render Isolation', () => {
   it('useFlowStepIndex should not re-render when other state changes', () => {
@@ -135,7 +146,11 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
   });
 
   it('useStepData should not re-render when unrelated data changes', () => {
-    const { Wrapper, store } = createWrapper();
+    // `stepData` is a VIEW of `allData[_currentStepId]`, and the store names
+    // that owner from its OWN steps — so a store with none cannot name a
+    // current step, and every mirror assertion below would be vacuous. Same
+    // reasoning, same `getSteps`, as `workflowStore.crossStepWrite.test.ts`.
+    const { Wrapper, store } = createWrapper({ getSteps });
     const renderCount = { current: 0 };
 
     const TestComponent = () => {
@@ -152,15 +167,17 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
 
     expect(renderCount.current).toBe(1);
 
-    // Changing unrelated state should NOT cause re-render
+    // Moving to a step whose slice is empty too: the view is re-derived and
+    // comes back the same EMPTY_SLICE it already was, so nothing is published
+    // and no consumer is woken.
     act(() => {
-      store.getState()._setCurrentStep(5);
+      store.getState()._setCurrentStep(1);
     });
     expect(renderCount.current).toBe(1);
 
     // Changing step data SHOULD cause re-render
     act(() => {
-      store.getState()._setStepData({ field: 'value' }, 'step1');
+      store.getState()._setStepData({ field: 'value' }, 'step2');
     });
     expect(renderCount.current).toBe(2);
     expect(screen.getByTestId('data')).toHaveTextContent('{"field":"value"}');

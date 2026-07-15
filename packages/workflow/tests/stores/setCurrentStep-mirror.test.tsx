@@ -1,4 +1,4 @@
-import { ril } from '@rilaykit/core';
+import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -305,43 +305,73 @@ function expectMirrorFlat(store: WorkflowStore): void {
   }
 }
 
-describe('the mirror never speaks the authored shape, whichever action publishes it', () => {
+/**
+ * THE TABLE IS GONE, AND THAT IS THE FIX.
+ *
+ * `MIRROR_PUBLISHERS` used to live here: every action `useFlowActions()`
+ * exports, classified as publishing the mirror or not, with `setAllData: null`
+ * — recorded, in its own words, as "a fact this enumeration CHECKS rather than
+ * one it endorses". The check was honest and the fact was a bug. `setAllData`
+ * writes `allData` wholesale, current step included, and published no mirror; a
+ * batch resolved onto the step the user is sitting on left every field
+ * condition on it reading superseded values (see the differential above).
+ *
+ * THE TABLE WAS THE BUG'S HABITAT, NOT ITS RECORD. A publishers table with N
+ * entries is N writers each asked "did you remember the mirror?", and the answer
+ * has to be re-checked every time an action is added. `setAllData` is simply the
+ * one that answered wrong. So `stepData` is no longer something a writer
+ * publishes: it is derived from `allData[_currentStepId]` at the store's write
+ * boundary, which every action's patch passes through and none of them can
+ * opt out of. See `createWorkflowStore`'s wrapped `set`.
+ *
+ * What replaces the table is not a better table — it is the single invariant
+ * that makes a table unnecessary, asserted against EVERY action with no
+ * classification to get wrong:
+ *
+ *     stepData === allData[_currentStepId] ?? {}     (by identity, always)
+ *
+ * There is nothing left for an entry to say. A driver list still enumerates the
+ * public surface (`Object.keys` equality, so an action added tomorrow fails here
+ * rather than shipping), but it no longer classifies: every action is driven and
+ * every action is held to the same invariant. An action added tomorrow that
+ * writes a slice and "forgets" the mirror cannot exist — there is no longer a
+ * thing to forget.
+ */
+describe('the mirror is a VIEW of the current step slice, after EVERY public action', () => {
   /**
-   * Every action `useFlowActions()` exports, driven with AUTHORED rows.
+   * Every action `useFlowActions()` exports, driven with AUTHORED rows where it
+   * takes data — the shape a host writes and the store must not care about.
    *
-   * `null` classifies an action that cannot publish the mirror at all. That
-   * classification is PROVED below — `stepData` keeps its identity — never
-   * asserted, because "it does not touch the mirror" is precisely the sentence
-   * that was true of `_loadPersistedState`'s `allData` and false of its
-   * `stepData`.
+   * NOT a classification. There is no `null` and no exemption: an action that
+   * has nothing to do with data is driven exactly as hard as one that replaces
+   * all of it, because the invariant below holds after both. The old table's
+   * `setSubmitting: null` was TRUE and the old table's `setAllData: null` was
+   * false, and nothing about their entries told the two apart — which is the
+   * argument against having entries.
    */
-  const MIRROR_PUBLISHERS: Record<
-    keyof UseFlowActionsResult,
-    ((actions: UseFlowActionsResult) => void) | null
-  > = {
-    setCurrentStep: (actions) => actions.setCurrentStep(0),
-    setStepData: (actions) => actions.setStepData({ lines: ROWS }, 'items'),
-    // NOT a publisher — it writes the slice and leaves the mirror where it was.
-    // That is a real asymmetry with `setStepData`, and it is recorded here as a
-    // fact this enumeration CHECKS rather than as one it endorses.
-    setAllData: null,
-    setFieldValue: (actions) => actions.setFieldValue('lines', ROWS, 'items'),
-    setSubmitting: null,
-    setTransitioning: null,
-    setInitializing: null,
-    markStepVisited: null,
-    markStepPassed: null,
-    reset: (actions) => actions.reset(),
-    loadPersistedState: (actions) =>
-      actions.loadPersistedState({
-        currentStepIndex: 0,
-        allData: { items: { lines: ROWS } },
-        // What `WorkflowProvider` used to hand this action, and what any host
-        // reaching for the exported door hands it: the slice in the shape it
-        // authored. The store must not care.
-        stepData: { lines: ROWS },
-      }),
-  };
+  const EVERY_ACTION: Record<keyof UseFlowActionsResult, (actions: UseFlowActionsResult) => void> =
+    {
+      setCurrentStep: (a) => a.setCurrentStep(0),
+      setStepData: (a) => a.setStepData({ lines: ROWS }, 'items'),
+      setAllData: (a) => a.setAllData({ items: { lines: ROWS } }),
+      setFieldValue: (a) => a.setFieldValue('lines', ROWS, 'items'),
+      setSubmitting: (a) => a.setSubmitting(true),
+      setTransitioning: (a) => a.setTransitioning(true),
+      setInitializing: (a) => a.setInitializing(false),
+      markStepVisited: (a) => a.markStepVisited('items'),
+      markStepPassed: (a) => a.markStepPassed('items'),
+      reset: (a) => a.reset(),
+      loadPersistedState: (a) =>
+        a.loadPersistedState({
+          currentStepIndex: 0,
+          allData: { items: { lines: ROWS } },
+          // What `WorkflowProvider` used to hand this action, and what any host
+          // reaching for the exported door hands it: the slice in the shape it
+          // authored. The store must not care — and now cannot, because the
+          // derivation overwrites it on the way out.
+          stepData: { lines: ROWS },
+        }),
+    };
 
   let actions: UseFlowActionsResult;
   let store: WorkflowStore;
@@ -363,53 +393,133 @@ describe('the mirror never speaks the authored shape, whichever action publishes
     );
   }
 
-  it('classifies EVERY action the public surface exports', () => {
+  it('drives EVERY action the public surface exports', () => {
     renderRepeatableProbe();
 
-    expect(Object.keys(actions).sort()).toEqual(Object.keys(MIRROR_PUBLISHERS).sort());
+    expect(Object.keys(actions).sort()).toEqual(Object.keys(EVERY_ACTION).sort());
   });
 
-  /** How to drive each `null`-classified action, to PROVE it publishes nothing. */
-  const NON_PUBLISHERS: Record<string, (a: UseFlowActionsResult) => void> = {
-    setAllData: (a) => a.setAllData({ items: { lines: ROWS } }),
-    setSubmitting: (a) => a.setSubmitting(true),
-    setTransitioning: (a) => a.setTransitioning(true),
-    setInitializing: (a) => a.setInitializing(false),
-    markStepVisited: (a) => a.markStepVisited('items'),
-    markStepPassed: (a) => a.markStepPassed('items'),
-  };
+  const everyAction = Object.entries(EVERY_ACTION) as Array<
+    [keyof UseFlowActionsResult, (actions: UseFlowActionsResult) => void]
+  >;
 
-  it('every action classified as publishing no mirror actually publishes none', () => {
-    expect(Object.keys(NON_PUBLISHERS).sort()).toEqual(
-      Object.entries(MIRROR_PUBLISHERS)
-        .filter(([, driver]) => driver === null)
-        .map(([name]) => name)
-        .sort()
-    );
-
-    for (const [name, driver] of Object.entries(NON_PUBLISHERS)) {
+  it.each(everyAction)(
+    'after useFlowActions().%s the mirror IS the current step slice',
+    (_name, driver) => {
       renderRepeatableProbe();
-      const before = store.getState().stepData;
 
       act(() => driver(actions));
 
-      expect({ action: name, stepData: store.getState().stepData }).toEqual({
-        action: name,
-        stepData: before,
-      });
-      expect(store.getState().stepData).toBe(before);
+      const state = store.getState();
+      // By IDENTITY, not equality: an equal copy is a second value that can
+      // drift, which is the thing this store keeps dying of.
+      expect(state._currentStepId).not.toBeNull();
+      expect(state.stepData).toBe(state.allData[state._currentStepId as string]);
     }
-  });
+  );
 
-  const publishers = Object.entries(MIRROR_PUBLISHERS).filter(
-    ([, driver]) => driver !== null
-  ) as Array<[keyof UseFlowActionsResult, (actions: UseFlowActionsResult) => void]>;
-
-  it.each(publishers)('useFlowActions().%s publishes a FLAT mirror', (_name, driver) => {
+  it.each(everyAction)('useFlowActions().%s leaves a FLAT mirror', (_name, driver) => {
     renderRepeatableProbe();
 
     act(() => driver(actions));
 
     expectMirrorFlat(store);
+  });
+});
+
+// =================================================================
+// THE SEVENTH DOOR — THE MIRROR THE WRITER FORGOT
+// =================================================================
+
+/**
+ * `_setAllData` wrote the current step's slice and did not publish the mirror.
+ *
+ * WHY THAT IS A SCREEN AND NOT A PAYLOAD, ONCE MORE. `stepData` is spread LAST
+ * in `combineWorkflowDataForConditions`, OVER the values collected from every
+ * step's slice. A mirror left behind does not merely go quiet — it ACTIVELY
+ * OVERRIDES the fresh `allData` it was supposed to be a view of. So the field
+ * condition does not read the new value and lose a tiebreak; it reads the
+ * superseded one, and keeps reading it.
+ *
+ * NOTHING HEALS IT. The user is on the step and stays there. No navigation, so
+ * no `_setCurrentStep` re-seed; no repeatable, so `_reconcileStepSet` — which
+ * the provider calls on EVERY render, including the one this write causes —
+ * normalises to identity and publishes nothing. The only thing that could
+ * refresh the mirror is another write naming the step, which is precisely what
+ * the host thought it had just done.
+ *
+ * THE DIFFERENTIAL, because the question is not which door is right. A batch of
+ * data written to the step the user is sitting on must be indistinguishable to
+ * that step's conditions whether it went through `setStepData` or `setAllData`.
+ * HITL resolve — a human-in-the-loop resolution writing a batch while the user
+ * sits on the step — is the exact shape that hits this.
+ */
+
+const GATE = 'gate';
+const REVEALED = 'revealed';
+
+function buildGatedFlow() {
+  return flow
+    .create(catalog, 'wf', 'W')
+    .addStep({
+      id: GATE,
+      title: 'Gate',
+      formConfig: form
+        .create(catalog, 'f-gate')
+        .add({ id: 'trigger', type: 'text', props: {} })
+        .add({
+          id: REVEALED,
+          type: 'text',
+          props: {},
+          conditions: { visible: when('trigger').equals('yes') },
+        }),
+    })
+    .build();
+}
+
+type BatchDoor = 'setStepData' | 'setAllData';
+
+const BATCH_DOORS: Record<BatchDoor, (actions: UseFlowActionsResult) => void> = {
+  setStepData: (actions) => actions.setStepData({ trigger: 'yes' }, GATE),
+  setAllData: (actions) => actions.setAllData({ [GATE]: { trigger: 'yes' } }),
+};
+
+/**
+ * The user is on `gate` and has a value there — the mirror is populated, exactly
+ * as it is for anyone who has typed into the step they are looking at. Then a
+ * batch resolves `trigger` to 'yes' through `door`, and NOTHING else happens.
+ */
+function revealedAfterBatch(door: BatchDoor): boolean {
+  let visible: boolean | undefined;
+  let actions: UseFlowActionsResult | undefined;
+
+  function Probe() {
+    actions = useFlowActions();
+    visible = useFlow().conditionsHelpers.isFieldVisible(REVEALED);
+    return null;
+  }
+
+  const { unmount } = render(
+    <WorkflowProvider workflowConfig={buildGatedFlow()}>
+      <Probe />
+    </WorkflowProvider>
+  );
+
+  act(() => (actions as UseFlowActionsResult).setStepData({ trigger: 'no' }, GATE));
+  expect(visible).toBe(false);
+
+  act(() => BATCH_DOORS[door](actions as UseFlowActionsResult));
+
+  const answer = visible as boolean;
+  unmount();
+  return answer;
+}
+
+describe('a batch written to the step the user is ON reaches that step conditions', () => {
+  it('setAllData and setStepData are indistinguishable to a field condition', () => {
+    expect({
+      setStepData: revealedAfterBatch('setStepData'),
+      setAllData: revealedAfterBatch('setAllData'),
+    }).toEqual({ setStepData: true, setAllData: true });
   });
 });

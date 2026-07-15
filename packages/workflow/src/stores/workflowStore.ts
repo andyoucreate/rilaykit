@@ -22,6 +22,34 @@ export interface WorkflowStoreState {
 
   // Data state
   allData: Record<string, unknown>;
+  /**
+   * A VIEW of `allData[_currentStepId]`, and nothing else — never an independent
+   * fact, never a value a caller supplies.
+   *
+   * THE INVARIANT, and it is unconditional: at every instant this store is
+   * observable, `stepData === allData[_currentStepId] ?? {}` BY IDENTITY. It
+   * holds after every action, including the ones that have nothing to do with
+   * data, because it is not maintained by the actions at all — see
+   * {@link createWorkflowStore}'s wrapped `set`, the ONE place `stepData` is
+   * ever written.
+   *
+   * DERIVED AT THE WRITE BOUNDARY, NOT PUBLISHED BY EACH WRITER. This used to be
+   * a value every slice-writing action remembered to publish alongside the slice
+   * (`mirrorIfCurrent`), and the enumeration of who published it had SEVEN
+   * entries — which is seven chances to forget, and `_setAllData` was the one
+   * that did. It wrote the current step's slice into `allData` and left the
+   * mirror on the superseded values. That is not a stale payload: `stepData` is
+   * spread LAST in `combineWorkflowDataForConditions`, so it OVERRODE the fresh
+   * `allData` it was supposed to be a view of, and every field condition on the
+   * step evaluated against values the host had just replaced. Nothing healed it
+   * — only another write naming the step re-published the mirror, and the host
+   * believed it had just made that write.
+   *
+   * The fix is not an eighth entry in the table. A table of publishers is a
+   * question asked of each writer ("did you remember?"); a derivation asks
+   * nobody. The table is GONE, and with it the possibility of an action being
+   * added tomorrow that writes a slice and forgets its view.
+   */
   stepData: Record<string, unknown>;
 
   // Progress tracking
@@ -72,9 +100,9 @@ export interface WorkflowStoreState {
    * another step's values, and `stepData` is both host-visible and the override
    * layer for field conditions.
    *
-   * `null` means the store cannot tell a cross-step write from a current-step
-   * one, so it publishes the mirror as before rather than silently withholding
-   * it — the case of a store created without `steps`.
+   * `null` means the store cannot name a current step at all — the case of a
+   * store created without `steps`. There is then no slice for the mirror to be
+   * a view OF, so the mirror is left exactly where it is.
    *
    * DERIVED, NEVER PASSED IN. This used to be a value each caller handed the
    * store alongside the index, justified by "every write through
@@ -178,40 +206,51 @@ function isSameRepeatableOrder(a: Record<string, string[]>, b: Record<string, st
 }
 
 /**
+ * A step with no slice has an EMPTY one, and it is always the SAME empty one.
+ *
+ * The mirror is re-derived on every write, including writes that have nothing to
+ * do with data. A fresh `{}` each time would give `stepData` a new identity on
+ * every `setSubmitting`, waking every consumer that selects it and every
+ * `useMemo` keyed on it — the condition evaluation among them. Identity is the
+ * whole reason the derivation is free.
+ */
+const EMPTY_SLICE: Record<string, unknown> = Object.freeze({});
+
+/**
  * The authoritative captured data of one step.
  *
  * `allData` is the source of truth — it is seeded from the defaults at store
  * creation and is the payload handed to the host on completion. `stepData` is
- * only a live view of the CURRENT step, and it starts EMPTY: nothing seeds it
- * from `allData` except a navigation, and the initial step never navigates into
- * itself. A per-field write that merged into `stepData` and then published the
- * result as `allData[stepId]` therefore overwrote the initial step's whole
- * slice with a single key on the user's very first edit, destroying every
- * default they had not yet touched — in the form and in the completion payload.
+ * only a live view of it, so it is READ from it and never accumulated
+ * separately. A per-field write that merged into `stepData` and then published
+ * the result as `allData[stepId]` overwrote the initial step's whole slice with
+ * a single key on the user's very first edit, destroying every default they had
+ * not yet touched — in the form and in the completion payload.
  *
  * Reading the slice back out of `allData` keeps the invariant one-directional:
- * `allData[stepId]` is written, `stepData` follows it.
+ * `allData[stepId]` is written, `stepData` follows it. See
+ * {@link WorkflowStoreState.stepData}.
+ *
+ * It returns the slice's OWN identity, so re-deriving the mirror from an
+ * unchanged `allData` yields the very same object.
  */
-function readStepSlice(state: WorkflowStoreState, stepId: string): Record<string, unknown> {
-  const slice = getOwn(state.allData, stepId);
+function readStepSlice(allData: Record<string, unknown>, stepId: string): Record<string, unknown> {
+  const slice = getOwn(allData, stepId);
   return typeof slice === 'object' && slice !== null && !Array.isArray(slice)
     ? (slice as Record<string, unknown>)
-    : {};
+    : EMPTY_SLICE;
 }
 
 /**
- * The `stepData` half of a slice write: the mirror follows the CURRENT step's
- * slice and no other. A write naming a different step is recorded in `allData`
- * alone. See {@link WorkflowStoreState._currentStepId}.
+ * A state patch as an action writes it, before the mirror is derived onto it.
  */
-function mirrorIfCurrent(
-  state: WorkflowStoreState,
-  stepId: string,
-  slice: Record<string, unknown>
-): { stepData?: Record<string, unknown> } {
-  if (state._currentStepId !== null && state._currentStepId !== stepId) return {};
-  return { stepData: slice };
-}
+type StatePatch = Partial<WorkflowStoreState>;
+
+/**
+ * The `set` every action in this store is handed. See
+ * {@link WorkflowStoreState.stepData} for why it is not the raw one.
+ */
+type MirroredSet = (patch: StatePatch | ((state: WorkflowStoreState) => StatePatch)) => void;
 
 // =================================================================
 // STORE FACTORY
@@ -338,346 +377,371 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   const seedAllData = () => normalizeRepeatableSlices({ ...defaultValues }, getSteps(), {});
 
   const initial = seedAllData();
+  const initialOwner = ownerOf(defaultStepIndex);
 
   return createStore<WorkflowStoreState>()(
-    subscribeWithSelector((set, get) => ({
-      // Initial state
-      currentStepIndex: defaultStepIndex,
-      isTransitioning: false,
-      isInitializing: true,
-      allData: initial.data,
-      stepData: {},
-      visitedSteps: new Set(initialVisitedSteps),
-      passedSteps: new Set(initialPassedSteps),
-      isSubmitting: false,
-
-      // Internal state
-      _defaultValues: defaultValues,
-      _defaultStepIndex: defaultStepIndex,
-      _currentStepId: ownerOf(defaultStepIndex),
-      _repeatableOrders: initial.orders,
-      _seedGeneration: 0,
-
-      // Actions
+    subscribeWithSelector((rawSet, get) => {
       /**
-       * Move navigation, and take the mirror with it.
+       * THE MIRROR, DERIVED — the one and only place `stepData` is written.
        *
-       * `stepData` is a view of the CURRENT step, so moving the index re-seeds
-       * it from the target's slice — otherwise the new step publishes the
-       * PREVIOUS step's values until something happens to write to it.
-       * `goToStep` used to do this re-seed itself ("to prevent leaking fields
-       * from the previous step"), which is the store's invariant enforced at one
-       * caller: the public `useFlowActions().setCurrentStep` is the same action
-       * without the re-seed, and it leaked exactly the fields that comment names.
+       * Every action below is handed THIS as its `set`, so `stepData` is not
+       * something an action publishes, it is something that happens to an
+       * action's patch on the way out. `stepData` is a view of
+       * `allData[_currentStepId]` and both of those are in the patch's own
+       * result, so the view is computable from it — with no help from, and no
+       * cooperation by, the action that produced it.
        *
-       * The slice is read from live state, which is strictly better than any
-       * caller's snapshot — an `onAfterValidation` prefill written moments ago is
-       * already in it.
+       * WHY THIS AND NOT AN EIGHTH ENTRY IN A TABLE. Six invariants in this
+       * store have now died to "the internal caller respects it", and the mirror
+       * had a table of publishers with `_setAllData` missing from it. Every fix
+       * that stuck deleted the asking rather than correcting the answer:
+       * `_currentStepId` stopped being a parameter and became a function of the
+       * index; the reset seed stopped being a cached value and became a function
+       * of the live steps; `_loadPersistedState`'s mirror stopped being a value
+       * the provider computed and became a function of the restored slice. This
+       * is the same move, made once for all writers instead of once per writer.
+       * A new action added tomorrow cannot forget the mirror, because it is
+       * never asked.
        *
-       * A store that cannot name an owner (no `steps`, or an out-of-range index)
-       * cannot re-seed either: it leaves the mirror alone rather than blanking
-       * it, matching {@link mirrorIfCurrent}'s treatment of a `null` owner.
+       * IT DERIVES FROM `allData`, WHICH IS WHY IT SUBSUMES THE CROSS-STEP RULE
+       * FOR FREE. A write naming another step changes `allData[other]` and
+       * leaves `allData[owner]` alone, so the derived mirror comes back with the
+       * CURRENT step's slice — its own former identity, unchanged and
+       * unpublished. The old rule ("withhold the mirror for a write naming a
+       * different step") was a special case of the derivation all along; it is
+       * now a consequence rather than a clause.
+       *
+       * A `null` owner is the one thing it cannot answer: there are no steps, so
+       * there is no slice to be a view of, and the patch passes through
+       * untouched. See {@link WorkflowStoreState._currentStepId}.
        */
-      _setCurrentStep: (stepIndex) => {
-        set((state) => {
-          const owner = ownerOf(stepIndex);
-          return owner === null
-            ? { currentStepIndex: stepIndex, _currentStepId: null }
-            : {
-                currentStepIndex: stepIndex,
-                _currentStepId: owner,
-                stepData: readStepSlice(state, owner),
-              };
+      const set: MirroredSet = (patch) => {
+        rawSet((state) => {
+          const written = typeof patch === 'function' ? patch(state) : patch;
+          const next = { ...state, ...written };
+          if (next._currentStepId === null) return written;
+          return { ...written, stepData: readStepSlice(next.allData, next._currentStepId) };
         });
-      },
+      };
 
-      _setStepData: (data, stepId) => {
-        set((state) => {
-          const { slice, orders } = normalizeSlice(state, data, stepId);
-          return {
-            ...mirrorIfCurrent(state, stepId, slice),
-            allData: {
-              ...state.allData,
-              [stepId]: slice,
-            },
-            _repeatableOrders: orders,
-          };
-        });
-      },
+      return {
+        // Initial state
+        currentStepIndex: defaultStepIndex,
+        isTransitioning: false,
+        isInitializing: true,
+        allData: initial.data,
+        // Derived at t=0 on exactly the terms every later instant is derived on.
+        // This used to be `{}` — the mirror of a step whose slice was sitting
+        // right there in `allData`, on the theory that "nothing seeds it except
+        // a navigation, and the initial step never navigates into itself". That
+        // made the very first state the one state in the store's life where the
+        // invariant did not hold, and left the mirror's correctness owed to the
+        // combine layer noticing it was empty.
+        stepData: initialOwner === null ? EMPTY_SLICE : readStepSlice(initial.data, initialOwner),
+        visitedSteps: new Set(initialVisitedSteps),
+        passedSteps: new Set(initialPassedSteps),
+        isSubmitting: false,
 
-      _setAllData: (data) => {
-        set((state) => {
-          const normalized = normalizeRepeatableSlices(data, getSteps(), state._repeatableOrders);
-          return { allData: normalized.data, _repeatableOrders: normalized.orders };
-        });
-      },
+        // Internal state
+        _defaultValues: defaultValues,
+        _defaultStepIndex: defaultStepIndex,
+        _currentStepId: initialOwner,
+        _repeatableOrders: initial.orders,
+        _seedGeneration: 0,
 
-      /**
-       * THE STEP SET MOVED — re-derive every LIVE step's slice against it.
-       *
-       * THE HOLE THIS FILLS. Every other write normalises the slice it
-       * ADDRESSES, so no caller can be the one who forgot. But a step is born
-       * with NO CALLER: a host recompiles a FlowSchema and re-renders, and
-       * `getSteps()` starts answering with a step it never answered with
-       * before. Zero actions ran. The slice that step now owns was written —
-       * or seeded from the defaults at creation — while the store could not
-       * see the step, so it could not know `lines` named a repeatable, and it
-       * is sitting in `allData` as an authored array under a LIVE step's id.
-       * That is the flat-shape invariant broken with nothing to hang a guard
-       * on, because nothing happened.
-       *
-       * So the guard hangs on the only event there is: the step set itself
-       * changing. `WorkflowProvider` calls this where `workflowConfig.steps`
-       * enters the store, so the store re-derives at the moment its mutable
-       * input moves, rather than at the moment some caller happens to write.
-       *
-       * IT RE-SHAPES, IT NEVER RE-SEEDS — and that is what makes "a born step
-       * gets its defaults" and "a step holding the user's input is left alone"
-       * the same sentence rather than two cases to tell apart. This does not
-       * read `_defaultValues` and has no notion of which slices are the user's:
-       * it takes whatever `allData` holds for a live step and states it in the
-       * store's shape. A born step's default slice is already in `allData`
-       * (creation seeded it, authored, because the step was not there to ask) —
-       * so re-shaping it IS seeding it. A slice the user has typed into is
-       * re-shaped too, and re-shaping an already-flat slice is the identity:
-       * `flattenAuthoredSlice` hands back the slice it was given. There is no
-       * branch that could clobber, because there is no branch.
-       *
-       * IDEMPOTENT, AND IT MUST BE — it runs on every render of the provider,
-       * unguarded, because a guard on "did the steps change?" is one more thing
-       * a caller can get wrong and this class is made of exactly those. So it
-       * PUBLISHES NOTHING when nothing moved: no `set`, no notification, no
-       * render loop. A second call computes the same identities and returns.
-       *
-       * The mirror follows the slice it mirrors, as everywhere else: if the
-       * current step's slice was the one re-shaped, `stepData` is republished
-       * from it. Otherwise `stepData` is not touched — a re-shape that did not
-       * reach the current step has nothing to say about the mirror.
-       */
-      _reconcileStepSet: () => {
-        const state = get();
-        const normalized = normalizeRepeatableSlices(
-          state.allData,
-          getSteps(),
-          state._repeatableOrders
-        );
-        if (normalized.data === state.allData && normalized.orders === state._repeatableOrders) {
-          return;
-        }
+        // Actions
+        /**
+         * Move navigation. The mirror follows on its own — it is a view of the
+         * CURRENT step's slice, and this is what makes a step current.
+         *
+         * `goToStep` used to re-seed `stepData` itself ("to prevent leaking
+         * fields from the previous step"), which is the store's invariant
+         * enforced at one caller: the public `useFlowActions().setCurrentStep`
+         * is the same action without the re-seed, and it leaked exactly the
+         * fields that comment names.
+         */
+        _setCurrentStep: (stepIndex) => {
+          set({ currentStepIndex: stepIndex, _currentStepId: ownerOf(stepIndex) });
+        },
 
-        const owner = state._currentStepId;
-        const reshapedCurrent =
-          owner !== null && getOwn(normalized.data, owner) !== getOwn(state.allData, owner);
+        _setStepData: (data, stepId) => {
+          set((state) => {
+            const { slice, orders } = normalizeSlice(state, data, stepId);
+            return {
+              allData: {
+                ...state.allData,
+                [stepId]: slice,
+              },
+              _repeatableOrders: orders,
+            };
+          });
+        },
 
-        set({
-          allData: normalized.data,
-          _repeatableOrders: normalized.orders,
-          ...(reshapedCurrent && owner !== null
-            ? { stepData: readStepSlice({ ...state, allData: normalized.data }, owner) }
-            : {}),
-        });
-      },
+        /**
+         * Replace the WHOLE data set — every step's slice at once.
+         *
+         * THE SEVENTH DOOR, and the one the mirror's table of publishers left
+         * out. This writes `allData` wholesale, which of course includes the
+         * current step's slice, and it published no `stepData`: a host resolving
+         * a batch onto the step the user is sitting on left every field
+         * condition on that step reading the values it had just superseded. It
+         * needs no fix of its own — it never mentioned the mirror, and the
+         * mirror is no longer something an action mentions. See
+         * {@link WorkflowStoreState.stepData}.
+         */
+        _setAllData: (data) => {
+          set((state) => {
+            const normalized = normalizeRepeatableSlices(data, getSteps(), state._repeatableOrders);
+            return { allData: normalized.data, _repeatableOrders: normalized.orders };
+          });
+        },
 
-      /**
-       * The form reports composite key ids, so its own calls are already flat.
-       * The PUBLIC `useFlowActions().setFieldValue` is the same action, and a
-       * host reaching for it prefills the way it authors everything else —
-       * `setFieldValue('lines', [{label:'a'}], 'items')`. Exempting this action
-       * because ONE of its callers happens to speak flat is how the shape class
-       * re-entered a fifth time. It normalises like every other write.
-       */
-      _setFieldValue: (fieldId, value, stepId) => {
-        set((state) => {
-          const { slice, orders } = normalizeSlice(
-            state,
-            { ...readStepSlice(state, stepId), [fieldId]: value },
-            stepId
+        /**
+         * THE STEP SET MOVED — re-derive every LIVE step's slice against it.
+         *
+         * THE HOLE THIS FILLS. Every other write normalises the slice it
+         * ADDRESSES, so no caller can be the one who forgot. But a step is born
+         * with NO CALLER: a host recompiles a FlowSchema and re-renders, and
+         * `getSteps()` starts answering with a step it never answered with
+         * before. Zero actions ran. The slice that step now owns was written —
+         * or seeded from the defaults at creation — while the store could not
+         * see the step, so it could not know `lines` named a repeatable, and it
+         * is sitting in `allData` as an authored array under a LIVE step's id.
+         * That is the flat-shape invariant broken with nothing to hang a guard
+         * on, because nothing happened.
+         *
+         * So the guard hangs on the only event there is: the step set itself
+         * changing. `WorkflowProvider` calls this where `workflowConfig.steps`
+         * enters the store, so the store re-derives at the moment its mutable
+         * input moves, rather than at the moment some caller happens to write.
+         *
+         * IT RE-SHAPES, IT NEVER RE-SEEDS — and that is what makes "a born step
+         * gets its defaults" and "a step holding the user's input is left alone"
+         * the same sentence rather than two cases to tell apart. This does not
+         * read `_defaultValues` and has no notion of which slices are the user's:
+         * it takes whatever `allData` holds for a live step and states it in the
+         * store's shape. A born step's default slice is already in `allData`
+         * (creation seeded it, authored, because the step was not there to ask) —
+         * so re-shaping it IS seeding it. A slice the user has typed into is
+         * re-shaped too, and re-shaping an already-flat slice is the identity:
+         * `flattenAuthoredSlice` hands back the slice it was given. There is no
+         * branch that could clobber, because there is no branch.
+         *
+         * IDEMPOTENT, AND IT MUST BE — it runs on every render of the provider,
+         * unguarded, because a guard on "did the steps change?" is one more thing
+         * a caller can get wrong and this class is made of exactly those. So it
+         * PUBLISHES NOTHING when nothing moved: no `set`, no notification, no
+         * render loop. A second call computes the same identities and returns.
+         *
+         * The mirror follows the slice it mirrors, as everywhere else — and here
+         * as everywhere else, that costs this action not one line. See
+         * {@link WorkflowStoreState.stepData}.
+         */
+        _reconcileStepSet: () => {
+          const state = get();
+          const normalized = normalizeRepeatableSlices(
+            state.allData,
+            getSteps(),
+            state._repeatableOrders
           );
-          return {
-            ...mirrorIfCurrent(state, stepId, slice),
-            allData: {
-              ...state.allData,
-              [stepId]: slice,
-            },
-            _repeatableOrders: orders,
-          };
-        });
-      },
-
-      /**
-       * Delete field ids from a step's captured data.
-       *
-       * The mirror of `_setFieldValue`, and the reason the step slice is not
-       * merge-only: a repeatable row the user removed has no value to write, it
-       * has keys that must cease to exist. Deleting the reported keys (rather
-       * than replacing the whole slice with the form's values) keeps every
-       * non-form writer of the slice — prefill bindings, `onAfterValidation` —
-       * authoritative for the keys it owns.
-       *
-       * IT NORMALISES FIRST, like every other action that touches a slice, and
-       * "it only deletes, so it cannot re-shape anything" is exactly why it did
-       * not. That was true of the SHAPE it writes and false of the shape it
-       * READS: a slice that entered while its step was not live is an authored
-       * array (the store could not know `lines` named a repeatable), and a
-       * recompile that adds the step makes that array a live step's slice with
-       * no `lines[k0].label` for this delete to find. The user removes the row,
-       * the delete matches nothing, the row comes back — the very failure the
-       * flat shape exists to prevent, arriving through the one door that trusted
-       * the slice to already be flat instead of deriving it against the steps
-       * live NOW.
-       */
-      _removeFieldValues: (fieldIds, stepId) => {
-        set((state) => {
-          const current = readStepSlice(state, stepId);
-          const { slice, orders } = normalizeSlice(state, current, stepId);
-          const newStepData = { ...slice };
-          let removed = false;
-          for (const fieldId of fieldIds) {
-            if (hasOwn(newStepData, fieldId)) {
-              delete newStepData[fieldId];
-              removed = true;
-            }
+          if (normalized.data === state.allData && normalized.orders === state._repeatableOrders) {
+            return;
           }
-          // `normalizeSlice` hands back the slice's own identity when there was
-          // nothing authored to flatten, so this asks whether the normalisation
-          // itself changed anything. A delete that matched nothing AND reshaped
-          // nothing publishes nothing, and no subscriber is woken.
-          if (!removed && slice === current) return {};
 
-          return {
-            ...mirrorIfCurrent(state, stepId, newStepData),
-            allData: {
-              ...state.allData,
-              [stepId]: newStepData,
-            },
-            _repeatableOrders: orders,
-          };
-        });
-      },
+          set({ allData: normalized.data, _repeatableOrders: normalized.orders });
+        },
 
-      _setRepeatableOrder: (stepId, order) => {
-        set((state) => {
-          const current = getOwn(state._repeatableOrders, stepId);
-          if (current && isSameRepeatableOrder(current, order)) return {};
-          return {
-            _repeatableOrders: { ...state._repeatableOrders, [stepId]: order },
-          };
-        });
-      },
+        /**
+         * The form reports composite key ids, so its own calls are already flat.
+         * The PUBLIC `useFlowActions().setFieldValue` is the same action, and a
+         * host reaching for it prefills the way it authors everything else —
+         * `setFieldValue('lines', [{label:'a'}], 'items')`. Exempting this action
+         * because ONE of its callers happens to speak flat is how the shape class
+         * re-entered a fifth time. It normalises like every other write.
+         */
+        _setFieldValue: (fieldId, value, stepId) => {
+          set((state) => {
+            const { slice, orders } = normalizeSlice(
+              state,
+              { ...readStepSlice(state.allData, stepId), [fieldId]: value },
+              stepId
+            );
+            return {
+              allData: {
+                ...state.allData,
+                [stepId]: slice,
+              },
+              _repeatableOrders: orders,
+            };
+          });
+        },
 
-      _setSubmitting: (isSubmitting) => {
-        set({ isSubmitting });
-      },
+        /**
+         * Delete field ids from a step's captured data.
+         *
+         * The mirror of `_setFieldValue`, and the reason the step slice is not
+         * merge-only: a repeatable row the user removed has no value to write, it
+         * has keys that must cease to exist. Deleting the reported keys (rather
+         * than replacing the whole slice with the form's values) keeps every
+         * non-form writer of the slice — prefill bindings, `onAfterValidation` —
+         * authoritative for the keys it owns.
+         *
+         * IT NORMALISES FIRST, like every other action that touches a slice, and
+         * "it only deletes, so it cannot re-shape anything" is exactly why it did
+         * not. That was true of the SHAPE it writes and false of the shape it
+         * READS: a slice that entered while its step was not live is an authored
+         * array (the store could not know `lines` named a repeatable), and a
+         * recompile that adds the step makes that array a live step's slice with
+         * no `lines[k0].label` for this delete to find. The user removes the row,
+         * the delete matches nothing, the row comes back — the very failure the
+         * flat shape exists to prevent, arriving through the one door that trusted
+         * the slice to already be flat instead of deriving it against the steps
+         * live NOW.
+         */
+        _removeFieldValues: (fieldIds, stepId) => {
+          set((state) => {
+            const current = readStepSlice(state.allData, stepId);
+            const { slice, orders } = normalizeSlice(state, current, stepId);
+            const kept = { ...slice };
+            let removed = false;
+            for (const fieldId of fieldIds) {
+              if (hasOwn(kept, fieldId)) {
+                delete kept[fieldId];
+                removed = true;
+              }
+            }
+            // `normalizeSlice` hands back the slice's own identity when there was
+            // nothing authored to flatten, so this asks whether the normalisation
+            // itself changed anything. A delete that matched nothing AND reshaped
+            // nothing publishes nothing, and no subscriber is woken.
+            if (!removed && slice === current) return {};
 
-      _setTransitioning: (isTransitioning) => {
-        set({ isTransitioning });
-      },
+            return {
+              allData: {
+                ...state.allData,
+                [stepId]: kept,
+              },
+              _repeatableOrders: orders,
+            };
+          });
+        },
 
-      _setInitializing: (isInitializing) => {
-        set({ isInitializing });
-      },
+        _setRepeatableOrder: (stepId, order) => {
+          set((state) => {
+            const current = getOwn(state._repeatableOrders, stepId);
+            if (current && isSameRepeatableOrder(current, order)) return {};
+            return {
+              _repeatableOrders: { ...state._repeatableOrders, [stepId]: order },
+            };
+          });
+        },
 
-      _markStepVisited: (stepId) => {
-        set((state) => ({
-          visitedSteps: new Set([...state.visitedSteps, stepId]),
-        }));
-      },
+        _setSubmitting: (isSubmitting) => {
+          set({ isSubmitting });
+        },
 
-      _markStepPassed: (stepId) => {
-        set((state) => ({
-          passedSteps: new Set([...state.passedSteps, stepId]),
-        }));
-      },
+        _setTransitioning: (isTransitioning) => {
+          set({ isTransitioning });
+        },
 
-      _reset: () => {
-        const state = get();
-        // The seed is DERIVED here, against the steps live at this instant —
-        // not spread from a copy the store normalised at mount. A recompile
-        // that ADDED a step the defaults speak for is honoured by this reset;
-        // the cached copy could only ever answer for the mount's step set, and
-        // re-planted the authored array of a step that had since been born.
-        // See {@link WorkflowStoreState._defaultValues}.
-        const seed = seedAllData();
-        set({
-          currentStepIndex: state._defaultStepIndex,
-          allData: seed.data,
-          stepData: {},
-          // The index returns to its default, so the mirror's owner does too.
-          _currentStepId: ownerOf(state._defaultStepIndex),
-          // Derived in the same breath as the slice it describes, from an empty
-          // mirror, so the two cannot disagree about the rows.
-          _repeatableOrders: seed.orders,
-          visitedSteps: new Set(),
-          passedSteps: new Set(),
-          isSubmitting: false,
-          isTransitioning: false,
-          isInitializing: false,
-          // A new seed: signal it to the mounted form, a separate store.
-          _seedGeneration: state._seedGeneration + 1,
-        });
-      },
+        _setInitializing: (isInitializing) => {
+          set({ isInitializing });
+        },
 
-      _loadPersistedState: (persistedState) => {
-        set((state) => {
-          const restored = { ...state, ...persistedState };
-          // A snapshot is host-authored data like any other: it may have been
-          // written by a build that stored authored arrays, or by a host that
-          // saved its own. It comes in through the same guard — and the mirror
-          // that guard consults is the RESTORED one, because a snapshot carrying
-          // an arrangement carries it for the very rows it is restoring
-          // alongside. Reaching for the live mirror instead would sequence the
-          // incoming session's rows by the outgoing session's arrangement.
-          const normalized = persistedState.allData
-            ? normalizeRepeatableSlices(
-                persistedState.allData,
-                getSteps(),
-                restored._repeatableOrders
-              )
-            : undefined;
-          const owner = ownerOf(restored.currentStepIndex);
-          const settled = normalized ? { ...restored, allData: normalized.data } : restored;
-          return {
-            ...restored,
-            ...(normalized
-              ? { allData: normalized.data, _repeatableOrders: normalized.orders }
-              : {}),
-            // A restore MOVES the index — `currentStepIndex` is part of the
-            // snapshot — so the mirror's owner is re-derived from where the
-            // restore actually landed. Any `_currentStepId` in the snapshot is
-            // ignored on purpose: it is the index that says where the user is,
-            // and a snapshot carrying a stale pair must not be able to reinstate
-            // the desync this derivation exists to make unrepresentable.
-            _currentStepId: owner,
-            // AND THE MIRROR IT OWNS, ON THE SAME TERMS. `stepData` is a view
-            // of `allData[owner]` — it is not an independent fact, and a
-            // snapshot has no more standing to assert it than to assert its
-            // owner. It used to arrive through the `{...state, ...persistedState}`
-            // spread and land VERBATIM: the one value in this action that the
-            // normalisation above did not reach. `WorkflowProvider` handed it
-            // `mergeStepSlices(_defaultValues, persisted)[stepId]` — the merge
-            // BEFORE `normalizeRepeatableSlices` sees it — so restoring into a
-            // step whose defaults declare rows the snapshot says nothing about
-            // published `{lines:[{...}]}` as the mirror while `allData` held the
-            // flat keys. The two disagreed about the same step's values, and
-            // `stepData` is the override layer for field conditions: the flow's
-            // own conditions then evaluated against a shape the store does not
-            // speak.
-            //
-            // So it is derived from the slice it mirrors, after that slice has
-            // been normalised. A store that cannot name an owner (no `steps`)
-            // cannot derive it either, and keeps what it was handed — the same
-            // answer {@link mirrorIfCurrent} gives a `null` owner.
-            ...(owner !== null ? { stepData: readStepSlice(settled, owner) } : {}),
+        _markStepVisited: (stepId) => {
+          set((state) => ({
+            visitedSteps: new Set([...state.visitedSteps, stepId]),
+          }));
+        },
+
+        _markStepPassed: (stepId) => {
+          set((state) => ({
+            passedSteps: new Set([...state.passedSteps, stepId]),
+          }));
+        },
+
+        _reset: () => {
+          const state = get();
+          // The seed is DERIVED here, against the steps live at this instant —
+          // not spread from a copy the store normalised at mount. A recompile
+          // that ADDED a step the defaults speak for is honoured by this reset;
+          // the cached copy could only ever answer for the mount's step set, and
+          // re-planted the authored array of a step that had since been born.
+          // See {@link WorkflowStoreState._defaultValues}.
+          const seed = seedAllData();
+          set({
+            currentStepIndex: state._defaultStepIndex,
+            allData: seed.data,
+            // The index returns to its default, so the mirror's owner does too —
+            // and the mirror itself follows the owner, as ever, without this
+            // action saying anything about it. It used to blank `stepData` here,
+            // which was the same "a fresh session has an empty mirror" theory the
+            // initial state held, and just as wrong: the user lands on the default
+            // step, and that step's slice is the freshly seeded defaults.
+            _currentStepId: ownerOf(state._defaultStepIndex),
+            // Derived in the same breath as the slice it describes, from an empty
+            // mirror, so the two cannot disagree about the rows.
+            _repeatableOrders: seed.orders,
+            visitedSteps: new Set(),
+            passedSteps: new Set(),
+            isSubmitting: false,
+            isTransitioning: false,
             isInitializing: false,
-            // A restore REPLACES the seed the mounted form was built from, so
-            // the form owes itself a re-seed. This is the only thing that earns
-            // a remount here: the load merely RESOLVING earns nothing, and used
-            // to cost the user their validation errors and their focus.
+            // A new seed: signal it to the mounted form, a separate store.
             _seedGeneration: state._seedGeneration + 1,
-          };
-        });
-      },
-    }))
+          });
+        },
+
+        _loadPersistedState: (persistedState) => {
+          set((state) => {
+            const restored = { ...state, ...persistedState };
+            // A snapshot is host-authored data like any other: it may have been
+            // written by a build that stored authored arrays, or by a host that
+            // saved its own. It comes in through the same guard — and the mirror
+            // that guard consults is the RESTORED one, because a snapshot carrying
+            // an arrangement carries it for the very rows it is restoring
+            // alongside. Reaching for the live mirror instead would sequence the
+            // incoming session's rows by the outgoing session's arrangement.
+            const normalized = persistedState.allData
+              ? normalizeRepeatableSlices(
+                  persistedState.allData,
+                  getSteps(),
+                  restored._repeatableOrders
+                )
+              : undefined;
+            return {
+              ...restored,
+              ...(normalized
+                ? { allData: normalized.data, _repeatableOrders: normalized.orders }
+                : {}),
+              // A restore MOVES the index — `currentStepIndex` is part of the
+              // snapshot — so the mirror's owner is re-derived from where the
+              // restore actually landed. Any `_currentStepId` in the snapshot is
+              // ignored on purpose: it is the index that says where the user is,
+              // and a snapshot carrying a stale pair must not be able to reinstate
+              // the desync this derivation exists to make unrepresentable.
+              _currentStepId: ownerOf(restored.currentStepIndex),
+              // AND THE MIRROR IT OWNS IS NOT MENTIONED HERE AT ALL, ON THE SAME
+              // TERMS AND THEN SOME. A `stepData` in the snapshot arrives through
+              // the `{...state, ...persistedState}` spread above and is
+              // OVERWRITTEN on the way out by the derivation at this store's write
+              // boundary — from the `allData` restored beside it, after the
+              // normalisation. `WorkflowProvider` used to compute the mirror
+              // itself and hand it over as `mergeStepSlices(_defaultValues,
+              // persisted)[stepId]`: the same slice one step too early, before the
+              // normaliser had seen it. A snapshot has no standing to assert a
+              // view, and now no way to. See {@link WorkflowStoreState.stepData}.
+              isInitializing: false,
+              // A restore REPLACES the seed the mounted form was built from, so
+              // the form owes itself a re-seed. This is the only thing that earns
+              // a remount here: the load merely RESOLVING earns nothing, and used
+              // to cost the user their validation errors and their focus.
+              _seedGeneration: state._seedGeneration + 1,
+            };
+          });
+        },
+      };
+    })
   );
 }
 
