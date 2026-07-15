@@ -6,10 +6,10 @@ import {
   type FieldEffect,
   type FieldValidationConfig,
   type FormValidationConfig,
-  type RilayInstance,
-  type StandardSchema,
   InvalidSchemaError,
   NotFoundError,
+  type RilayInstance,
+  type StandardSchema,
   email as emailValidator,
   maxLength as maxLengthValidator,
   max as maxValidator,
@@ -39,6 +39,7 @@ import type {
   ValidationDescriptorObject,
 } from './types';
 import { SchemaValidationError } from './types';
+import { validateSchemaEnvelope } from './validate-envelope';
 
 // =================================================================
 // BUILT-IN VALIDATOR NAMES
@@ -195,21 +196,7 @@ export function validateSchema<C extends Record<string, any>>(
   const issues: SchemaIssue[] = [];
 
   // Top-level structure
-  if (!schema.id || typeof schema.id !== 'string') {
-    issues.push({
-      path: 'id',
-      message: 'Form schema must have a non-empty "id"',
-      severity: 'error',
-    });
-  }
-
-  if (schema.version !== undefined && schema.version !== 1) {
-    issues.push({
-      path: 'version',
-      message: `Unsupported schema version "${schema.version}". Only version 1 is supported.`,
-      severity: 'error',
-    });
-  }
+  validateSchemaEnvelope(schema, { schemaLabel: 'Form schema', versionLabel: 'schema' }, issues);
 
   const hasFields = Array.isArray(schema.fields);
   const hasRows = Array.isArray(schema.rows);
@@ -580,11 +567,30 @@ function validateConditions(
   }
 }
 
-function validateConditionConfig(
+/**
+ * Recursively validates a serialized condition tree.
+ *
+ * The single walker for every `ConditionConfig` in a schema — field-level
+ * (forms) and step-level (workflow) alike — so both surfaces enforce the same
+ * rules: operator whitelist, leaf `field`, and the `matches`-string
+ * serialization constraint.
+ */
+export function validateConditionConfig(
   condition: ConditionConfig,
   path: string,
   issues: SchemaIssue[]
 ): void {
+  // A `RegExp` does not JSON round-trip, so a serialized `matches` condition
+  // must carry a string pattern. Checked before the composite early-return so
+  // the rule holds at every node of the tree.
+  if (condition.operator === 'matches' && typeof condition.value !== 'string') {
+    issues.push({
+      path: `${path}.value`,
+      message: 'matches must use a string pattern in a serialized schema',
+      severity: 'error',
+    });
+  }
+
   // Composite condition (has sub-conditions)
   if (condition.conditions && condition.conditions.length > 0) {
     for (let i = 0; i < condition.conditions.length; i++) {

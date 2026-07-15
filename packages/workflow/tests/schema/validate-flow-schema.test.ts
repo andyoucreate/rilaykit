@@ -97,9 +97,27 @@ describe('validateFlowSchema', () => {
     ]);
   });
 
+  it('accepts a version-less schema (version is optional)', () => {
+    const result = validateFlowSchema(
+      {
+        id: 'wf',
+        name: 'W',
+        steps: [
+          {
+            id: 'a',
+            title: 'A',
+            form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+          },
+        ],
+      },
+      makeCatalog()
+    );
+    expect(result).toBeUndefined();
+  });
+
   it('reports missing id and name', () => {
     const issues = issuesOf(() =>
-      validateFlowSchema({ version: 1, id: '', name: '', steps: [] } as never, makeCatalog())
+      validateFlowSchema({ version: 1, id: '', name: '', steps: [] }, makeCatalog())
     );
     expect(issues).toEqual([
       { path: 'id', message: 'Flow schema must have a non-empty "id"', severity: 'error' },
@@ -130,6 +148,45 @@ describe('validateFlowSchema', () => {
       {
         path: 'version',
         message: 'Unsupported flow schema version "2". Only version 1 is supported.',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('reports a missing "steps" array', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema({ version: 1, id: 'wf', name: 'W' } as never, makeCatalog())
+    );
+    expect(issues).toEqual([
+      { path: 'steps', message: 'Flow schema must have a "steps" array', severity: 'error' },
+    ]);
+  });
+
+  it('reports a non-array "steps"', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema({ version: 1, id: 'wf', name: 'W', steps: 'nope' } as never, makeCatalog())
+    );
+    expect(issues).toEqual([
+      { path: 'steps', message: 'Flow schema must have a "steps" array', severity: 'error' },
+    ]);
+  });
+
+  it('re-maps a path-less form issue onto "steps[i].form" without a trailing dot', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'wf',
+          name: 'W',
+          steps: [{ id: 'a', title: 'A', form: { version: 1, id: 'a' } }],
+        } as never,
+        makeCatalog()
+      )
+    );
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].form',
+        message: 'Form schema must have either "fields" or "rows"',
         severity: 'error',
       },
     ]);
@@ -172,10 +229,10 @@ describe('validateFlowSchema', () => {
               conditions: {
                 visible: {
                   field: 'x',
-                  operator: 'and',
+                  operator: 'exists',
                   logicalOperator: 'and',
                   conditions: [{ field: 'x', operator: 'matches', value: /abc/ }],
-                } as never,
+                },
               },
             },
           ],
@@ -186,6 +243,99 @@ describe('validateFlowSchema', () => {
     expect(issues).toEqual([
       {
         path: 'steps[0].conditions.visible.conditions[0].value',
+        message: 'matches must use a string pattern in a serialized schema',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('flags a non-string "matches" value in a step\'s skippable condition', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'wf',
+          name: 'W',
+          steps: [
+            {
+              id: 'a',
+              title: 'A',
+              form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+              conditions: { skippable: { field: 'x', operator: 'matches', value: /abc/ } },
+            },
+          ],
+        },
+        makeCatalog()
+      )
+    );
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].conditions.skippable.value',
+        message: 'matches must use a string pattern in a serialized schema',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('flags an invalid operator in a step condition (same rule as field conditions)', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'wf',
+          name: 'W',
+          steps: [
+            {
+              id: 'a',
+              title: 'A',
+              form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+              conditions: { visible: { field: 'x', operator: 'ghost' } },
+            },
+          ],
+        } as never,
+        makeCatalog()
+      )
+    );
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].conditions.visible.operator',
+        message: 'Invalid condition operator "ghost"',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('flags a non-string "matches" value in a field condition inside a step form', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'wf',
+          name: 'W',
+          steps: [
+            {
+              id: 'a',
+              title: 'A',
+              form: {
+                version: 1,
+                id: 'a',
+                fields: [
+                  {
+                    id: 'x',
+                    type: 'text',
+                    conditions: { visible: { field: 'y', operator: 'matches', value: /abc/ } },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        makeCatalog()
+      )
+    );
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].form.fields[0].conditions.visible.value',
         message: 'matches must use a string pattern in a serialized schema',
         severity: 'error',
       },

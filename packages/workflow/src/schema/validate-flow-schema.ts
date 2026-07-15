@@ -1,5 +1,11 @@
-import type { ConditionConfig, RilayInstance } from '@rilaykit/core';
-import { type SchemaIssue, SchemaValidationError, validateSchema } from '@rilaykit/forms';
+import type { RilayInstance } from '@rilaykit/core';
+import {
+  type SchemaIssue,
+  SchemaValidationError,
+  validateConditionConfig,
+  validateSchema,
+  validateSchemaEnvelope,
+} from '@rilaykit/forms';
 import type { FlowSchema, FlowSchemaStep } from './flow-schema-types';
 
 // =================================================================
@@ -10,9 +16,9 @@ import type { FlowSchema, FlowSchemaStep } from './flow-schema-types';
  * Structurally validates a `FlowSchema` against a catalog.
  *
  * Delegates each step's `form` to the forms `validateSchema`, re-mapping its
- * issue paths under `steps[i].form.`, and additionally enforces the
- * serialization constraint that `matches` conditions use a string pattern
- * (a `RegExp` does not JSON round-trip).
+ * issue paths under `steps[i].form.`, and each step's condition tree to the
+ * shared `validateConditionConfig` walker — so step conditions and field
+ * conditions enforce an identical rule set.
  *
  * @throws {SchemaValidationError} when any `error`-severity issue is found.
  */
@@ -22,26 +28,16 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
 ): void {
   const issues: SchemaIssue[] = [];
 
-  if (!schema.id || typeof schema.id !== 'string') {
-    issues.push({
-      path: 'id',
-      message: 'Flow schema must have a non-empty "id"',
-      severity: 'error',
-    });
-  }
+  validateSchemaEnvelope(
+    schema,
+    { schemaLabel: 'Flow schema', versionLabel: 'flow schema' },
+    issues
+  );
 
   if (!schema.name || typeof schema.name !== 'string') {
     issues.push({
       path: 'name',
       message: 'Flow schema must have a non-empty "name"',
-      severity: 'error',
-    });
-  }
-
-  if (schema.version !== undefined && schema.version !== 1) {
-    issues.push({
-      path: 'version',
-      message: `Unsupported flow schema version "${schema.version}". Only version 1 is supported.`,
       severity: 'error',
     });
   }
@@ -131,9 +127,11 @@ function validateStep<C extends Record<string, unknown>>(
     collectFormIssues(step, path, catalog, issues);
   }
 
-  if (step.conditions) {
-    validateConditions(step.conditions.visible, `${path}.conditions.visible`, issues);
-    validateConditions(step.conditions.skippable, `${path}.conditions.skippable`, issues);
+  if (step.conditions?.visible) {
+    validateConditionConfig(step.conditions.visible, `${path}.conditions.visible`, issues);
+  }
+  if (step.conditions?.skippable) {
+    validateConditionConfig(step.conditions.skippable, `${path}.conditions.skippable`, issues);
   }
 }
 
@@ -154,30 +152,6 @@ function collectFormIssues<C extends Record<string, unknown>>(
         ...issue,
         path: issue.path ? `${path}.form.${issue.path}` : `${path}.form`,
       });
-    }
-  }
-}
-
-function validateConditions(
-  condition: ConditionConfig | undefined,
-  path: string,
-  issues: SchemaIssue[]
-): void {
-  if (!condition || typeof condition !== 'object') {
-    return;
-  }
-
-  if (condition.operator === 'matches' && typeof condition.value !== 'string') {
-    issues.push({
-      path: `${path}.value`,
-      message: 'matches must use a string pattern in a serialized schema',
-      severity: 'error',
-    });
-  }
-
-  if (Array.isArray(condition.conditions)) {
-    for (let i = 0; i < condition.conditions.length; i++) {
-      validateConditions(condition.conditions[i], `${path}.conditions[${i}]`, issues);
     }
   }
 }
