@@ -60,14 +60,20 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  * one slice IS the bug. It has re-entered twice, each time through a boundary
  * nobody had enumerated, so the boundaries are named exhaustively:
  *
- *   WRITES (flatten, via `flattenAuthoredSlice`):
- *     - authored `defaultValues` at store creation (`normalizeRepeatableSlices`)
- *     - `WorkflowProvider.writeStepSlice` — THE write door. The form's own
- *       submit, the context's `setStepData`, and every `StepDataHelper` mutator
- *       (`setStepData`/`setStepFields`/`setNextStepField`/`setNextStepFields`)
- *       go through it. It resolves the TARGET step's config, since a helper
- *       write usually names another step.
- *     - a persistence restore (`normalizeRepeatableSlices` on the way in)
+ *   WRITES — the STORE flattens, at every write, so there is no door to forget:
+ *   `createWorkflowStore`'s `normalizeSlice` covers `_setStepData`,
+ *   `_setAllData`, `_loadPersistedState` and the seeded defaults alike. Guarding
+ *   the callers instead is what failed twice; the callers are only listed here
+ *   to show WHY that never worked:
+ *     - authored `defaultValues` at store creation
+ *     - the form's own submit, the context's `setStepData`, and every
+ *       `StepDataHelper` mutator handed to `onAfterValidation`
+ *       (`setStepData`/`setStepFields`/`setNextStepField`/`setNextStepFields`) —
+ *       these usually name ANOTHER step, so the target step's config is what
+ *       decides, not the current one's
+ *     - a persistence restore
+ *     - the PUBLIC `useFlowActions().setStepData` / `.setAllData` — raw store
+ *       actions this provider never sees
  *     - `_setFieldValue`/`_removeFieldValues` — flat by nature: the form reports
  *       composite key ids.
  *

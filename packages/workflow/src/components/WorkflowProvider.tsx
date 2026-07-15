@@ -28,10 +28,6 @@ import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
-import {
-  flattenAuthoredSlice,
-  normalizeRepeatableSlices,
-} from '../utils/normalizeRepeatableSlices';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -214,10 +210,11 @@ export function WorkflowProvider({
   const storeRef = useRef<WorkflowStore | null>(null);
   if (!storeRef.current) {
     storeRef.current = createWorkflowStore({
-      // Normalise the authored defaults to the store's single internal shape
-      // (flat composite keys) BEFORE they ever land in `allData`. See
-      // {@link normalizeRepeatableSlices}.
-      defaultValues: normalizeRepeatableSlices(defaultValues, workflowConfig.steps),
+      defaultValues,
+      // The steps are what let the store recognise an authored repeatable array
+      // and normalise it to its one internal shape — at EVERY write, including
+      // the public `useFlowActions()` ones this provider never sees.
+      steps: workflowConfig.steps,
       defaultStepIndex,
       currentStepId: workflowConfig.steps[defaultStepIndex]?.id,
       initialVisitedSteps: initialSteps.visitedSteps,
@@ -269,7 +266,13 @@ export function WorkflowProvider({
     [store, workflowConfig.steps]
   );
 
-  const setStepDataAction = useCallback(
+  // Every wholesale slice write from host-authored data lands here — the form's
+  // own submit (which hands back `structureFormValues`' AUTHORED output), the
+  // context's `setStepData`, and every `StepDataHelper` mutator handed to
+  // `onAfterValidation`. It does NOT normalise: the STORE does, at every write,
+  // so the guard also covers the doors this provider never sees (the public
+  // `useFlowActions()` actions). See `createWorkflowStore`'s `normalizeSlice`.
+  const writeStepSlice = useCallback(
     (data: Record<string, unknown>, stepId: string) => store.getState()._setStepData(data, stepId),
     [store]
   );
@@ -282,36 +285,6 @@ export function WorkflowProvider({
   // the boundaries that structure a slice for the host run inside a single
   // navigation/submit tick, before any React commit refreshes a snapshot.
   const getRepeatableOrders = useCallback(() => store.getState()._repeatableOrders, [store]);
-
-  // THE write boundary: every wholesale slice write from host-authored data
-  // goes through here — the form's own submit (which hands back
-  // `structureFormValues`' AUTHORED output), the context's `setStepData`, and
-  // every `StepDataHelper` mutator handed to `onAfterValidation`. Each is a
-  // door the authored array shape came through; normalising here is what keeps
-  // the store's ONE internal representation (flat composite keys) true, so a
-  // removed repeatable row always has keys to delete.
-  //
-  // The target step is resolved from `stepId`, NOT from the current step: a
-  // helper write almost always targets ANOTHER step (`setNextStepFields`), and
-  // flattening it against the current step's repeatable config would silently
-  // leave the authored array in place.
-  //
-  // The row order is read LIVE for the same reason `getAllData` is: these
-  // writes run inside a single navigation tick, before any React commit.
-  const writeStepSlice = useCallback(
-    (data: Record<string, unknown>, stepId: string) => {
-      const targetStep = workflowConfig.steps.find((step) => step.id === stepId);
-      setStepDataAction(
-        flattenAuthoredSlice(
-          data,
-          targetStep?.formConfig?.repeatableFields,
-          getRepeatableOrders()[stepId]
-        ),
-        stepId
-      );
-    },
-    [setStepDataAction, getRepeatableOrders, workflowConfig.steps]
-  );
 
   const setFieldValue = useCallback(
     (fieldId: string, value: unknown, stepId: string) =>
@@ -393,12 +366,13 @@ export function WorkflowProvider({
             // are steps it has no opinion about, and the flow's own defaults are
             // the answer for them. Replacing wholesale blanked every default of
             // every step the user had not reached.
+            // A snapshot written before the store spoke one shape (or by a host
+            // that saved authored arrays) is normalised by `_loadPersistedState`
+            // on the way in, like every other write — the merge is at STEP
+            // granularity, so it is indifferent to the shape within a slice.
             const mergedAllData = mergeStepSlices(
               store.getState()._defaultValues,
-              // A snapshot written before the store spoke one shape (or by a
-              // host that saved authored arrays) is normalised on the way in,
-              // so the restored slice matches what the mirror will report.
-              normalizeRepeatableSlices(persistedData.allData, workflowConfig.steps)
+              persistedData.allData
             );
 
             // Keys the user already set before the load resolved WIN over the

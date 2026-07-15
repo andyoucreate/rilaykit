@@ -1,7 +1,12 @@
+import type { StepConfig } from '@rilaykit/core';
 import { ConfigurationError, getOwn, hasOwn } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import {
+  flattenAuthoredSlice,
+  normalizeRepeatableSlices,
+} from '../utils/normalizeRepeatableSlices';
 
 // =================================================================
 // STORE STATE & ACTIONS
@@ -147,6 +152,12 @@ export interface CreateWorkflowStoreOptions {
   defaultStepIndex?: number;
   /** The id of the step at `defaultStepIndex`. See {@link WorkflowStoreState._currentStepId}. */
   currentStepId?: string;
+  /**
+   * The flow's steps, for the repeatable configs the store normalises against.
+   * See {@link normalizeSlice}. Omitted, the store cannot recognise an authored
+   * array and stores whatever it is handed.
+   */
+  steps?: ReadonlyArray<StepConfig>;
   initialVisitedSteps?: Set<string>;
   initialPassedSteps?: Set<string>;
 }
@@ -156,9 +167,39 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
     defaultValues = {},
     defaultStepIndex = 0,
     currentStepId = null,
+    steps = [],
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
   } = options;
+
+  /**
+   * THE INVARIANT, enforced where it belongs.
+   *
+   * A step slice inside this store is ALWAYS flat composite keys for
+   * repeatables — that is what gives a removed row keys to delete. Host-authored
+   * data arrives in the AUTHORED shape (`lines: [{label:'a'}]`), and it has
+   * arrived through four different doors so far: the compiled defaults, the
+   * provider's form-submit/`setStepData`/`StepDataHelper` writes, a persistence
+   * restore, and the PUBLIC `useFlowActions()` actions. Each time the shape
+   * class re-entered, it was through the door nobody had enumerated.
+   *
+   * So the guard is not at the doors, it is here: every write normalises on the
+   * way in and no caller can be the one who forgot. The live row order is read
+   * from the store's own mirror, which is strictly better than any caller could
+   * do — it keeps the row KEYS stable across a re-author.
+   */
+  const normalizeSlice = (
+    state: WorkflowStoreState,
+    data: Record<string, unknown>,
+    stepId: string
+  ): Record<string, unknown> =>
+    flattenAuthoredSlice(
+      data,
+      steps.find((step) => step.id === stepId)?.formConfig?.repeatableFields,
+      getOwn(state._repeatableOrders, stepId)
+    );
+
+  const initialAllData = normalizeRepeatableSlices({ ...defaultValues }, steps);
 
   return createStore<WorkflowStoreState>()(
     subscribeWithSelector((set, get) => ({
@@ -166,14 +207,14 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       currentStepIndex: defaultStepIndex,
       isTransitioning: false,
       isInitializing: true,
-      allData: { ...defaultValues },
+      allData: initialAllData,
       stepData: {},
       visitedSteps: new Set(initialVisitedSteps),
       passedSteps: new Set(initialPassedSteps),
       isSubmitting: false,
 
       // Internal state
-      _defaultValues: { ...defaultValues },
+      _defaultValues: initialAllData,
       _defaultStepIndex: defaultStepIndex,
       _currentStepId: currentStepId,
       _repeatableOrders: {},
@@ -189,17 +230,20 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       },
 
       _setStepData: (data, stepId) => {
-        set((state) => ({
-          ...mirrorIfCurrent(state, stepId, data),
-          allData: {
-            ...state.allData,
-            [stepId]: data,
-          },
-        }));
+        set((state) => {
+          const slice = normalizeSlice(state, data, stepId);
+          return {
+            ...mirrorIfCurrent(state, stepId, slice),
+            allData: {
+              ...state.allData,
+              [stepId]: slice,
+            },
+          };
+        });
       },
 
       _setAllData: (data) => {
-        set({ allData: data });
+        set({ allData: normalizeRepeatableSlices(data, steps) });
       },
 
       _setFieldValue: (fieldId, value, stepId) => {
@@ -304,6 +348,12 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
         set((state) => ({
           ...state,
           ...persistedState,
+          // A snapshot is host-authored data like any other: it may have been
+          // written by a build that stored authored arrays, or by a host that
+          // saved its own. It comes in through the same guard.
+          ...(persistedState.allData
+            ? { allData: normalizeRepeatableSlices(persistedState.allData, steps) }
+            : {}),
           isInitializing: false,
         }));
       },
