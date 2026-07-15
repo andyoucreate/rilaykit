@@ -60,11 +60,15 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  * one slice IS the bug. It has re-entered twice, each time through a boundary
  * nobody had enumerated, so the boundaries are named exhaustively:
  *
- *   WRITES — the STORE flattens, at every write, so there is no door to forget:
- *   `createWorkflowStore`'s `normalizeSlice` covers `_setStepData`,
- *   `_setAllData`, `_loadPersistedState` and the seeded defaults alike. Guarding
- *   the callers instead is what failed twice; the callers are only listed here
- *   to show WHY that never worked:
+ *   WRITES — the STORE flattens, at EVERY write, with NO exempt action, so there
+ *   is no door to forget: `createWorkflowStore`'s `normalizeSlice` covers
+ *   `_setStepData`, `_setAllData`, `_setFieldValue`, `_loadPersistedState` and
+ *   the seeded defaults alike. `_setFieldValue` was exempt once, on the ground
+ *   that "the form reports composite key ids" — true of the FORM's calls and
+ *   false of the PUBLIC `useFlowActions().setFieldValue`, through which the
+ *   class re-entered a fifth time. An invariant with an exception is not an
+ *   invariant. Guarding the callers instead is what failed twice; the callers
+ *   are only listed here to show WHY that never worked:
  *     - authored `defaultValues` at store creation
  *     - the form's own submit, the context's `setStepData`, and every
  *       `StepDataHelper` mutator handed to `onAfterValidation`
@@ -72,10 +76,19 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  *       these usually name ANOTHER step, so the target step's config is what
  *       decides, not the current one's
  *     - a persistence restore
- *     - the PUBLIC `useFlowActions().setStepData` / `.setAllData` — raw store
- *       actions this provider never sees
- *     - `_setFieldValue`/`_removeFieldValues` — flat by nature: the form reports
- *       composite key ids.
+ *     - the PUBLIC `useFlowActions().setStepData` / `.setAllData` /
+ *       `.setFieldValue` — raw store actions this provider never sees
+ *
+ *   NOT A WRITE DOOR — `_removeFieldValues` only DELETES keys from a slice, so
+ *   it cannot introduce a second representation whatever it is handed, and it is
+ *   not on the `useFlowActions()` surface (the form's own row removal is its
+ *   only caller). It is the reason the invariant exists, not a way past it.
+ *
+ *   The enumeration above is prose and prose rots. What actually closes the
+ *   class is the store-level test that walks EVERY action `useFlowActions()`
+ *   exports and drives each with an authored array
+ *   (packages/workflow/tests/stores/store-enforces-flat-shape.test.tsx): a new
+ *   action added without normalisation fails there, unread comment or not.
  *
  *   READS (structure, here and in {@link structureWorkflowData}):
  *     - the completion payload (`useWorkflowSubmission`)

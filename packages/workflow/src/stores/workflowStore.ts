@@ -246,9 +246,21 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
         set({ allData: normalizeRepeatableSlices(data, steps) });
       },
 
+      /**
+       * The form reports composite key ids, so its own calls are already flat.
+       * The PUBLIC `useFlowActions().setFieldValue` is the same action, and a
+       * host reaching for it prefills the way it authors everything else —
+       * `setFieldValue('lines', [{label:'a'}], 'items')`. Exempting this action
+       * because ONE of its callers happens to speak flat is how the shape class
+       * re-entered a fifth time. It normalises like every other write.
+       */
       _setFieldValue: (fieldId, value, stepId) => {
         set((state) => {
-          const newStepData = { ...readStepSlice(state, stepId), [fieldId]: value };
+          const newStepData = normalizeSlice(
+            state,
+            { ...readStepSlice(state, stepId), [fieldId]: value },
+            stepId
+          );
           return {
             ...mirrorIfCurrent(state, stepId, newStepData),
             allData: {
@@ -352,7 +364,9 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           // written by a build that stored authored arrays, or by a host that
           // saved its own. It comes in through the same guard.
           ...(persistedState.allData
-            ? { allData: normalizeRepeatableSlices(persistedState.allData, steps) }
+            ? {
+                allData: normalizeRepeatableSlices(persistedState.allData, steps),
+              }
             : {}),
           isInitializing: false,
         }));
@@ -540,10 +554,11 @@ export interface UseFlowActionsResult {
 /**
  * Get stable action references for workflow. Actions don't cause re-renders.
  *
- * `setStepData` / `setAllData` accept host-authored data in EITHER shape: the
- * store normalises a repeatable's authored array to its internal flat keys on
- * the way in, exactly as it does for the compiled defaults and for every write
- * the provider makes. See `createWorkflowStore`'s `normalizeSlice`.
+ * `setStepData` / `setAllData` / `setFieldValue` accept host-authored data in
+ * EITHER shape: the store normalises a repeatable's authored array to its
+ * internal flat keys on the way in, exactly as it does for the compiled
+ * defaults and for every write the provider makes. No action is exempt. See
+ * `createWorkflowStore`'s `normalizeSlice`.
  */
 export function useFlowActions(): UseFlowActionsResult {
   const store = useFlowStore();

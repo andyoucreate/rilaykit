@@ -1,9 +1,17 @@
 import { ril } from '@rilaykit/core';
 import { form, useRepeatableField } from '@rilaykit/forms';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow, useFlowActions } from '../../src';
+import type { UseFlowActionsResult, WorkflowStore } from '../../src';
+import {
+  FlowBody,
+  WorkflowProvider,
+  createWorkflowStore,
+  useFlow,
+  useFlowActions,
+  useFlowStoreApi,
+} from '../../src';
 import { flow } from '../../src/builders/flow';
 
 /**
@@ -70,7 +78,10 @@ function Harness({ write }: { write: 'setStepData' | 'setAllData' }) {
         onClick={() =>
           write === 'setStepData'
             ? actions.setStepData({ ...AUTHORED }, 'items')
-            : actions.setAllData({ ...workflowState.allData, items: { ...AUTHORED } })
+            : actions.setAllData({
+                ...workflowState.allData,
+                items: { ...AUTHORED },
+              })
         }
       >
         write
@@ -152,4 +163,112 @@ describe('the store enforces its own flat-shape invariant', () => {
     expect(JSON.stringify(onWorkflowComplete.mock.calls[0][0])).not.toContain('beta');
     expect(onWorkflowComplete.mock.calls[0][0].items.lines).toEqual([{ label: 'alpha' }]);
   });
+});
+
+// =================================================================
+// THE INVARIANT, WITHOUT AN EXCEPTION
+// =================================================================
+
+/**
+ * THE FIFTH DOOR — `setFieldValue`, the one action the r6 refactor left exempt.
+ *
+ * The exemption read "`_setFieldValue`/`_removeFieldValues` — flat by nature:
+ * the form reports composite key ids". That is true of the FORM's calls and
+ * false of the PUBLIC action's: `useFlowActions().setFieldValue` is documented
+ * host API, and a host prefilling the natural way —
+ * `setFieldValue('lines', [{label:'ghost'}], 'items')` — planted an authored
+ * array the form could not render and the user could not delete, which was then
+ * submitted to the backend.
+ *
+ * An invariant with an exception is not an invariant.
+ */
+describe('the store enforces its invariant with NO exempt action', () => {
+  const STEPS = buildFlow().steps;
+
+  it('_setFieldValue flattens a host-authored repeatable array', () => {
+    const store = createWorkflowStore({ steps: STEPS, currentStepId: 'items' });
+
+    store.getState()._setFieldValue('lines', [{ label: 'a' }], 'items');
+
+    expect(Object.keys(store.getState().allData.items as Record<string, unknown>)).toEqual([
+      'lines[k0].label',
+    ]);
+  });
+
+  /**
+   * THE CLOSURE. Not "these boundaries are guarded" — that is the reasoning that
+   * let the class back in four times — but "EVERY action on the public surface
+   * is classified, and each one that can carry a slice normalises it".
+   *
+   * A new action added to `useFlowActions()` without an entry here fails the
+   * enumeration assertion; an entry that writes a slice without normalising
+   * fails the shape assertion. There is no way to add a sixth exemption quietly.
+   */
+  const AUTHORED_ARRAY = [{ label: 'ghost' }];
+
+  /**
+   * Every action `useFlowActions()` exports, and how to hand it a host-authored
+   * repeatable array. `null` classifies an action that carries no step slice at
+   * all — navigation, flags, progress marks, reset — so there is nothing for it
+   * to normalise.
+   */
+  const ACTION_DRIVERS: Record<
+    keyof UseFlowActionsResult,
+    ((actions: UseFlowActionsResult) => void) | null
+  > = {
+    setCurrentStep: null,
+    setStepData: (actions) => actions.setStepData({ lines: AUTHORED_ARRAY }, 'items'),
+    setAllData: (actions) => actions.setAllData({ items: { lines: AUTHORED_ARRAY } }),
+    setFieldValue: (actions) => actions.setFieldValue('lines', AUTHORED_ARRAY, 'items'),
+    setSubmitting: null,
+    setTransitioning: null,
+    setInitializing: null,
+    markStepVisited: null,
+    markStepPassed: null,
+    reset: null,
+    loadPersistedState: (actions) =>
+      actions.loadPersistedState({
+        allData: { items: { lines: AUTHORED_ARRAY } },
+      }),
+  };
+
+  let capturedActions: UseFlowActionsResult;
+  let capturedStore: WorkflowStore;
+
+  function ActionsProbe() {
+    capturedActions = useFlowActions();
+    capturedStore = useFlowStoreApi();
+    return null;
+  }
+
+  function renderProbe() {
+    render(
+      <WorkflowProvider workflowConfig={buildFlow()}>
+        <ActionsProbe />
+      </WorkflowProvider>
+    );
+  }
+
+  it('classifies EVERY action the public surface exports', () => {
+    renderProbe();
+
+    expect(Object.keys(capturedActions).sort()).toEqual(Object.keys(ACTION_DRIVERS).sort());
+  });
+
+  const sliceWriters = Object.entries(ACTION_DRIVERS).filter(
+    ([, driver]) => driver !== null
+  ) as Array<[keyof UseFlowActionsResult, (actions: UseFlowActionsResult) => void]>;
+
+  it.each(sliceWriters)(
+    'useFlowActions().%s leaves the store in ONE shape when handed an authored array',
+    (_name, driver) => {
+      renderProbe();
+
+      act(() => driver(capturedActions));
+
+      const slice = capturedStore.getState().allData.items as Record<string, unknown>;
+      expect(Object.keys(slice)).not.toContain('lines');
+      expect(slice['lines[k0].label']).toBe('ghost');
+    }
+  );
 });

@@ -33,6 +33,7 @@ import {
   WorkflowProvider,
   flow,
   useFlow,
+  useFlowActions,
   useFlowData,
   useStepData,
   useStepDataById,
@@ -46,7 +47,7 @@ import { ProofTextInput } from '../_setup/proof-fixtures';
 const catalog = ril.create().component('text', { renderer: ProofTextInput });
 
 /** Every repeatable id in the flow. A bare one in a slice IS the pathology. */
-const REPEATABLE_IDS = ['lines', 'tags'] as const;
+const REPEATABLE_IDS = ['lines', 'tags', 'refs'] as const;
 
 // =================================================================
 // THE INVARIANT PROBE
@@ -96,45 +97,63 @@ const analytics = {
 };
 
 function buildFlow() {
-  return flow
-    .create(catalog, 'shape-proof', 'Shape proof')
-    .addStep({
-      id: 'items',
-      title: 'Items',
-      formConfig: form
-        .create(catalog, 'items-form')
-        .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} })),
-      // READ: the data param + the helper's readers, in ONE invocation.
-      // WRITE: setNextStepFields prefills the NEXT step's repeatable.
-      onAfterValidation: (data, helper) => {
-        hostReads.afterValidationParam = structuredClone(data);
-        hostReads.helperGetStepData = structuredClone(helper.getStepData('items'));
-        hostReads.helperGetAllData = structuredClone(helper.getAllData().items);
-        helper.setNextStepFields({ tags: [{ name: 'x' }, { name: 'y' }] });
-      },
-    })
-    .addStep({
-      id: 'extra',
-      title: 'Extra',
-      formConfig: form
-        .create(catalog, 'extra-form')
-        .addRepeatable('tags', (rb) => rb.add({ id: 'name', type: 'text', props: {} })),
-      // WRITE: a cross-step setStepData naming a LATER step.
-      onAfterValidation: (_data, helper) => {
-        helper.setStepData('review', { note: 'from-helper' });
-      },
-    })
-    .addStep({
-      id: 'review',
-      title: 'Review',
-      formConfig: form.create(catalog, 'review-form').add({ id: 'note', type: 'text', props: {} }),
-    })
-    .configure({ analytics })
-    .build();
+  return (
+    flow
+      .create(catalog, 'shape-proof', 'Shape proof')
+      .addStep({
+        id: 'items',
+        title: 'Items',
+        formConfig: form
+          .create(catalog, 'items-form')
+          .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} })),
+        // READ: the data param + the helper's readers, in ONE invocation.
+        // WRITE: setNextStepFields prefills the NEXT step's repeatable.
+        onAfterValidation: (data, helper) => {
+          hostReads.afterValidationParam = structuredClone(data);
+          hostReads.helperGetStepData = structuredClone(helper.getStepData('items'));
+          hostReads.helperGetAllData = structuredClone(helper.getAllData().items);
+          helper.setNextStepFields({ tags: [{ name: 'x' }, { name: 'y' }] });
+        },
+      })
+      .addStep({
+        id: 'extra',
+        title: 'Extra',
+        formConfig: form
+          .create(catalog, 'extra-form')
+          .addRepeatable('tags', (rb) => rb.add({ id: 'name', type: 'text', props: {} })),
+        // WRITE: a cross-step setStepData naming a LATER step.
+        onAfterValidation: (_data, helper) => {
+          helper.setStepData('review', { note: 'from-helper' });
+        },
+      })
+      .addStep({
+        id: 'review',
+        title: 'Review',
+        formConfig: form
+          .create(catalog, 'review-form')
+          .add({ id: 'note', type: 'text', props: {} }),
+      })
+      // WRITE: the PUBLIC `useFlowActions().setFieldValue` — the fifth door, and
+      // the last action the store left exempt from its own invariant. This step's
+      // repeatable is prefilled through NOTHING ELSE: if the action stops
+      // flattening, the rows here become unreachable to the user and this step is
+      // where the ghost row survives the delete.
+      .addStep({
+        id: 'wrap',
+        title: 'Wrap',
+        formConfig: form
+          .create(catalog, 'wrap-form')
+          .addRepeatable('refs', (rb) => rb.add({ id: 'url', type: 'text', props: {} })),
+      })
+      .configure({ analytics })
+      .build()
+  );
 }
 
 /** The authored defaults — the FIRST write door, and two rows the user owns. */
-const DEFAULT_VALUES = { items: { lines: [{ label: 'alpha' }, { label: 'beta' }] } };
+const DEFAULT_VALUES = {
+  items: { lines: [{ label: 'alpha' }, { label: 'beta' }] },
+};
 
 function RepeatableProbe({ id }: { id: string }) {
   const { items, remove } = useRepeatableField(id);
@@ -172,12 +191,25 @@ function PublicHooksProbe() {
 
 function Harness() {
   const { currentStep, submitWorkflow, persistNow } = useFlow();
+  const actions = useFlowActions();
   return (
     <div>
       <PublicHooksProbe />
       <InvariantProbe />
       {currentStep?.id === 'items' ? <RepeatableProbe id="lines" /> : null}
       {currentStep?.id === 'extra' ? <RepeatableProbe id="tags" /> : null}
+      {currentStep?.id === 'wrap' ? <RepeatableProbe id="refs" /> : null}
+      {/* A host prefilling a repeatable the natural way, through the public
+          action, on a step the user has not reached yet. */}
+      <button
+        type="button"
+        data-testid="action-prefill-refs"
+        onClick={() =>
+          actions.setFieldValue('refs', [{ url: 'ghost-a' }, { url: 'ghost-b' }], 'wrap')
+        }
+      >
+        prefill refs
+      </button>
       <button type="submit" data-testid="form-next">
         next
       </button>
@@ -248,8 +280,14 @@ describe('PROOF: the repeatable shape boundary', () => {
     await waitFor(() => expect(screen.getByTestId('lines[k1].label')).toBeTruthy());
     expect(screen.getByTestId('lines-order').textContent).toBe('k0,k1');
 
+    // ---- WRITE: the PUBLIC useFlowActions().setFieldValue, prefilling a step
+    // the user has yet to reach — the fifth door.
+    fireEvent.click(screen.getByTestId('action-prefill-refs'));
+
     // ---- WRITE: a user edit (_setFieldValue).
-    fireEvent.change(screen.getByTestId('lines[k0].label'), { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByTestId('lines[k0].label'), {
+      target: { value: 'alpha' },
+    });
 
     // ---- WRITE: a user deletion (_removeFieldValues). The row the store must
     // never resurrect and never submit.
@@ -307,6 +345,19 @@ describe('PROOF: the repeatable shape boundary', () => {
       note: 'from-helper',
     });
 
+    // ---- The fifth door, walked into: the rows the host prefilled through the
+    // public action are LIVE and FLAT, so the user can see them — and therefore
+    // delete them. An authored array here renders nothing and is undeletable.
+    fireEvent.click(screen.getByTestId('form-next'));
+    await waitFor(() => expect(screen.getByTestId('step').textContent).toBe('wrap'));
+    await waitFor(() => expect(screen.getByTestId('refs[k1].url')).toBeTruthy());
+    expect(screen.getByTestId('refs-order').textContent).toBe('k0,k1');
+
+    // ---- WRITE: the user deletes every row they can see.
+    fireEvent.click(screen.getByTestId('remove-refs-k1'));
+    fireEvent.click(screen.getByTestId('remove-refs-k0'));
+    await waitFor(() => expect(screen.getByTestId('refs-order').textContent).toBe(''));
+
     // ---- READ: the completion payload + analytics.onWorkflowComplete. The
     // host contract: every deleted row gone, every survivor in the authored
     // shape.
@@ -318,9 +369,11 @@ describe('PROOF: the repeatable shape boundary', () => {
       items: ITEMS_AUTHORED,
       extra: EXTRA_AUTHORED,
       review: { note: 'from-helper' },
+      wrap: {},
     });
     expect(JSON.stringify(payload)).not.toContain('beta');
     expect(JSON.stringify(payload)).not.toContain('"y"');
+    expect(JSON.stringify(payload)).not.toContain('ghost');
     expect(analytics.onWorkflowComplete.mock.calls[0][2]).toEqual(payload);
 
     // ---- THE INVARIANT: at no commit did any slice hold a second shape.
@@ -349,7 +402,9 @@ describe('PROOF: the repeatable shape boundary', () => {
     // ---- READ: analytics.onWorkflowAbandon — the same shape its two siblings
     // on this interface speak.
     expect(analytics.onWorkflowAbandon).toHaveBeenCalledTimes(1);
-    expect(analytics.onWorkflowAbandon.mock.calls[0][2]).toEqual({ items: ITEMS_AUTHORED });
+    expect(analytics.onWorkflowAbandon.mock.calls[0][2]).toEqual({
+      items: ITEMS_AUTHORED,
+    });
     expectStoreIsFlatOnly(storeSnapshots);
   });
 
