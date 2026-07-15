@@ -126,11 +126,44 @@ function validateStep<C extends Record<string, unknown>>(
     collectFormIssues(step.form, path, catalog, bindings, issues);
   }
 
+  validateAllowSkip(step.allowSkip, path, issues);
+
   if (step.conditions?.visible) {
     validateConditionConfig(step.conditions.visible, `${path}.conditions.visible`, issues);
   }
   if (step.conditions?.skippable) {
     validateConditionConfig(step.conditions.skippable, `${path}.conditions.skippable`, issues);
+  }
+}
+
+/**
+ * Guards the `allowSkip` union before `compileFlow` narrows it.
+ *
+ * `typeof null === 'object'`, so without this a `null` (or any non-`{ binding }`
+ * object) payload would reach `step.allowSkip.binding` and throw a raw
+ * TypeError instead of the typed SchemaValidationError. A well-formed but
+ * unresolved binding key stays `compileFlow`'s NotFoundError to report.
+ */
+function validateAllowSkip(
+  allowSkip: FlowSchemaStep['allowSkip'],
+  path: string,
+  issues: SchemaIssue[]
+): void {
+  if (allowSkip === undefined || typeof allowSkip === 'boolean') {
+    return;
+  }
+
+  const binding: unknown =
+    allowSkip !== null && typeof allowSkip === 'object'
+      ? (allowSkip as { binding?: unknown }).binding
+      : undefined;
+
+  if (typeof binding !== 'string' || binding.length === 0) {
+    issues.push({
+      path: `${path}.allowSkip`,
+      message: 'Step "allowSkip" must be a boolean or a { binding } reference',
+      severity: 'error',
+    });
   }
 }
 

@@ -315,6 +315,38 @@ describe('compileFlow', () => {
     expect((caught as NotFoundError).meta).toEqual({ binding: 'missing', stepId: 'a' });
   });
 
+  it('throws SchemaValidationError for a malformed allowSkip payload', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'a',
+          title: 'A',
+          form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+          allowSkip: null as unknown as boolean,
+        },
+      ],
+    };
+
+    let caught: unknown;
+    try {
+      compileFlow(schema, makeCatalog());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    expect((caught as SchemaValidationError).issues).toEqual([
+      {
+        path: 'steps[0].allowSkip',
+        message: 'Step "allowSkip" must be a boolean or a { binding } reference',
+        severity: 'error',
+      },
+    ]);
+  });
+
   it('throws NotFoundError for an unresolved onAfterValidation binding', () => {
     const schema: FlowSchema = {
       version: 1,
