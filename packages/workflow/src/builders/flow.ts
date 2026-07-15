@@ -1,23 +1,22 @@
 import {
+  ConfigurationError,
   type CustomStepRenderer,
   type FormConfiguration,
   IdGenerator,
+  NotFoundError,
+  type RilayInstance,
   type StepAllowSkip,
   type StepConditionalBehavior,
   type StepConfig,
   type StepDataHelper,
+  ValidationError,
   type WorkflowAnalytics,
   type WorkflowConfig,
   type WorkflowContext,
   type WorkflowPlugin,
-  type RilayInstance,
-  ConfigurationError,
-  NotFoundError,
-  ValidationError,
   deepClone,
   ensureUnique,
   normalizeToArray,
-  type ril,
 } from '@rilaykit/core';
 import { type form, resolveFormConfig } from '@rilaykit/forms';
 import type { StepContext, StepMetadata } from '../context/step-context';
@@ -216,7 +215,7 @@ interface WorkflowOptions {
  * @class flow
  */
 export class flow {
-  private config: RilayInstance<any> | ril<any>;
+  private config: RilayInstance<any>;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -239,7 +238,7 @@ export class flow {
    * @param description - Optional description of the workflow purpose
    */
   constructor(
-    config: RilayInstance<any> | ril<any>,
+    config: RilayInstance<any>,
     workflowId?: string,
     workflowName?: string,
     description?: string
@@ -273,8 +272,8 @@ export class flow {
    * const workflow = flow.create(rilConfig);
    * ```
    */
-  static create(
-    config: RilayInstance<any> | ril<any>,
+  static create<Cm extends Record<string, unknown>>(
+    config: RilayInstance<Cm>,
     workflowId?: string,
     workflowName?: string,
     description?: string

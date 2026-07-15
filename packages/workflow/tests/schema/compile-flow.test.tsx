@@ -222,7 +222,11 @@ describe('compileFlow', () => {
       id: 'wf',
       name: 'W',
       steps: [
-        { id: 'a', title: 'A', form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'ghost' }] } },
+        {
+          id: 'a',
+          title: 'A',
+          form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'ghost' }] },
+        },
       ],
     };
 
@@ -275,7 +279,8 @@ describe('compileFlow', () => {
 
     const config = compileFlow(schema, makeCatalog(), { bindings });
 
-    const validate = config.steps[0]?.formConfig.allFields[0]?.validation?.validate as StandardSchema;
+    const validate = config.steps[0]?.formConfig.allFields[0]?.validation
+      ?.validate as StandardSchema;
     expect(validate['~standard'].validate('foo')).toEqual({ issues: [{ message: 'no foo' }] });
     expect(validate['~standard'].validate('bar')).toEqual({ value: 'bar' });
   });
@@ -295,8 +300,19 @@ describe('compileFlow', () => {
       ],
     };
 
-    expect(() => compileFlow(schema, makeCatalog())).toThrowError(NotFoundError);
-    expect(() => compileFlow(schema, makeCatalog())).toThrowError(/missing/);
+    let caught: unknown;
+    try {
+      compileFlow(schema, makeCatalog());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(NotFoundError);
+    expect((caught as NotFoundError).message).toBe(
+      'allowSkip binding "missing" not found for step "a"'
+    );
+    expect((caught as NotFoundError).code).toBe('NOT_FOUND');
+    expect((caught as NotFoundError).meta).toEqual({ binding: 'missing', stepId: 'a' });
   });
 
   it('throws NotFoundError for an unresolved onAfterValidation binding', () => {
@@ -314,7 +330,18 @@ describe('compileFlow', () => {
       ],
     };
 
-    expect(() => compileFlow(schema, makeCatalog())).toThrowError(NotFoundError);
-    expect(() => compileFlow(schema, makeCatalog())).toThrowError(/ghost/);
+    let caught: unknown;
+    try {
+      compileFlow(schema, makeCatalog());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(NotFoundError);
+    expect((caught as NotFoundError).message).toBe(
+      'onAfterValidation binding "ghost" not found for step "a"'
+    );
+    expect((caught as NotFoundError).code).toBe('NOT_FOUND');
+    expect((caught as NotFoundError).meta).toEqual({ binding: 'ghost', stepId: 'a' });
   });
 });

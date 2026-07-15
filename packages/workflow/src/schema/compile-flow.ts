@@ -50,9 +50,7 @@ export function compileFlow<C extends Record<string, unknown>>(
   const builder = flow.create(catalog, schema.id, schema.name, schema.description);
 
   for (const step of schema.steps) {
-    // `validate: false` — validateFlowSchema already proved every step's form
-    // valid against this catalog and these bindings, with better issue paths.
-    const { formConfig } = compileForm(step.form, catalog, { bindings, validate: false });
+    const { formConfig } = compileForm(step.form, catalog, { bindings });
 
     builder.addStep({
       id: step.id,

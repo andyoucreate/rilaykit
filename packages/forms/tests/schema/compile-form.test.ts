@@ -131,8 +131,8 @@ describe('compileForm', () => {
     };
   }
 
-  it('validates by default and throws SchemaValidationError for an invalid condition operator', () => {
-    let caught;
+  it('throws SchemaValidationError for an invalid condition operator', () => {
+    let caught: unknown;
     try {
       compileForm(makeBadOperatorSchema(), makeCatalog());
     } catch (error) {
@@ -140,21 +140,12 @@ describe('compileForm', () => {
     }
 
     expect(caught).toBeInstanceOf(SchemaValidationError);
-    expect(caught.issues).toEqual([
+    expect((caught as SchemaValidationError).issues).toEqual([
       {
         path: 'fields[0].conditions.visible.operator',
         message: 'Invalid condition operator "bogus"',
         severity: 'error',
       },
     ]);
-  });
-
-  it('skips validation when options.validate is false (caller already validated)', () => {
-    const result = compileForm(makeBadOperatorSchema(), makeCatalog(), { validate: false });
-
-    expect(result.formConfig.allFields.map((f) => f.id)).toEqual(['a']);
-    expect(result.formConfig.allFields[0].conditions).toEqual({
-      visible: { field: 'b', operator: 'bogus' },
-    });
   });
 });
