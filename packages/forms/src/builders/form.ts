@@ -777,15 +777,31 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     );
     const repeatableTemplateFields = repeatableRows.flatMap((row) => row.repeatable.allFields);
 
-    // Check for duplicate field IDs (including across repeatables)
-    const allFieldIds = [
-      ...allFields.map((field) => field.id),
-      ...repeatableTemplateFields.map((field) => field.id),
-    ];
+    // Each repeatable's template fields are their OWN namespace: they submit
+    // under composite keys (`addresses[k0].name`), never as a bare top-level
+    // key, so two repeatables may each declare a `name` without colliding —
+    // `structureFormValues` keeps them apart. Folding every repeatable's
+    // templates into ONE flat set alongside the top-level fields rejected that
+    // mainstream shape (`addresses[].name` + `contacts[].name`).
+    //
+    // What must still hold, per repeatable: its own template ids are unique
+    // among themselves, and none of them shadows a top-level field id (a
+    // template field and a top-level field DO share the top-level namespace at
+    // scope-resolution time).
+    const topLevelFieldIds = allFields.map((field) => field.id);
     try {
-      ensureUnique(allFieldIds, 'field');
+      ensureUnique(topLevelFieldIds, 'field');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
+    }
+
+    for (const row of repeatableRows) {
+      const templateIds = row.repeatable.allFields.map((field) => field.id);
+      try {
+        ensureUnique([...topLevelFieldIds, ...templateIds], 'field');
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
     }
 
     // Top-level field ids and repeatable ids are ONE namespace, not two.
