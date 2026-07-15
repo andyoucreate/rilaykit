@@ -141,6 +141,56 @@ function inspectAllInOne(): AllInOneReport {
   return JSON.parse(stdout) as AllInOneReport;
 }
 
+/**
+ * The error a package throws must be reachable from the package that throws it.
+ * `@rilaykit/workflow` is published standalone: `compileFlow(untrustedJson)` on
+ * backend/LLM-authored JSON throws `SchemaValidationError`, and a consumer that
+ * installed only workflow has to narrow it without reaching into
+ * `@rilaykit/forms` — an implementation detail of workflow's dependency graph.
+ */
+interface SchemaErrorReport {
+  workflowExportsClass: string;
+  /** The thrown error must be an instance of the class the SAME barrel exports. */
+  workflowThrowIsInstance: boolean;
+  workflowIssueCount: number;
+  /** A re-export forwards one class object: identity must hold across barrels. */
+  identityMatchesForms: boolean;
+  identityMatchesAllInOne: boolean;
+}
+
+function inspectSchemaError(): SchemaErrorReport {
+  const workflow = PUBLISHED_PACKAGES.find((pkg) => pkg.name === '@rilaykit/workflow');
+  const forms = PUBLISHED_PACKAGES.find((pkg) => pkg.name === '@rilaykit/forms');
+  const allInOne = PUBLISHED_PACKAGES.find((pkg) => pkg.name === 'rilaykit');
+  if (!workflow || !forms || !allInOne) throw new Error('PUBLISHED_PACKAGES is missing a package');
+
+  const probe = `
+    const workflow = require(${JSON.stringify(entries(workflow).cjs)});
+    const forms = require(${JSON.stringify(entries(forms).cjs)});
+    const allInOne = require(${JSON.stringify(entries(allInOne).cjs)});
+    let thrown;
+    try {
+      workflow.compileFlow({ id: 'f', name: 'F', steps: [] }, {});
+    } catch (error) {
+      thrown = error;
+    }
+    process.stdout.write(JSON.stringify({
+      workflowExportsClass: typeof workflow.SchemaValidationError,
+      workflowThrowIsInstance: thrown instanceof workflow.SchemaValidationError,
+      workflowIssueCount: (thrown && thrown.issues && thrown.issues.length) || 0,
+      identityMatchesForms: workflow.SchemaValidationError === forms.SchemaValidationError,
+      identityMatchesAllInOne: workflow.SchemaValidationError === allInOne.SchemaValidationError,
+    }));
+  `;
+
+  const stdout = execFileSync(process.execPath, ['-e', probe], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  return JSON.parse(stdout) as SchemaErrorReport;
+}
+
 describe.skipIf(!isBuilt)('every published bundle loads in a real node process', () => {
   for (const pkg of PUBLISHED_PACKAGES) {
     it(`${pkg.name}: require()s the CJS bundle and import()s the ESM bundle with an identical surface`, () => {
@@ -178,6 +228,20 @@ describe.skipIf(!isBuilt)('every published bundle loads in a real node process',
     expect(report.cjsPersistenceAdapter).toBe('function');
     expect(report.cjsMonitoringAdapter).toBe('function');
     expect(report.cjsAdaptersDistinct).toBe(true);
+  });
+
+  it('@rilaykit/workflow exports the SchemaValidationError its compileFlow throws', () => {
+    const report = inspectSchemaError();
+
+    expect(report.workflowExportsClass).toBe('function');
+    expect(report.workflowThrowIsInstance).toBe(true);
+    expect(report.workflowIssueCount).toBeGreaterThan(0);
+
+    // One class object, re-exported — not three lookalikes. If a bundler inlined
+    // a copy per barrel, `instanceof` would be false for a consumer that caught
+    // the error from one package and narrowed it with another's class.
+    expect(report.identityMatchesForms).toBe(true);
+    expect(report.identityMatchesAllInOne).toBe(true);
   });
 });
 
