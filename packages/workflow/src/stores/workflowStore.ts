@@ -32,6 +32,33 @@ export interface WorkflowStoreState {
   isSubmitting: boolean;
 
   // Internal state
+  /**
+   * The flow's defaults AS THE HOST AUTHORED THEM — repeatables as arrays under
+   * their bare id — never the store's internal flat keys.
+   *
+   * NOT NORMALISED, AND THAT IS THE POINT. This used to hold the value
+   * `normalizeRepeatableSlices` produced at store CREATION, and `_reset` spread
+   * it straight into `allData`. A normalisation is a function of the defaults
+   * AND THE STEPS, and the steps are LIVE (see
+   * {@link CreateWorkflowStoreOptions.getSteps}) — so the cached answer was
+   * correct only against the step set of the instant it was computed. A default
+   * for a step the mount config did not declare could not be recognised as
+   * holding a repeatable, so it stayed an authored array; a recompile that ADDED
+   * that step then made the array a LIVE step's slice, and every `reset()`
+   * re-planted it — a row with no flat keys, so no keys for `_removeFieldValues`
+   * to delete. The user removes the row, the row comes back.
+   *
+   * It is the mirror image of the four failures before it, which were all a
+   * value read against a step set that had SHRUNK. A value normalised at t=0
+   * against mutable inputs is the bug, not its symptom — so the store keeps the
+   * defaults in the shape the host handed them, which no step set can invalidate,
+   * and derives the seed from them at the moment of use. See {@link seedAllData}.
+   *
+   * `WorkflowProvider` reads this as the merge base under a persistence
+   * snapshot, which is correct on the same terms: authored is the shape a
+   * snapshot speaks, and `_loadPersistedState` normalises the merge on the way
+   * in against the steps live THEN.
+   */
   _defaultValues: Record<string, unknown>;
   _defaultStepIndex: number;
   /**
@@ -276,12 +303,29 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
     };
   };
 
-  // The mirror starts empty — nothing has been arranged yet — so the defaults
-  // have no claim to keep honest and the reconciled orders are `{}` by
-  // construction. They are read back rather than assumed so that this is the
-  // same one normaliser every other door uses.
-  const initial = normalizeRepeatableSlices({ ...defaultValues }, getSteps(), {});
-  const initialAllData = initial.data;
+  /**
+   * The seed, DERIVED AT THE MOMENT OF USE from the authored defaults and the
+   * steps live RIGHT NOW.
+   *
+   * There are two moments — store creation and `_reset` — and they used to be
+   * one: creation computed the value and `_reset` spread the cached copy. That
+   * made the reset's answer a function of the step set at MOUNT, and a store
+   * whose steps are live has no business caching an answer that depends on them.
+   * See {@link WorkflowStoreState._defaultValues}.
+   *
+   * The mirror is empty at both moments — a reset clears it in the same `set`,
+   * and nothing has been arranged yet at creation — so there is no arrangement
+   * to keep honest and the reconciled orders come back `{}` by construction.
+   * They are read back rather than assumed so that this is the same one
+   * normaliser every other door uses.
+   *
+   * Idempotent: `flattenAuthoredSlice` returns an already-flat slice's own
+   * identity, so re-deriving from the same defaults against the same steps
+   * yields the same value. Nothing here can feed itself.
+   */
+  const seedAllData = () => normalizeRepeatableSlices({ ...defaultValues }, getSteps(), {});
+
+  const initial = seedAllData();
 
   return createStore<WorkflowStoreState>()(
     subscribeWithSelector((set, get) => ({
@@ -289,14 +333,14 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       currentStepIndex: defaultStepIndex,
       isTransitioning: false,
       isInitializing: true,
-      allData: initialAllData,
+      allData: initial.data,
       stepData: {},
       visitedSteps: new Set(initialVisitedSteps),
       passedSteps: new Set(initialPassedSteps),
       isSubmitting: false,
 
       // Internal state
-      _defaultValues: initialAllData,
+      _defaultValues: defaultValues,
       _defaultStepIndex: defaultStepIndex,
       _currentStepId: ownerOf(defaultStepIndex),
       _repeatableOrders: initial.orders,
@@ -391,10 +435,24 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
        * than replacing the whole slice with the form's values) keeps every
        * non-form writer of the slice — prefill bindings, `onAfterValidation` —
        * authoritative for the keys it owns.
+       *
+       * IT NORMALISES FIRST, like every other action that touches a slice, and
+       * "it only deletes, so it cannot re-shape anything" is exactly why it did
+       * not. That was true of the SHAPE it writes and false of the shape it
+       * READS: a slice that entered while its step was not live is an authored
+       * array (the store could not know `lines` named a repeatable), and a
+       * recompile that adds the step makes that array a live step's slice with
+       * no `lines[k0].label` for this delete to find. The user removes the row,
+       * the delete matches nothing, the row comes back — the very failure the
+       * flat shape exists to prevent, arriving through the one door that trusted
+       * the slice to already be flat instead of deriving it against the steps
+       * live NOW.
        */
       _removeFieldValues: (fieldIds, stepId) => {
         set((state) => {
-          const newStepData = { ...readStepSlice(state, stepId) };
+          const current = readStepSlice(state, stepId);
+          const { slice, orders } = normalizeSlice(state, current, stepId);
+          const newStepData = { ...slice };
           let removed = false;
           for (const fieldId of fieldIds) {
             if (hasOwn(newStepData, fieldId)) {
@@ -402,7 +460,11 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
               removed = true;
             }
           }
-          if (!removed) return {};
+          // `normalizeSlice` hands back the slice's own identity when there was
+          // nothing authored to flatten, so this asks whether the normalisation
+          // itself changed anything. A delete that matched nothing AND reshaped
+          // nothing publishes nothing, and no subscriber is woken.
+          if (!removed && slice === current) return {};
 
           return {
             ...mirrorIfCurrent(state, stepId, newStepData),
@@ -410,6 +472,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
               ...state.allData,
               [stepId]: newStepData,
             },
+            _repeatableOrders: orders,
           };
         });
       },
@@ -450,13 +513,22 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
 
       _reset: () => {
         const state = get();
+        // The seed is DERIVED here, against the steps live at this instant —
+        // not spread from a copy the store normalised at mount. A recompile
+        // that ADDED a step the defaults speak for is honoured by this reset;
+        // the cached copy could only ever answer for the mount's step set, and
+        // re-planted the authored array of a step that had since been born.
+        // See {@link WorkflowStoreState._defaultValues}.
+        const seed = seedAllData();
         set({
           currentStepIndex: state._defaultStepIndex,
-          allData: { ...state._defaultValues },
+          allData: seed.data,
           stepData: {},
           // The index returns to its default, so the mirror's owner does too.
           _currentStepId: ownerOf(state._defaultStepIndex),
-          _repeatableOrders: {},
+          // Derived in the same breath as the slice it describes, from an empty
+          // mirror, so the two cannot disagree about the rows.
+          _repeatableOrders: seed.orders,
           visitedSteps: new Set(),
           passedSteps: new Set(),
           isSubmitting: false,

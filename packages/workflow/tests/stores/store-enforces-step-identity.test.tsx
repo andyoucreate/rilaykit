@@ -4,7 +4,7 @@ import { form, parseCompositeKey } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { WorkflowStore, WorkflowStoreState } from '../../src';
+import type { UseFlowActionsResult, WorkflowStore, WorkflowStoreState } from '../../src';
 import { FlowBody, WorkflowProvider, createWorkflowStore, useFlow, useFlowActions } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { structureStepSlice, structureWorkflowData } from '../../src/utils/structureWorkflowData';
@@ -277,10 +277,12 @@ describe('EVERY piece of store state keyed by step identity handles a step that 
     },
 
     /**
-     * The seed `_reset` restores. Normalised ONCE, at store creation, against
-     * the steps live at that moment — so a default for a step that is live then
-     * is flat, and a `reset()` after a recompile plants those flat keys straight
-     * back into `allData`. Its read boundary is therefore `allData`'s.
+     * The seed `_reset` restores — the flow's defaults, AS THE HOST AUTHORED
+     * THEM. `_reset` derives the seed from them against the steps live at the
+     * moment of the reset, so a `reset()` after a recompile plants a slice for
+     * a step that is gone exactly as `_setStepData` would. Its read boundary is
+     * therefore `allData`'s. The write side of this member — the reason it is
+     * authored rather than normalised at mount — is the enumeration below.
      */
     _defaultValues: {
       defaultValues: { [BRAVO]: { lines: AUTHORED } },
@@ -387,6 +389,313 @@ describe('EVERY piece of store state keyed by step identity handles a step that 
     expect([...state.passedSteps]).toEqual([BRAVO]);
     expect(hostAllData(store, getLiveSteps())).toEqual({});
   });
+});
+
+// =================================================================
+// THE ENUMERATION — THE WRITE SIDE, WHEN A STEP IS BORN
+// =================================================================
+
+/**
+ * THE SAME CLASS, MIRRORED. The enumeration above asks what the HOST READS when
+ * a step DIES. This asks what the STORE WRITES when a step is BORN — and it is
+ * the same failure with the arrow reversed.
+ *
+ * THE INSTANCE. `_defaultValues` used to hold what `normalizeRepeatableSlices`
+ * returned at store CREATION. A normalisation is a function of the defaults AND
+ * THE STEPS, and the steps are LIVE — so that cached answer was only ever
+ * correct against the step set of the instant it was computed:
+ *
+ *   1. a default for `step-bravo`, which the MOUNT config does not declare, is
+ *      stored AUTHORED — the store cannot know `lines` names a repeatable,
+ *      because the step declaring it is not there to ask;
+ *   2. a recompile ADDS `step-bravo`;
+ *   3. `_reset` — `useFlowActions().reset()`, `useFlow().resetWorkflow()` —
+ *      spreads the stale cache back into `allData`, and `lines: [{...}]` lands
+ *      as a LIVE step's slice.
+ *
+ * That is the flat-shape invariant broken with a row `_removeFieldValues` cannot
+ * reach: the user removes the row, the delete matches no key, the row comes
+ * back and is submitted. The original CRITICAL, re-entering through the one
+ * value nobody had asked whether it was a derivation.
+ *
+ * THE FIX IS THE LESSON, AGAIN — derive, don't ask, and never cache an answer
+ * that depends on a mutable input. `_defaultValues` now holds the defaults in
+ * the shape the HOST authored them, which no step set can invalidate, and the
+ * seed is derived from them at the moment of use. There is no cached
+ * normalisation left for a recompile to invalidate, because there is no cached
+ * normalisation.
+ *
+ * WHAT THIS ENUMERATION IS. Not "reset re-normalises now" — that is the
+ * instance, and the instance is the cheap half. Every action on both surfaces is
+ * CLASSIFIED as one that addresses a step's slice or one that does not, and:
+ *
+ *   - every action that addresses a slice must leave every LIVE step's slice
+ *     flat, with the step set having MOVED since mount;
+ *   - every action classified as addressing no slice must be PROVED to address
+ *     none — `allData` keeps its identity — rather than asserted to in a
+ *     comment. That is the half that would have caught this one: `_reset` was
+ *     `null` in two existing tables, and both justifications were true of what
+ *     it wrote and silent about what it read.
+ *
+ * A member normalised at mount against live steps cannot survive this: it can
+ * only reach `allData` through an action, and every action is here.
+ */
+
+/** The rows a host authors for a step the MOUNT config does not declare. */
+const BORN_DEFAULTS = { [BRAVO]: { lines: AUTHORED } };
+
+/** The same rows the store's way: flat composite keys, one per field per row. */
+const BORN_FLAT = { 'lines[k0].label': 'alpha', 'lines[k1].label': 'beta' };
+
+/**
+ * `step-bravo`, renamed by a recompile. A rename is a death and a birth in one
+ * re-render, so it is the mutation that exercises both halves of the class at
+ * once: `step-bravo`'s slice is orphaned and `step-charlie` is born.
+ */
+const CHARLIE = 'step-charlie';
+
+function buildRenamedFlow() {
+  return buildFlow(false).steps.concat({
+    id: CHARLIE,
+    title: 'Charlie',
+    formConfig: form
+      .create(catalog, 'charlie-form')
+      .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} })),
+  });
+}
+
+/**
+ * No LIVE step's slice holds a repeatable's rows as an authored array under its
+ * bare id — the flat-shape invariant, asserted from the CONFIGS rather than a
+ * list of step ids, so a step this test never names still fails.
+ *
+ * The assertion carries the step and the field so a failure says WHICH slice
+ * broke rather than `expected true to be false`.
+ */
+function expectLiveSlicesFlat(
+  state: WorkflowStoreState,
+  liveSteps: ReadonlyArray<StepConfig>
+): void {
+  for (const step of liveSteps) {
+    const slice = getOwn(state.allData, step.id);
+    if (typeof slice !== 'object' || slice === null || Array.isArray(slice)) continue;
+    for (const repeatableId of Object.keys(step.formConfig?.repeatableFields ?? {})) {
+      const authored = getOwn(slice as Record<string, unknown>, repeatableId);
+      expect({ step: step.id, repeatable: repeatableId, authoredArray: authored }).toEqual({
+        step: step.id,
+        repeatable: repeatableId,
+        authoredArray: undefined,
+      });
+    }
+  }
+}
+
+/**
+ * A store that mounted WITHOUT `step-bravo` while holding a default for it, the
+ * way `WorkflowProvider` builds one: `getSteps` is a live read, `defaultValues`
+ * is captured once at creation and never re-seeded.
+ *
+ * `mutate` is a recompile. No store API is involved — the store cannot be
+ * notified, which is precisely why nothing it computed at mount is allowed to
+ * depend on the step set.
+ */
+function createBornHarness(mutate: () => ReadonlyArray<StepConfig>) {
+  let liveSteps: ReadonlyArray<StepConfig> = ALPHA_ONLY;
+  const store = createWorkflowStore({
+    getSteps: () => liveSteps,
+    defaultValues: BORN_DEFAULTS,
+  });
+  return {
+    store,
+    recompile: () => {
+      liveSteps = mutate();
+    },
+    getLiveSteps: () => liveSteps,
+  };
+}
+
+const STEP_SET_MUTATIONS: Record<string, () => ReadonlyArray<StepConfig>> = {
+  'a step is born': () => ALL_STEPS,
+  'a step dies': () => ALPHA_ONLY.slice(),
+  'a step is renamed': buildRenamedFlow,
+};
+
+describe('NO step-identity-keyed member is a normalisation cached against the MOUNT steps', () => {
+  /**
+   * `_defaultValues` is the member this enumeration exists for, and this is its
+   * whole contract: it is HOST-AUTHORED DATA, so there is nothing in it for a
+   * step set to invalidate. A flat composite key in here is a normalisation
+   * someone cached — the bug itself, caught at the member rather than at the
+   * door it happened to leak through.
+   */
+  it.each(Object.entries(STEP_SET_MUTATIONS))(
+    '_defaultValues holds the AUTHORED defaults, so %s cannot invalidate it',
+    (_name, mutate) => {
+      const { store, recompile } = createBornHarness(mutate);
+      recompile();
+
+      expect(store.getState()._defaultValues).toEqual(BORN_DEFAULTS);
+      for (const slice of Object.values(store.getState()._defaultValues)) {
+        for (const key of Object.keys(slice as Record<string, unknown>)) {
+          expect(parseCompositeKey(key)).toBeNull();
+        }
+      }
+    }
+  );
+
+  /**
+   * THE INSTANCE, through the exported door. `useFlowActions().reset()` and
+   * `useFlow().resetWorkflow()` are the same `_reset`.
+   */
+  it('reset() after a recompile that ADDS a step seeds the flat shape, not the authored array', () => {
+    const { store, recompile } = createBornHarness(STEP_SET_MUTATIONS['a step is born']);
+    recompile();
+
+    store.getState()._reset();
+
+    // The row the host authored, in the shape that gives it keys to delete.
+    expect(store.getState().allData[BRAVO]).toEqual(BORN_FLAT);
+  });
+
+  it('a row seeded by reset() into a step born by a recompile can be removed', () => {
+    // The CRITICAL, stated as the user experiences it: the row `_removeFieldValues`
+    // cannot reach is the row that survives the user's delete and is submitted.
+    const { store, recompile } = createBornHarness(STEP_SET_MUTATIONS['a step is born']);
+    recompile();
+    store.getState()._reset();
+
+    store.getState()._removeFieldValues(['lines[k0].label'], BRAVO);
+
+    expect(store.getState().allData[BRAVO]).toEqual({ 'lines[k1].label': 'beta' });
+  });
+});
+
+/**
+ * EVERY ACTION, ON BOTH SURFACES, AGAINST A STEP SET THAT MOVED.
+ *
+ * The public surface and the internal one are enumerated together here because
+ * the property is the same for both and the internal surface is where the
+ * exported doors land. A new action on either without an entry fails.
+ */
+describe('EVERY action leaves every LIVE step flat when the step set moved since mount', () => {
+  /**
+   * Every action the store exposes, and how to make it address a step's slice.
+   *
+   * `null` classifies an action that addresses NO slice — navigation, flags,
+   * progress marks. The classification is PROVED below (`allData` keeps its
+   * identity), never asserted: `_reset` sat in the `null` bucket of two other
+   * tables on exactly this reasoning, and it was reading `_defaultValues` the
+   * whole time.
+   */
+  const SLICE_ADDRESSERS: Record<string, ((store: WorkflowStore) => void) | null> = {
+    _setCurrentStep: null,
+    _setStepData: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
+    _setAllData: (store) => store.getState()._setAllData({ [BRAVO]: { lines: AUTHORED } }),
+    _setFieldValue: (store) => store.getState()._setFieldValue('lines', AUTHORED, BRAVO),
+    // It only deletes — and it used to trust the slice to already be flat, which
+    // is what made the born step's authored array untouchable. It normalises
+    // against the live steps like every other action now, so it addresses a
+    // slice and owes this property an answer.
+    _removeFieldValues: (store) => store.getState()._removeFieldValues(['lines[k0].label'], BRAVO),
+    _setRepeatableOrder: null,
+    _setSubmitting: null,
+    _setTransitioning: null,
+    _setInitializing: null,
+    _markStepVisited: null,
+    _markStepPassed: null,
+    _reset: (store) => store.getState()._reset(),
+    _loadPersistedState: (store) =>
+      store.getState()._loadPersistedState({ allData: { [BRAVO]: { lines: AUTHORED } } }),
+  };
+
+  /** How to drive each `null`-classified action, to PROVE it writes no slice. */
+  const NON_ADDRESSERS: Record<string, (store: WorkflowStore) => void> = {
+    _setCurrentStep: (store) => store.getState()._setCurrentStep(0),
+    _setRepeatableOrder: (store) => store.getState()._setRepeatableOrder(BRAVO, { lines: ['k0'] }),
+    _setSubmitting: (store) => store.getState()._setSubmitting(true),
+    _setTransitioning: (store) => store.getState()._setTransitioning(true),
+    _setInitializing: (store) => store.getState()._setInitializing(false),
+    _markStepVisited: (store) => store.getState()._markStepVisited(BRAVO),
+    _markStepPassed: (store) => store.getState()._markStepPassed(BRAVO),
+  };
+
+  it('classifies EVERY action the store exposes', () => {
+    const { store } = createBornHarness(STEP_SET_MUTATIONS['a step is born']);
+    const state = store.getState();
+    const actionKeys = Object.keys(state)
+      .filter((key) => typeof state[key as keyof WorkflowStoreState] === 'function')
+      .sort();
+
+    expect(actionKeys).toEqual(Object.keys(SLICE_ADDRESSERS).sort());
+  });
+
+  it('classifies EVERY action the PUBLIC surface exports', () => {
+    // The exported doors are the same actions under shorter names. An action
+    // added to `useFlowActions()` that this enumeration has never driven fails
+    // here.
+    let capturedActions: UseFlowActionsResult | undefined;
+    function ActionsProbe() {
+      capturedActions = useFlowActions();
+      return null;
+    }
+    render(
+      <WorkflowProvider workflowConfig={buildFlow(true)}>
+        <ActionsProbe />
+      </WorkflowProvider>
+    );
+
+    expect(Object.keys(capturedActions ?? {}).sort()).toEqual(
+      Object.keys(SLICE_ADDRESSERS)
+        .filter((key) => key !== '_removeFieldValues' && key !== '_setRepeatableOrder')
+        .map((key) => `${key[1].toLowerCase()}${key.slice(2)}`)
+        .sort()
+    );
+  });
+
+  it('every action classified as addressing no slice actually addresses none', () => {
+    // The classification, PROVED. An action that starts writing `allData` while
+    // sitting in the `null` bucket lands here — which is the check the two
+    // existing tables' `reset: null` entries never had.
+    expect(Object.keys(NON_ADDRESSERS).sort()).toEqual(
+      Object.entries(SLICE_ADDRESSERS)
+        .filter(([, driver]) => driver === null)
+        .map(([name]) => name)
+        .sort()
+    );
+
+    for (const [name, driver] of Object.entries(NON_ADDRESSERS)) {
+      const { store, recompile } = createBornHarness(STEP_SET_MUTATIONS['a step is born']);
+      recompile();
+      const before = store.getState().allData;
+
+      driver(store);
+
+      expect({ action: name, allData: store.getState().allData }).toEqual({
+        action: name,
+        allData: before,
+      });
+      expect(store.getState().allData).toBe(before);
+    }
+  });
+
+  const addressers = Object.entries(SLICE_ADDRESSERS).filter(([, driver]) => driver !== null) as
+    Array<[string, (store: WorkflowStore) => void]>;
+
+  const cases = Object.entries(STEP_SET_MUTATIONS).flatMap(([mutation, mutate]) =>
+    addressers.map(([name, driver]) => [mutation, name, mutate, driver] as const)
+  );
+
+  it.each(cases)(
+    'when %s, %s leaves every live step flat',
+    (_mutation, _action, mutate, driver) => {
+      const { store, recompile, getLiveSteps } = createBornHarness(mutate);
+      recompile();
+
+      driver(store);
+
+      expectLiveSlicesFlat(store.getState(), getLiveSteps());
+    }
+  );
 });
 
 // =================================================================

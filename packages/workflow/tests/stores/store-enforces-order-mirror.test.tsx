@@ -235,7 +235,13 @@ describe('the store enforces its order-mirror invariant with NO exempt action', 
 
     const state = capturedStore.getState();
     expect(state._repeatableOrders).toEqual({});
-    expect(state.allData).toEqual(state._defaultValues);
+    // `_defaultValues` holds the defaults AS AUTHORED — it is not the seed, it
+    // is what the seed is derived FROM, against the steps live at the moment of
+    // the reset (see `store-enforces-step-identity`). This flow is built with no
+    // defaults at all, so the seed it derives is empty and the mirror describing
+    // it has nothing left to claim.
+    expect(state._defaultValues).toEqual({});
+    expect(state.allData).toEqual({});
   });
 });
 
