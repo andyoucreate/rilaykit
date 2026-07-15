@@ -70,6 +70,19 @@ string-keyed lookup on a plain object indexed by untrusted schema input must use
 - [x] BUG/med (golden): step `title` never validated — a title-less backend step compiles into `StepConfig { title: undefined }` — validate-flow-schema.ts
 
 ## Iteration log
+- (r4) 11 bugs (6 golden) — all real, nothing refuted. Converged on ONE pre-existing root cause + packaging hygiene:
+  - **THE APPEND-ONLY MIRROR (data integrity)**: FormProvider reported only `Object.keys(values)` — the NEW keys — so a repeatable row DELETED by the user never propagated to the workflow. Verified: `onWorkflowComplete` received the deleted row's value (`drop-me`). Also resurrected the row on step re-entry, and lost user reorders. PRE-EXISTING (git blame → 2fbc505, long before P2); my r3 fix merely made it visible by restoring rows at all. Fixed at the root via a union-diff + `onFieldsRemove`; mutation-proven (revert → 2/4 red).
+    - Design judgment worth keeping: rejected replace-not-merge because the form is NOT the sole writer of a step slice (prefill bindings + onAfterValidation write there too); and put the repeatable-order mirror OUTSIDE `allData` — allData is the host's completion payload, bookkeeping has no business in it.
+  - `logicalOperator: "OR"` (miscased) passed validation and SILENTLY became AND (the evaluator tests `=== 'or'`) — inverted user intent, not cosmetic.
+  - Packaging class (opened in r3) extended to all 4 packages: spurious non-optional `typescript` + `react-dom` peerDeps removed, missing LICENSE added, and the child-process dist guard now covers every published package (CJS ≡ ESM parity), not just the all-in-one.
+  - Gate: 178 files / 1773 tests (+21), 2-3 consecutive identical runs, type-check 4/4, build 6/6.
+
+## Campaign trajectory (honest)
+P1: 50 bugs / 8 rounds. P2: 46 bugs / 4 rounds (10, 12, 13, 11). ~96 total. NOT converging by bug-count.
+What IS converging: the CLASSES. prototype-keys (closed via an exhaustive lifecycle test after 7 escapes);
+published artifacts (closed via child-process dist guards); the append-only mirror (closed at the root).
+Most r3/r4 findings were PRE-EXISTING P1-engine defects that P2's deeper tests finally exercised —
+not P2 regressions. That is the campaign working as intended, but it means the tail is the engine's, not the schema layer's.
 - (r3) 13 bugs (6 golden) — all real. Plus TWO major finds beyond the hunt:
   - **A SOURCE race, not a test race** (I guessed wrong; the agent proved me wrong by instrumenting): FormProvider reset the store on a form-id swap in a PASSIVE effect. React flushes those in a scheduler macrotask, so between commit and reset the new step is committed AND paintable while the store still holds the previous step's values — any write landing there is silently destroyed. A cross-step prefill from onAfterValidation is exactly such a write-on-arrival. Reachable in production. Fixed with useIsomorphicLayoutEffect (atomic swap); mutation-proven (revert → 2/2 red). This was the "loose thread" r2 could not reproduce: it only loses under parallel CPU contention.
   - **The published package could not be require()d**: core's monitoring `LocalStorageAdapter` collides with workflow's persistence `LocalStorageAdapter` in the all-in-one barrel. The rename exposed a SECOND defect: tsup `splitting:true` routes CJS through sucrase, whose _createStarExport installs star names as getters BEFORE explicit assignments — inverting ESM's "explicit shadows star" precedence. Both fixes needed: without the rename, esbuild's correct codegen would SILENTLY SHADOW rather than throw. The entire suite was blind (everything resolved ESM/source) — closed with a guard that loads the real dist in a child node process, wired through test:ci.
