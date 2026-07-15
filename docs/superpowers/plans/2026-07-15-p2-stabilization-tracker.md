@@ -94,6 +94,45 @@ Two CRITICAL data-integrity bugs, both PRE-EXISTING, both verified at HEAD:
 Process note (my error): I briefed a fixer with "the findings are in the workflow output" — which it could not read. It FLAGGED the gap instead of inventing, and 4 findings had to be re-dispatched with full text. Brief agents self-containedly.
 Open DX trap noted, not fixed: a top-level field `defaultValue` is silently accepted and ignored (FormFieldConfig has no such key, and TS does not reject it).
 
+## Round 6 — 11 bugs (4 golden). The verdict was on MY OWN r5 refactor, and it was deserved.
+
+My r5 commit claimed "every wholesale slice write goes through writeStepSlice" and that structuring happens
+"at the host boundaries". BOTH claims were FALSE — I had converted 2 boundaries out of ~6.
+- [x] CRITICAL: StepDataHelper writes (setStepData/setStepFields/setNextStepField/setNextStepFields — the
+      documented API every server-driven prefill uses) bypassed normalisation. The slice held BOTH shapes at
+      once — the literal pathology my own commit quoted as proof of the bug it "fixed" — and the row the user
+      deleted was SUBMITTED to the backend. A THIRD door on the same critical.
+- [x] REGRESSION (mine): analytics.onStepComplete + onWorkflowAbandon handed FLAT keys where they used to hand
+      the authored shape (proven by running the identical path against pre-r5 211a95f AND HEAD), contradicting
+      onWorkflowComplete on the SAME interface.
+- [x] REGRESSION (mine): StepDataHelper.getStepData/getAllData returned FLAT while the `data` param of the SAME
+      callback was structured — two representations inside one invocation.
+- [x] + 8 more, all real. Nothing refuted outright.
+- [x] MY r5 buildConfigSignature keyed on `field.type`, which is uniformly `undefined` (it is `componentId`) —
+      the hot-swap fix was VACUOUS. Caught by the fixer's own test, not by mine.
+
+**The architectural correction (the fixer pushed back on my brief, rightly):** I asked it to close four doors.
+It found a FIFTH nobody listed (`useFlowActions().setStepData`/`.setAllData` — public API; `useFlowStoreApi()`
+hands out the raw store, worse) and concluded "guarding four doors is what failed twice". So the INVARIANT NOW
+LIVES IN THE STORE: createWorkflowStore normalises inside _setStepData/_setAllData/_loadPersistedState/seeded
+defaults. No caller can be the one who forgot — including callers that do not exist yet. Structurally closed,
+not guarded. Mutation-checked (neutralise the 5 normalisation calls → 3 proof tests red).
+
+**The deepest testing lesson of the campaign:** reverting only the setStepData wire leaves EVERY
+boundary-specific assertion green — the form's own submit heals the slice on the way out. Only "the store holds
+ONE shape at EVERY commit" catches the transient two-shape slice that loses the row. *The invariant is the test;
+the boundaries are corollaries.*
+
+**Documented public read contract (now in TSDoc):** useFlowData()/useStepData()/useStepDataById()/
+workflowState.allData/.stepData and the persistence snapshot are FLAT (the deliberate live escape hatch);
+every host CALLBACK gets the AUTHORED shape; useFlowActions accepts either.
+
+**Product call flagged for review (reversible, one line + proof expectations):** setNextStepFields on a re-run
+prefill settled as OVERWRITE-ALWAYS — a setter that silently no-ops is worse than the bug, and seed-if-absent
+loses a corrected input.
+
+Gate: 196 files / 1825 tests, 3× identical, type-check 4/4, build 6/6.
+
 ## Campaign trajectory (honest)
 P1: 50 bugs / 8 rounds. P2: 46 bugs / 4 rounds (10, 12, 13, 11). ~96 total. NOT converging by bug-count.
 What IS converging: the CLASSES. prototype-keys (closed via an exhaustive lifecycle test after 7 escapes);
