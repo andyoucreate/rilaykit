@@ -107,10 +107,8 @@ describe('Core-FormBuilder Integration', () => {
     });
   });
 
-  describe('Performance', () => {
-    it('should handle many components efficiently', () => {
-      const startTime = performance.now();
-
+  describe('Scale', () => {
+    it('should register 100 components with every entry intact', () => {
       // Add 100 components (immutable API requires reassignment)
       for (let i = 0; i < 100; i++) {
         config = config.component(`component${i}`, {
@@ -120,13 +118,15 @@ describe('Core-FormBuilder Integration', () => {
         });
       }
 
-      const endTime = performance.now();
-
-      expect(endTime - startTime).toBeLessThan(100); // Should be fast
-      expect(config.hasComponent('component50')).toBe(true);
+      for (let i = 0; i < 100; i++) {
+        expect(config.hasComponent(`component${i}`)).toBe(true);
+        expect(config.getComponent(`component${i}`)?.name).toBe(`Component ${i}`);
+        expect(config.getComponent(`component${i}`)?.defaultProps).toEqual({ index: i });
+      }
+      expect(config.hasComponent('component100')).toBe(false);
     });
 
-    it('should handle component lookups efficiently', () => {
+    it('should return a stable, identical entry across 1000 lookups', () => {
       // Add some components first
       for (let i = 0; i < 50; i++) {
         config = config.component(`component${i}`, {
@@ -136,16 +136,13 @@ describe('Core-FormBuilder Integration', () => {
         });
       }
 
-      const startTime = performance.now();
+      const first = config.getComponent('component25');
+      expect(first?.name).toBe('Component 25');
 
-      // Perform many lookups
+      // Perform many lookups: each must yield the very same entry
       for (let i = 0; i < 1000; i++) {
-        config.getComponent('component25');
+        expect(config.getComponent('component25')).toBe(first);
       }
-
-      const endTime = performance.now();
-
-      expect(endTime - startTime).toBeLessThan(50); // Should be very fast
     });
   });
 

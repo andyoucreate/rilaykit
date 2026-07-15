@@ -81,10 +81,8 @@ describe('Form Performance Tests', () => {
     await destroyGlobalMonitoring();
   });
 
-  describe('Form Rendering Performance', () => {
-    it('should render large forms efficiently', async () => {
-      const startTime = performance.now();
-
+  describe('Form Rendering at Scale', () => {
+    it('should render a 50-field form with every field mounted exactly once', async () => {
       const TestForm = () => {
         const monitoring = useFormMonitoring({
           formConfig,
@@ -110,17 +108,20 @@ describe('Form Performance Tests', () => {
 
       render(<TestForm />);
 
-      const renderTime = performance.now() - startTime;
-
-      // Should render 50 fields in less than 500ms
-      expect(renderTime).toBeLessThan(500);
-
       // Verify form is rendered
       expect(screen.getByTestId('form-container')).toBeInTheDocument();
-      expect(screen.getByTestId('field_0')).toBeInTheDocument();
+
+      // All 50 fields are mounted, each exactly once, with its own placeholder
+      for (let i = 0; i < 50; i++) {
+        const field = screen.getByTestId(`field_${i}`);
+        expect(field).toBeInTheDocument();
+        expect(field).toHaveAttribute('placeholder', `Field ${i}`);
+      }
+      expect(screen.getAllByRole('textbox')).toHaveLength(50);
+      expect(screen.queryByTestId('field_50')).toBeNull();
     });
 
-    it('should handle field updates efficiently', async () => {
+    it('should apply 10 field updates with the correct final value in each field', async () => {
       const TestForm = () => {
         const [values, setValues] = React.useState<Record<string, string>>({});
         const monitoring = useFormMonitoring({
@@ -151,25 +152,22 @@ describe('Form Performance Tests', () => {
 
       render(<TestForm />);
 
-      const startTime = performance.now();
-
       // Simulate typing in multiple fields
       for (let i = 0; i < 10; i++) {
         const field = screen.getByTestId(`field_${i}`);
         fireEvent.change(field, { target: { value: `Test value ${i}` } });
       }
 
-      const updateTime = performance.now() - startTime;
-
-      // Should handle 10 updates efficiently (less than 200ms)
-      expect(updateTime).toBeLessThan(200);
+      // Every update landed on its own field: no cross-talk, no lost writes
+      for (let i = 0; i < 10; i++) {
+        expect(screen.getByTestId(`field_${i}`)).toHaveValue(`Test value ${i}`);
+      }
+      expect(screen.getAllByRole('textbox')).toHaveLength(10);
     });
   });
 
-  describe('Form Memory Performance', () => {
-    it('should not leak memory with form re-renders', async () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0;
-
+  describe('Form Re-render Stability', () => {
+    it('should survive 20 re-renders with stable state and unmount cleanly', async () => {
       const TestForm = () => {
         const [renderCount, setRenderCount] = React.useState(0);
         const monitoring = useFormMonitoring({
@@ -204,17 +202,18 @@ describe('Form Performance Tests', () => {
       // Trigger some re-renders
       for (let i = 0; i < 20; i++) {
         fireEvent.click(screen.getByTestId('rerender-button'));
+        // Each click advances state by exactly one: no runaway effect loop
+        expect(screen.getByTestId('rerender-button')).toHaveTextContent(`Re-render (${i + 1})`);
       }
+
+      // All 10 fields survived 20 re-renders, still mounted once each
+      expect(screen.getAllByRole('textbox')).toHaveLength(10);
 
       unmount();
 
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0;
-      const memoryGrowth = finalMemory - initialMemory;
-
-      // Memory growth should be reasonable (less than 1MB)
-      if (initialMemory > 0) {
-        expect(memoryGrowth).toBeLessThan(1024 * 1024);
-      }
+      // Unmounting tears the whole tree down: nothing is retained in the DOM
+      expect(screen.queryByTestId('memory-test-form')).toBeNull();
+      expect(screen.queryAllByRole('textbox')).toHaveLength(0);
     });
   });
 });

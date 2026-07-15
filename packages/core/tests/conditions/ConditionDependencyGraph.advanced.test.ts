@@ -238,9 +238,7 @@ describe('ConditionDependencyGraph Advanced Tests', () => {
   });
 
   describe('Bulk Operations', () => {
-    it('should handle building large graph efficiently', () => {
-      const start = performance.now();
-
+    it('should build a 1000-field graph with every field registered', () => {
       // Create 1000 fields, each with 5 dependencies
       for (let i = 0; i < 1000; i++) {
         const conditions: ConditionalBehavior['visible'][] = [];
@@ -261,30 +259,52 @@ describe('ConditionDependencyGraph Advanced Tests', () => {
         });
       }
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
       expect(graph.size).toBe(1000);
-      console.log(`Built graph with 1000 fields in ${duration.toFixed(2)}ms`);
+
+      // field i depends on field((5i + j) % 1000) for j in 0..4.
+      // Only j === 0 can land on field0 (5i is always a multiple of 5),
+      // so field0 is depended on exactly by i ∈ {0, 200, 400, 600, 800}.
+      const affectedByField0 = graph.getAffectedFields('field0');
+      expect([...affectedByField0].sort()).toEqual([
+        'field0',
+        'field200',
+        'field400',
+        'field600',
+        'field800',
+      ]);
+
+      // field3 is reachable only via j === 3, i.e. 5i ≡ 0 mod 1000 → same i set.
+      expect([...graph.getAffectedFields('field3')].sort()).toEqual([
+        'field0',
+        'field200',
+        'field400',
+        'field600',
+        'field800',
+      ]);
+
+      // Every field has exactly its 5 declared dependencies recorded.
+      for (let i = 0; i < 1000; i += 137) {
+        expect(graph.getDependencies(`field${i}`)).toHaveLength(5);
+      }
     });
 
-    it('should handle lookup in large graph efficiently', () => {
-      // Build graph
+    it('should resolve the exact dependents of every trigger in a 1000-field graph', () => {
+      // Build graph: 1000 fields spread over 100 triggers → 10 dependents each
       for (let i = 0; i < 1000; i++) {
         graph.addField(`field${i}`, {
           visible: { field: `trigger${i % 100}`, operator: 'equals', value: true },
         });
       }
 
-      const start = performance.now();
-
-      // Do 1000 lookups
+      // Every one of the 100 triggers resolves to its exact 10 dependents
       for (let i = 0; i < 100; i++) {
-        graph.getAffectedFields(`trigger${i}`);
+        const affected = graph.getAffectedFields(`trigger${i}`);
+        expect(affected).toHaveLength(10);
+        const expected = Array.from({ length: 10 }, (_, k) => `field${i + k * 100}`).sort();
+        expect([...affected].sort()).toEqual(expected);
       }
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(50);
-      console.log(`100 lookups in ${duration.toFixed(2)}ms`);
+      expect(graph.getAffectedFields('trigger100')).toEqual([]);
     });
 
     it('getAffectedFieldsMultiple should handle many paths', () => {

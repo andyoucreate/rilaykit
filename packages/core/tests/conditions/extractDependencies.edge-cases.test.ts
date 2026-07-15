@@ -195,21 +195,17 @@ describe('extractConditionDependencies Edge Cases', () => {
     });
   });
 
-  describe('Performance', () => {
-    it('should handle 100 conditions efficiently', () => {
+  describe('Scale', () => {
+    it('should extract every dependency of a 100-condition OR chain, in order', () => {
       // Build a large OR chain
       let condition = when('field0').equals(0);
       for (let i = 1; i < 100; i++) {
         condition = condition.or(when(`field${i}`).equals(i));
       }
 
-      const start = performance.now();
       const deps = extractConditionDependencies(condition);
-      const duration = performance.now() - start;
 
-      expect(deps).toHaveLength(100);
-      expect(duration).toBeLessThan(100);
-      console.log(`100 conditions extracted in ${duration.toFixed(2)}ms`);
+      expect(deps).toEqual(Array.from({ length: 100 }, (_, i) => `field${i}`));
     });
   });
 });

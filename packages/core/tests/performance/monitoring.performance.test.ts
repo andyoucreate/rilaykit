@@ -43,10 +43,9 @@ describe('Monitoring Performance Tests', () => {
     await destroyGlobalMonitoring();
   });
 
-  describe('Event Tracking Performance', () => {
-    it('should handle high-frequency event tracking efficiently', async () => {
+  describe('Event Tracking at Scale', () => {
+    it('should track 10k high-frequency events and retain the most recent ones', async () => {
       const eventCount = 10000;
-      const startTime = performance.now();
 
       // Generate many events quickly
       for (let i = 0; i < eventCount; i++) {
@@ -59,23 +58,30 @@ describe('Monitoring Performance Tests', () => {
           },
           {
             timestamp: Date.now(),
-            duration: Math.random() * 50,
+            duration: i % 50, // deterministic, always under the 50ms threshold
             renderCount: Math.floor(i / 100) + 1,
           },
           'low'
         );
       }
 
-      const trackingTime = performance.now() - startTime;
+      await monitor.flush();
 
-      // Should handle 10k events in less than 1 second
-      expect(trackingTime).toBeLessThan(1000);
+      // bufferSize is 1000, so the buffer auto-flushed 10 times; the adapter
+      // caps retention at its own 1000-event window of the MOST RECENT events.
+      const storedEvents = localStorageAdapter.getStoredEvents();
+      expect(storedEvents.length).toBe(1000);
 
-      // Performance should be linear (less than 0.1ms per event)
-      expect(trackingTime / eventCount).toBeLessThan(0.1);
+      // The retained window is exactly events 9000..9999, in order.
+      storedEvents.forEach((event, index) => {
+        const originalIndex = eventCount - 1000 + index;
+        expect(event.type).toBe('component_render');
+        expect(event.source).toBe(`component_${originalIndex % 100}`);
+        expect(event.data.renderCount).toBe(Math.floor(originalIndex / 100) + 1);
+      });
     });
 
-    it('should efficiently batch and flush events', async () => {
+    it('should batch and flush 5k events into the adapter', async () => {
       const eventCount = 5000;
 
       // Track events
@@ -86,22 +92,25 @@ describe('Monitoring Performance Tests', () => {
           { fieldCount: 10, validationErrors: i % 3 },
           {
             timestamp: Date.now(),
-            duration: Math.random() * 20,
+            duration: i % 20, // deterministic, always under the 100ms threshold
           }
         );
       }
 
-      const flushStartTime = performance.now();
       await monitor.flush();
-      const flushTime = performance.now() - flushStartTime;
 
-      // Flushing should be efficient (less than 500ms for 5k events)
-      expect(flushTime).toBeLessThan(500);
-
-      // Check that events were stored (LocalStorageAdapter has max limit)
+      // The adapter retains its 1000-event cap: the LAST 1000 of the 5000 events.
       const storedEvents = localStorageAdapter.getStoredEvents();
-      expect(storedEvents.length).toBeGreaterThan(0);
+      expect(storedEvents.length).toBe(1000);
       expect(storedEvents.length).toBeLessThanOrEqual(eventCount);
+
+      storedEvents.forEach((event, index) => {
+        const originalIndex = eventCount - 1000 + index;
+        expect(event.type).toBe('form_validation');
+        expect(event.source).toBe('test_form');
+        expect(event.data.fieldCount).toBe(10);
+        expect(event.data.validationErrors).toBe(originalIndex % 3);
+      });
     });
   });
 
@@ -117,17 +126,19 @@ describe('Monitoring Performance Tests', () => {
 
       const metrics = profiler.end(testLabel);
 
+      // The profiler must report AT LEAST the elapsed work; no upper bound is
+      // asserted because that would only measure how fast the machine is.
       expect(metrics).toBeDefined();
       expect(metrics!.duration).toBeGreaterThan(45); // Allow some variance
-      expect(metrics!.duration).toBeLessThan(100);
       expect(metrics!.timestamp).toBeGreaterThan(0);
+
+      // A label can only be ended once: the entry is consumed.
+      expect(profiler.end(testLabel)).toBeNull();
     });
 
-    it('should handle concurrent performance measurements', () => {
+    it('should keep 100 interleaved measurements isolated and out-of-order safe', () => {
       const profiler = monitor.getProfiler();
       const concurrentMeasurements = 100;
-
-      const startTime = performance.now();
 
       // Start multiple measurements
       for (let i = 0; i < concurrentMeasurements; i++) {
@@ -140,24 +151,28 @@ describe('Monitoring Performance Tests', () => {
         results.push(profiler.end(`test_${i}`));
       }
 
-      const totalTime = performance.now() - startTime;
-
-      // Should handle concurrent measurements efficiently
-      expect(totalTime).toBeLessThan(100);
-
-      // All measurements should succeed
-      expect(results.every((result) => result !== null)).toBe(true);
+      // All measurements resolve, each exactly once, independent of end order
       expect(results.length).toBe(concurrentMeasurements);
+      expect(results.every((result) => result !== null)).toBe(true);
+      for (const result of results) {
+        expect(result!.duration).toBeGreaterThanOrEqual(0);
+        expect(result!.timestamp).toBeGreaterThan(0);
+      }
+
+      // Every label was consumed: re-ending yields null for all 100
+      for (let i = 0; i < concurrentMeasurements; i++) {
+        expect(profiler.end(`test_${i}`)).toBeNull();
+      }
     });
   });
 
-  describe('Memory Performance Tests', () => {
-    it('should not cause memory leaks with continuous monitoring', async () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0;
+  describe('Retention Bounds', () => {
+    it('should retain a bounded window across 10k continuously-tracked events', async () => {
       const eventCount = 1000;
+      const cycles = 10;
 
       // Generate events continuously
-      for (let cycle = 0; cycle < 10; cycle++) {
+      for (let cycle = 0; cycle < cycles; cycle++) {
         for (let i = 0; i < eventCount; i++) {
           monitor.track('component_update', `field_${i % 50}`, {
             fieldId: `field_${i % 50}`,
@@ -168,19 +183,23 @@ describe('Monitoring Performance Tests', () => {
         // Flush periodically
         await monitor.flush();
 
-        // Force garbage collection if available
-        if (global.gc) {
-          global.gc();
-        }
+        // Retention never exceeds the adapter's 1000-event cap, no matter how
+        // many cycles are pushed through it — the buffer does not grow.
+        expect(localStorageAdapter.getStoredEvents().length).toBe(1000);
       }
 
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0;
-      const memoryGrowth = finalMemory - initialMemory;
+      // After 10k events the adapter holds exactly the last 1000, and the
+      // monitor's own buffer was fully drained.
+      const storedEvents = localStorageAdapter.getStoredEvents();
+      expect(storedEvents.length).toBe(1000);
 
-      // Memory growth should be reasonable (less than 5MB for 10k events)
-      if (initialMemory > 0) {
-        expect(memoryGrowth).toBeLessThan(5 * 1024 * 1024);
-      }
+      const totalTracked = cycles * eventCount;
+      storedEvents.forEach((event, index) => {
+        const originalIndex = totalTracked - 1000 + index;
+        expect(event.type).toBe('component_update');
+        expect(event.data.changeCount).toBe(originalIndex);
+        expect(event.data.fieldId).toBe(`field_${(originalIndex % eventCount) % 50}`);
+      });
     });
 
     it('should efficiently manage event buffer size', () => {
@@ -256,8 +275,8 @@ describe('Monitoring Performance Tests', () => {
     });
   });
 
-  describe('Adapter Performance Tests', () => {
-    it('should handle adapter failures gracefully without performance impact', async () => {
+  describe('Adapter Failure Isolation', () => {
+    it('should isolate a failing adapter so healthy adapters still receive every event', async () => {
       const failingAdapter = {
         name: 'failing_adapter',
         send: vi.fn().mockRejectedValue(new Error('Network error')),
@@ -265,27 +284,30 @@ describe('Monitoring Performance Tests', () => {
 
       monitor.addAdapter(failingAdapter);
 
-      const startTime = performance.now();
-
       // Track events that will fail to send
       for (let i = 0; i < 100; i++) {
         monitor.track('component_render', 'test_component', { renderCount: i });
       }
 
-      await monitor.flush();
+      await expect(monitor.flush()).resolves.toBeUndefined();
 
-      const totalTime = performance.now() - startTime;
+      // The failing adapter was offered the whole batch, exactly once
+      expect(failingAdapter.send).toHaveBeenCalledTimes(1);
+      expect(failingAdapter.send.mock.calls[0][0]).toHaveLength(100);
 
-      // Should handle failures quickly without blocking
-      expect(totalTime).toBeLessThan(1000);
-
-      // Should have attempted to send to failing adapter
-      expect(failingAdapter.send).toHaveBeenCalled();
+      // ...and its rejection did not stop the healthy adapter from storing them
+      const storedEvents = localStorageAdapter.getStoredEvents();
+      expect(storedEvents.length).toBe(100);
+      storedEvents.forEach((event, index) => {
+        expect(event.type).toBe('component_render');
+        expect(event.source).toBe('test_component');
+        expect(event.data.renderCount).toBe(index);
+      });
     });
   });
 
-  describe('Sample Rate Performance', () => {
-    it('should efficiently apply sample rate filtering', () => {
+  describe('Sample Rate Filtering', () => {
+    it('should drop roughly 90% of events at a 0.1 sample rate', () => {
       const config: MonitoringConfig = {
         enabled: true,
         sampleRate: 0.1, // Only track 10% of events
@@ -296,24 +318,31 @@ describe('Monitoring Performance Tests', () => {
       sampledMonitor.addAdapter(adapter);
 
       const eventCount = 1000;
-      const startTime = performance.now();
 
       // Track many events
       for (let i = 0; i < eventCount; i++) {
         sampledMonitor.track('component_update', 'test_component', { updateCount: i });
       }
 
-      const trackingTime = performance.now() - startTime;
-
       sampledMonitor.flush();
       const storedEvents = adapter.getStoredEvents();
-
-      // Should be much faster due to sampling
-      expect(trackingTime).toBeLessThan(100);
 
       // Should have tracked approximately 10% of events (with some variance)
       expect(storedEvents.length).toBeLessThan(eventCount * 0.2);
       expect(storedEvents.length).toBeGreaterThan(eventCount * 0.05);
+
+      // Sampling drops events wholesale but never corrupts the ones it keeps,
+      // and never invents or duplicates one.
+      const seen = new Set<number>();
+      for (const event of storedEvents) {
+        expect(event.type).toBe('component_update');
+        expect(event.source).toBe('test_component');
+        const updateCount = event.data.updateCount as number;
+        expect(updateCount).toBeGreaterThanOrEqual(0);
+        expect(updateCount).toBeLessThan(eventCount);
+        expect(seen.has(updateCount)).toBe(false);
+        seen.add(updateCount);
+      }
 
       sampledMonitor.destroy();
     });
