@@ -2,9 +2,9 @@ import type { RilayInstance } from '@rilaykit/core';
 import { compileForm } from './compile-form';
 import type { FormSchema, FormSchemaResult, SchemaRegistry } from './types';
 
-// Back-compat re-exports — these helpers used to live in this module.
+// Back-compat re-exports — these helpers used to live in this module and are still
+// deep-imported from this path by existing tests. New code should use './compile-form'.
 export {
-  compileForm,
   isFormSchema,
   resolveFieldValidation,
   resolveValidationDescriptor,

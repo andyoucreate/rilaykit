@@ -11,6 +11,29 @@ function makeCatalog() {
   });
 }
 
+function makeBindings(): Bindings {
+  return {
+    validators: {
+      notFoo: (_params, message) => ({
+        '~standard': {
+          version: 1,
+          vendor: 'test',
+          validate: (value) =>
+            value === 'foo' ? { issues: [{ message: message ?? 'no foo' }] } : { value },
+        },
+      }),
+    },
+  };
+}
+
+function makeNotFooSchema() {
+  return {
+    version: 1 as const,
+    id: 'f',
+    fields: [{ id: 'name', type: 'text', validation: { rules: [{ type: 'notFoo' }] } }],
+  };
+}
+
 describe('compileForm', () => {
   it('compiles a flat FormSchema through the builder and returns formConfig + defaultValues', () => {
     const schema = {
@@ -29,26 +52,7 @@ describe('compileForm', () => {
   });
 
   it('resolves a registry validator through options.bindings', () => {
-    const bindings: Bindings = {
-      validators: {
-        notFoo: (_params, message) => ({
-          '~standard': {
-            version: 1,
-            vendor: 'test',
-            validate: (value) =>
-              value === 'foo' ? { issues: [{ message: message ?? 'no foo' }] } : { value },
-          },
-        }),
-      },
-    };
-
-    const schema = {
-      version: 1 as const,
-      id: 'f',
-      fields: [{ id: 'name', type: 'text', validation: { rules: [{ type: 'notFoo' }] } }],
-    };
-
-    const result = compileForm(schema, makeCatalog(), { bindings });
+    const result = compileForm(makeNotFooSchema(), makeCatalog(), { bindings: makeBindings() });
 
     const validate = result.formConfig.allFields[0].validation.validate;
     expect(validate['~standard'].validate('foo')).toEqual({ issues: [{ message: 'no foo' }] });
@@ -65,26 +69,7 @@ describe('compileForm', () => {
   });
 
   it('forwards bindings from the deprecated fromSchema registry argument', () => {
-    const bindings: Bindings = {
-      validators: {
-        notFoo: (_params, message) => ({
-          '~standard': {
-            version: 1,
-            vendor: 'test',
-            validate: (value) =>
-              value === 'foo' ? { issues: [{ message: message ?? 'no foo' }] } : { value },
-          },
-        }),
-      },
-    };
-
-    const schema = {
-      version: 1 as const,
-      id: 'f',
-      fields: [{ id: 'name', type: 'text', validation: { rules: [{ type: 'notFoo' }] } }],
-    };
-
-    const result = fromSchema(schema, makeCatalog(), bindings);
+    const result = fromSchema(makeNotFooSchema(), makeCatalog(), makeBindings());
 
     const validate = result.formConfig.allFields[0].validation.validate;
     expect(validate['~standard'].validate('foo')).toEqual({ issues: [{ message: 'no foo' }] });
