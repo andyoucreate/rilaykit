@@ -28,7 +28,10 @@ import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
-import { flattenAuthoredSlice, normalizeRepeatableSlices } from '../utils/normalizeRepeatableSlices';
+import {
+  flattenAuthoredSlice,
+  normalizeRepeatableSlices,
+} from '../utils/normalizeRepeatableSlices';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -275,6 +278,36 @@ export function WorkflowProvider({
   // the boundaries that structure a slice for the host run inside a single
   // navigation/submit tick, before any React commit refreshes a snapshot.
   const getRepeatableOrders = useCallback(() => store.getState()._repeatableOrders, [store]);
+
+  // THE write boundary: every wholesale slice write from host-authored data
+  // goes through here — the form's own submit (which hands back
+  // `structureFormValues`' AUTHORED output), the context's `setStepData`, and
+  // every `StepDataHelper` mutator handed to `onAfterValidation`. Each is a
+  // door the authored array shape came through; normalising here is what keeps
+  // the store's ONE internal representation (flat composite keys) true, so a
+  // removed repeatable row always has keys to delete.
+  //
+  // The target step is resolved from `stepId`, NOT from the current step: a
+  // helper write almost always targets ANOTHER step (`setNextStepFields`), and
+  // flattening it against the current step's repeatable config would silently
+  // leave the authored array in place.
+  //
+  // The row order is read LIVE for the same reason `getAllData` is: these
+  // writes run inside a single navigation tick, before any React commit.
+  const writeStepSlice = useCallback(
+    (data: Record<string, unknown>, stepId: string) => {
+      const targetStep = workflowConfig.steps.find((step) => step.id === stepId);
+      setStepDataAction(
+        flattenAuthoredSlice(
+          data,
+          targetStep?.formConfig?.repeatableFields,
+          getRepeatableOrders()[stepId]
+        ),
+        stepId
+      );
+    },
+    [setStepDataAction, getRepeatableOrders, workflowConfig.steps]
+  );
 
   const setFieldValue = useCallback(
     (fieldId: string, value: unknown, stepId: string) =>
@@ -556,7 +589,9 @@ export function WorkflowProvider({
     setTransitioning,
     markStepVisited,
     markStepPassed,
-    setStepData: setStepDataAction,
+    // The StepDataHelper's mutators are host-authored writes: they go through
+    // the write boundary, never the raw store action.
+    setStepData: writeStepSlice,
     getAllData,
     getRepeatableOrders,
     pendingSkipRef,
@@ -696,21 +731,6 @@ export function WorkflowProvider({
     [repeatableOrders, currentStep?.id]
   );
 
-  // Every wholesale slice write goes through here: the form's own submit hands
-  // back `structureFormValues`' AUTHORED output, and a host calling
-  // `setStepData` may pass authored arrays too. Both are the second door the
-  // shape mismatch came through — normalise before the slice lands, keeping the
-  // live row keys so the order mirror keeps describing the same rows.
-  const writeStepSlice = useCallback(
-    (data: Record<string, unknown>, stepId: string) => {
-      setStepDataAction(
-        flattenAuthoredSlice(data, formConfig?.repeatableFields, currentStepRepeatableOrder),
-        stepId
-      );
-    },
-    [setStepDataAction, formConfig?.repeatableFields, currentStepRepeatableOrder]
-  );
-
   // Create step data setter
   const handleSetStepData = useCallback(
     (data: Record<string, unknown>) => {
@@ -744,14 +764,7 @@ export function WorkflowProvider({
         await submitWorkflow();
       }
     },
-    [
-      workflowContext.isLastStep,
-      submitWorkflow,
-      goNext,
-      canGoNext,
-      currentStep?.id,
-      writeStepSlice,
-    ]
+    [workflowContext.isLastStep, submitWorkflow, goNext, canGoNext, currentStep?.id, writeStepSlice]
   );
 
   // Skipping the LAST visible step completes the workflow.

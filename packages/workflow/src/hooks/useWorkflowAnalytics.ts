@@ -5,6 +5,7 @@ import {
   getGlobalMonitor,
 } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
 import type { WorkflowState } from './useWorkflowState';
 
 export interface UseWorkflowAnalyticsProps {
@@ -51,6 +52,12 @@ export function useWorkflowAnalytics({
   configRef.current = workflowConfig;
   const latestDataRef = useRef<Record<string, unknown>>(workflowState.allData);
   latestDataRef.current = workflowState.allData;
+  // Same rationale as `latestDataRef`: the abandon payload is structured at the
+  // boundary, and structuring needs the row order the user actually arranged.
+  const latestOrdersRef = useRef<Record<string, Record<string, string[]>> | undefined>(
+    workflowState.repeatableOrders
+  );
+  latestOrdersRef.current = workflowState.repeatableOrders;
   // "Started" means the workflow reached an interactive step (initialization,
   // including any async persistence load, has settled). Independent of whether
   // onWorkflowStart is configured.
@@ -71,7 +78,14 @@ export function useWorkflowAnalytics({
         analytics.onWorkflowAbandon(
           configRef.current.id,
           currentStepRef.current ?? '',
-          latestDataRef.current
+          // A host boundary: the store speaks flat composite keys internally,
+          // the abandonment snapshot speaks the AUTHORED shape — the same
+          // shape `onWorkflowComplete` hands the host on the same interface.
+          structureWorkflowData(
+            latestDataRef.current,
+            configRef.current.steps,
+            latestOrdersRef.current
+          )
         );
       }
     };
@@ -156,10 +170,16 @@ export function useWorkflowAnalytics({
         const duration = Date.now() - startTime;
         // Pass the COMPLETED step's data (its slice of allData), not the new
         // step's stepData which the navigation has already swapped in.
-        const completedStepData = (workflowState.allData[previousStepId] ?? {}) as Record<
-          string,
-          unknown
-        >;
+        //
+        // A host boundary: the slice is stored flat, the callback contract is
+        // the AUTHORED shape — the one `onWorkflowComplete` hands the host on
+        // this same interface.
+        const previousStep = workflowConfig.steps.find((step) => step.id === previousStepId);
+        const completedStepData = structureStepSlice(
+          (workflowState.allData[previousStepId] ?? {}) as Record<string, unknown>,
+          previousStep?.formConfig?.repeatableFields,
+          workflowState.repeatableOrders?.[previousStepId]
+        );
         workflowConfig.analytics.onStepComplete(
           previousStepId,
           duration,
@@ -232,6 +252,7 @@ export function useWorkflowAnalytics({
     workflowConfig.analytics,
     workflowContext,
     workflowState.allData,
+    workflowState.repeatableOrders,
     monitor,
     workflowConfig.id,
     pendingSkipRef,

@@ -5,7 +5,10 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
-import type { PersistedWorkflowData, WorkflowPersistenceAdapter } from '../../src/persistence/types';
+import type {
+  PersistedWorkflowData,
+  WorkflowPersistenceAdapter,
+} from '../../src/persistence/types';
 
 /**
  * The append-only mirror, re-entering through a SHAPE MISMATCH.

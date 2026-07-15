@@ -9,7 +9,7 @@ import {
 } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useRef } from 'react';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
-import { structureStepSlice } from '../utils/structureWorkflowData';
+import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
 
 const log = getLogger('workflow:navigation');
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
@@ -85,6 +85,23 @@ export function useWorkflowNavigation({
   // Get current step
   const currentStep = workflowConfig.steps[workflowState.currentStepIndex];
 
+  // Read one step's slice as the host contract sees it: the store keeps every
+  // slice FLAT (one internal shape, so a removed repeatable row has keys to
+  // delete), and every read that leaves for host code is structured back to the
+  // AUTHORED shape here. Read LIVE — these run inside a single navigation tick,
+  // before any React commit refreshes a snapshot.
+  const readStructuredSlice = useCallback(
+    (stepId: string): Record<string, unknown> => {
+      const step = workflowConfig.steps.find((candidate) => candidate.id === stepId);
+      return structureStepSlice(
+        (getAllData()[stepId] ?? {}) as Record<string, unknown>,
+        step?.formConfig?.repeatableFields,
+        getRepeatableOrders?.()[stepId]
+      );
+    },
+    [workflowConfig.steps, getAllData, getRepeatableOrders]
+  );
+
   // Create step data helper for validation callbacks
   const createStepDataHelper = useCallback((): StepDataHelper => {
     return {
@@ -93,13 +110,17 @@ export function useWorkflowNavigation({
       },
 
       setStepFields: (stepId: string, fields: Record<string, any>) => {
+        // The merge base is read RAW on purpose: it never reaches host code, it
+        // goes straight back through `setStepData`, which is the write boundary
+        // and flattens. Structuring it here and letting the boundary flatten it
+        // again would re-key rows the order mirror still names.
         const existingData = getAllData()[stepId] || {};
         const mergedData = { ...existingData, ...fields };
         setStepData(mergedData, stepId);
       },
 
       getStepData: (stepId: string) => {
-        return getAllData()[stepId] || {};
+        return readStructuredSlice(stepId);
       },
 
       setNextStepField: (fieldId: string, value: any) => {
@@ -126,14 +147,23 @@ export function useWorkflowNavigation({
       },
 
       getAllData: () => {
-        return { ...getAllData() };
+        return {
+          ...structureWorkflowData(getAllData(), workflowConfig.steps, getRepeatableOrders?.()),
+        };
       },
 
       getSteps: () => {
         return [...workflowConfig.steps];
       },
     };
-  }, [getAllData, workflowState.currentStepIndex, workflowConfig.steps, setStepData]);
+  }, [
+    getAllData,
+    getRepeatableOrders,
+    readStructuredSlice,
+    workflowState.currentStepIndex,
+    workflowConfig.steps,
+    setStepData,
+  ]);
 
   // Evaluate a step's `visible` condition against LIVE data. The
   // `conditionsHelpers.isStepVisible` reads a render-time snapshot of allData,
@@ -265,12 +295,9 @@ export function useWorkflowNavigation({
         //
         // The slice is stored flat (one internal shape, so a removed repeatable
         // row has keys to delete); this callback is a HOST boundary, so it is
-        // structured on the way out.
-        const liveStepData = structureStepSlice(
-          (getAllData()[currentStep.id] ?? {}) as Record<string, unknown>,
-          currentStep.formConfig?.repeatableFields,
-          getRepeatableOrders?.()[currentStep.id]
-        );
+        // structured on the way out — through the SAME reader the helper's
+        // `getStepData` uses, so one invocation can only ever speak one shape.
+        const liveStepData = readStructuredSlice(currentStep.id);
         await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
         log.error('onAfterValidation failed:', error);
@@ -296,8 +323,7 @@ export function useWorkflowNavigation({
   }, [
     currentStep,
     createStepDataHelper,
-    getAllData,
-    getRepeatableOrders,
+    readStructuredSlice,
     workflowContext,
     workflowConfig.analytics,
     workflowState.currentStepIndex,

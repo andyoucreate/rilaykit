@@ -1,6 +1,6 @@
 import type { RepeatableFieldConfig, StepConfig } from '@rilaykit/core';
 import { getOwn } from '@rilaykit/core';
-import { buildCompositeKey } from '@rilaykit/forms';
+import { buildCompositeKey, parseCompositeKey } from '@rilaykit/forms';
 
 /**
  * A step slice is a plain object keyed by field id. An array or a primitive is
@@ -36,13 +36,24 @@ export function flattenAuthoredSlice(
 ): Record<string, unknown> {
   if (!repeatableConfigs) return slice;
 
-  const authoredIds = Object.keys(repeatableConfigs).filter((id) => Array.isArray(getOwn(slice, id)));
+  const authoredIds = Object.keys(repeatableConfigs).filter((id) =>
+    Array.isArray(getOwn(slice, id))
+  );
   if (authoredIds.length === 0) return slice;
 
   const flat = new Map<string, unknown>();
 
   for (const [key, value] of Object.entries(slice)) {
     if (!authoredIds.includes(key)) {
+      // An authored array is the WHOLE truth about that repeatable — it
+      // replaces its rows, it does not merge with them. A slice can already
+      // hold flat keys for the same repeatable (a helper's
+      // `{...existingData, ...fields}` merge layers the array over them);
+      // carrying those keys through would leave rows the authored array
+      // dropped, invisible to the user and submitted to the host.
+      const parsed = parseCompositeKey(key);
+      if (parsed && authoredIds.includes(parsed.repeatableId)) continue;
+
       flat.set(key, value);
       continue;
     }
@@ -50,7 +61,9 @@ export function flattenAuthoredSlice(
     const items = value as unknown[];
     const captured = liveOrder ? getOwn(liveOrder, key) : undefined;
     const itemKeys =
-      captured && captured.length === items.length ? captured : items.map((_, index) => `k${index}`);
+      captured && captured.length === items.length
+        ? captured
+        : items.map((_, index) => `k${index}`);
 
     items.forEach((rawItem, index) => {
       // Degrade gracefully: a null / non-object row (e.g. a null entry from
