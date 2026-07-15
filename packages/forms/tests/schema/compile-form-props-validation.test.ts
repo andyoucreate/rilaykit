@@ -83,6 +83,36 @@ describe('compileForm validateProps option', () => {
     ]);
   });
 
+  it('treats a missing props key as empty props, reporting one issue per required prop', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [{ id: 's', type: 'select' }],
+    };
+    let caught: SchemaValidationError | undefined;
+    try {
+      compileForm(schema, makeCatalog(), { validateProps: true });
+    } catch (error) {
+      caught = error as SchemaValidationError;
+    }
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    // Normalizing absent props to `{}` keeps the per-key diagnostics: an agent
+    // that omitted props entirely gets the full required-prop list in one pass,
+    // not a single "expected object, received undefined".
+    expect(caught?.issues).toEqual([
+      {
+        path: 's',
+        message: 'Invalid input: expected string, received undefined',
+        severity: 'error',
+      },
+      {
+        path: 's',
+        message: 'Invalid input: expected array, received undefined',
+        severity: 'error',
+      },
+    ]);
+  });
+
   it('ignores prop errors when validateProps is not set (default)', () => {
     const schema = {
       version: 1 as const,
@@ -144,7 +174,11 @@ describe('compileForm validateProps option', () => {
       caught = error as SchemaValidationError;
     }
     expect(caught).toBeInstanceOf(SchemaValidationError);
-    expect(caught?.issues.map((issue) => issue.path).includes('a')).toBe(true);
-    expect(caught?.issues.map((issue) => issue.path).includes('b')).toBe(true);
+    expect(caught?.issues).toEqual([
+      { path: 'a', message: 'Invalid input: expected string, received number', severity: 'error' },
+      { path: 'a', message: 'Invalid input: expected array, received undefined', severity: 'error' },
+      { path: 'b', message: 'Invalid input: expected string, received number', severity: 'error' },
+      { path: 'b', message: 'Invalid input: expected array, received undefined', severity: 'error' },
+    ]);
   });
 });
