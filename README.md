@@ -268,7 +268,12 @@ import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
 const schema: FlowSchema = await fetch('/api/flows/subscription').then(r => r.json());
 
 const bindings: FlowBindings = {
-  // Runs after a step validates — e.g. prefill the next step from this one
+  // Runs after a step validates — e.g. prefill the next step from this one.
+  // `prefill` is a DERIVATION: it re-runs on every forward transition and
+  // overwrites, so a corrected email propagates to billing on Back→Next — and
+  // a hand-edit of billingEmail does not survive one. Guard on the value
+  // (`if (step.workflow.get('billing')?.billingEmail) return;`) for
+  // seed-if-empty instead.
   after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
   // Decides whether a step may be skipped, from the data collected so far
   allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },

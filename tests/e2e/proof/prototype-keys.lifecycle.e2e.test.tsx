@@ -194,9 +194,7 @@ describe.each(PROTOTYPE_KEYS)('PROOF prototype-key lifecycle — id %s', (key) =
     await act(async () => {
       fireEvent.click(screen.getByTestId('reset'));
     });
-    await waitFor(() =>
-      expect((screen.getByTestId(key) as HTMLInputElement).value).toBe('seed')
-    );
+    await waitFor(() => expect((screen.getByTestId(key) as HTMLInputElement).value).toBe('seed'));
     expect(screen.getByTestId('dirty').textContent).toBe('false');
   });
 

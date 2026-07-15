@@ -71,12 +71,14 @@ describe('Flagship — server JSON becomes a live validated form', () => {
     expect(JSON.stringify(schema)).toBe(JSON.stringify(JSON.parse(jsonString)));
 
     // ---- Non-serializable logic is provided out-of-band, resolved by name.
-    const slugify = vi.fn((value: unknown, context: FieldEffectContext, params?: Record<string, unknown>) => {
-      const email = String(value ?? '');
-      const local = email.split('@')[0] ?? '';
-      const suffix = String(params?.suffix ?? '');
-      context.setValue('workspace', local ? `${local}${suffix}` : '');
-    });
+    const slugify = vi.fn(
+      (value: unknown, context: FieldEffectContext, params?: Record<string, unknown>) => {
+        const email = String(value ?? '');
+        const local = email.split('@')[0] ?? '';
+        const suffix = String(params?.suffix ?? '');
+        context.setValue('workspace', local ? `${local}${suffix}` : '');
+      }
+    );
 
     const registry: SchemaRegistry = {
       validators: {

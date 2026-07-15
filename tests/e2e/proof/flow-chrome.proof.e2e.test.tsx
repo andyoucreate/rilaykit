@@ -1,3 +1,7 @@
+import type { StepDataHelper } from '@rilaykit/core';
+import { when } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { Flow, flow } from '@rilaykit/workflow';
 /**
  * PROOF — flow chrome hardening.
  * User-level scenarios the migrated e2e/unit suites do not pin down with the
@@ -7,10 +11,6 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { StepDataHelper } from '@rilaykit/core';
-import { when } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
-import { Flow, flow } from '@rilaykit/workflow';
 import { createProofRil } from '../_setup/proof-fixtures';
 
 const r = createProofRil();

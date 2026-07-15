@@ -7,7 +7,6 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
 import {
   ConfigurationError,
   InvalidSchemaError,
@@ -17,6 +16,7 @@ import {
 } from '@rilaykit/core';
 import { form, resolveValidationDescriptor } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
+import { describe, expect, it } from 'vitest';
 
 // Vitest runs from the repo root (where vitest.config.ts lives).
 const PACKAGES_DIR = path.resolve(process.cwd(), 'packages');
@@ -84,10 +84,7 @@ describe('PROOF typed errors', () => {
       const found: string[] = [];
       for (const match of source.matchAll(throwPattern)) {
         const className = match[1];
-        if (
-          !ALLOWED_RILAY_SUBCLASSES.has(className) &&
-          !DOCUMENTED_PRE_P1_ERRORS.has(className)
-        ) {
+        if (!ALLOWED_RILAY_SUBCLASSES.has(className) && !DOCUMENTED_PRE_P1_ERRORS.has(className)) {
           found.push(`${path.relative(PACKAGES_DIR, file)}: throw new ${className}(`);
         }
       }

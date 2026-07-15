@@ -47,11 +47,50 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  * Rewrites one step slice from the store's internal flat composite keys back
  * into the AUTHORED shape a host expects (`lines: [{label:'a'}]`).
  *
- * The store speaks flat so that a removal has keys to delete and every writer
- * agrees on one representation; the host contract is structured. This is the
- * boundary between the two, and it is the ONLY place the structured shape is
- * produced for the workflow — so the payload no longer depends on whether the
- * user happened to leave the step through the form's submit button.
+ * THE INVARIANT
+ * -------------
+ * Inside the workflow store, a step slice is ALWAYS flat composite keys for
+ * repeatables. Structuring to the authored shape happens at EVERY host-facing
+ * boundary, and flattening happens at EVERY host-authored write. No third
+ * representation, no exceptions.
+ *
+ * WHY: `_removeFieldValues` deletes flat keys. A row that also lives inside a
+ * raw authored array is unreachable to it — it survives the user's delete, is
+ * submitted to the backend, and is resurrected on step re-entry. Two shapes in
+ * one slice IS the bug. It has re-entered twice, each time through a boundary
+ * nobody had enumerated, so the boundaries are named exhaustively:
+ *
+ *   WRITES (flatten, via `flattenAuthoredSlice`):
+ *     - authored `defaultValues` at store creation (`normalizeRepeatableSlices`)
+ *     - `WorkflowProvider.writeStepSlice` — THE write door. The form's own
+ *       submit, the context's `setStepData`, and every `StepDataHelper` mutator
+ *       (`setStepData`/`setStepFields`/`setNextStepField`/`setNextStepFields`)
+ *       go through it. It resolves the TARGET step's config, since a helper
+ *       write usually names another step.
+ *     - a persistence restore (`normalizeRepeatableSlices` on the way in)
+ *     - `_setFieldValue`/`_removeFieldValues` — flat by nature: the form reports
+ *       composite key ids.
+ *
+ *   READS (structure, here and in {@link structureWorkflowData}):
+ *     - the completion payload (`useWorkflowSubmission`)
+ *     - `onAfterValidation`'s `data` param AND the helper's `getStepData` /
+ *       `getAllData` — one invocation, one shape
+ *     - `analytics.onStepComplete` / `onWorkflowComplete` / `onWorkflowAbandon`
+ *
+ *   DELIBERATELY FLAT (the store's live view, not the host contract):
+ *     - `useFlow().workflowState.allData` / `.stepData`, `useFlowData()`,
+ *       `useStepData()`, `useStepDataById()` — the escape hatch, and the only
+ *       way to observe the store as it is
+ *     - the persistence snapshot handed to an adapter — a round-trip format,
+ *       normalised again on restore
+ *
+ * The whole class is pinned end-to-end by
+ * tests/e2e/proof/shape-boundary.lifecycle.e2e.test.tsx, which asserts the
+ * store holds one shape at every commit rather than trusting each boundary.
+ *
+ * A repeatable with no rows in the slice is left out entirely rather than
+ * emitted as `[]`: the slice is the record of what the step HAS, and inventing
+ * a key for a step the user never reached would put it in the payload.
  *
  * A repeatable with no rows in the slice is left out entirely rather than
  * emitted as `[]`: the slice is the record of what the step HAS, and inventing

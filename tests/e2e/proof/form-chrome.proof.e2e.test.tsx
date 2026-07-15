@@ -1,3 +1,5 @@
+import { required, when } from '@rilaykit/core';
+import { Form, form } from '@rilaykit/forms';
 /**
  * PROOF — form chrome hardening.
  * User-level scenarios the migrated e2e/unit suites do not pin down with the
@@ -8,8 +10,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { required, when } from '@rilaykit/core';
-import { Form, form } from '@rilaykit/forms';
 import { createProofRil } from '../_setup/proof-fixtures';
 
 const r = createProofRil();
@@ -67,9 +67,7 @@ describe('PROOF form chrome hardening', () => {
   it('Form.List enforces min/max: remove disabled at min, add disabled at max', () => {
     const def = form
       .create(r, 'f')
-      .addRepeatable('phones', (rb) =>
-        rb.add({ id: 'n', type: 'text', props: {} }).min(1).max(2)
-      );
+      .addRepeatable('phones', (rb) => rb.add({ id: 'n', type: 'text', props: {} }).min(1).max(2));
     render(
       <Form of={def}>
         <Form.List id="phones">
