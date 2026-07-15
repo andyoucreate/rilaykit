@@ -126,10 +126,9 @@ export function compileForm<C extends Record<string, any>>(
 
   // 2b. Opt-in: check every field's props against its component's propsSchema.
   //     Walks the ORIGINAL schema, not the normalized rows, so issue paths point
-  //     at the caller's own declaration. Returns each field's COERCED props: a
-  //     propsSchema is a Standard Schema and may transform or default, and
-  //     discarding its output would make every such transform meaningless.
-  const coercedProps = options?.validateProps ? validateFieldProps(schema, config) : undefined;
+  //     at the caller's own declaration. Validation ONLY — the schema's output is
+  //     deliberately discarded; see validateFieldProps.
+  if (options?.validateProps) validateFieldProps(schema, config);
 
   // 3. Build via form builder
   const builder = form.create(config, schema.id);
@@ -139,7 +138,7 @@ export function compileForm<C extends Record<string, any>>(
       const rep = row.repeatable;
       builder.addRepeatable(rep.id, (r) => {
         for (const fieldRow of rep.rows) {
-          const resolved = resolveFields<C>(fieldRow.fields, registry, coercedProps);
+          const resolved = resolveFields<C>(fieldRow.fields, registry);
           r.add(...resolved);
         }
         if (rep.min !== undefined) r.min(rep.min);
@@ -150,7 +149,7 @@ export function compileForm<C extends Record<string, any>>(
       });
     } else {
       const fieldRow = row as FormSchemaFieldRow;
-      const resolved = resolveFields<C>(fieldRow.fields, registry, coercedProps);
+      const resolved = resolveFields<C>(fieldRow.fields, registry);
       builder.add(...resolved);
     }
   }
@@ -786,18 +785,19 @@ function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * Accumulates across all fields so an agent gets the complete correction list in
  * one pass instead of one violation per round-trip.
  *
+ * VALIDATION ONLY — a passing schema's output value is discarded and the field
+ * is built from the author's own props. A propsSchema may transform, and those
+ * transforms do NOT apply; that is the deliberate trade. The alternative was
+ * tried and reverted: `z.object()` strips undeclared keys silently and without
+ * an issue, so feeding the coerced value back deleted author-written props with
+ * no diagnostic at all.
+ *
  * @throws SchemaValidationError if any field's props violate its propsSchema
  * @throws ConfigurationError if a component's propsSchema validates asynchronously
  *   — a catalog defect, not a schema defect, so it is never collected as an issue
  */
-/**
- * Each field's props as its propsSchema returned them, keyed by field identity.
- */
-type CoercedPropsByField = Map<FormSchemaField, unknown>;
-
-function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): CoercedPropsByField {
+function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): void {
   const issues: SchemaIssue[] = [];
-  const coerced: CoercedPropsByField = new Map();
 
   for (const { field, path } of collectFieldsWithPaths(schema)) {
     // Unknown component types are already reported by validateSchema (see
@@ -805,10 +805,13 @@ function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): Co
     if (!config.hasComponent(field.type)) continue;
 
     const result = config.validateProps(field.type, field.props ?? {});
-    if (result.success) {
-      coerced.set(field, result.value);
-      continue;
-    }
+    // Validation only: `result.value` is deliberately dropped. A propsSchema may
+    // transform, but a `z.object()` — the shape ril's own example documents —
+    // also STRIPS every key it does not declare, and reports no issue while
+    // doing it. Feeding its output back therefore deleted author-written props
+    // with no diagnostic. An unapplied transform is recoverable in the component
+    // or in `defaultProps`; silently vanished props are not.
+    if (result.success) continue;
 
     for (const issue of result.issues) {
       // The issue's own path locates the offending prop WITHIN the props object
@@ -827,8 +830,6 @@ function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): Co
   if (issues.length > 0) {
     throw new SchemaValidationError(issues);
   }
-
-  return coerced;
 }
 
 /**
@@ -971,19 +972,12 @@ function mergeDefaultValues(
  * consumer downstream, the builder's `.add(...)` included, then type-checks with
  * no cast of its own.
  */
-function resolveFields<C>(
-  fields: FormSchemaField[],
-  registry?: Bindings,
-  coercedProps?: CoercedPropsByField
-): FieldConfigFor<C>[] {
+function resolveFields<C>(fields: FormSchemaField[], registry?: Bindings): FieldConfigFor<C>[] {
   return fields.map((field) => {
-    // Keyed by field identity: normalizeToRows rewraps rows but reuses the very
-    // same field objects, so the map built from the original schema still hits.
-    const props = coercedProps?.has(field) ? coercedProps.get(field) : field.props;
     const resolved: FieldConfigOf<Record<string, Record<string, unknown>>, string> = {
       id: field.id,
       type: field.type,
-      props: props as Record<string, unknown>,
+      props: field.props as Record<string, unknown>,
       ...(field.validation
         ? { validation: resolveFieldValidation(field.validation, registry) }
         : {}),

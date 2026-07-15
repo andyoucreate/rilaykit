@@ -18,5 +18,9 @@ export { RepeatableBuilder } from './builders/repeatable-builder';
 export * from './stores';
 export * from './hooks';
 export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
-export { structureFormValues, flattenRepeatableValues } from './utils/repeatable-data';
+export {
+  structureFormValues,
+  flattenRepeatableValues,
+  parseCompositeKey,
+} from './utils/repeatable-data';
 export * from './schema';

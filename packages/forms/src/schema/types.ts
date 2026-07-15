@@ -195,8 +195,14 @@ export interface CompileFormOptions {
   /**
    * When true, each field's `props` are checked against its component's
    * `propsSchema` and every violation is reported as a `SchemaValidationError`
-   * issue pathed to the field id. Fields whose component declares no
+   * issue pathed to the offending PROP within the field's declaration
+   * (`fields[0].props.label`, `rows[1].fields[0].props.options[2]`), so the
+   * message names the exact key to fix. Fields whose component declares no
    * `propsSchema` are skipped.
+   *
+   * Checks only — the compiled field keeps the props as authored. A passing
+   * `propsSchema`'s output is discarded, so its transforms and defaults do NOT
+   * apply (see `validateFieldProps` in compile-form.ts for why).
    *
    * Off by default — prop validation is the opt-in self-correction hook for
    * agent-authored schemas, not a cost paid by hand-written ones.

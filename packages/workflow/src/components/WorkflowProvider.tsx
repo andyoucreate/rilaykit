@@ -6,7 +6,7 @@ import {
   type WorkflowContext,
   getLogger,
 } from '@rilaykit/core';
-import { FormProvider } from '@rilaykit/forms';
+import { FormProvider, parseCompositeKey } from '@rilaykit/forms';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import type React from 'react';
 import {
@@ -719,6 +719,18 @@ export function WorkflowProvider({
     for (const [key, value] of Object.entries(currentStepData)) {
       if (currentStepFieldIds.has(key) || currentStepRepeatableIds.has(key)) {
         filteredData[key] = value;
+        continue;
+      }
+      // A repeatable's row values are captured under COMPOSITE keys
+      // (`lines[k0].label`), which match neither id set. Dropping them here
+      // destroys every row the user filled in as soon as they navigate away and
+      // back: the step re-mounts, `min` re-materialises empty rows, and the
+      // typed values are gone. Keep the rows belonging to THIS step's
+      // repeatables — `initializeRepeatableState` reconstructs order and
+      // next-key from exactly this flat shape.
+      const parsed = parseCompositeKey(key);
+      if (parsed && currentStepRepeatableIds.has(parsed.repeatableId)) {
+        filteredData[key] = value;
       }
     }
 
@@ -733,8 +745,8 @@ export function WorkflowProvider({
   // Cross-step condition data: every step's captured values, flattened so a
   // field condition can reference an earlier step's field by bare name
   // (`accountType`) or by qualified path (`type.accountType`). FormProvider
-  // layers the current step's live store values on top, so this only ever
-  // supplies the keys the current form does not own.
+  // drops every bare name the current step's form declares before consulting
+  // this, so a step that reuses an id answers from its own live field only.
   const conditionValues = useMemo(
     () =>
       combineWorkflowDataForConditions(

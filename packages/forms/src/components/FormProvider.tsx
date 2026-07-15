@@ -53,14 +53,18 @@ export interface FormProviderProps {
   onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
   className?: string;
   /**
-   * Extra read-only values that field conditions may reference, merged UNDER
-   * the store's own values (a live field always wins over an external key of
-   * the same name). These never enter the store and are never submitted.
+   * Extra read-only values that field conditions may reference. They never
+   * enter the store and are never submitted.
    *
    * A multi-step host passes the other steps' data here so a field can declare
    * a condition against a field captured on an earlier step
    * (`when('stepA.fieldX')`). Without it, a cross-step condition has nothing to
    * resolve against and silently evaluates to hidden / not-required.
+   *
+   * Only the names this form does NOT declare are taken from here: every id in
+   * `formConfig` resolves from the live store alone, whether or not the user
+   * has touched it. Two steps may therefore reuse an id without the second
+   * one's untouched field inheriting the first one's value.
    */
   conditionValues?: Record<string, unknown>;
 }
@@ -218,13 +222,33 @@ export function FormProvider({
     return unsubscribe;
   }, [store]);
 
-  // Conditions resolve against the store's own values layered over any
-  // host-supplied external values, so a cross-step reference resolves while a
-  // live local field still shadows an external key of the same name.
-  const conditionEvaluationValues = useMemo(
-    () => (conditionValues ? { ...conditionValues, ...formValues } : formValues),
-    [conditionValues, formValues]
+  // Every bare name this form OWNS. An external value may never answer for one
+  // of them: `formValues` only carries fields the user has actually touched, so
+  // layering external values underneath would let an UNTOUCHED local field
+  // inherit a foreign step's value for the same id instead of reading empty.
+  const ownFieldIds = useMemo(
+    () =>
+      new Set<string>([
+        ...formConfig.allFields.map((field) => field.id),
+        ...Object.keys(formConfig.repeatableFields ?? {}),
+      ]),
+    [formConfig.allFields, formConfig.repeatableFields]
   );
+
+  // Conditions resolve against the store's own values, with host-supplied
+  // external values filling ONLY the names this form does not own — so a
+  // qualified cross-step reference (`stepA.fieldX`) resolves, while every bare
+  // name the form declares answers from the live store alone, touched or not.
+  const conditionEvaluationValues = useMemo(() => {
+    if (!conditionValues) return formValues;
+    const external: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(conditionValues)) {
+      if (!ownFieldIds.has(key)) {
+        external[key] = value;
+      }
+    }
+    return { ...external, ...formValues };
+  }, [conditionValues, formValues, ownFieldIds]);
 
   // Evaluate conditions using specialized hook
   const {
