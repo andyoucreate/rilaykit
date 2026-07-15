@@ -8,6 +8,7 @@ import {
   type FormConfiguration,
   type FormValidationConfig,
   InvalidSchemaError,
+  type PropsValidationResult,
   NotFoundError,
   type RilayInstance,
   type StandardSchema,
@@ -122,9 +123,11 @@ export function compileForm<C extends Record<string, any>>(
   // 2. Normalize: flat fields → rows
   const rows = normalizeToRows(schema);
 
-  // 2b. Opt-in: check every field's props against its component's propsSchema
+  // 2b. Opt-in: check every field's props against its component's propsSchema.
+  //     Walks the ORIGINAL schema, not the normalized rows, so issue paths point
+  //     at the caller's own declaration.
   if (options?.validateProps) {
-    validateFieldProps(rows, config);
+    validateFieldProps(schema, config);
   }
 
   // 3. Build via form builder
@@ -786,10 +789,10 @@ function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * @throws ConfigurationError if a component's propsSchema validates asynchronously
  *   — a catalog defect, not a schema defect, so it is never collected as an issue
  */
-function validateFieldProps<C>(rows: FormSchemaRow[], config: RilayInstance<C>): void {
+function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): void {
   const issues: SchemaIssue[] = [];
 
-  for (const field of collectAllFields(rows)) {
+  for (const { field, path } of collectFieldsWithPaths(schema)) {
     // Unknown component types are already reported by validateSchema (see
     // validateField, same hasComponent check) — don't duplicate the issue.
     if (!config.hasComponent(field.type)) continue;
@@ -798,13 +801,96 @@ function validateFieldProps<C>(rows: FormSchemaRow[], config: RilayInstance<C>):
     if (result.success) continue;
 
     for (const issue of result.issues) {
-      issues.push({ path: field.id, message: issue.message, severity: 'error' });
+      // The issue's own path locates the offending prop WITHIN the props object
+      // (zod reports e.g. `['label']`). Append it so the schema path names the
+      // exact key to fix rather than just the field that owns it. expectedKeys
+      // rides along so a producer can see what the component actually accepts.
+      issues.push({
+        path: `${path}.props${propIssuePathSuffix(issue.path)}`,
+        message: issue.message,
+        severity: 'error',
+        ...(result.expectedKeys ? { expectedKeys: result.expectedKeys } : {}),
+      });
     }
   }
 
   if (issues.length > 0) {
     throw new SchemaValidationError(issues);
   }
+}
+
+/**
+ * The `path` of a props-validation issue, as reported by a component's
+ * propsSchema. Derived from core's own result type rather than importing the
+ * Standard Schema spec package directly — `@rilaykit/core` owns that dependency
+ * and re-exports the shape, so forms stays free of it.
+ */
+type PropIssuePath = NonNullable<
+  Extract<PropsValidationResult, { success: false }>['issues'][number]['path']
+>;
+
+/**
+ * Renders a Standard Schema issue path as a JSON-path suffix.
+ *
+ * Segments may be plain keys or `{ key }` wrappers, and numeric keys index an
+ * array. An issue with no path targets the props object as a whole, which
+ * renders as an empty suffix.
+ */
+function propIssuePathSuffix(path: PropIssuePath | undefined): string {
+  if (!path || path.length === 0) return '';
+
+  let suffix = '';
+  for (const segment of path) {
+    const key = typeof segment === 'object' && segment !== null ? segment.key : segment;
+    suffix += typeof key === 'number' ? `[${key}]` : `.${String(key)}`;
+  }
+  return suffix;
+}
+
+/**
+ * Collects every field of a schema together with the JSON path of its
+ * declaration, mirroring validateSchema's traversal so prop issues and
+ * structural issues address the same element the same way.
+ *
+ * Repeatable templates are included: their props are as compilable — and as
+ * wrong-able — as any other field's.
+ */
+function collectFieldsWithPaths(schema: FormSchema): { field: FormSchemaField; path: string }[] {
+  const collected: { field: FormSchemaField; path: string }[] = [];
+
+  if (Array.isArray(schema.fields)) {
+    for (let i = 0; i < schema.fields.length; i++) {
+      collected.push({ field: schema.fields[i], path: `fields[${i}]` });
+    }
+    return collected;
+  }
+
+  if (!Array.isArray(schema.rows)) return collected;
+
+  for (let i = 0; i < schema.rows.length; i++) {
+    const row = schema.rows[i];
+
+    if (isRepeatableRow(row)) {
+      const repRows = row.repeatable.rows;
+      for (let k = 0; k < repRows.length; k++) {
+        const fields = repRows[k].fields;
+        for (let j = 0; j < fields.length; j++) {
+          collected.push({
+            field: fields[j],
+            path: `rows[${i}].repeatable.rows[${k}].fields[${j}]`,
+          });
+        }
+      }
+      continue;
+    }
+
+    const fields = row.fields;
+    for (let j = 0; j < fields.length; j++) {
+      collected.push({ field: fields[j], path: `rows[${i}].fields[${j}]` });
+    }
+  }
+
+  return collected;
 }
 
 /**

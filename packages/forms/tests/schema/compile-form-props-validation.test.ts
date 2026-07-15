@@ -54,7 +54,7 @@ describe('compileForm validateProps option', () => {
     );
   });
 
-  it('reports one issue per prop violation, pathed to the field id', () => {
+  it('reports one issue per prop violation, pathed to the offending prop key', () => {
     const schema = {
       version: 1 as const,
       id: 'f',
@@ -68,17 +68,21 @@ describe('compileForm validateProps option', () => {
     }
     expect(caught).toBeInstanceOf(SchemaValidationError);
     // `label` is the wrong type and `options` is missing → two zod issues, each
-    // carrying the vendor's own diagnostic through to SchemaIssue.message.
+    // carrying the vendor's own diagnostic through to SchemaIssue.message, each
+    // pathed to the prop that is actually wrong and carrying the component's
+    // full accepted-key set so a producer can self-correct.
     expect(caught?.issues).toEqual([
       {
-        path: 's',
+        path: 'fields[0].props.label',
         message: 'Invalid input: expected string, received number',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
       {
-        path: 's',
+        path: 'fields[0].props.options',
         message: 'Invalid input: expected array, received undefined',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
     ]);
   });
@@ -101,14 +105,16 @@ describe('compileForm validateProps option', () => {
     // not a single "expected object, received undefined".
     expect(caught?.issues).toEqual([
       {
-        path: 's',
+        path: 'fields[0].props.label',
         message: 'Invalid input: expected string, received undefined',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
       {
-        path: 's',
+        path: 'fields[0].props.options',
         message: 'Invalid input: expected array, received undefined',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
     ]);
   });
@@ -175,17 +181,29 @@ describe('compileForm validateProps option', () => {
     }
     expect(caught).toBeInstanceOf(SchemaValidationError);
     expect(caught?.issues).toEqual([
-      { path: 'a', message: 'Invalid input: expected string, received number', severity: 'error' },
       {
-        path: 'a',
-        message: 'Invalid input: expected array, received undefined',
+        path: 'rows[0].fields[0].props.label',
+        message: 'Invalid input: expected string, received number',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
-      { path: 'b', message: 'Invalid input: expected string, received number', severity: 'error' },
       {
-        path: 'b',
+        path: 'rows[0].fields[0].props.options',
         message: 'Invalid input: expected array, received undefined',
         severity: 'error',
+        expectedKeys: ['label', 'options'],
+      },
+      {
+        path: 'rows[1].repeatable.rows[0].fields[0].props.label',
+        message: 'Invalid input: expected string, received number',
+        severity: 'error',
+        expectedKeys: ['label', 'options'],
+      },
+      {
+        path: 'rows[1].repeatable.rows[0].fields[0].props.options',
+        message: 'Invalid input: expected array, received undefined',
+        severity: 'error',
+        expectedKeys: ['label', 'options'],
       },
     ]);
   });

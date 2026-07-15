@@ -248,6 +248,15 @@ export interface SchemaIssue {
   readonly message: string;
   /** Error severity */
   readonly severity: 'error' | 'warning';
+  /**
+   * Every key the target accepts, when the target has a declared shape.
+   *
+   * Populated for `validateProps` issues from the component's `propsSchema`, so
+   * a self-correcting producer can see the accepted prop names alongside the
+   * one it got wrong (spec §7). Optional and purely additive: issues from paths
+   * with no declared shape omit it, and existing consumers are unaffected.
+   */
+  readonly expectedKeys?: readonly string[];
 }
 
 /**
