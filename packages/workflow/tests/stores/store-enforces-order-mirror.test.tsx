@@ -267,6 +267,14 @@ describe('the store enforces its order-mirror invariant on EVERY internal path',
    */
   const INTERNAL_DRIVERS: Record<string, ((store: WorkflowStore) => void) | null> = {
     _setCurrentStep: null,
+    // It re-derives the slice and the mirror in ONE `set`, out of the one
+    // normaliser (`normalizeRepeatableSlices`) that hands back the mirror it
+    // leaves behind — `_reset`'s justification exactly. It also cannot re-author
+    // anything in THIS flow: it only re-shapes a slice whose step has just
+    // become live, and this flow's steps never move. The step set moving is what
+    // `store-enforces-step-identity` drives it under, where it is a full slice
+    // addresser under all three mutations.
+    _reconcileStepSet: null,
     _setStepData: (store) => store.getState()._setStepData({ lines: AUTHORED }, 'items'),
     _setAllData: (store) => store.getState()._setAllData({ items: { lines: AUTHORED } }),
     _setFieldValue: (store) => store.getState()._setFieldValue('lines', AUTHORED, 'items'),

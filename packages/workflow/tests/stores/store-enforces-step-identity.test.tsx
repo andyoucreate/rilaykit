@@ -1,11 +1,18 @@
-import type { StepConfig } from '@rilaykit/core';
-import { getOwn, ril } from '@rilaykit/core';
+import type { StepConfig, WorkflowConfig } from '@rilaykit/core';
+import { getOwn, ril, when } from '@rilaykit/core';
 import { form, parseCompositeKey } from '@rilaykit/forms';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseFlowActionsResult, WorkflowStore, WorkflowStoreState } from '../../src';
-import { FlowBody, WorkflowProvider, createWorkflowStore, useFlow, useFlowActions } from '../../src';
+import {
+  FlowBody,
+  WorkflowProvider,
+  createWorkflowStore,
+  useFlow,
+  useFlowActions,
+  useFlowStoreApi,
+} from '../../src';
 import { flow } from '../../src/builders/flow';
 import { structureStepSlice, structureWorkflowData } from '../../src/utils/structureWorkflowData';
 
@@ -260,83 +267,83 @@ interface OrphanProbe {
   readonly defaultValues?: Record<string, unknown>;
 }
 
+const STEP_IDENTITY_STATE: Record<string, OrphanProbe | null> = {
+  /**
+   * The payload itself. A slice for a dead step is the whole bug: it holds
+   * whatever the store put there while the step was live — flat composite
+   * keys — and the read boundary used to skip it because no live step named it.
+   */
+  allData: {
+    seed: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
+    assertHostSeesContract: (store, liveSteps) => {
+      const payload = hostAllData(store, liveSteps);
+      expect(payload[BRAVO]).toEqual({ lines: AUTHORED });
+      expectNoInternalKeys(payload);
+    },
+  },
+
+  /**
+   * The seed `_reset` restores — the flow's defaults, AS THE HOST AUTHORED
+   * THEM. `_reset` derives the seed from them against the steps live at the
+   * moment of the reset, so a `reset()` after a recompile plants a slice for
+   * a step that is gone exactly as `_setStepData` would. Its read boundary is
+   * therefore `allData`'s. The write side of this member — the reason it is
+   * authored rather than normalised at mount — is the enumeration below.
+   */
+  _defaultValues: {
+    defaultValues: { [BRAVO]: { lines: AUTHORED } },
+    seed: (store) => store.getState()._reset(),
+    assertHostSeesContract: (store, liveSteps) => {
+      const payload = hostAllData(store, liveSteps);
+      expect(payload[BRAVO]).toEqual({ lines: AUTHORED });
+      expectNoInternalKeys(payload);
+    },
+  },
+
+  /**
+   * The user's arrangement. It is unreconstructable from the values, so a
+   * boundary that skips the dead step's slice does not merely leak keys — it
+   * also drops the only record of the drag. Both halves are asserted: the
+   * rows come out authored AND in the order the user put them in.
+   */
+  _repeatableOrders: {
+    seed: (store) => {
+      store.getState()._setStepData({ lines: AUTHORED }, BRAVO);
+      store.getState()._setRepeatableOrder(BRAVO, { lines: ['k1', 'k0'] });
+    },
+    assertHostSeesContract: (store, liveSteps) => {
+      const payload = hostAllData(store, liveSteps);
+      expect(payload[BRAVO]).toEqual({ lines: [{ label: 'beta' }, { label: 'alpha' }] });
+      expectNoInternalKeys(payload);
+    },
+  },
+
+  /**
+   * The `stepData` mirror's owner. Dropping the step the user is ON leaves
+   * this naming a dead step while `WorkflowProvider` CLAMPS its `currentStep`
+   * into the shrunken list — so the mirror holds `step-bravo`'s rows and the
+   * boundary is handed `step-alpha`'s configs, which declare no repeatable at
+   * all. The mismatch is unavoidable (the owner cannot be re-derived without
+   * a store call the recompile never makes), so the BOUNDARY must not need
+   * the configs to be right.
+   */
+  _currentStepId: {
+    seed: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
+    assertHostSeesContract: (store, liveSteps) => {
+      const stepData = hostStepData(store, liveSteps);
+      expect(stepData).toEqual({ lines: AUTHORED });
+      expectNoInternalKeys({ slice: stepData });
+    },
+  },
+
+  // Progress marks: a Set of step ids and nothing more. There is no slice, no
+  // shape and no internal representation for an orphan id to carry — the id
+  // itself is the host's own. Checked below.
+  visitedSteps: null,
+  passedSteps: null,
+};
+
 describe('EVERY piece of store state keyed by step identity handles a step that is gone', () => {
-  const STEP_IDENTITY_STATE: Record<string, OrphanProbe | null> = {
-    /**
-     * The payload itself. A slice for a dead step is the whole bug: it holds
-     * whatever the store put there while the step was live — flat composite
-     * keys — and the read boundary used to skip it because no live step named it.
-     */
-    allData: {
-      seed: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
-      assertHostSeesContract: (store, liveSteps) => {
-        const payload = hostAllData(store, liveSteps);
-        expect(payload[BRAVO]).toEqual({ lines: AUTHORED });
-        expectNoInternalKeys(payload);
-      },
-    },
-
-    /**
-     * The seed `_reset` restores — the flow's defaults, AS THE HOST AUTHORED
-     * THEM. `_reset` derives the seed from them against the steps live at the
-     * moment of the reset, so a `reset()` after a recompile plants a slice for
-     * a step that is gone exactly as `_setStepData` would. Its read boundary is
-     * therefore `allData`'s. The write side of this member — the reason it is
-     * authored rather than normalised at mount — is the enumeration below.
-     */
-    _defaultValues: {
-      defaultValues: { [BRAVO]: { lines: AUTHORED } },
-      seed: (store) => store.getState()._reset(),
-      assertHostSeesContract: (store, liveSteps) => {
-        const payload = hostAllData(store, liveSteps);
-        expect(payload[BRAVO]).toEqual({ lines: AUTHORED });
-        expectNoInternalKeys(payload);
-      },
-    },
-
-    /**
-     * The user's arrangement. It is unreconstructable from the values, so a
-     * boundary that skips the dead step's slice does not merely leak keys — it
-     * also drops the only record of the drag. Both halves are asserted: the
-     * rows come out authored AND in the order the user put them in.
-     */
-    _repeatableOrders: {
-      seed: (store) => {
-        store.getState()._setStepData({ lines: AUTHORED }, BRAVO);
-        store.getState()._setRepeatableOrder(BRAVO, { lines: ['k1', 'k0'] });
-      },
-      assertHostSeesContract: (store, liveSteps) => {
-        const payload = hostAllData(store, liveSteps);
-        expect(payload[BRAVO]).toEqual({ lines: [{ label: 'beta' }, { label: 'alpha' }] });
-        expectNoInternalKeys(payload);
-      },
-    },
-
-    /**
-     * The `stepData` mirror's owner. Dropping the step the user is ON leaves
-     * this naming a dead step while `WorkflowProvider` CLAMPS its `currentStep`
-     * into the shrunken list — so the mirror holds `step-bravo`'s rows and the
-     * boundary is handed `step-alpha`'s configs, which declare no repeatable at
-     * all. The mismatch is unavoidable (the owner cannot be re-derived without
-     * a store call the recompile never makes), so the BOUNDARY must not need
-     * the configs to be right.
-     */
-    _currentStepId: {
-      seed: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
-      assertHostSeesContract: (store, liveSteps) => {
-        const stepData = hostStepData(store, liveSteps);
-        expect(stepData).toEqual({ lines: AUTHORED });
-        expectNoInternalKeys({ slice: stepData });
-      },
-    },
-
-    // Progress marks: a Set of step ids and nothing more. There is no slice, no
-    // shape and no internal representation for an orphan id to carry — the id
-    // itself is the host's own. Checked below.
-    visitedSteps: null,
-    passedSteps: null,
-  };
-
   it('enumerates EVERY piece of store state keyed by step identity', () => {
     // Seed every step-keyed member so none can hide from the derivation: a
     // member holding no step id when this runs is a member this enumeration
@@ -495,9 +502,14 @@ function expectLiveSlicesFlat(
  * way `WorkflowProvider` builds one: `getSteps` is a live read, `defaultValues`
  * is captured once at creation and never re-seeded.
  *
- * `mutate` is a recompile. No store API is involved — the store cannot be
- * notified, which is precisely why nothing it computed at mount is allowed to
- * depend on the step set.
+ * `recompile` is what the provider does at its seam, and ONLY what it does: it
+ * moves the steps and calls `_reconcileStepSet`. A recompile invokes no other
+ * store API — the store cannot be told which step was born, or that anything was
+ * written, because nothing was. Everything below therefore runs against a store
+ * that has been handed exactly one fact: its steps are different now.
+ *
+ * That this is faithful is not taken on trust: `WorkflowProvider` is driven for
+ * real, through `rerender`, in THE PROVIDER BOUNDARY section at the bottom.
  */
 function createBornHarness(mutate: () => ReadonlyArray<StepConfig>) {
   let liveSteps: ReadonlyArray<StepConfig> = ALPHA_ONLY;
@@ -509,6 +521,7 @@ function createBornHarness(mutate: () => ReadonlyArray<StepConfig>) {
     store,
     recompile: () => {
       liveSteps = mutate();
+      store.getState()._reconcileStepSet();
     },
     getLiveSteps: () => liveSteps,
   };
@@ -540,6 +553,33 @@ describe('NO step-identity-keyed member is a normalisation cached against the MO
           expect(parseCompositeKey(key)).toBeNull();
         }
       }
+    }
+  );
+
+  /**
+   * THE INSTANCE THAT NEEDS NO DOOR.
+   *
+   * Everything else in this file drives an ACTION and asks what it left behind.
+   * This drives NOTHING. `allData`'s creation seed is a normalisation of the
+   * defaults against the steps live at store creation — and a default for a step
+   * the mount config does not declare cannot be normalised, because the step
+   * declaring `lines` a repeatable is not there to ask. So it was seeded
+   * AUTHORED, and the moment a recompile made `step-bravo` live, that authored
+   * array WAS a live step's slice. No action ran. No door was opened. The state
+   * simply became wrong underneath a store nobody had touched.
+   *
+   * That is why `_reconcileStepSet` exists and why the provider calls it
+   * unconditionally: the only event in this sequence is the step set moving, so
+   * that is the only thing a guard can hang on.
+   */
+  it.each(Object.entries(STEP_SET_MUTATIONS))(
+    'when %s, every LIVE step is flat with NO action driven at all',
+    (_name, mutate) => {
+      const { store, recompile, getLiveSteps } = createBornHarness(mutate);
+
+      recompile();
+
+      expectLiveSlicesFlat(store.getState(), getLiveSteps());
     }
   );
 
@@ -589,6 +629,10 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
    */
   const SLICE_ADDRESSERS: Record<string, ((store: WorkflowStore) => void) | null> = {
     _setCurrentStep: null,
+    // The action for the birth nobody announces. It addresses EVERY live step's
+    // slice — that is its entire job — and it is the only action a recompile
+    // invokes, so it owes this property more than any other entry here.
+    _reconcileStepSet: (store) => store.getState()._reconcileStepSet(),
     _setStepData: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
     _setAllData: (store) => store.getState()._setAllData({ [BRAVO]: { lines: AUTHORED } }),
     _setFieldValue: (store) => store.getState()._setFieldValue('lines', AUTHORED, BRAVO),
@@ -644,9 +688,19 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
       </WorkflowProvider>
     );
 
+    // `_reconcileStepSet` is deliberately NOT exported. It is the store's answer
+    // to its own mutable input moving, and a host that could call it is a host
+    // that could be asked to remember to — which is the discipline every fix in
+    // this file exists to delete. `WorkflowProvider` calls it at the one seam
+    // where the steps enter the store.
     expect(Object.keys(capturedActions ?? {}).sort()).toEqual(
       Object.keys(SLICE_ADDRESSERS)
-        .filter((key) => key !== '_removeFieldValues' && key !== '_setRepeatableOrder')
+        .filter(
+          (key) =>
+            key !== '_removeFieldValues' &&
+            key !== '_setRepeatableOrder' &&
+            key !== '_reconcileStepSet'
+        )
         .map((key) => `${key[1].toLowerCase()}${key.slice(2)}`)
         .sort()
     );
@@ -678,8 +732,9 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
     }
   });
 
-  const addressers = Object.entries(SLICE_ADDRESSERS).filter(([, driver]) => driver !== null) as
-    Array<[string, (store: WorkflowStore) => void]>;
+  const addressers = Object.entries(SLICE_ADDRESSERS).filter(
+    ([, driver]) => driver !== null
+  ) as Array<[string, (store: WorkflowStore) => void]>;
 
   const cases = Object.entries(STEP_SET_MUTATIONS).flatMap(([mutation, mutate]) =>
     addressers.map(([name, driver]) => [mutation, name, mutate, driver] as const)
@@ -712,6 +767,207 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
  * Deriving the repeatable ids from the slice's own keys closes both at once —
  * which is the point of deriving rather than asking.
  */
+// =================================================================
+// THE PROVIDER BOUNDARY — WHEN A STEP WAS COMPILED IS NOT OBSERVABLE
+// =================================================================
+
+/**
+ * THE ENUMERATION'S THIRD SIDE, AND THE ONE THAT NEEDS NO DOOR AT ALL.
+ *
+ * The two enumerations above both drive an action and ask what it left behind.
+ * They cannot see this instance, because this instance involves no action:
+ *
+ *   <WorkflowProvider defaultValues={{'step-bravo': {lines: [...]}}}
+ *                     workflowConfig={withoutBravo} />
+ *   ...rerender with `withBravo`.
+ *
+ * That is the whole reproduction. `defaultValues` is captured once, at mount,
+ * and `allData`'s creation seed is a normalisation of it against the steps live
+ * AT THAT INSTANT — so `lines` was stored as the authored array, because the
+ * step that declares it a repeatable was not there to ask. The rerender makes
+ * `step-bravo` live and that array is now a LIVE step's slice. Nothing was
+ * called. No door was opened. The state became wrong underneath a store nobody
+ * touched — and starting with P3 this is not an edge case, it is the golden
+ * path: a model emits a step, the schema recompiles, the provider re-renders.
+ *
+ * WHY THE PROPERTY IS A DIFFERENTIAL, AND NOT A SHAPE.
+ *
+ * Every assertion above names the shape it wants. That works when the shape is
+ * knowable, and it is exactly what a NEW member captured at mount would slip
+ * past: nobody would have written the assertion for it. So this asks something
+ * no new member can be omitted from and that needs no knowledge of any member's
+ * shape at all —
+ *
+ *   a store that MOUNTED with `step-bravo`, and a store that mounted WITHOUT it
+ *   and had it BORN by a recompile, must be INDISTINGUISHABLE.
+ *
+ * The list of members compared is read off the two real stores at runtime, by
+ * the same `stepIdentityMembers` derivation the enumeration above uses. Any
+ * member — including one added tomorrow, whose shape nobody here knows — that is
+ * computed at mount from the step set will, by that very fact, differ between
+ * the two. It cannot pass and it cannot hide. That is the tripwire this boundary
+ * was missing, and "when the step was compiled" is exactly what it forbids
+ * anyone from observing.
+ */
+
+/** Captures the real store `WorkflowProvider` built, from inside it. */
+function StoreProbe({ capture }: { capture: (store: WorkflowStore) => void }) {
+  capture(useFlowStoreApi());
+  return null;
+}
+
+/** A `step-bravo` that was there all along. */
+function mountedWithBravo(): WorkflowStore {
+  let store: WorkflowStore | undefined;
+  render(
+    <WorkflowProvider workflowConfig={buildFlow(true)} defaultValues={BORN_DEFAULTS}>
+      <StoreProbe
+        capture={(s) => {
+          store = s;
+        }}
+      />
+    </WorkflowProvider>
+  );
+  return store as WorkflowStore;
+}
+
+/** The same `step-bravo`, born by a recompile. No action in between. */
+function bornIntoBravo(): WorkflowStore {
+  let store: WorkflowStore | undefined;
+  const { rerender } = render(
+    <WorkflowProvider workflowConfig={buildFlow(false)} defaultValues={BORN_DEFAULTS}>
+      <StoreProbe
+        capture={(s) => {
+          store = s;
+        }}
+      />
+    </WorkflowProvider>
+  );
+  rerender(
+    <WorkflowProvider workflowConfig={buildFlow(true)} defaultValues={BORN_DEFAULTS}>
+      <StoreProbe
+        capture={(s) => {
+          store = s;
+        }}
+      />
+    </WorkflowProvider>
+  );
+  return store as WorkflowStore;
+}
+
+describe('NO step-identity-keyed member can tell whether its step was born or mounted', () => {
+  it('every member the derivation finds is identical in both stores', () => {
+    const born = bornIntoBravo();
+    const mounted = mountedWithBravo();
+    const liveStepIds = ALL_STEPS.map((step) => step.id);
+
+    // The UNION, so a member that names a step in only one of the two stores —
+    // which is itself a difference — is compared rather than skipped.
+    const members = [
+      ...new Set([
+        ...stepIdentityMembers(born.getState(), liveStepIds),
+        ...stepIdentityMembers(mounted.getState(), liveStepIds),
+      ]),
+    ].sort();
+
+    // The derivation must actually be looking at something. A member list that
+    // silently emptied would make every assertion below vacuous.
+    expect(members.length).toBeGreaterThan(0);
+    // And every member it finds is one this file's table already answers for.
+    // A member added tomorrow lands here as well as in the tripwire above.
+    expect(members.every((name) => name in STEP_IDENTITY_STATE)).toBe(true);
+
+    for (const name of members) {
+      const key = name as keyof WorkflowStoreState;
+      expect({ member: name, value: born.getState()[key] }).toEqual({
+        member: name,
+        value: mounted.getState()[key],
+      });
+    }
+  });
+
+  /**
+   * THE COST, WHERE IT IS NOT A PAYLOAD BUT A SCREEN.
+   *
+   * The member above is `allData`, and the sentence "the payload is wrong" is
+   * the smallest true thing you can say about it. `allData` is also the base
+   * layer of `combineWorkflowDataForConditions`, which spreads EVERY step's
+   * slice into one namespace and evaluates the flow's own `visible` / `required`
+   * / `disabled` against it. A slice in a shape the store does not speak does not
+   * merely reach a host that expected another — it silently answers a condition
+   * with `undefined`, and a field that belongs on the screen is not on it.
+   *
+   * ZERO ACTIONS, AND NOTHING TO HEAL IT. The user is on `step-alpha` and stays
+   * there. The condition on `step-alpha`'s own field reads `step-bravo`'s rows —
+   * a model adding a step and a field on the current step revealing because of it
+   * is P3's golden path, not a contrivance. Nothing navigates, so nothing writes
+   * `step-bravo`'s slice, so nothing ever re-shapes it: the field stays hidden
+   * for as long as the flow is open.
+   *
+   * The differential once more, for the reason it is always the differential:
+   * the question is not which shape is right, it is that a field's visibility
+   * must not depend on which turn the model emitted its step on.
+   */
+  const REVEALED = 'revealed';
+
+  /** `step-alpha`, whose own field is revealed by rows that live on `step-bravo`. */
+  function buildConditionedFlow(includeBravo: boolean) {
+    const base = flow.create(catalog, 'wf', 'Order').addStep({
+      id: ALPHA,
+      title: 'Alpha',
+      formConfig: form.create(catalog, 'alpha-form').add({
+        id: REVEALED,
+        type: 'text',
+        props: {},
+        // Written against the shape the store DOCUMENTS — a repeatable's rows
+        // are flat composite keys — because there is no other shape to write it
+        // against.
+        conditions: { visible: when(`${BRAVO}.lines[k0].label`).equals('alpha') },
+      }),
+    });
+    if (!includeBravo) return base.build();
+    return base
+      .addStep({
+        id: BRAVO,
+        title: 'Bravo',
+        formConfig: form
+          .create(catalog, 'bravo-form')
+          .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} })),
+      })
+      .build();
+  }
+
+  function revealedIsVisible(recompile: boolean): boolean {
+    let visible: boolean | undefined;
+    function Probe() {
+      visible = useFlow().conditionsHelpers.isFieldVisible(REVEALED);
+      return null;
+    }
+    const tree = (config: WorkflowConfig) => (
+      <WorkflowProvider workflowConfig={config} defaultValues={BORN_DEFAULTS}>
+        <Probe />
+      </WorkflowProvider>
+    );
+    const { rerender, unmount } = render(tree(buildConditionedFlow(!recompile)));
+    // The recompile, and the last thing that happens. No click, no navigation,
+    // no action of any kind follows it.
+    if (recompile) rerender(tree(buildConditionedFlow(true)));
+    const answer = visible as boolean;
+    unmount();
+    return answer;
+  }
+
+  it('a condition reading a born step evaluates as it does when that step was mounted', () => {
+    // The rows are in the defaults either way, and they satisfy the condition
+    // either way. The field belongs on the screen — and it does not matter one
+    // bit whether `step-bravo` arrived at mount or on the model's second turn.
+    expect({
+      mounted: revealedIsVisible(false),
+      born: revealedIsVisible(true),
+    }).toEqual({ mounted: true, born: true });
+  });
+});
+
 describe('a repeatable dropped by a recompile leaks nothing either', () => {
   it('a live step structures rows whose repeatable the config no longer declares', () => {
     let liveSteps: ReadonlyArray<StepConfig> = ALL_STEPS;

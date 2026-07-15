@@ -234,6 +234,30 @@ export function WorkflowProvider({
   }
   const store = storeRef.current;
 
+  // THE STEPS HAVE JUST MOVED — tell the store, here, where they moved.
+  //
+  // The line above is the whole of this provider's mutable-input seam: it is
+  // where a recompiled `workflowConfig` reaches a store that was created once,
+  // at mount, from a `defaultValues` captured once, at mount. Everything the
+  // store derives from its steps it derives at the moment of use — except for
+  // the slices already sitting in `allData`, which nothing re-derives because a
+  // recompile calls no action. A step BORN by a recompile therefore owned a
+  // slice shaped by a store that could not see it. See the store's
+  // `_reconcileStepSet` for what that costs.
+  //
+  // Unconditional, and during render rather than in an effect. Both are the
+  // point:
+  //   - a guard ("only when the ids changed") is a second place to be wrong
+  //     about when the step set moved, and this class of bug is made of exactly
+  //     those. The action publishes nothing when nothing moved, so calling it
+  //     always is cheaper than remembering when to.
+  //   - an effect runs AFTER this render commits, so the conditions, the step
+  //     derivation and the form of this very render would each read the stale
+  //     shape once, and a field condition reading it is a frame of wrong UI.
+  //     This is React's own "adjust state when props change during render", for
+  //     a store instead of a `useState`.
+  store.getState()._reconcileStepSet();
+
   // Subscribe to store state changes for reactivity
   const [workflowState, setWorkflowState] = useState(() => {
     const state = store.getState();
@@ -410,19 +434,16 @@ export function WorkflowProvider({
               );
             }
 
-            const persistedStepId = workflowConfig.steps[safeIndex]?.id;
-            const mergedStepData = persistedStepId
-              ? ((mergedAllData[persistedStepId] as Record<string, unknown> | undefined) ??
-                persistedData.stepData)
-              : persistedData.stepData;
-
             store.getState()._loadPersistedState({
               currentStepIndex: safeIndex,
-              // The mirror's owner moves with the restored index on its own —
-              // the store derives it from `currentStepIndex`. See
-              // `createWorkflowStore`'s `ownerOf`.
+              // The mirror and its owner both move with the restored index on
+              // their own — the store derives the owner from `currentStepIndex`
+              // and `stepData` from the slice that owner names, AFTER the merge
+              // below has been normalised. This used to compute the mirror here
+              // as `mergedAllData[stepId]`, which is the same slice one step too
+              // early: before the store's normaliser had seen it. See
+              // `createWorkflowStore`'s `ownerOf` and `_loadPersistedState`.
               allData: mergedAllData,
-              stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),
               passedSteps: new Set(persistedData.passedSteps || []),
               // Only when the snapshot carries one: a snapshot written before

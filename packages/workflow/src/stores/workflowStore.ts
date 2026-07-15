@@ -148,6 +148,7 @@ export interface WorkflowStoreState {
 
   // Actions (internal - prefixed with _)
   _setCurrentStep: (stepIndex: number) => void;
+  _reconcileStepSet: () => void;
   _setStepData: (data: Record<string, unknown>, stepId: string) => void;
   _setAllData: (data: Record<string, unknown>) => void;
   _setFieldValue: (fieldId: string, value: unknown, stepId: string) => void;
@@ -238,6 +239,17 @@ export interface CreateWorkflowStoreOptions {
    *
    * Cheap by construction — this runs on every slice write, and the provider's
    * accessor is a ref read.
+   *
+   * IF THIS ANSWER CAN CHANGE, THE OWNER OF THE STEPS OWES THE STORE
+   * {@link WorkflowStoreState._reconcileStepSet} WHEN IT DOES. Every write
+   * normalises against the steps live at that write, so no caller can be the one
+   * who forgot — but a step being BORN is not a write. It is this accessor
+   * starting to answer differently, and the store cannot observe that on its
+   * own: nothing calls it. `WorkflowProvider` — the only thing that owns both a
+   * live step set and a store — discharges this at the seam where
+   * `workflowConfig.steps` reaches the accessor above, on every render. A store
+   * built directly, against steps that move, has the same obligation and no one
+   * else to meet it.
    */
   getSteps?: () => ReadonlyArray<StepConfig>;
   initialVisitedSteps?: Set<string>;
@@ -401,6 +413,72 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       },
 
       /**
+       * THE STEP SET MOVED — re-derive every LIVE step's slice against it.
+       *
+       * THE HOLE THIS FILLS. Every other write normalises the slice it
+       * ADDRESSES, so no caller can be the one who forgot. But a step is born
+       * with NO CALLER: a host recompiles a FlowSchema and re-renders, and
+       * `getSteps()` starts answering with a step it never answered with
+       * before. Zero actions ran. The slice that step now owns was written —
+       * or seeded from the defaults at creation — while the store could not
+       * see the step, so it could not know `lines` named a repeatable, and it
+       * is sitting in `allData` as an authored array under a LIVE step's id.
+       * That is the flat-shape invariant broken with nothing to hang a guard
+       * on, because nothing happened.
+       *
+       * So the guard hangs on the only event there is: the step set itself
+       * changing. `WorkflowProvider` calls this where `workflowConfig.steps`
+       * enters the store, so the store re-derives at the moment its mutable
+       * input moves, rather than at the moment some caller happens to write.
+       *
+       * IT RE-SHAPES, IT NEVER RE-SEEDS — and that is what makes "a born step
+       * gets its defaults" and "a step holding the user's input is left alone"
+       * the same sentence rather than two cases to tell apart. This does not
+       * read `_defaultValues` and has no notion of which slices are the user's:
+       * it takes whatever `allData` holds for a live step and states it in the
+       * store's shape. A born step's default slice is already in `allData`
+       * (creation seeded it, authored, because the step was not there to ask) —
+       * so re-shaping it IS seeding it. A slice the user has typed into is
+       * re-shaped too, and re-shaping an already-flat slice is the identity:
+       * `flattenAuthoredSlice` hands back the slice it was given. There is no
+       * branch that could clobber, because there is no branch.
+       *
+       * IDEMPOTENT, AND IT MUST BE — it runs on every render of the provider,
+       * unguarded, because a guard on "did the steps change?" is one more thing
+       * a caller can get wrong and this class is made of exactly those. So it
+       * PUBLISHES NOTHING when nothing moved: no `set`, no notification, no
+       * render loop. A second call computes the same identities and returns.
+       *
+       * The mirror follows the slice it mirrors, as everywhere else: if the
+       * current step's slice was the one re-shaped, `stepData` is republished
+       * from it. Otherwise `stepData` is not touched — a re-shape that did not
+       * reach the current step has nothing to say about the mirror.
+       */
+      _reconcileStepSet: () => {
+        const state = get();
+        const normalized = normalizeRepeatableSlices(
+          state.allData,
+          getSteps(),
+          state._repeatableOrders
+        );
+        if (normalized.data === state.allData && normalized.orders === state._repeatableOrders) {
+          return;
+        }
+
+        const owner = state._currentStepId;
+        const reshapedCurrent =
+          owner !== null && getOwn(normalized.data, owner) !== getOwn(state.allData, owner);
+
+        set({
+          allData: normalized.data,
+          _repeatableOrders: normalized.orders,
+          ...(reshapedCurrent && owner !== null
+            ? { stepData: readStepSlice({ ...state, allData: normalized.data }, owner) }
+            : {}),
+        });
+      },
+
+      /**
        * The form reports composite key ids, so its own calls are already flat.
        * The PUBLIC `useFlowActions().setFieldValue` is the same action, and a
        * host reaching for it prefills the way it authors everything else —
@@ -556,6 +634,8 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
                 restored._repeatableOrders
               )
             : undefined;
+          const owner = ownerOf(restored.currentStepIndex);
+          const settled = normalized ? { ...restored, allData: normalized.data } : restored;
           return {
             ...restored,
             ...(normalized
@@ -567,7 +647,27 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
             // ignored on purpose: it is the index that says where the user is,
             // and a snapshot carrying a stale pair must not be able to reinstate
             // the desync this derivation exists to make unrepresentable.
-            _currentStepId: ownerOf(restored.currentStepIndex),
+            _currentStepId: owner,
+            // AND THE MIRROR IT OWNS, ON THE SAME TERMS. `stepData` is a view
+            // of `allData[owner]` — it is not an independent fact, and a
+            // snapshot has no more standing to assert it than to assert its
+            // owner. It used to arrive through the `{...state, ...persistedState}`
+            // spread and land VERBATIM: the one value in this action that the
+            // normalisation above did not reach. `WorkflowProvider` handed it
+            // `mergeStepSlices(_defaultValues, persisted)[stepId]` — the merge
+            // BEFORE `normalizeRepeatableSlices` sees it — so restoring into a
+            // step whose defaults declare rows the snapshot says nothing about
+            // published `{lines:[{...}]}` as the mirror while `allData` held the
+            // flat keys. The two disagreed about the same step's values, and
+            // `stepData` is the override layer for field conditions: the flow's
+            // own conditions then evaluated against a shape the store does not
+            // speak.
+            //
+            // So it is derived from the slice it mirrors, after that slice has
+            // been normalised. A store that cannot name an owner (no `steps`)
+            // cannot derive it either, and keeps what it was handed — the same
+            // answer {@link mirrorIfCurrent} gives a `null` owner.
+            ...(owner !== null ? { stepData: readStepSlice(settled, owner) } : {}),
             isInitializing: false,
             // A restore REPLACES the seed the mounted form was built from, so
             // the form owes itself a re-seed. This is the only thing that earns
