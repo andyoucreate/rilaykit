@@ -28,6 +28,22 @@ export interface WorkflowStoreState {
   _defaultValues: Record<string, unknown>;
   _defaultStepIndex: number;
   /**
+   * The id of the step `stepData` mirrors, or `null` when nobody has told the
+   * store which step is current.
+   *
+   * `stepData` is a live view of the CURRENT step; `allData` is the source of
+   * truth for every step. A write naming another step (`onAfterValidation`
+   * calling `helper.setStepFields('one', ...)` from step 'two') must land in
+   * `allData` alone — publishing it as `stepData` hands the current step
+   * another step's values, and `stepData` is both host-visible and the override
+   * layer for field conditions.
+   *
+   * `null` means the store cannot tell a cross-step write from a current-step
+   * one, so it publishes the mirror as before rather than silently withholding
+   * it. Every write through WorkflowProvider names its step.
+   */
+  _currentStepId: string | null;
+  /**
    * Live repeatable row order per step, mirrored from each step's form.
    *
    * Deliberately NOT part of `allData`: `allData` is the payload handed to the
@@ -53,7 +69,7 @@ export interface WorkflowStoreState {
   _resetCount: number;
 
   // Actions (internal - prefixed with _)
-  _setCurrentStep: (stepIndex: number) => void;
+  _setCurrentStep: (stepIndex: number, stepId?: string) => void;
   _setStepData: (data: Record<string, unknown>, stepId: string) => void;
   _setAllData: (data: Record<string, unknown>) => void;
   _setFieldValue: (fieldId: string, value: unknown, stepId: string) => void;
@@ -106,6 +122,20 @@ function readStepSlice(state: WorkflowStoreState, stepId: string): Record<string
     : {};
 }
 
+/**
+ * The `stepData` half of a slice write: the mirror follows the CURRENT step's
+ * slice and no other. A write naming a different step is recorded in `allData`
+ * alone. See {@link WorkflowStoreState._currentStepId}.
+ */
+function mirrorIfCurrent(
+  state: WorkflowStoreState,
+  stepId: string,
+  slice: Record<string, unknown>
+): { stepData?: Record<string, unknown> } {
+  if (state._currentStepId !== null && state._currentStepId !== stepId) return {};
+  return { stepData: slice };
+}
+
 // =================================================================
 // STORE FACTORY
 // =================================================================
@@ -115,6 +145,8 @@ export type WorkflowStore = ReturnType<typeof createWorkflowStore>;
 export interface CreateWorkflowStoreOptions {
   defaultValues?: Record<string, unknown>;
   defaultStepIndex?: number;
+  /** The id of the step at `defaultStepIndex`. See {@link WorkflowStoreState._currentStepId}. */
+  currentStepId?: string;
   initialVisitedSteps?: Set<string>;
   initialPassedSteps?: Set<string>;
 }
@@ -123,6 +155,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   const {
     defaultValues = {},
     defaultStepIndex = 0,
+    currentStepId = null,
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
   } = options;
@@ -142,17 +175,22 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       // Internal state
       _defaultValues: { ...defaultValues },
       _defaultStepIndex: defaultStepIndex,
+      _currentStepId: currentStepId,
       _repeatableOrders: {},
       _resetCount: 0,
 
       // Actions
-      _setCurrentStep: (stepIndex) => {
-        set({ currentStepIndex: stepIndex });
+      _setCurrentStep: (stepIndex, stepId) => {
+        set(
+          stepId === undefined
+            ? { currentStepIndex: stepIndex }
+            : { currentStepIndex: stepIndex, _currentStepId: stepId }
+        );
       },
 
       _setStepData: (data, stepId) => {
         set((state) => ({
-          stepData: data,
+          ...mirrorIfCurrent(state, stepId, data),
           allData: {
             ...state.allData,
             [stepId]: data,
@@ -168,7 +206,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
         set((state) => {
           const newStepData = { ...readStepSlice(state, stepId), [fieldId]: value };
           return {
-            stepData: newStepData,
+            ...mirrorIfCurrent(state, stepId, newStepData),
             allData: {
               ...state.allData,
               [stepId]: newStepData,
@@ -200,7 +238,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           if (!removed) return {};
 
           return {
-            stepData: newStepData,
+            ...mirrorIfCurrent(state, stepId, newStepData),
             allData: {
               ...state.allData,
               [stepId]: newStepData,
@@ -249,6 +287,8 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           currentStepIndex: state._defaultStepIndex,
           allData: { ...state._defaultValues },
           stepData: {},
+          // The index returns to its default, so the mirror's owner does too.
+          _currentStepId: currentStepId,
           _repeatableOrders: {},
           visitedSteps: new Set(),
           passedSteps: new Set(),

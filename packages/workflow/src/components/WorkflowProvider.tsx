@@ -219,6 +219,7 @@ export function WorkflowProvider({
       // {@link normalizeRepeatableSlices}.
       defaultValues: normalizeRepeatableSlices(defaultValues, workflowConfig.steps),
       defaultStepIndex,
+      currentStepId: workflowConfig.steps[defaultStepIndex]?.id,
       initialVisitedSteps: initialSteps.visitedSteps,
       initialPassedSteps: initialSteps.passedSteps,
     });
@@ -260,9 +261,12 @@ export function WorkflowProvider({
   }, [store]);
 
   // Create stable action functions
+  // Name the step as well as its index: the store keys its `stepData` mirror by
+  // step id so a cross-step write cannot claim it.
   const setCurrentStep = useCallback(
-    (stepIndex: number) => store.getState()._setCurrentStep(stepIndex),
-    [store]
+    (stepIndex: number) =>
+      store.getState()._setCurrentStep(stepIndex, workflowConfig.steps[stepIndex]?.id),
+    [store, workflowConfig.steps]
   );
 
   const setStepDataAction = useCallback(
@@ -428,6 +432,10 @@ export function WorkflowProvider({
 
             store.getState()._loadPersistedState({
               currentStepIndex: safeIndex,
+              // The restored index names a different step: the mirror's owner
+              // moves with it, or the next write to the restored step would be
+              // taken for a cross-step write and withheld.
+              _currentStepId: persistedStepId ?? null,
               allData: mergedAllData,
               stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),
