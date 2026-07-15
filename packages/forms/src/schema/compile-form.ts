@@ -89,9 +89,10 @@ const VALID_CONDITION_OPERATORS = new Set([
  *
  * @param schema - The JSON form schema (from backend or local JSON)
  * @param config - The ril instance containing registered components
- * @param options - Optional compile options ({ bindings } for custom validators/effects)
+ * @param options - Optional compile options ({ bindings } for custom validators/effects,
+ *   { validate: false } to skip the structural pass when the caller already ran it)
  * @returns A FormSchemaResult with formConfig and optional defaultValues
- * @throws SchemaValidationError if the schema is invalid
+ * @throws SchemaValidationError if the schema is invalid (unless `validate: false`)
  *
  * @example
  * ```typescript
@@ -106,8 +107,11 @@ export function compileForm<C extends Record<string, any>>(
 ): FormSchemaResult<C> {
   const registry = options?.bindings;
 
-  // 1. Validate schema structure
-  validateSchema(schema, config, registry);
+  // 1. Validate schema structure — skippable for a caller that already
+  //    validated this exact schema against the same catalog and bindings.
+  if (options?.validate !== false) {
+    validateSchema(schema, config, registry);
+  }
 
   // 2. Normalize: flat fields → rows
   const rows = normalizeToRows(schema);

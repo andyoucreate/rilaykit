@@ -1,61 +1,39 @@
-import type { RilayInstance, StepAllowSkip, StepConfig, WorkflowConfig } from '@rilaykit/core';
+import type { RilayInstance, WorkflowConfig } from '@rilaykit/core';
 import { NotFoundError } from '@rilaykit/core';
 import { compileForm } from '@rilaykit/forms';
 import { flow } from '../builders/flow';
-import type { CompileFlowOptions, FlowSchema, FlowSchemaStep } from './flow-schema-types';
+import type { CompileFlowOptions, FlowBindings, FlowSchema } from './flow-schema-types';
 import { validateFlowSchema } from './validate-flow-schema';
 
 /**
- * Resolves a step's `allowSkip`: a static boolean passes through, a
- * `{ binding }` reference is looked up in `bindings.allowSkip`.
+ * Looks a step-level binding up by key, or throws.
+ *
+ * The single lookup-or-throw for every `FlowBindings` table, so the
+ * unresolved-binding error contract (message + metadata) is defined once.
  */
-function resolveAllowSkip(
-  step: FlowSchemaStep,
-  options?: CompileFlowOptions
-): StepAllowSkip | undefined {
-  if (step.allowSkip === undefined || typeof step.allowSkip === 'boolean') {
-    return step.allowSkip;
-  }
-
-  const { binding } = step.allowSkip;
-  const predicate = options?.bindings?.allowSkip?.[binding];
-  if (!predicate) {
-    throw new NotFoundError(`allowSkip binding "${binding}" not found for step "${step.id}"`, {
-      binding,
-      stepId: step.id,
-    });
-  }
-  return predicate;
-}
-
-/**
- * Resolves a step's `onAfterValidation` string key from `bindings.after`.
- */
-function resolveAfter(
-  step: FlowSchemaStep,
-  options?: CompileFlowOptions
-): StepConfig['onAfterValidation'] {
-  if (step.onAfterValidation === undefined) return undefined;
-
-  const key = step.onAfterValidation;
-  const handler = options?.bindings?.after?.[key];
-  if (!handler) {
-    throw new NotFoundError(`onAfterValidation binding "${key}" not found for step "${step.id}"`, {
+function resolveBinding<T>(
+  table: Record<string, T> | undefined,
+  key: string,
+  kind: 'allowSkip' | 'onAfterValidation',
+  stepId: string
+): T {
+  const value = table?.[key];
+  if (!value) {
+    throw new NotFoundError(`${kind} binding "${key}" not found for step "${stepId}"`, {
       binding: key,
-      stepId: step.id,
+      stepId,
     });
   }
-  return handler;
+  return value;
 }
 
 /**
  * Compiles a JSON `FlowSchema` into a runtime `WorkflowConfig`.
  *
  * Each step's `form` is compiled through `compileForm`, and every
- * non-serializable reference (`allowSkip` predicates, `onAfterValidation`
- * handlers) is resolved from the supplied `FlowBindings`. All workflow
- * assembly is delegated to the `flow` builder — no builder logic is
- * duplicated here.
+ * non-serializable reference (`allowSkip` predicates, `after` handlers) is
+ * resolved from the supplied `FlowBindings`. All workflow assembly is delegated
+ * to the `flow` builder — no builder logic is duplicated here.
  *
  * @throws {SchemaValidationError} when the schema is structurally invalid.
  * @throws {NotFoundError} when a binding reference cannot be resolved.
@@ -65,12 +43,16 @@ export function compileFlow<C extends Record<string, unknown>>(
   catalog: RilayInstance<C>,
   options?: CompileFlowOptions
 ): WorkflowConfig {
-  validateFlowSchema(schema, catalog, options?.bindings);
+  const bindings: FlowBindings | undefined = options?.bindings;
 
-  const builder = flow.create(catalog as never, schema.id, schema.name, schema.description);
+  validateFlowSchema(schema, catalog, bindings);
+
+  const builder = flow.create(catalog, schema.id, schema.name, schema.description);
 
   for (const step of schema.steps) {
-    const { formConfig } = compileForm(step.form, catalog, { bindings: options?.bindings });
+    // `validate: false` — validateFlowSchema already proved every step's form
+    // valid against this catalog and these bindings, with better issue paths.
+    const { formConfig } = compileForm(step.form, catalog, { bindings, validate: false });
 
     builder.addStep({
       id: step.id,
@@ -78,9 +60,15 @@ export function compileFlow<C extends Record<string, unknown>>(
       description: step.description,
       formConfig,
       conditions: step.conditions,
-      allowSkip: resolveAllowSkip(step, options),
+      allowSkip:
+        typeof step.allowSkip === 'object'
+          ? resolveBinding(bindings?.allowSkip, step.allowSkip.binding, 'allowSkip', step.id)
+          : step.allowSkip,
       metadata: step.metadata,
-      onAfterValidation: resolveAfter(step, options),
+      after:
+        step.onAfterValidation === undefined
+          ? undefined
+          : resolveBinding(bindings?.after, step.onAfterValidation, 'onAfterValidation', step.id),
     });
   }
 

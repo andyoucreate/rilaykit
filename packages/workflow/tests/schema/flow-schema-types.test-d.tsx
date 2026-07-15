@@ -1,4 +1,4 @@
-import type { StepConditionalBehavior, StepDataHelper, WorkflowContext } from '@rilaykit/core';
+import type { StepConditionalBehavior } from '@rilaykit/core';
 import type {
   AfterValidationHandler,
   AllowSkipPredicate,
@@ -6,6 +6,7 @@ import type {
   FlowBindings,
   FlowSchema,
   FlowSchemaStep,
+  StepContext,
 } from '@rilaykit/workflow';
 import { describe, expectTypeOf, it } from 'vitest';
 
@@ -57,10 +58,10 @@ describe('FlowSchema types', () => {
     const bindings: FlowBindings = {
       allowSkip: { vipSkip: (ctx) => ctx.allData.vip === true },
       after: {
-        lookupCompany: async (stepData, helper, context) => {
-          void stepData;
-          void helper;
-          void context;
+        lookupCompany: async (step) => {
+          void step.data;
+          void step.workflow.all();
+          step.next.prefill({ companyName: '' });
         },
       },
     };
@@ -101,10 +102,10 @@ describe('FlowSchema types', () => {
       (ctx: { allData: Record<string, unknown> }) => boolean
     >();
 
-    // `AfterValidationHandler` stays core's step hook, parameters included.
-    expectTypeOf<Parameters<AfterValidationHandler>>().toEqualTypeOf<
-      [Record<string, any>, StepDataHelper, WorkflowContext]
-    >();
+    // `AfterValidationHandler` is the builder's MODERN `after` input — a single
+    // StepContext — not the deprecated 3-arg `onAfterValidation`. The builder
+    // owns the wrapping into the legacy shape.
+    expectTypeOf<Parameters<AfterValidationHandler>>().toEqualTypeOf<[StepContext]>();
     expectTypeOf<ReturnType<AfterValidationHandler>>().toEqualTypeOf<void | Promise<void>>();
 
     // `CompileFlowOptions` carries the bindings `compileFlow` resolves against.

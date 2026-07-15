@@ -192,6 +192,16 @@ export type SchemaRegistry = Bindings;
 export interface CompileFormOptions {
   /** Resolution for the schema's validator/effect string references. */
   readonly bindings?: Bindings;
+  /**
+   * Whether to structurally validate the schema before compiling. Defaults to
+   * `true`.
+   *
+   * Set to `false` only when the caller has already proven the schema valid
+   * against the same catalog and bindings (e.g. `compileFlow`, which validates
+   * every step's form up-front through `validateFlowSchema` and would otherwise
+   * pay for a second, redundant pass per step).
+   */
+  readonly validate?: boolean;
 }
 
 /**

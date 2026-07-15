@@ -2,7 +2,7 @@
 import { ril } from '@rilaykit/core';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { type Bindings, compileForm, fromSchema } from '../../src/schema';
+import { type Bindings, SchemaValidationError, compileForm, fromSchema } from '../../src/schema';
 
 function makeCatalog() {
   return ril.create().component('text', {
@@ -117,5 +117,44 @@ describe('compileForm', () => {
     expect(field.validation).toBeUndefined();
     expect(field.conditions).toBeUndefined();
     expect(field.effects).toBeUndefined();
+  });
+
+  // `operator: 'bogus'` is caught by validateSchema alone — the builder passes
+  // conditions through untouched — so it isolates the structural pass.
+  function makeBadOperatorSchema() {
+    return {
+      version: 1 as const,
+      id: 'f',
+      fields: [
+        { id: 'a', type: 'text', conditions: { visible: { field: 'b', operator: 'bogus' } } },
+      ],
+    };
+  }
+
+  it('validates by default and throws SchemaValidationError for an invalid condition operator', () => {
+    let caught;
+    try {
+      compileForm(makeBadOperatorSchema(), makeCatalog());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    expect(caught.issues).toEqual([
+      {
+        path: 'fields[0].conditions.visible.operator',
+        message: 'Invalid condition operator "bogus"',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('skips validation when options.validate is false (caller already validated)', () => {
+    const result = compileForm(makeBadOperatorSchema(), makeCatalog(), { validate: false });
+
+    expect(result.formConfig.allFields.map((f) => f.id)).toEqual(['a']);
+    expect(result.formConfig.allFields[0].conditions).toEqual({
+      visible: { field: 'b', operator: 'bogus' },
+    });
   });
 });

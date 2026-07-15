@@ -1,5 +1,6 @@
-import type { StepAllowSkip, StepConditionalBehavior, StepConfig } from '@rilaykit/core';
+import type { StepAllowSkip, StepConditionalBehavior } from '@rilaykit/core';
 import type { Bindings, FormSchema } from '@rilaykit/forms';
+import type { StepDefinition } from '../builders/flow';
 
 // =================================================================
 // FLOW SCHEMA — the JSON-serializable workflow definition
@@ -8,8 +9,14 @@ import type { Bindings, FormSchema } from '@rilaykit/forms';
 /** Predicate deciding whether a step may be skipped, given the collected data. */
 export type AllowSkipPredicate = Exclude<StepAllowSkip, boolean>;
 
-/** Handler run after a step's validation succeeds. */
-export type AfterValidationHandler = NonNullable<StepConfig['onAfterValidation']>;
+/**
+ * Handler run after a step's validation succeeds.
+ *
+ * Typed from the builder's modern `after` input (a single `StepContext`), not
+ * the deprecated 3-arg `onAfterValidation`: the builder owns the wrapping into
+ * the legacy shape, so the schema layer never re-derives that transform.
+ */
+export type AfterValidationHandler = NonNullable<StepDefinition['after']>;
 
 /**
  * A single step of a `FlowSchema`.

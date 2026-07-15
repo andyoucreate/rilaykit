@@ -10,6 +10,7 @@ import {
   type WorkflowConfig,
   type WorkflowContext,
   type WorkflowPlugin,
+  type RilayInstance,
   ConfigurationError,
   NotFoundError,
   ValidationError,
@@ -215,7 +216,7 @@ interface WorkflowOptions {
  * @class flow
  */
 export class flow {
-  private config: ril<any>;
+  private config: RilayInstance<any> | ril<any>;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -237,7 +238,12 @@ export class flow {
    * @param workflowName - Optional display name for the workflow. Defaults to "Workflow" if not provided
    * @param description - Optional description of the workflow purpose
    */
-  constructor(config: ril<any>, workflowId?: string, workflowName?: string, description?: string) {
+  constructor(
+    config: RilayInstance<any> | ril<any>,
+    workflowId?: string,
+    workflowName?: string,
+    description?: string
+  ) {
     this.config = config;
     this.workflowId = workflowId || `workflow-${Math.random().toString(36).substring(2, 15)}`;
     this.workflowName = workflowName || 'Workflow';
@@ -268,7 +274,7 @@ export class flow {
    * ```
    */
   static create(
-    config: ril<any>,
+    config: RilayInstance<any> | ril<any>,
     workflowId?: string,
     workflowName?: string,
     description?: string
