@@ -208,6 +208,16 @@ export function WorkflowProvider({
     [defaultStepIndex, workflowConfig.steps]
   );
 
+  // The steps AS THEY ARE NOW. This provider is created once per mount but reads
+  // `workflowConfig.steps` live everywhere else — step derivation, navigation,
+  // the persistence clamp, conditions — so handing the store a MOUNT-TIME
+  // snapshot made it the one component honouring a config the host had already
+  // replaced. A host that recompiles a FlowSchema and re-renders is the headline
+  // use case, so the store gets an accessor and reads the same steps everything
+  // else does.
+  const stepsRef = useRef(workflowConfig.steps);
+  stepsRef.current = workflowConfig.steps;
+
   // Create Zustand store (once per provider mount)
   const storeRef = useRef<WorkflowStore | null>(null);
   if (!storeRef.current) {
@@ -216,7 +226,7 @@ export function WorkflowProvider({
       // The steps are what let the store recognise an authored repeatable array
       // and normalise it to its one internal shape — at EVERY write, including
       // the public `useFlowActions()` ones this provider never sees.
-      steps: workflowConfig.steps,
+      getSteps: () => stepsRef.current,
       defaultStepIndex,
       initialVisitedSteps: initialSteps.visitedSteps,
       initialPassedSteps: initialSteps.passedSteps,

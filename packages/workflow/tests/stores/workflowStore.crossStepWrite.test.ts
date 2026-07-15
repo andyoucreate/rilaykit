@@ -33,7 +33,7 @@ describe('workflowStore — a cross-step write leaves the current step mirror al
     const store = createWorkflowStore({
       defaultValues: { one: { a: 'A' }, two: { b: 'B' } },
       defaultStepIndex: 1,
-      steps: STEPS,
+      getSteps: () => STEPS,
     });
 
     store.getState()._setStepData({ b: 'B', seen: true }, 'two');
@@ -50,7 +50,7 @@ describe('workflowStore — a cross-step write leaves the current step mirror al
   it('follows the current step as navigation moves it', () => {
     const store = createWorkflowStore({
       defaultValues: { one: { a: 'A' }, two: { b: 'B' } },
-      steps: STEPS,
+      getSteps: () => STEPS,
     });
 
     store.getState()._setCurrentStep(1);

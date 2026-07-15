@@ -176,11 +176,24 @@ export interface CreateWorkflowStoreOptions {
   defaultValues?: Record<string, unknown>;
   defaultStepIndex?: number;
   /**
-   * The flow's steps, for the repeatable configs the store normalises against.
-   * See {@link normalizeSlice}. Omitted, the store cannot recognise an authored
-   * array and stores whatever it is handed.
+   * The flow's steps AS THEY ARE NOW, for the repeatable configs the store
+   * normalises against and the step ids it names its mirror's owner from.
+   * Omitted, the store cannot recognise an authored array and stores whatever it
+   * is handed.
+   *
+   * AN ACCESSOR, NOT AN ARRAY. The store used to close over the steps at
+   * creation, and `WorkflowProvider` creates it ONCE per mount while reading
+   * `workflowConfig.steps` LIVE everywhere else — so a provider handed a
+   * recompiled config honoured it for rendering and navigation while the store
+   * kept normalising against MOUNT-TIME steps, and a step whose repeatable the
+   * mount config had not declared went back to storing the authored array. A
+   * server-driven host recompiling a FlowSchema is the headline use case, so the
+   * store is not entitled to a snapshot: it asks for the steps at every read.
+   *
+   * Cheap by construction — this runs on every slice write, and the provider's
+   * accessor is a ref read.
    */
-  steps?: ReadonlyArray<StepConfig>;
+  getSteps?: () => ReadonlyArray<StepConfig>;
   initialVisitedSteps?: Set<string>;
   initialPassedSteps?: Set<string>;
 }
@@ -189,7 +202,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   const {
     defaultValues = {},
     defaultStepIndex = 0,
-    steps = [],
+    getSteps = () => [],
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
   } = options;
@@ -203,7 +216,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
    * created without `steps` yields `null`: the store cannot name an owner, so
    * `mirrorIfCurrent` publishes rather than withholds.
    */
-  const ownerOf = (stepIndex: number): string | null => steps[stepIndex]?.id ?? null;
+  const ownerOf = (stepIndex: number): string | null => getSteps()[stepIndex]?.id ?? null;
 
   /**
    * THE INVARIANT, enforced where it belongs.
@@ -228,11 +241,11 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   ): Record<string, unknown> =>
     flattenAuthoredSlice(
       data,
-      steps.find((step) => step.id === stepId)?.formConfig?.repeatableFields,
+      getSteps().find((step) => step.id === stepId)?.formConfig?.repeatableFields,
       getOwn(state._repeatableOrders, stepId)
     );
 
-  const initialAllData = normalizeRepeatableSlices({ ...defaultValues }, steps);
+  const initialAllData = normalizeRepeatableSlices({ ...defaultValues }, getSteps());
 
   return createStore<WorkflowStoreState>()(
     subscribeWithSelector((set, get) => ({
@@ -300,7 +313,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       },
 
       _setAllData: (data) => {
-        set({ allData: normalizeRepeatableSlices(data, steps) });
+        set({ allData: normalizeRepeatableSlices(data, getSteps()) });
       },
 
       /**
@@ -423,7 +436,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
             // saved its own. It comes in through the same guard.
             ...(persistedState.allData
               ? {
-                  allData: normalizeRepeatableSlices(persistedState.allData, steps),
+                  allData: normalizeRepeatableSlices(persistedState.allData, getSteps()),
                 }
               : {}),
             // A restore MOVES the index — `currentStepIndex` is part of the
