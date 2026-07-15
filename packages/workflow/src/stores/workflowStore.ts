@@ -69,6 +69,28 @@ function isSameRepeatableOrder(a: Record<string, string[]>, b: Record<string, st
   });
 }
 
+/**
+ * The authoritative captured data of one step.
+ *
+ * `allData` is the source of truth — it is seeded from the defaults at store
+ * creation and is the payload handed to the host on completion. `stepData` is
+ * only a live view of the CURRENT step, and it starts EMPTY: nothing seeds it
+ * from `allData` except a navigation, and the initial step never navigates into
+ * itself. A per-field write that merged into `stepData` and then published the
+ * result as `allData[stepId]` therefore overwrote the initial step's whole
+ * slice with a single key on the user's very first edit, destroying every
+ * default they had not yet touched — in the form and in the completion payload.
+ *
+ * Reading the slice back out of `allData` keeps the invariant one-directional:
+ * `allData[stepId]` is written, `stepData` follows it.
+ */
+function readStepSlice(state: WorkflowStoreState, stepId: string): Record<string, unknown> {
+  const slice = getOwn(state.allData, stepId);
+  return typeof slice === 'object' && slice !== null && !Array.isArray(slice)
+    ? (slice as Record<string, unknown>)
+    : {};
+}
+
 // =================================================================
 // STORE FACTORY
 // =================================================================
@@ -128,7 +150,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
 
       _setFieldValue: (fieldId, value, stepId) => {
         set((state) => {
-          const newStepData = { ...state.stepData, [fieldId]: value };
+          const newStepData = { ...readStepSlice(state, stepId), [fieldId]: value };
           return {
             stepData: newStepData,
             allData: {
@@ -151,7 +173,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
        */
       _removeFieldValues: (fieldIds, stepId) => {
         set((state) => {
-          const newStepData = { ...state.stepData };
+          const newStepData = { ...readStepSlice(state, stepId) };
           let removed = false;
           for (const fieldId of fieldIds) {
             if (hasOwn(newStepData, fieldId)) {

@@ -28,6 +28,7 @@ import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+import { normalizeRepeatableSlices } from '../utils/normalizeRepeatableSlices';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -137,10 +138,17 @@ function calculateInitialSteps(
 /**
  * Layers a persisted `allData` over the compiled `defaultValues`, step by step.
  *
- * Per step: the persisted keys win, the default keys the snapshot does not carry
- * survive, and a step the snapshot never mentions keeps its defaults whole. A
- * non-object slice on either side cannot be merged key-wise, so the persisted
- * one is taken as-is.
+ * The granularity is the STEP, not the key. A snapshot only carries what its
+ * session recorded: the steps it says nothing about are not steps with no data,
+ * they are steps it has no opinion about, and the flow's own defaults are the
+ * answer for them — replacing `allData` wholesale blanked every default of every
+ * step the user never reached. But a step the snapshot DOES mention it has a
+ * COMPLETE opinion about: `allData[stepId]` is seeded from that step's defaults
+ * at store creation and is the only slice ever written thereafter, so a recorded
+ * slice already contains every default it did not override. The keys it omits
+ * are keys that ceased to exist — the repeatable row the user deleted. Layering
+ * the defaults back underneath key-by-key is the append-only mirror all over
+ * again, at the persistence layer: it resurrects exactly those rows.
  *
  * The accumulator is a Map: a step id is data, and `merged['__proto__'] = slice`
  * on a plain object reassigns the prototype instead of recording a key, silently
@@ -153,20 +161,10 @@ function mergeStepSlices(
   const merged = new Map<string, unknown>(Object.entries(defaults));
 
   for (const [stepId, persistedSlice] of Object.entries(persisted)) {
-    const defaultSlice = merged.get(stepId);
-    merged.set(
-      stepId,
-      isMergeableSlice(defaultSlice) && isMergeableSlice(persistedSlice)
-        ? { ...defaultSlice, ...persistedSlice }
-        : persistedSlice
-    );
+    merged.set(stepId, persistedSlice);
   }
 
   return Object.fromEntries(merged);
-}
-
-function isMergeableSlice(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 // =================================================================
@@ -213,7 +211,10 @@ export function WorkflowProvider({
   const storeRef = useRef<WorkflowStore | null>(null);
   if (!storeRef.current) {
     storeRef.current = createWorkflowStore({
-      defaultValues,
+      // Normalise the authored defaults to the store's single internal shape
+      // (flat composite keys) BEFORE they ever land in `allData`. See
+      // {@link normalizeRepeatableSlices}.
+      defaultValues: normalizeRepeatableSlices(defaultValues, workflowConfig.steps),
       defaultStepIndex,
       initialVisitedSteps: initialSteps.visitedSteps,
       initialPassedSteps: initialSteps.passedSteps,
@@ -350,7 +351,10 @@ export function WorkflowProvider({
             // every step the user had not reached.
             const mergedAllData = mergeStepSlices(
               store.getState()._defaultValues,
-              persistedData.allData
+              // A snapshot written before the store spoke one shape (or by a
+              // host that saved authored arrays) is normalised on the way in,
+              // so the restored slice matches what the mirror will report.
+              normalizeRepeatableSlices(persistedData.allData, workflowConfig.steps)
             );
 
             // Keys the user already set before the load resolved WIN over the

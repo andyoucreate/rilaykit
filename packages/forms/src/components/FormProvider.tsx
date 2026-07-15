@@ -246,7 +246,19 @@ export function FormProvider({
   // keys alone can only ever report additions and updates — a key that is gone
   // is not in `values` to be compared — which makes every listener's copy of
   // the form data append-only.
-  useEffect(() => {
+  //
+  // This MUST be a LAYOUT effect, for the same reason as the form-id reset
+  // above. These callbacks are the ONLY channel through which a host learns
+  // what the form holds. A passive effect is flushed in a scheduler macrotask,
+  // leaving a window in which the form is committed and interactive while
+  // NOTHING is listening — and a write landing there is not merely reported
+  // late, it becomes this subscription's own `prevValues` baseline and is lost
+  // forever. The window is real: a child that prefills on mount runs its
+  // effects before its parent's, and a workflow step re-keyed by a resolving
+  // persistence load re-mounts the whole form into exactly this state — the
+  // user's next edit (or a repeatable row they delete) never reaches the step's
+  // captured data, and the flow submits the stale slice.
+  useIsomorphicLayoutEffect(() => {
     const unsubscribe = store.subscribe(
       (state) => state.values,
       (values, prevValues) => {
@@ -289,7 +301,10 @@ export function FormProvider({
   const onRepeatableOrderChangeRef = useRef(onRepeatableOrderChange);
   onRepeatableOrderChangeRef.current = onRepeatableOrderChange;
 
-  useEffect(() => {
+  // Layout effect, like the value mirror above: `onRepeatableOrderChange` is
+  // host-facing state the host cannot reconstruct from the values, so an order
+  // change landing in the passive-flush window would never be reported.
+  useIsomorphicLayoutEffect(() => {
     const unsubscribe = store.subscribe(
       (state) => state._repeatableOrder,
       (order) => {
