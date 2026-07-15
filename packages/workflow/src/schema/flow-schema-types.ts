@@ -1,4 +1,4 @@
-import type { StepAllowSkip, StepConditionalBehavior } from '@rilaykit/core';
+import type { StepAllowSkip, StepConditionalBehavior, WorkflowConfig } from '@rilaykit/core';
 import type { Bindings, FormSchema } from '@rilaykit/forms';
 import type { StepDefinition } from '../builders/flow';
 
@@ -66,3 +66,16 @@ export type CompileFlowOptions = {
   /** Resolution for the schema's allowSkip/after/validator/effect string references. */
   readonly bindings?: FlowBindings;
 };
+
+/**
+ * Result of `compileFlow()` — the mirror of `FormSchemaResult`.
+ *
+ * `WorkflowConfig` has no defaults slot, so each step's compiled defaults come
+ * back out of band, keyed by step id (`{ stepA: { field: value } }`) — exactly
+ * the shape `<Flow defaults>` / `WorkflowProvider.defaultValues` consume.
+ */
+export interface FlowSchemaResult {
+  readonly workflowConfig: WorkflowConfig;
+  /** Per-step defaults keyed by step id; `undefined` when no step declares any. */
+  readonly defaultValues?: Record<string, unknown>;
+}

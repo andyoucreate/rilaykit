@@ -70,7 +70,7 @@ describe('compileFlow', () => {
       ],
     };
 
-    const config = compileFlow(schema, makeCatalog());
+    const { workflowConfig: config } = compileFlow(schema, makeCatalog());
 
     expect(config.id).toBe('wf');
     expect(config.name).toBe('Onboarding');
@@ -80,6 +80,59 @@ describe('compileFlow', () => {
     expect(config.steps[0]?.description).toBe('Who you are');
     expect(config.steps[0]?.formConfig.allFields.map((f) => f.id)).toEqual(['name']);
     expect(config.steps[1]?.formConfig.allFields.map((f) => f.id)).toEqual(['siren']);
+  });
+
+  it('returns each step’s compiled defaults keyed by step id', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'personal',
+          title: 'Personal',
+          form: {
+            version: 1,
+            id: 'personal',
+            fields: [{ id: 'name', type: 'text', default: 'Ada' }],
+          },
+        },
+        {
+          id: 'company',
+          title: 'Company',
+          form: {
+            version: 1,
+            id: 'company',
+            fields: [{ id: 'siren', type: 'text', default: 'inline' }],
+            // The schema-level block is the explicit override and wins.
+            defaultValues: { siren: '123' },
+          },
+        },
+        // Declares no defaults — contributes no key.
+        {
+          id: 'bare',
+          title: 'Bare',
+          form: { version: 1, id: 'bare', fields: [{ id: 'x', type: 'text' }] },
+        },
+      ],
+    };
+
+    const { defaultValues } = compileFlow(schema, makeCatalog());
+
+    expect(defaultValues).toEqual({ personal: { name: 'Ada' }, company: { siren: '123' } });
+  });
+
+  it('omits defaultValues when no step declares any', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        { id: 'a', title: 'A', form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] } },
+      ],
+    };
+
+    expect(compileFlow(schema, makeCatalog()).defaultValues).toBeUndefined();
   });
 
   it('resolves allowSkip predicate and onAfterValidation via bindings', () => {
@@ -105,7 +158,7 @@ describe('compileFlow', () => {
       ],
     };
 
-    const config = compileFlow(schema, makeCatalog(), { bindings });
+    const { workflowConfig: config } = compileFlow(schema, makeCatalog(), { bindings });
 
     const allowSkip = config.steps[0]?.allowSkip;
     expect(typeof allowSkip).toBe('function');
@@ -152,7 +205,7 @@ describe('compileFlow', () => {
       ],
     };
 
-    const config = compileFlow(schema, makeCatalog());
+    const { workflowConfig: config } = compileFlow(schema, makeCatalog());
 
     expect(config.steps[0]?.allowSkip).toBe(true);
     expect(config.steps[1]?.allowSkip).toBe(false);
@@ -178,7 +231,7 @@ describe('compileFlow', () => {
       ],
     };
 
-    const config = compileFlow(schema, makeCatalog());
+    const { workflowConfig: config } = compileFlow(schema, makeCatalog());
 
     expect(config.steps[0]?.conditions).toEqual(conditions);
     expect(config.steps[0]?.metadata).toEqual(metadata);
@@ -277,7 +330,7 @@ describe('compileFlow', () => {
       ],
     };
 
-    const config = compileFlow(schema, makeCatalog(), { bindings });
+    const { workflowConfig: config } = compileFlow(schema, makeCatalog(), { bindings });
 
     const validate = config.steps[0]?.formConfig.allFields[0]?.validation
       ?.validate as StandardSchema;

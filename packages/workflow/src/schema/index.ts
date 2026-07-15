@@ -6,5 +6,6 @@ export type {
   CompileFlowOptions,
   FlowBindings,
   FlowSchema,
+  FlowSchemaResult,
   FlowSchemaStep,
 } from './flow-schema-types';

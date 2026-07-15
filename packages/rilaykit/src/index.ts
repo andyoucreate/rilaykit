@@ -41,6 +41,7 @@ export {
   type CompileFlowOptions,
   type FlowBindings,
   type FlowSchema,
+  type FlowSchemaResult,
   type FlowSchemaStep,
 } from '@rilaykit/workflow';
 

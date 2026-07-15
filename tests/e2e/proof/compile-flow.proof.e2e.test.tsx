@@ -49,7 +49,8 @@ const SCHEMA_JSON = `{
         "fields": [
           { "id": "billingEmail", "type": "text" },
           { "id": "vat", "type": "text" }
-        ]
+        ],
+        "defaultValues": { "vat": "FR-UNKNOWN" }
       }
     }
   ]
@@ -83,13 +84,13 @@ describe('PROOF compileFlow — server JSON → live validated multi-step flow',
     const prefillBilling = vi.fn((step: StepContext) => {
       step.next.prefill({ billingEmail: step.data.email });
     });
-    const config = compileFlow(parseSchema(), createProofRil(), {
+    const { workflowConfig } = compileFlow(parseSchema(), createProofRil(), {
       bindings: createBindings(prefillBilling),
     });
     const onComplete = vi.fn();
 
     render(
-      <Flow of={config} onComplete={onComplete}>
+      <Flow of={workflowConfig} onComplete={onComplete}>
         <Flow.Progress>
           {({ steps }) => <span data-testid="progress">{steps.map((s) => s.id).join(',')}</span>}
         </Flow.Progress>
@@ -142,11 +143,11 @@ describe('PROOF compileFlow — server JSON → live validated multi-step flow',
 
   /** Drives the JSON flow to the billing step with the given account email. */
   async function reachBillingWith(email: string): Promise<void> {
-    const config = compileFlow(parseSchema(), createProofRil(), {
+    const { workflowConfig } = compileFlow(parseSchema(), createProofRil(), {
       bindings: createBindings(() => {}),
     });
     render(
-      <Flow of={config}>
+      <Flow of={workflowConfig}>
         <Flow.Body />
         <Flow.Next>Next</Flow.Next>
         <Flow.Skip>Skip</Flow.Skip>
@@ -168,45 +169,69 @@ describe('PROOF compileFlow — server JSON → live validated multi-step flow',
   });
 
   /**
-   * KNOWN P2 GAP — pinned, not endorsed.
+   * A JSON-authored flow carries its own initial values.
    *
-   * `compileForm` returns defaults OUT OF BAND (`{ formConfig, defaultValues }`)
-   * because `FormConfiguration` has no defaults slot; the consumer forwards them
-   * via `<Form defaults>`. `compileFlow` returns a bare `WorkflowConfig`, which
-   * has no defaults slot either and no out-of-band channel — so a step form's
-   * `defaultValues` block AND its per-field inline `default` (the P2
-   * streaming-friendly feature) are both silently dropped. A JSON-authored flow
-   * therefore cannot carry initial values: the consumer must hand-write the
-   * step-namespaced `<Flow defaults>` that the JSON already described.
-   *
-   * This test pins the CURRENT contract exactly, so the day the slot is added
-   * this fails and must be rewritten into the positive assertion.
+   * `compileFlow` is symmetric with `compileForm`: because `WorkflowConfig` has
+   * no defaults slot, the compiled defaults come back OUT OF BAND, already keyed
+   * by step id — exactly the shape `<Flow defaults>` consumes. Both JSON default
+   * channels reach the live step: a step form's `defaultValues` block AND a
+   * per-field inline `default` (the P2 streaming-friendly feature).
    */
-  it('drops a step form’s JSON defaults — WorkflowConfig has no defaults slot (known gap)', async () => {
+  it('carries a step form’s JSON defaults — both the defaultValues block and the per-field inline default reach the live step', async () => {
     const schema: FlowSchema = parseSchema();
+    // The two JSON default channels, as authored by the backend.
     expect(schema.steps[0]?.form.fields?.[1]).toEqual({
       id: 'company',
       type: 'text',
       default: 'Acme',
     });
+    expect(schema.steps[1]?.form.defaultValues).toEqual({ vat: 'FR-UNKNOWN' });
 
-    const config = compileFlow(schema, createProofRil(), { bindings: createBindings(() => {}) });
+    const { workflowConfig, defaultValues } = compileFlow(schema, createProofRil(), {
+      bindings: createBindings(() => {}),
+    });
+
+    // Compiled defaults are namespaced by step id — no step without defaults is keyed.
+    expect(defaultValues).toEqual({
+      account: { company: 'Acme' },
+      billing: { vat: 'FR-UNKNOWN' },
+    });
+
     render(
-      <Flow of={config}>
+      <Flow of={workflowConfig} defaults={defaultValues}>
         <Flow.Body />
+        <Flow.Next>Next</Flow.Next>
       </Flow>
     );
 
-    // The JSON said `Acme`; the live step renders empty.
-    expect(((await screen.findByTestId('company')) as HTMLInputElement).value).toBe('');
+    // The JSON said `Acme` — the live step renders `Acme`.
+    expect(((await screen.findByTestId('company')) as HTMLInputElement).value).toBe('Acme');
 
-    // The consumer's only recourse today: restate the defaults, step-namespaced.
-    render(
-      <Flow of={config} defaults={{ account: { company: 'Acme' } }}>
-        <Flow.Body />
-      </Flow>
-    );
-    const seeded = await screen.findAllByTestId('company');
-    expect((seeded[1] as HTMLInputElement).value).toBe('Acme');
+    // And the next step's `defaultValues` block seeds it too, through the real store.
+    fireEvent.change(screen.getByTestId('email'), { target: { value: 'ada@acme.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(((await screen.findByTestId('vat')) as HTMLInputElement).value).toBe('FR-UNKNOWN');
+  });
+
+  it('omits defaultValues entirely for a flow whose steps declare none', () => {
+    const schema: FlowSchema = parseSchema();
+    const bare: FlowSchema = {
+      ...schema,
+      steps: schema.steps.map((step) => ({
+        ...step,
+        form: {
+          ...step.form,
+          defaultValues: undefined,
+          fields: step.form.fields?.map(({ default: _default, ...field }) => field),
+        },
+      })),
+    };
+
+    const { workflowConfig, defaultValues } = compileFlow(bare, createProofRil(), {
+      bindings: createBindings(() => {}),
+    });
+
+    expect(defaultValues).toBeUndefined();
+    expect(workflowConfig.steps.map((s) => s.id)).toEqual(['account', 'billing']);
   });
 });
