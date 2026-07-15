@@ -1,5 +1,21 @@
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { describe, expect, it } from 'vitest';
+import { flow } from '../../src/builders/flow';
 import { createWorkflowStore } from '../../src/stores';
+
+/**
+ * The store names the mirror's owner from its OWN steps, so a test that wants a
+ * store able to tell a cross-step write from a current-step one hands it steps —
+ * the same configuration the provider builds. A store without `steps` cannot
+ * enforce either of its invariants and would make these assertions vacuous.
+ */
+const catalog = ril.create();
+const STEPS = flow
+  .create(catalog, 'wf', 'W')
+  .addStep({ id: 'one', title: 'One', formConfig: form.create(catalog, 'f1') })
+  .addStep({ id: 'two', title: 'Two', formConfig: form.create(catalog, 'f2') })
+  .build().steps;
 
 /**
  * `stepData` is the CURRENT step's mirror, and `allData` is the source of truth.
@@ -17,7 +33,7 @@ describe('workflowStore — a cross-step write leaves the current step mirror al
     const store = createWorkflowStore({
       defaultValues: { one: { a: 'A' }, two: { b: 'B' } },
       defaultStepIndex: 1,
-      currentStepId: 'two',
+      steps: STEPS,
     });
 
     store.getState()._setStepData({ b: 'B', seen: true }, 'two');
@@ -34,10 +50,10 @@ describe('workflowStore — a cross-step write leaves the current step mirror al
   it('follows the current step as navigation moves it', () => {
     const store = createWorkflowStore({
       defaultValues: { one: { a: 'A' }, two: { b: 'B' } },
-      currentStepId: 'one',
+      steps: STEPS,
     });
 
-    store.getState()._setCurrentStep(1, 'two');
+    store.getState()._setCurrentStep(1);
     store.getState()._setStepData({ b: 'B2' }, 'two');
 
     expect(store.getState().stepData).toEqual({ b: 'B2' });

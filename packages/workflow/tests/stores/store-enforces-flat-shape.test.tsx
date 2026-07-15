@@ -186,7 +186,8 @@ describe('the store enforces its invariant with NO exempt action', () => {
   const STEPS = buildFlow().steps;
 
   it('_setFieldValue flattens a host-authored repeatable array', () => {
-    const store = createWorkflowStore({ steps: STEPS, currentStepId: 'items' });
+    // 'items' is step 1: the store names the mirror's owner from its own steps.
+    const store = createWorkflowStore({ steps: STEPS, defaultStepIndex: 1 });
 
     store.getState()._setFieldValue('lines', [{ label: 'a' }], 'items');
 

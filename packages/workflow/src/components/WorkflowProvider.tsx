@@ -218,7 +218,6 @@ export function WorkflowProvider({
       // the public `useFlowActions()` ones this provider never sees.
       steps: workflowConfig.steps,
       defaultStepIndex,
-      currentStepId: workflowConfig.steps[defaultStepIndex]?.id,
       initialVisitedSteps: initialSteps.visitedSteps,
       initialPassedSteps: initialSteps.passedSteps,
     });
@@ -259,13 +258,14 @@ export function WorkflowProvider({
     return unsubscribe;
   }, [store]);
 
-  // Create stable action functions
-  // Name the step as well as its index: the store keys its `stepData` mirror by
-  // step id so a cross-step write cannot claim it.
+  // Create stable action functions.
+  // The store keys its `stepData` mirror by step id and derives that id from the
+  // index itself — this caller does not name the step, because a caller that can
+  // name it is a caller that can forget to. See `createWorkflowStore`'s
+  // `ownerOf`.
   const setCurrentStep = useCallback(
-    (stepIndex: number) =>
-      store.getState()._setCurrentStep(stepIndex, workflowConfig.steps[stepIndex]?.id),
-    [store, workflowConfig.steps]
+    (stepIndex: number) => store.getState()._setCurrentStep(stepIndex),
+    [store]
   );
 
   // Every wholesale slice write from host-authored data lands here — the form's
@@ -408,10 +408,9 @@ export function WorkflowProvider({
 
             store.getState()._loadPersistedState({
               currentStepIndex: safeIndex,
-              // The restored index names a different step: the mirror's owner
-              // moves with it, or the next write to the restored step would be
-              // taken for a cross-step write and withheld.
-              _currentStepId: persistedStepId ?? null,
+              // The mirror's owner moves with the restored index on its own —
+              // the store derives it from `currentStepIndex`. See
+              // `createWorkflowStore`'s `ownerOf`.
               allData: mergedAllData,
               stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),

@@ -220,12 +220,18 @@ export function useWorkflowNavigation({
 
         const newStepId = workflowConfig.steps[stepIndex].id;
 
+        // The MIRROR re-seed is the store's, not this caller's: `setCurrentStep`
+        // re-seeds `stepData` from the target's slice as part of the move, so
+        // the PUBLIC `useFlowActions().setCurrentStep` — the same move, one door
+        // over — cannot leak the previous step's fields the way it did while
+        // this function was the only thing re-seeding.
         setCurrentStep(stepIndex);
         markStepVisited(stepIndex, newStepId);
 
-        // Reset stepData to the target step's existing data to prevent
-        // leaking fields from the previous step into the new step's data.
-        // Read through getAllData(): onAfterValidation may have just written
+        // Still owed by navigation, and NOT the same thing: this MATERIALISES
+        // the target's slice in `allData`, so a step the user has visited
+        // appears in the completion payload even when they typed nothing into
+        // it. Read through getAllData(): onAfterValidation may have just written
         // prefill data that the render-time snapshot does not contain yet.
         const existingStepData = (getAllData()[newStepId] || {}) as Record<string, any>;
         setStepData(existingStepData, newStepId);

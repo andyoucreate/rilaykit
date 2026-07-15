@@ -45,7 +45,19 @@ export interface WorkflowStoreState {
    *
    * `null` means the store cannot tell a cross-step write from a current-step
    * one, so it publishes the mirror as before rather than silently withholding
-   * it. Every write through WorkflowProvider names its step.
+   * it — the case of a store created without `steps`.
+   *
+   * DERIVED, NEVER PASSED IN. This used to be a value each caller handed the
+   * store alongside the index, justified by "every write through
+   * WorkflowProvider names its step" — true of the provider and false of the
+   * PUBLIC `useFlowActions().setCurrentStep` / `.loadPersistedState`, which
+   * moved the index and left the mirror behind. The desync was permanent:
+   * nothing else re-named the step, so every later write to the real current
+   * step was misread as a cross-step write and withheld forever.
+   *
+   * So it is not a parameter, it is a function of the index: every path that
+   * moves `currentStepIndex` re-derives this from the store's own `steps`. No
+   * caller can be the one who forgot, because no caller is asked to remember.
    */
   _currentStepId: string | null;
   /**
@@ -87,7 +99,7 @@ export interface WorkflowStoreState {
   _seedGeneration: number;
 
   // Actions (internal - prefixed with _)
-  _setCurrentStep: (stepIndex: number, stepId?: string) => void;
+  _setCurrentStep: (stepIndex: number) => void;
   _setStepData: (data: Record<string, unknown>, stepId: string) => void;
   _setAllData: (data: Record<string, unknown>) => void;
   _setFieldValue: (fieldId: string, value: unknown, stepId: string) => void;
@@ -163,8 +175,6 @@ export type WorkflowStore = ReturnType<typeof createWorkflowStore>;
 export interface CreateWorkflowStoreOptions {
   defaultValues?: Record<string, unknown>;
   defaultStepIndex?: number;
-  /** The id of the step at `defaultStepIndex`. See {@link WorkflowStoreState._currentStepId}. */
-  currentStepId?: string;
   /**
    * The flow's steps, for the repeatable configs the store normalises against.
    * See {@link normalizeSlice}. Omitted, the store cannot recognise an authored
@@ -179,11 +189,21 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   const {
     defaultValues = {},
     defaultStepIndex = 0,
-    currentStepId = null,
     steps = [],
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
   } = options;
+
+  /**
+   * THE SECOND INVARIANT, enforced the same way as the first.
+   *
+   * The step that owns the `stepData` mirror is the step the user is ON — a
+   * function of the index, never a value a caller supplies. See
+   * {@link WorkflowStoreState._currentStepId}. An out-of-range index or a store
+   * created without `steps` yields `null`: the store cannot name an owner, so
+   * `mirrorIfCurrent` publishes rather than withholds.
+   */
+  const ownerOf = (stepIndex: number): string | null => steps[stepIndex]?.id ?? null;
 
   /**
    * THE INVARIANT, enforced where it belongs.
@@ -229,17 +249,41 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       // Internal state
       _defaultValues: initialAllData,
       _defaultStepIndex: defaultStepIndex,
-      _currentStepId: currentStepId,
+      _currentStepId: ownerOf(defaultStepIndex),
       _repeatableOrders: {},
       _seedGeneration: 0,
 
       // Actions
-      _setCurrentStep: (stepIndex, stepId) => {
-        set(
-          stepId === undefined
-            ? { currentStepIndex: stepIndex }
-            : { currentStepIndex: stepIndex, _currentStepId: stepId }
-        );
+      /**
+       * Move navigation, and take the mirror with it.
+       *
+       * `stepData` is a view of the CURRENT step, so moving the index re-seeds
+       * it from the target's slice — otherwise the new step publishes the
+       * PREVIOUS step's values until something happens to write to it.
+       * `goToStep` used to do this re-seed itself ("to prevent leaking fields
+       * from the previous step"), which is the store's invariant enforced at one
+       * caller: the public `useFlowActions().setCurrentStep` is the same action
+       * without the re-seed, and it leaked exactly the fields that comment names.
+       *
+       * The slice is read from live state, which is strictly better than any
+       * caller's snapshot — an `onAfterValidation` prefill written moments ago is
+       * already in it.
+       *
+       * A store that cannot name an owner (no `steps`, or an out-of-range index)
+       * cannot re-seed either: it leaves the mirror alone rather than blanking
+       * it, matching {@link mirrorIfCurrent}'s treatment of a `null` owner.
+       */
+      _setCurrentStep: (stepIndex) => {
+        set((state) => {
+          const owner = ownerOf(stepIndex);
+          return owner === null
+            ? { currentStepIndex: stepIndex, _currentStepId: null }
+            : {
+                currentStepIndex: stepIndex,
+                _currentStepId: owner,
+                stepData: readStepSlice(state, owner),
+              };
+        });
       },
 
       _setStepData: (data, stepId) => {
@@ -357,7 +401,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           allData: { ...state._defaultValues },
           stepData: {},
           // The index returns to its default, so the mirror's owner does too.
-          _currentStepId: currentStepId,
+          _currentStepId: ownerOf(state._defaultStepIndex),
           _repeatableOrders: {},
           visitedSteps: new Set(),
           passedSteps: new Set(),
@@ -370,24 +414,33 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       },
 
       _loadPersistedState: (persistedState) => {
-        set((state) => ({
-          ...state,
-          ...persistedState,
-          // A snapshot is host-authored data like any other: it may have been
-          // written by a build that stored authored arrays, or by a host that
-          // saved its own. It comes in through the same guard.
-          ...(persistedState.allData
-            ? {
-                allData: normalizeRepeatableSlices(persistedState.allData, steps),
-              }
-            : {}),
-          isInitializing: false,
-          // A restore REPLACES the seed the mounted form was built from, so the
-          // form owes itself a re-seed. This is the only thing that earns a
-          // remount here: the load merely RESOLVING earns nothing, and used to
-          // cost the user their validation errors and their focus.
-          _seedGeneration: state._seedGeneration + 1,
-        }));
+        set((state) => {
+          const restored = { ...state, ...persistedState };
+          return {
+            ...restored,
+            // A snapshot is host-authored data like any other: it may have been
+            // written by a build that stored authored arrays, or by a host that
+            // saved its own. It comes in through the same guard.
+            ...(persistedState.allData
+              ? {
+                  allData: normalizeRepeatableSlices(persistedState.allData, steps),
+                }
+              : {}),
+            // A restore MOVES the index — `currentStepIndex` is part of the
+            // snapshot — so the mirror's owner is re-derived from where the
+            // restore actually landed. Any `_currentStepId` in the snapshot is
+            // ignored on purpose: it is the index that says where the user is,
+            // and a snapshot carrying a stale pair must not be able to reinstate
+            // the desync this derivation exists to make unrepresentable.
+            _currentStepId: ownerOf(restored.currentStepIndex),
+            isInitializing: false,
+            // A restore REPLACES the seed the mounted form was built from, so
+            // the form owes itself a re-seed. This is the only thing that earns
+            // a remount here: the load merely RESOLVING earns nothing, and used
+            // to cost the user their validation errors and their focus.
+            _seedGeneration: state._seedGeneration + 1,
+          };
+        });
       },
     }))
   );
