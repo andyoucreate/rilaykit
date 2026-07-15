@@ -147,7 +147,96 @@ describe('validateFlowSchema', () => {
     expect(issues).toEqual([
       {
         path: 'version',
-        message: 'Unsupported flow schema version "2". Only version 1 is supported.',
+        message: 'Unsupported Flow schema version "2". Only version 1 is supported.',
+        severity: 'error',
+      },
+    ]);
+  });
+
+  it('does not throw on a warning-only schema', () => {
+    const result = validateFlowSchema(
+      {
+        version: 1,
+        id: 'wf',
+        name: 'W',
+        steps: [
+          {
+            id: 'a',
+            title: 'A',
+            form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+            conditions: { visible: { field: '', operator: 'equals', value: true } },
+          },
+        ],
+      },
+      makeCatalog()
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it('reports warnings alongside errors in the thrown payload', () => {
+    const issues = issuesOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'wf',
+          name: 'W',
+          steps: [
+            {
+              id: 'a',
+              title: 'A',
+              form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+              conditions: { visible: { field: '', operator: 'equals', value: true } },
+            },
+            {
+              id: 'a',
+              title: 'A2',
+              form: { version: 1, id: 'a2', fields: [{ id: 'y', type: 'text' }] },
+            },
+          ],
+        },
+        makeCatalog()
+      )
+    );
+    expect(issues).toEqual([
+      {
+        path: 'steps[0].conditions.visible.field',
+        message: 'Leaf condition must have a non-empty "field"',
+        severity: 'warning',
+      },
+      { path: 'steps[1].id', message: 'Duplicate step id "a"', severity: 'error' },
+    ]);
+  });
+
+  it('resolves a step form effect handler through the supplied bindings', () => {
+    const schema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'a',
+          title: 'A',
+          form: {
+            version: 1,
+            id: 'a',
+            fields: [
+              { id: 'x', type: 'text', effects: [{ watch: 'x', handler: 'h', set: 'x' }] },
+            ],
+          },
+        },
+      ],
+    } as const;
+
+    expect(
+      validateFlowSchema(schema as never, makeCatalog(), {
+        effects: { h: () => ({ value: 'ok' }) },
+      })
+    ).toBeUndefined();
+
+    expect(issuesOf(() => validateFlowSchema(schema as never, makeCatalog()))).toEqual([
+      {
+        path: 'steps[0].form.fields[0].effects[0].handler',
+        message: 'Effect handler "h" not found in registry',
         severity: 'error',
       },
     ]);
@@ -370,5 +459,8 @@ describe('isFlowSchema', () => {
     expect(isFlowSchema({ id: 'w', name: 'W', steps: 'nope' })).toBe(false);
     expect(isFlowSchema(null)).toBe(false);
     expect(isFlowSchema('wf')).toBe(false);
+    expect(isFlowSchema({ id: '', name: 'W', steps: [] })).toBe(false);
+    expect(isFlowSchema({ id: 'w', name: 'W', version: 2, steps: [] })).toBe(false);
+    expect(isFlowSchema({ id: 'w', name: 'W', version: 1, steps: [] })).toBe(true);
   });
 });

@@ -39,7 +39,7 @@ import type {
   ValidationDescriptorObject,
 } from './types';
 import { SchemaValidationError } from './types';
-import { validateSchemaEnvelope } from './validate-envelope';
+import { isSchemaEnvelope, validateSchemaEnvelope } from './validate-envelope';
 
 // =================================================================
 // BUILT-IN VALIDATOR NAMES
@@ -159,15 +159,12 @@ export function compileForm<C extends Record<string, any>>(
  * Type guard — checks if a value conforms to the FormSchema structure.
  */
 export function isFormSchema(value: unknown): value is FormSchema {
-  if (typeof value !== 'object' || value === null) return false;
+  if (!isSchemaEnvelope(value)) return false;
   const obj = value as Record<string, unknown>;
-  if (typeof obj.id !== 'string' || obj.id.length === 0) return false;
   const hasFields = Array.isArray(obj.fields);
   const hasRows = Array.isArray(obj.rows);
-  if (!hasFields && !hasRows) return false;
-  if (hasFields && hasRows) return false;
-  if (obj.version !== undefined && obj.version !== 1) return false;
-  return true;
+  // Exactly one of "fields" / "rows" — the form-specific half of the guard.
+  return hasFields !== hasRows;
 }
 
 // =================================================================
@@ -196,7 +193,7 @@ export function validateSchema<C extends Record<string, any>>(
   const issues: SchemaIssue[] = [];
 
   // Top-level structure
-  validateSchemaEnvelope(schema, { schemaLabel: 'Form schema', versionLabel: 'schema' }, issues);
+  validateSchemaEnvelope(schema, 'Form schema', issues);
 
   const hasFields = Array.isArray(schema.fields);
   const hasRows = Array.isArray(schema.rows);

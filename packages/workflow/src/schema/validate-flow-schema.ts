@@ -1,12 +1,14 @@
 import type { RilayInstance } from '@rilaykit/core';
 import {
+  type FormSchema,
+  isSchemaEnvelope,
   type SchemaIssue,
   SchemaValidationError,
   validateConditionConfig,
   validateSchema,
   validateSchemaEnvelope,
 } from '@rilaykit/forms';
-import type { FlowSchema, FlowSchemaStep } from './flow-schema-types';
+import type { FlowBindings, FlowSchema, FlowSchemaStep } from './flow-schema-types';
 
 // =================================================================
 // FLOW SCHEMA VALIDATION
@@ -20,19 +22,19 @@ import type { FlowSchema, FlowSchemaStep } from './flow-schema-types';
  * shared `validateConditionConfig` walker — so step conditions and field
  * conditions enforce an identical rule set.
  *
+ * `bindings` resolves the schema's string references (validators, effects) —
+ * without it, every such reference is reported as unresolved.
+ *
  * @throws {SchemaValidationError} when any `error`-severity issue is found.
  */
 export function validateFlowSchema<C extends Record<string, unknown>>(
   schema: FlowSchema,
-  catalog: RilayInstance<C>
+  catalog: RilayInstance<C>,
+  bindings?: FlowBindings
 ): void {
   const issues: SchemaIssue[] = [];
 
-  validateSchemaEnvelope(
-    schema,
-    { schemaLabel: 'Flow schema', versionLabel: 'flow schema' },
-    issues
-  );
+  validateSchemaEnvelope(schema, 'Flow schema', issues);
 
   if (!schema.name || typeof schema.name !== 'string') {
     issues.push({
@@ -53,7 +55,7 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
   } else {
     const seen = new Set<string>();
     for (let i = 0; i < schema.steps.length; i++) {
-      validateStep(schema.steps[i], `steps[${i}]`, catalog, seen, issues);
+      validateStep(schema.steps[i], `steps[${i}]`, catalog, bindings, seen, issues);
     }
   }
 
@@ -66,19 +68,15 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
 /**
  * Structural type guard for a `FlowSchema`.
  *
- * Checks shape only (`id`/`name` strings, `steps` array) — use
- * `validateFlowSchema` for catalog-aware validation.
+ * Checks shape only (envelope `id`/`version`, `name` string, `steps` array) —
+ * use `validateFlowSchema` for catalog-aware validation.
  */
 export function isFlowSchema(value: unknown): value is FlowSchema {
-  if (value === null || typeof value !== 'object') {
+  if (!isSchemaEnvelope(value)) {
     return false;
   }
   const candidate = value as Partial<FlowSchema>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    Array.isArray(candidate.steps)
-  );
+  return typeof candidate.name === 'string' && Array.isArray(candidate.steps);
 }
 
 // =================================================================
@@ -89,6 +87,7 @@ function validateStep<C extends Record<string, unknown>>(
   step: FlowSchemaStep,
   path: string,
   catalog: RilayInstance<C>,
+  bindings: FlowBindings | undefined,
   seen: Set<string>,
   issues: SchemaIssue[]
 ): void {
@@ -124,7 +123,7 @@ function validateStep<C extends Record<string, unknown>>(
       severity: 'error',
     });
   } else {
-    collectFormIssues(step, path, catalog, issues);
+    collectFormIssues(step.form, path, catalog, bindings, issues);
   }
 
   if (step.conditions?.visible) {
@@ -136,13 +135,14 @@ function validateStep<C extends Record<string, unknown>>(
 }
 
 function collectFormIssues<C extends Record<string, unknown>>(
-  step: FlowSchemaStep,
+  form: FormSchema,
   path: string,
   catalog: RilayInstance<C>,
+  bindings: FlowBindings | undefined,
   issues: SchemaIssue[]
 ): void {
   try {
-    validateSchema(step.form, catalog);
+    validateSchema(form, catalog, bindings);
   } catch (error) {
     if (!(error instanceof SchemaValidationError)) {
       throw error;

@@ -4,12 +4,17 @@ import type { SchemaIssue } from './types';
 // SCHEMA ENVELOPE VALIDATION
 // =================================================================
 
-/** Nouns used to phrase envelope issues for a given schema kind. */
-export interface SchemaEnvelopeLabels {
-  /** Subject of the "id" message, e.g. "Form schema" / "Flow schema". */
-  readonly schemaLabel: string;
-  /** Noun in the version message, e.g. "schema" / "flow schema". */
-  readonly versionLabel: string;
+/**
+ * Structural guard for the `id`/`version` envelope shared by every schema.
+ *
+ * Single source of truth for the guard half of the envelope rules — form and
+ * flow guards both delegate here, so a new rule (or version) lands once.
+ */
+export function isSchemaEnvelope(value: unknown): value is { id: string; version?: 1 } {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.id !== 'string' || obj.id.length === 0) return false;
+  return obj.version === undefined || obj.version === 1;
 }
 
 /**
@@ -17,16 +22,18 @@ export interface SchemaEnvelopeLabels {
  *
  * Single source of truth for envelope rules — form and flow schemas both
  * delegate here so a new rule (or version) lands in one place.
+ *
+ * @param schemaLabel Subject of the issue messages, e.g. "Form schema".
  */
 export function validateSchemaEnvelope(
   schema: { readonly id?: unknown; readonly version?: unknown },
-  labels: SchemaEnvelopeLabels,
+  schemaLabel: string,
   issues: SchemaIssue[]
 ): void {
   if (!schema.id || typeof schema.id !== 'string') {
     issues.push({
       path: 'id',
-      message: `${labels.schemaLabel} must have a non-empty "id"`,
+      message: `${schemaLabel} must have a non-empty "id"`,
       severity: 'error',
     });
   }
@@ -34,7 +41,7 @@ export function validateSchemaEnvelope(
   if (schema.version !== undefined && schema.version !== 1) {
     issues.push({
       path: 'version',
-      message: `Unsupported ${labels.versionLabel} version "${schema.version}". Only version 1 is supported.`,
+      message: `Unsupported ${schemaLabel} version "${schema.version}". Only version 1 is supported.`,
       severity: 'error',
     });
   }
