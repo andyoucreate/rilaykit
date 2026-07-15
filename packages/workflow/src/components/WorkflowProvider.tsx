@@ -914,9 +914,21 @@ export function WorkflowProvider({
     [workflowState?.allData, workflowState?.stepData]
   );
 
+  // A reset wipes THIS store, but the mounted form is a separate store the
+  // workflow cannot write into. FormProvider re-seeds itself only when the form
+  // it renders changes, and a reset changes no form (same step, same config) —
+  // so without this the inputs would keep showing the pre-reset values while
+  // this store believed it was empty, and the next submit would mix cleared
+  // workflow data with stale form values.
+  //
+  // Folding the reset generation into the key remounts the form, which re-seeds
+  // it from `formProviderDefaultValues` — the reset store's now-default data —
+  // by the very same path the initial mount uses. That is the point: a reset
+  // should leave the form exactly as a fresh mount would.
+  const resetCount = useStore(store, (state) => state._resetCount);
   const formProviderKey = useMemo(
-    () => workflowState.isInitializing.toString(),
-    [workflowState.isInitializing]
+    () => `${workflowState.isInitializing}:${resetCount}`,
+    [workflowState.isInitializing, resetCount]
   );
 
   return (

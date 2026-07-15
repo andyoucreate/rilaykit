@@ -36,6 +36,21 @@ export interface WorkflowStoreState {
    * re-entering a step would silently revert the user's reorder without it.
    */
   _repeatableOrders: Record<string, Record<string, string[]>>;
+  /**
+   * Bumped by every `_reset`. The mounted form is a SEPARATE store that this one
+   * cannot write into: it re-seeds itself when the form it renders is swapped,
+   * and a reset swaps no form (same step, same form id), so without a signal the
+   * inputs would keep showing the pre-reset values while this store believed it
+   * was empty — two stores silently diverging. WorkflowProvider folds this
+   * counter into the FormProvider's key, so a reset re-seeds the form exactly
+   * the way the initial mount does.
+   *
+   * A counter rather than a flag: consecutive resets must each be observable,
+   * and it lives in the STORE rather than in the provider because `_reset` has
+   * two entry points (`useFlow().resetWorkflow` and `useFlowActions().reset`)
+   * and both must propagate.
+   */
+  _resetCount: number;
 
   // Actions (internal - prefixed with _)
   _setCurrentStep: (stepIndex: number) => void;
@@ -128,6 +143,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       _defaultValues: { ...defaultValues },
       _defaultStepIndex: defaultStepIndex,
       _repeatableOrders: {},
+      _resetCount: 0,
 
       // Actions
       _setCurrentStep: (stepIndex) => {
@@ -239,6 +255,8 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           isSubmitting: false,
           isTransitioning: false,
           isInitializing: false,
+          // Signal the reset to the mounted form, which is a separate store.
+          _resetCount: state._resetCount + 1,
         });
       },
 

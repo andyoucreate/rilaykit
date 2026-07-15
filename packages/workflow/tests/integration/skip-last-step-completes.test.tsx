@@ -40,13 +40,15 @@ describe('skipping the LAST visible step completes the workflow', () => {
         title: 'Details',
         formConfig: form
           .create(config)
-          .add({ id: 'name', type: 'input', props: { label: 'Name' }, defaultValue: 'Ada' }),
+          .add({ id: 'name', type: 'input', props: { label: 'Name' } }),
       })
       .addStep({
         id: 'extras',
         title: 'Extras',
         allowSkip: true,
-        formConfig: form.create(config).add({ id: 'note', type: 'input', props: { label: 'Note' } }),
+        formConfig: form
+          .create(config)
+          .add({ id: 'note', type: 'input', props: { label: 'Note' } }),
       })
       .build();
 
