@@ -18,31 +18,31 @@ provable, but is an object-local prototype graft — NOT prototype pollution, NO
 prototype policy warranted. Fix cheaply or document; do not over-engineer.
 
 ### Batch A — finish the prototype class (my r1 miss)
-- [ ] BUG/high (golden): `_repeatableOrder`/`_repeatableNextKey`/`_repeatableConfigs` read by plain index in formStore.ts (:224,227,230,246,259,262,304,325,328,331 + :540) and `formConfig.repeatableFields?.[id]` in use-repeatable-field.ts:67 → a repeatable named `toString` CRASHES a live form (`orderedKeys.map is not a function`). `if (!config) return null` guards are defeated too (inherited method is truthy).
+- [x] BUG/high (golden): `_repeatableOrder`/`_repeatableNextKey`/`_repeatableConfigs` read by plain index in formStore.ts (:224,227,230,246,259,262,304,325,328,331 + :540) and `formConfig.repeatableFields?.[id]` in use-repeatable-field.ts:67 → a repeatable named `toString` CRASHES a live form (`orderedKeys.map is not a function`). `if (!config) return null` guards are defeated too (inherited method is truthy).
 
 ### Batch B — compiled-flow cross-step conditions
-- [ ] BUG/high (golden): cross-step field conditions in a compiled FlowSchema silently NEVER fire (visible AND required) — WorkflowProvider.tsx. This is the lilycare quote-flow core use case.
+- [x] BUG/high (golden): cross-step field conditions in a compiled FlowSchema silently NEVER fire (visible AND required) — WorkflowProvider.tsx. This is the lilycare quote-flow core use case.
 
 ### Batch C — the error contract (what P3 self-correction depends on)
-- [ ] BUG/high (golden): `effects: [null]` escapes as raw TypeError (no object guard) — compile-form.ts
-- [ ] BUG/high (golden): validateConditionConfig recursion has no object guard — a null child in a composite condition tree escapes raw — compile-form.ts
-- [ ] BUG/med (golden): a non-object `validation` on a field is SILENTLY DROPPED — invalid schema compiles with no validation — compile-form.ts
-- [ ] BUG/med: a non-array `effects` is SILENTLY DROPPED — declared effects never wire up, nothing reported — compile-form.ts
-- [ ] BUG/med: `compileForm(null)`/`compileFlow(null)` throw a raw TypeError off the first envelope read — validate-envelope.ts
-- [ ] BUG/med (golden): duplicate field ids escape the `issues[]` contract as a core ValidationError — compile-form.ts
+- [x] BUG/high (golden): `effects: [null]` escapes as raw TypeError (no object guard) — compile-form.ts
+- [x] BUG/high (golden): validateConditionConfig recursion has no object guard — a null child in a composite condition tree escapes raw — compile-form.ts
+- [x] BUG/med (golden): a non-object `validation` on a field is SILENTLY DROPPED — invalid schema compiles with no validation — compile-form.ts
+- [x] BUG/med: a non-array `effects` is SILENTLY DROPPED — declared effects never wire up, nothing reported — compile-form.ts
+- [x] BUG/med: `compileForm(null)`/`compileFlow(null)` throw a raw TypeError off the first envelope read — validate-envelope.ts
+- [x] BUG/med (golden): duplicate field ids escape the `issues[]` contract as a core ValidationError — compile-form.ts
 
 ### Batch D — validateProps actionability (P3 dependency)
-- [ ] BUG/high (golden): propsSchema issues drop the offending prop key AND expectedKeys — the spec §7 self-correction contract promises both — compile-form.ts
+- [x] BUG/high (golden): propsSchema issues drop the offending prop key AND expectedKeys — the spec §7 self-correction contract promises both — compile-form.ts
 
 ### Batch E — builder spurious rejection
-- [ ] BUG/med (golden): two repeatables cannot share a template field id (`addresses.name` + `contacts.name` — a mainstream backend shape) — form.ts. Runtime-proven sound by structureFormValues.
+- [x] BUG/med (golden): two repeatables cannot share a template field id (`addresses.name` + `contacts.name` — a mainstream backend shape) — form.ts. Runtime-proven sound by structureFormValues.
 
 ### Batch F — low / judgment
-- [ ] BUG/low: mergeDefaultValues detaches one level only — nested defaults shared across compiles and with the caller's JSON
-- [ ] BUG/low: flattenRepeatableValues `__proto__` graft (verdict: not exploitable — cheap fix or document)
-- [ ] gap/low: validateProps discards the coerced/transformed value; the renderer gets the raw one
-- [ ] gap/low: an object/array field `default` is shared by reference between defaultValues, the store and the schema
-- [ ] gap/low: a step effect can write a field belonging to no form; the phantom key reaches onComplete
+- [x] BUG/low: mergeDefaultValues detaches one level only — nested defaults shared across compiles and with the caller's JSON
+- [x] BUG/low: flattenRepeatableValues `__proto__` graft (verdict: not exploitable — cheap fix or document)
+- [x] gap/low: validateProps discards the coerced/transformed value; the renderer gets the raw one
+- [x] gap/low: an object/array field `default` is shared by reference between defaultValues, the store and the schema
+- [x] gap/low: a step effect can write a field belonging to no form; the phantom key reaches onComplete
 
 ## Round 1 inventory — 10 bugs (7 golden-path); NOT clean
 
@@ -70,6 +70,31 @@ string-keyed lookup on a plain object indexed by untrusted schema input must use
 - [x] BUG/med (golden): step `title` never validated — a title-less backend step compiles into `StepConfig { title: undefined }` — validate-flow-schema.ts
 
 ## Iteration log
+- (r2) 12 bugs found (8 golden), ALL REAL (zero false positives). Fixed TDD in 6 batches. Full gate
+  green: 172 files / 1703 tests (+41), type-check 4/4, build 6/6.
+  - Batch A (my r1 miss) swept properly. The reported 11 store sites + the hook were only part of it:
+    the audit found a THIRD crash site (`useFormConditions.ts` `repeatableOrder[id]`, unreported) and
+    — beyond the repeatable tables — the SAME class on plain FIELD ids. A field named `toString`
+    resolved `_fieldConditions.toString` to the inherited method, whose missing `visible` key rendered
+    the field HIDDEN: the field silently vanished from the form. All per-field store selectors
+    (`values`/`errors`/`touched`/`validationStates`/`_fieldConditions`/`_fieldProps`) + forms' and
+    workflow's `fieldConditions[fieldId]` now read through `getOwn`.
+  - Batch B root cause was NOT the compiled path: WorkflowProvider hands FormProvider only the current
+    step's values, and useFormConditions evaluates against the form store alone. Hand-built flows share
+    the defect identically — the negative cases only ever passed VACUOUSLY (the field was always
+    hidden). Fixed once at the shared layer via a new FormProvider `conditionValues` prop.
+  - Batch D superseded the r1 field-id-only props paths (3 tests updated deliberately). PropIssuePath
+    is derived from core's PropsValidationResult rather than importing @standard-schema/spec into
+    forms — that dep belongs to core, and forms must not rely on hoisting.
+  - Batch F taught the r1 lesson again in reverse: reusing `clonePlainData` for defaults RE-BROKE r1's
+    `__proto__` defaults fix, because the clone wrote `cloned[key] = ...` and grafted a prototype. The
+    r1 regression test caught it. `clonePlainData` now defines own properties — correct for its own
+    contract, since catalog registration reads it too.
+  - Judgment calls PINNED, not changed: the step-effect phantom key is legitimate staging (lands under
+    its own step slice; payload shape unaffected). `validateProps` coercion resolved as option (a) —
+    it now feeds the coerced value, since a propsSchema transform was otherwise meaningless.
+  - Residual: one unreproduced single test failure during a Batch F gate run; not captured by name and
+    clean across 7 consecutive full-suite runs afterwards. Worth watching, not diagnosable as-is.
 - (r1) 10 bugs found (7 golden), ALL REAL (zero false positives). Fixed TDD in 4 batches; ID-collision + prototype-guard mutation-checked. Full gate green: 160 files / 1662 tests (+51), type-check 4/4, build 6/6.
   - The prototype-key class was fixed SYSTEMICALLY: new `getOwn`/`hasOwn` primitive (core/utils/ownProperty.ts); module-owned tables → Map; consumer-owned (bindings) → own-property guard; untrusted-id accumulators → Map + Object.fromEntries. The audit found **6 MORE instances** beyond the 3 reported, incl. a hard crash (`effectsMap['toString'].push is not a function`) and the exact P1 `getFieldValue` defect recurring at repeatable-data.ts:89.
   - #7 (mixed-type props) taught a real lesson: the obvious fix (`FieldConfigFor<C>` per arg) type-checked and passed all package tests but broke EVERY playground call site — `ril.create()` carries a string index signature that collapses `keyof C & string`→`string`. Only the full `pnpm build` caught it. Shipped fix infers a tuple of component-type keys per argument instead.
