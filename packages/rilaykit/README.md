@@ -142,6 +142,53 @@ function OnboardingFlow() {
 }
 ```
 
+### 5. Or Compile It from JSON
+
+Both halves also compile from a data-only JSON payload, so a backend can author
+the form — or the whole flow — with no frontend redeployment. `bindings` resolve
+the schema's string references to real functions.
+
+```tsx
+import { Flow, Form, compileFlow, compileForm } from 'rilaykit';
+import type { Bindings, FlowBindings, FlowSchema, FormSchema } from 'rilaykit';
+
+const formSchema: FormSchema = await fetch('/api/forms/signin').then(r => r.json());
+const bindings: Bindings = {
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
+  effects: { loadCities: async (country, ctx) => { /* ... */ } },
+};
+const { formConfig, defaultValues } = compileForm(formSchema, rilay, { bindings });
+
+<Form of={formConfig} defaults={defaultValues} onSubmit={handleSubmit}>
+  <Form.Body />
+  <Form.Submit>Sign In</Form.Submit>
+</Form>;
+
+// Same for a whole flow — each step's `form` compiles through compileForm, and
+// the compiled defaults come back namespaced by step id.
+const flowSchema: FlowSchema = await fetch('/api/flows/onboarding').then(r => r.json());
+const flowBindings: FlowBindings = {
+  ...bindings,
+  after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
+  allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },
+};
+const { workflowConfig, defaultValues: flowDefaults } = compileFlow(flowSchema, rilay, {
+  bindings: flowBindings,
+});
+
+<Flow of={workflowConfig} defaults={flowDefaults} onComplete={handleComplete}>
+  <Flow.Body />
+  <Flow.Next />
+</Flow>;
+```
+
+An invalid schema throws `SchemaValidationError`, whose `issues[]` carry a JSON
+path and message, and whose `documentKind` says whether it was a `'form'` or a
+`'flow'`. See the [forms](../forms/README.md) and
+[workflow](../workflow/README.md) READMEs for the schema shape.
+
+> `fromSchema` remains as a deprecated alias for `compileForm`, and `SchemaRegistry` for `Bindings`.
+
 ## Why the All-in-One Package?
 
 | | `rilaykit` | Individual packages |
@@ -177,8 +224,8 @@ All other `ril` methods (`component`, `tool`, `part`, `use`, `renderers`, `getCo
 Everything from all three packages:
 
 - **From `@rilaykit/core`** — `ril` (unified catalog: `.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`), `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), typed errors (`RilayError` and subclasses), monitoring, condition utilities
-- **From `@rilaykit/forms`** — `form`, compound `Form` (`Form.Body`, `Form.Field`, `Form.Submit`, `Form.List`), `FormProvider`, `useForm`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.)
-- **From `@rilaykit/workflow`** — `flow`, compound `Flow` (`Flow.Body`, `Flow.Progress`, `Flow.Next`, `Flow.Back`, `Flow.Skip`), `useFlow`, `useStep`, `useFlowSteps`, `useFlowData`, `LocalStorageAdapter`, persistence, analytics, plugin hooks
+- **From `@rilaykit/forms`** — `form`, compound `Form` (`Form.Body`, `Form.Field`, `Form.Submit`, `Form.List`), `FormProvider`, `useForm`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.), the schema layer (`compileForm`, `FormSchema`, `Bindings`, `SchemaValidationError`)
+- **From `@rilaykit/workflow`** — `flow`, compound `Flow` (`Flow.Body`, `Flow.Progress`, `Flow.Next`, `Flow.Back`, `Flow.Skip`), `useFlow`, `useStep`, `useFlowSteps`, `useFlowData`, `LocalStorageAdapter`, persistence, analytics, plugin hooks, the schema layer (`compileFlow`, `FlowSchema`, `FlowBindings`, `validateFlowSchema`)
 
 ## Documentation
 

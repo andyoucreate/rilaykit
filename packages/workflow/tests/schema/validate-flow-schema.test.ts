@@ -565,3 +565,63 @@ describe('validateFlowSchema — binding resolution', () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * A flow schema's errors must announce THEMSELVES. Every SchemaValidationError
+ * message was prefixed "Invalid form schema", so a consumer handed a broken
+ * FlowSchema — or an agent self-correcting from the message — was told the wrong
+ * document type and sent looking for a form that does not exist.
+ */
+describe('validateFlowSchema error message names the FLOW document', () => {
+  function messageOf(fn: () => void): string {
+    try {
+      fn();
+    } catch (error) {
+      if (error instanceof SchemaValidationError) return error.message;
+      throw error;
+    }
+    throw new Error('expected validateFlowSchema to throw');
+  }
+
+  it('says "Invalid flow schema" for a flow-level defect', () => {
+    const message = messageOf(() =>
+      validateFlowSchema({ version: 1, id: 'f', name: 'F', steps: [] }, makeCatalog())
+    );
+
+    expect(message).toBe('Invalid flow schema: [steps] Steps array must not be empty');
+  });
+
+  it('says "Invalid flow schema" for a non-object root, where validation stops early', () => {
+    const message = messageOf(() => validateFlowSchema(null as never, makeCatalog()));
+
+    expect(message).toBe('Invalid flow schema: [] Flow schema must be an object');
+  });
+
+  it('says "Invalid flow schema" even when the defect came from a nested step FORM', () => {
+    // The issues are re-pathed from compileForm's validator; the DOCUMENT the
+    // consumer handed us is still a flow.
+    const message = messageOf(() =>
+      validateFlowSchema(
+        {
+          version: 1,
+          id: 'f',
+          name: 'F',
+          steps: [{ id: 's', title: 'S', form: { version: 1, id: 'sf' } }],
+        } as never,
+        makeCatalog()
+      )
+    );
+
+    expect(message).toBe(
+      'Invalid flow schema: [steps[0].form] Form schema must have either "fields" or "rows"'
+    );
+  });
+
+  it('still says "Invalid form schema" when a FORM schema is compiled directly', () => {
+    const error = new SchemaValidationError([
+      { path: 'fields', message: 'boom', severity: 'error' },
+    ]);
+
+    expect(error.message).toBe('Invalid form schema: [fields] boom');
+  });
+});

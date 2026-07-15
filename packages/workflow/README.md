@@ -288,6 +288,72 @@ const flow = rilay
 
 Bare defaults ship styleable data attributes: `[data-flow-progress]` (+ `data-active` per step) and `[data-flow-nav="next|back|skip"]`.
 
+### Server-Driven Workflows
+
+`compileFlow` turns a data-only JSON `FlowSchema` into a live `WorkflowConfig`
+— the whole flow, backend-authored, no frontend redeployment. Each step's
+`form` is compiled through `compileForm`, so everything the form schema
+supports works per step.
+
+```tsx
+import { Flow, compileFlow } from '@rilaykit/workflow';
+import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
+
+const schema: FlowSchema = await fetch('/api/flows/subscription').then(r => r.json());
+
+const bindings: FlowBindings = {
+  // Runs after a step validates — e.g. prefill the next step from this one
+  after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
+  // Decides whether a step may be skipped, from the data collected so far
+  allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },
+  // Per-step form bindings resolve exactly as in compileForm
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
+  effects: { loadCities: async (country, ctx) => { /* ... */ } },
+};
+
+const { workflowConfig, defaultValues } = compileFlow(schema, rilConfig, { bindings });
+
+<Flow of={workflowConfig} defaults={defaultValues} onComplete={handleComplete}>
+  <Flow.Body />
+  <Flow.Back>Back</Flow.Back>
+  <Flow.Next>Next</Flow.Next>
+</Flow>
+```
+
+```json
+{
+  "version": 1,
+  "id": "subscription",
+  "name": "Subscription",
+  "steps": [
+    {
+      "id": "account",
+      "title": "Account",
+      "onAfterValidation": "prefillBilling",
+      "form": {
+        "version": 1,
+        "id": "account",
+        "fields": [{ "id": "email", "type": "text", "validation": { "rules": ["required", "email"] } }]
+      }
+    },
+    {
+      "id": "billing",
+      "title": "Billing",
+      "allowSkip": { "binding": "freePlan" },
+      "form": { "version": 1, "id": "billing", "fields": [{ "id": "vat", "type": "text" }] }
+    }
+  ]
+}
+```
+
+`WorkflowConfig` has no defaults slot, so compiled defaults come back out of
+band, already namespaced by step id (`{ account: { ... }, billing: { ... } }`)
+— the shape `<Flow defaults>` consumes, and the shape `onComplete` returns.
+
+An invalid schema throws `SchemaValidationError` with `documentKind: 'flow'`;
+its `issues[]` name a JSON path into the flow (`steps[0].form.fields[1].type`),
+including unresolved binding references.
+
 ### Hooks
 
 | Hook | Description |

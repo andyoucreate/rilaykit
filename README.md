@@ -200,24 +200,91 @@ conditions: {
 
 ### Server-Driven Forms
 
-Generate forms from JSON schemas — no frontend redeployment needed.
+Generate forms from JSON schemas — no frontend redeployment needed. `compileForm`
+takes a data-only payload (no functions, no closures — exactly what a backend
+emits) and returns a live `FormConfiguration` plus its default values.
 
 ```tsx
-import { fromSchema } from '@rilaykit/forms';
-import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+import { custom } from '@rilaykit/core';
+import { Form, compileForm } from '@rilaykit/forms';
+import type { Bindings, FormSchema } from '@rilaykit/forms';
 
 // Backend sends the schema
 const schema: FormSchema = await fetch('/api/forms/onboarding').then(r => r.json());
 
-// Registry provides custom validators and effect handlers
-const registry: SchemaRegistry = {
-  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(v), msg) },
+// Bindings resolve the schema's string references to real functions
+const bindings: Bindings = {
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
   effects: { loadCities: async (country, { setValue, setProps }) => { /* ... */ } },
 };
 
-// Convert to FormConfiguration
-const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+const { formConfig, defaultValues } = compileForm(schema, rilConfig, { bindings });
+
+<Form of={formConfig} defaults={defaultValues} onSubmit={handleSubmit}>
+  <Form.Body />
+  <Form.Submit>Send</Form.Submit>
+</Form>
 ```
+
+The schema is plain JSON. `validation.rules` names built-in validators
+(`"required"`, `"email"`, ...) or a key from `bindings.validators`; `effects`
+name a key from `bindings.effects`; `conditions` and repeatable groups are
+supported the same way as in the builder API.
+
+```json
+{
+  "version": 1,
+  "id": "onboarding",
+  "fields": [
+    {
+      "id": "email",
+      "type": "text",
+      "props": { "label": "Work email" },
+      "validation": { "rules": ["required", "email"], "validateOnBlur": true }
+    },
+    { "id": "postalCode", "type": "text", "default": "", "validation": { "rules": [{ "type": "postalCode", "message": "5 digits" }] } }
+  ]
+}
+```
+
+Pass `{ validateProps: true }` to additionally check every field's `props`
+against its component's `propsSchema`. Failures arrive as a
+`SchemaValidationError` whose `issues[]` name the exact path to fix — the
+self-correction hook for agent-authored schemas. Props are checked, never
+rewritten.
+
+> `fromSchema` remains as a deprecated alias for `compileForm`, and `SchemaRegistry` for `Bindings`.
+
+### Server-Driven Workflows
+
+`compileFlow` does the same for a whole multi-step flow: each step's `form` is
+compiled through `compileForm`, and the compiled defaults come back namespaced
+by step id — the shape `<Flow defaults>` consumes.
+
+```tsx
+import { Flow, compileFlow } from '@rilaykit/workflow';
+import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
+
+const schema: FlowSchema = await fetch('/api/flows/subscription').then(r => r.json());
+
+const bindings: FlowBindings = {
+  // Runs after a step validates — e.g. prefill the next step from this one
+  after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
+  // Decides whether a step may be skipped, from the data collected so far
+  allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },
+};
+
+const { workflowConfig, defaultValues } = compileFlow(schema, rilConfig, { bindings });
+
+<Flow of={workflowConfig} defaults={defaultValues} onComplete={handleComplete}>
+  <Flow.Body />
+  <Flow.Back>Back</Flow.Back>
+  <Flow.Next>Next</Flow.Next>
+</Flow>
+```
+
+`onComplete` receives the collected data namespaced by step id:
+`{ account: { email: '...' }, billing: { vat: '...' } }`.
 
 ### Multi-Step Workflows
 

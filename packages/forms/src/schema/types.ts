@@ -266,18 +266,29 @@ export interface SchemaIssue {
 }
 
 /**
- * Thrown when a form schema has structural errors.
+ * Which kind of document the issues describe. Names the document in the error
+ * message so a consumer — or an agent self-correcting from the message — is
+ * told what it actually handed in. A `FlowSchema` reported as an invalid *form*
+ * schema sends the reader looking for a form that does not exist.
+ */
+export type SchemaDocumentKind = 'form' | 'flow';
+
+/**
+ * Thrown when a form or flow schema has structural errors.
  * Contains a detailed list of issues with JSON paths.
  */
 export class SchemaValidationError extends Error {
   readonly code = 'SCHEMA_VALIDATION_ERROR' as const;
   readonly issues: SchemaIssue[];
+  /** The document these issues describe. Defaults to `'form'`. */
+  readonly documentKind: SchemaDocumentKind;
 
-  constructor(issues: SchemaIssue[]) {
+  constructor(issues: SchemaIssue[], documentKind: SchemaDocumentKind = 'form') {
     const errors = issues.filter((i) => i.severity === 'error');
     const summary = errors.map((i) => `[${i.path}] ${i.message}`).join('; ');
-    super(`Invalid form schema: ${summary}`);
+    super(`Invalid ${documentKind} schema: ${summary}`);
     this.name = 'SchemaValidationError';
     this.issues = issues;
+    this.documentKind = documentKind;
   }
 }

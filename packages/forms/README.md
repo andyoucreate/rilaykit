@@ -258,12 +258,43 @@ validation: {
 Generate forms from JSON schemas sent by the backend — no frontend redeployment needed.
 
 ```tsx
-import { fromSchema } from '@rilaykit/forms';
+import { Form, compileForm } from '@rilaykit/forms';
+import type { Bindings, FormSchema } from '@rilaykit/forms';
 
-const { formConfig, defaultValues } = fromSchema(schema, rilConfig, registry);
+const schema: FormSchema = await fetch('/api/forms/onboarding').then(r => r.json());
+
+// Bindings resolve the schema's string references to real functions
+const bindings: Bindings = {
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
+  effects: { loadCities: async (country, { setValue, setProps }) => { /* ... */ } },
+};
+
+const { formConfig, defaultValues } = compileForm(schema, rilConfig, { bindings });
+
+<Form of={formConfig} defaults={defaultValues} onSubmit={handleSubmit}>
+  <Form.Body />
+  <Form.Submit>Send</Form.Submit>
+</Form>
 ```
 
-Supports validation descriptors, conditions, effects via registry handlers, and repeatable groups. See the [Server-Driven Forms guide](https://rilay.dev/forms/server-driven-forms) for details.
+The payload is data only. A field names its component `type`, its `props`, an
+optional inline `default`, `validation.rules` (built-in names like `"required"`
+/ `"email"`, or a key from `bindings.validators`), `conditions`, and `effects`
+(a key from `bindings.effects`). Use `rows` instead of `fields` for multi-field
+rows and repeatable groups.
+
+| Option | Effect |
+| --- | --- |
+| `bindings` | Resolves the schema's validator / effect string references |
+| `validateProps` | Also checks each field's `props` against its component's `propsSchema`. Checks only — props are never rewritten |
+
+A structural defect throws `SchemaValidationError`, whose `issues[]` carry a
+JSON `path`, a `message`, and (for prop issues) the component's `expectedKeys`
+— enough for a producer to correct its own emission.
+
+> `fromSchema` remains as a deprecated alias for `compileForm`, and `SchemaRegistry` for `Bindings`.
+
+See the [Server-Driven Forms guide](https://rilay.dev/forms/server-driven-forms) for details.
 
 ## Documentation
 

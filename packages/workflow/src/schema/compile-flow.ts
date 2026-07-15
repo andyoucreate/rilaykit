@@ -80,8 +80,14 @@ function compileStepForm<C extends Record<string, unknown>>(
  * const { workflowConfig, defaultValues } = compileFlow(schema, catalog, { bindings });
  * <Flow of={workflowConfig} defaults={defaultValues} onComplete={handleComplete} />
  *
- * @throws {SchemaValidationError} when the schema is structurally invalid.
- * @throws {NotFoundError} when a binding reference cannot be resolved.
+ * @throws {SchemaValidationError} for every defect in the schema as handed in —
+ *   structural errors AND unresolved `allowSkip` / `onAfterValidation` /
+ *   validator / effect binding references alike. `validateFlowSchema` runs
+ *   first and accumulates all of them, so this is what a `compileFlow` caller
+ *   normally sees. Its `documentKind` is `'flow'`.
+ * @throws {NotFoundError} only when a binding reference somehow reaches
+ *   resolution unvalidated — i.e. the resolvers' own guard, reachable by
+ *   calling them directly, not through this function.
  */
 export function compileFlow<C extends Record<string, unknown>>(
   schema: FlowSchema,

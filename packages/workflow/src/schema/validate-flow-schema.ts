@@ -39,7 +39,7 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
   // A non-object root cannot be walked any further: report and stop, rather
   // than throwing a raw TypeError off the first property read.
   if (!validateSchemaEnvelope(schema, 'Flow schema', issues)) {
-    throw new SchemaValidationError(issues);
+    throw new SchemaValidationError(issues, 'flow');
   }
 
   if (!schema.name || typeof schema.name !== 'string') {
@@ -67,7 +67,7 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
 
   const errors = issues.filter((issue) => issue.severity === 'error');
   if (errors.length > 0) {
-    throw new SchemaValidationError(issues);
+    throw new SchemaValidationError(issues, 'flow');
   }
 }
 
