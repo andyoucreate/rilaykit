@@ -280,9 +280,14 @@ export class RemoteAdapter implements RemoteMonitoringAdapter {
 }
 
 /**
- * Local storage adapter for offline support
+ * Local storage adapter for offline support — buffers MONITORING events.
+ *
+ * Named for what it stores, not just where: `@rilaykit/workflow` exports a
+ * `LocalStorageAdapter` of its own that persists workflow STATE. Two different
+ * classes cannot share one name in the `rilaykit` all-in-one package, which
+ * re-exports both.
  */
-export class LocalStorageAdapter implements MonitoringAdapter {
+export class LocalStorageMonitoringAdapter implements MonitoringAdapter {
   readonly name = 'localStorage';
   private readonly storageKey = 'rilay_monitoring_events';
   private readonly maxEvents: number;

@@ -100,6 +100,23 @@ Unchanged: `useVisitedSteps`, `usePassedSteps`, `useIsStepVisited`, `useIsStepPa
 
 Step `metadata` still exists for app-specific data and is exposed through `useStep().metadata`.
 
+## Monitoring
+
+| 0.1 | 0.2 |
+|---|---|
+| `import { LocalStorageAdapter } from '@rilaykit/core'` | `import { LocalStorageMonitoringAdapter } from '@rilaykit/core'` |
+| `new LocalStorageAdapter(1000)` | `new LocalStorageMonitoringAdapter(1000)` |
+
+Core's monitoring adapter — the one that buffers monitoring EVENTS — is renamed.
+It collided with `@rilaykit/workflow`'s `LocalStorageAdapter`, which persists
+workflow STATE: two different classes under one name. The all-in-one `rilaykit`
+package re-exports both, so the collision made its CommonJS bundle throw on
+`require()` and let one adapter silently shadow the other in the type surface.
+
+**Only core's monitoring adapter is renamed.** Workflow persistence is untouched
+— `import { LocalStorageAdapter } from '@rilaykit/workflow'` still works, and
+`rilaykit` exports both names side by side.
+
 ## Errors
 
 `RilayError.code` values changed: `VALIDATION_ERROR` → `VALIDATION`,

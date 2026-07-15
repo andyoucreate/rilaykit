@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RilayMonitor, destroyGlobalMonitoring } from '../../src/monitoring';
-import { ConsoleAdapter, LocalStorageAdapter } from '../../src/monitoring/adapters';
+import { ConsoleAdapter, LocalStorageMonitoringAdapter } from '../../src/monitoring/adapters';
 import type { MonitoringConfig, MonitoringEvent, PerformanceMetrics } from '../../src/types';
 
 describe('Monitoring Performance Tests', () => {
   let monitor: RilayMonitor;
   let consoleAdapter: ConsoleAdapter;
-  let localStorageAdapter: LocalStorageAdapter;
+  let localStorageAdapter: LocalStorageMonitoringAdapter;
 
   beforeEach(() => {
     // Clear any existing global monitor
     destroyGlobalMonitoring();
 
     consoleAdapter = new ConsoleAdapter('error'); // Only log errors to reduce noise
-    localStorageAdapter = new LocalStorageAdapter();
+    localStorageAdapter = new LocalStorageMonitoringAdapter();
 
     const config: MonitoringConfig = {
       enabled: true,
@@ -210,7 +210,7 @@ describe('Monitoring Performance Tests', () => {
       };
 
       const smallBufferMonitor = new RilayMonitor(config);
-      const adapter = new LocalStorageAdapter();
+      const adapter = new LocalStorageMonitoringAdapter();
       smallBufferMonitor.addAdapter(adapter);
 
       // Track more events than buffer size
@@ -316,7 +316,7 @@ describe('Monitoring Performance Tests', () => {
       // Construct BEFORE stubbing: the session id also consumes Math.random(),
       // which would otherwise offset the deterministic sampler sequence below.
       const sampledMonitor = new RilayMonitor(config);
-      const adapter = new LocalStorageAdapter();
+      const adapter = new LocalStorageMonitoringAdapter();
       sampledMonitor.addAdapter(adapter);
 
       // The sampler keeps an event when `Math.random() <= sampleRate`. Real

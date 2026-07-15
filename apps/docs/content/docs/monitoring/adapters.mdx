@@ -77,14 +77,14 @@ monitor.addAdapter(adapter);
 The `RemoteAdapter` sends events as a JSON array in the request body. Each event conforms to the `MonitoringEvent` type. Your server should respond with a `2xx` status code to acknowledge receipt.
 </Callout>
 
-### LocalStorageAdapter
+### LocalStorageMonitoringAdapter
 
 Persists events in the browser's `localStorage`. This is useful for offline-first applications or for retaining events across page reloads before they can be flushed to a remote endpoint.
 
 ```ts
-import { LocalStorageAdapter } from '@rilaykit/core';
+import { LocalStorageMonitoringAdapter } from '@rilaykit/core';
 
-const adapter = new LocalStorageAdapter(1000);
+const adapter = new LocalStorageMonitoringAdapter(1000);
 monitor.addAdapter(adapter);
 ```
 
@@ -106,7 +106,7 @@ adapter.clearStoredEvents();
 ```
 
 <Callout>
-`LocalStorageAdapter` is intended for buffering or debugging. For long-term persistence, forward events to a remote endpoint using `RemoteAdapter`.
+`LocalStorageMonitoringAdapter` is intended for buffering or debugging. For long-term persistence, forward events to a remote endpoint using `RemoteAdapter`.
 </Callout>
 
 ### DevelopmentAdapter
@@ -141,15 +141,15 @@ No configuration is required. The adapter automatically formats output for reada
     ```
   </Tab>
   <Tab value="Staging">
-    Combine `ConsoleAdapter` for visibility with `LocalStorageAdapter` for persistence across refreshes.
+    Combine `ConsoleAdapter` for visibility with `LocalStorageMonitoringAdapter` for persistence across refreshes.
 
     ```ts
     monitor.addAdapter(new ConsoleAdapter('debug'));
-    monitor.addAdapter(new LocalStorageAdapter(5000));
+    monitor.addAdapter(new LocalStorageMonitoringAdapter(5000));
     ```
   </Tab>
   <Tab value="Production">
-    Use `RemoteAdapter` to send events to your analytics backend. Optionally add `LocalStorageAdapter` as a fallback buffer.
+    Use `RemoteAdapter` to send events to your analytics backend. Optionally add `LocalStorageMonitoringAdapter` as a fallback buffer.
 
     ```ts
     monitor.addAdapter(new RemoteAdapter({
@@ -222,4 +222,4 @@ monitor?.addAdapter(new ConsoleAdapter('debug'));
 monitor?.removeAdapter('console');
 ```
 
-This is useful for scenarios like enabling verbose logging when a user opens a debug panel, or temporarily attaching a `LocalStorageAdapter` to capture a reproduction of a bug.
+This is useful for scenarios like enabling verbose logging when a user opens a debug panel, or temporarily attaching a `LocalStorageMonitoringAdapter` to capture a reproduction of a bug.

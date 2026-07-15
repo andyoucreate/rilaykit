@@ -223,7 +223,7 @@ All other `ril` methods (`component`, `tool`, `part`, `use`, `renderers`, `getCo
 
 Everything from all three packages:
 
-- **From `@rilaykit/core`** — `ril` (unified catalog: `.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`), `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), typed errors (`RilayError` and subclasses), monitoring, condition utilities
+- **From `@rilaykit/core`** — `ril` (unified catalog: `.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`), `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), typed errors (`RilayError` and subclasses), monitoring (`LocalStorageMonitoringAdapter` buffers monitoring events — distinct from workflow's `LocalStorageAdapter`, which persists flow state), condition utilities
 - **From `@rilaykit/forms`** — `form`, compound `Form` (`Form.Body`, `Form.Field`, `Form.Submit`, `Form.List`), `FormProvider`, `useForm`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.), the schema layer (`compileForm`, `FormSchema`, `Bindings`, `SchemaValidationError`)
 - **From `@rilaykit/workflow`** — `flow`, compound `Flow` (`Flow.Body`, `Flow.Progress`, `Flow.Next`, `Flow.Back`, `Flow.Skip`), `useFlow`, `useStep`, `useFlowSteps`, `useFlowData`, `LocalStorageAdapter`, persistence, analytics, plugin hooks, the schema layer (`compileFlow`, `FlowSchema`, `FlowBindings`, `validateFlowSchema`)
 
