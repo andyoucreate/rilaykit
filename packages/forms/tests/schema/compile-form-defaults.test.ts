@@ -120,3 +120,40 @@ describe('compileForm per-field inline default', () => {
     expect(defaultValues).toEqual({ a: 'A', b: 'B' });
   });
 });
+
+describe('compileForm defaultValues isolation', () => {
+  function makeSchema() {
+    return {
+      version: 1 as const,
+      id: 'f',
+      fields: [{ id: 'x', type: 'text' }],
+      defaultValues: { x: 'original' },
+    };
+  }
+
+  it('returns a fresh defaultValues object per compile, detached from the input schema', () => {
+    const schema = makeSchema();
+
+    const a = compileForm(schema, makeCatalog());
+    const b = compileForm(schema, makeCatalog());
+
+    (a.defaultValues as Record<string, unknown>).x = 'mutated';
+
+    expect(b.defaultValues).toEqual({ x: 'original' });
+    expect(schema.defaultValues).toEqual({ x: 'original' });
+  });
+
+  it('detaches defaultValues from the schema even when a field also declares an inline default', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      fields: [{ id: 'x', type: 'text', default: 'inline' }],
+      defaultValues: { y: 'original' },
+    };
+
+    const result = compileForm(schema, makeCatalog());
+    (result.defaultValues as Record<string, unknown>).y = 'mutated';
+
+    expect(schema.defaultValues).toEqual({ y: 'original' });
+  });
+})

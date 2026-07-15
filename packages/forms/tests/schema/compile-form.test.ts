@@ -149,3 +149,39 @@ describe('compileForm', () => {
     ]);
   });
 });
+
+describe('compileForm — malformed entries inside a repeatable', () => {
+  // The same guard exists at validateRow and validateField: a null/non-object
+  // entry must funnel into the typed SchemaValidationError, never a raw TypeError.
+  function makeRepeatableSchema(rowEntry: unknown) {
+    return {
+      version: 1 as const,
+      id: 'f',
+      rows: [{ kind: 'repeatable' as const, repeatable: { id: 'r', rows: [rowEntry] } }],
+    };
+  }
+
+  for (const [label, entry] of [
+    ['null', null],
+    ['undefined', undefined],
+    ['a string', 'nope'],
+  ] as const) {
+    it(`throws SchemaValidationError when a repeatable row entry is ${label}`, () => {
+      let caught: unknown;
+      try {
+        compileForm(makeRepeatableSchema(entry), makeCatalog());
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(SchemaValidationError);
+      expect((caught as SchemaValidationError).issues).toEqual([
+        {
+          path: 'rows[0].repeatable.rows[0]',
+          message: 'Row entry must be an object',
+          severity: 'error',
+        },
+      ]);
+    });
+  }
+});

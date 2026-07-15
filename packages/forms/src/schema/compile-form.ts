@@ -40,7 +40,7 @@ import type {
   ValidationDescriptorObject,
 } from './types';
 import { SchemaValidationError } from './types';
-import { isSchemaEnvelope, validateSchemaEnvelope } from './validate-envelope';
+import { isSchemaEnvelope, validateObjectEntry, validateSchemaEnvelope } from './validate-envelope';
 
 // =================================================================
 // BUILT-IN VALIDATOR NAMES
@@ -269,17 +269,7 @@ function validateRow<C extends Record<string, any>>(
   registry: Bindings | undefined,
   issues: SchemaIssue[]
 ): void {
-  // A null/undefined/non-object entry must funnel into the typed
-  // SchemaValidationError rather than throwing a raw TypeError from `row.kind`.
-  const rowEntry: unknown = row;
-  if (rowEntry === null || typeof rowEntry !== 'object') {
-    issues.push({
-      path,
-      message: 'Row entry must be an object',
-      severity: 'error',
-    });
-    return;
-  }
+  if (!validateObjectEntry(row, path, 'Row', issues)) return;
 
   if (isRepeatableRow(row)) {
     validateRepeatable(row, path, config, registry, issues);
@@ -361,6 +351,8 @@ function validateRepeatable<C extends Record<string, any>>(
 
   for (let i = 0; i < rep.rows.length; i++) {
     const fieldRow = rep.rows[i];
+    if (!validateObjectEntry(fieldRow, `${repPath}.rows[${i}]`, 'Row', issues)) continue;
+
     if (!Array.isArray(fieldRow.fields) || fieldRow.fields.length === 0) {
       issues.push({
         path: `${repPath}.rows[${i}].fields`,
@@ -403,17 +395,7 @@ function validateField<C extends Record<string, any>>(
   registry: Bindings | undefined,
   issues: SchemaIssue[]
 ): void {
-  // A null/undefined/non-object entry must funnel into the typed
-  // SchemaValidationError rather than throwing a raw TypeError from `field.id`.
-  const fieldEntry: unknown = field;
-  if (fieldEntry === null || typeof fieldEntry !== 'object') {
-    issues.push({
-      path,
-      message: 'Field entry must be an object',
-      severity: 'error',
-    });
-    return;
-  }
+  if (!validateObjectEntry(field, path, 'Field', issues)) return;
 
   if (!field.id || typeof field.id !== 'string') {
     issues.push({
@@ -723,6 +705,11 @@ function collectTopLevelFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * Returns `undefined` when neither source contributes anything, keeping the
  * result identical to the pre-inline-default behaviour for schemas that use no
  * defaults at all.
+ *
+ * ALWAYS returns a fresh object when it returns one. Handing back the input
+ * schema's own `defaultValues` would make every compile of that schema share one
+ * mutable object: mutating one compile's defaults would corrupt the others and
+ * the caller's parsed JSON alike.
  */
 function mergeDefaultValues(
   schema: FormSchema,
@@ -739,7 +726,9 @@ function mergeDefaultValues(
     }
   }
 
-  if (inlineDefaults.size === 0) return schema.defaultValues;
+  if (inlineDefaults.size === 0) {
+    return schema.defaultValues === undefined ? undefined : { ...schema.defaultValues };
+  }
 
   return { ...Object.fromEntries(inlineDefaults), ...(schema.defaultValues ?? {}) };
 }

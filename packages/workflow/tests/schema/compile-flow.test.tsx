@@ -177,6 +177,34 @@ describe('compileFlow', () => {
     ).toEqual({ name: 'Ada' });
   });
 
+  it('returns per-step defaultValues detached from the input schema', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'a',
+          title: 'A',
+          form: {
+            version: 1,
+            id: 'a',
+            fields: [{ id: 'x', type: 'text' }],
+            defaultValues: { x: 'original' },
+          },
+        },
+      ],
+    };
+
+    const first = compileFlow(schema, makeCatalog());
+    const second = compileFlow(schema, makeCatalog());
+
+    (first.defaultValues?.a as Record<string, unknown>).x = 'mutated';
+
+    expect(second.defaultValues).toEqual({ a: { x: 'original' } });
+    expect(schema.steps[0].form.defaultValues).toEqual({ x: 'original' });
+  });
+
   it('omits defaultValues when no step declares any', () => {
     const schema: FlowSchema = {
       version: 1,

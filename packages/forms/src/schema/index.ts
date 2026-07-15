@@ -6,7 +6,11 @@ export {
   validateConditionConfig,
   validateSchema,
 } from './compile-form';
-export { isSchemaEnvelope, validateSchemaEnvelope } from './validate-envelope';
+export {
+  isSchemaEnvelope,
+  validateObjectEntry,
+  validateSchemaEnvelope,
+} from './validate-envelope';
 export { fromSchema } from './from-schema';
 export type {
   Bindings,

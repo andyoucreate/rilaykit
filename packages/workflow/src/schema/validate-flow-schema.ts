@@ -5,6 +5,7 @@ import {
   type SchemaIssue,
   SchemaValidationError,
   validateConditionConfig,
+  validateObjectEntry,
   validateSchema,
   validateSchemaEnvelope,
 } from '@rilaykit/forms';
@@ -91,13 +92,7 @@ function validateStep<C extends Record<string, unknown>>(
   seen: Set<string>,
   issues: SchemaIssue[]
 ): void {
-  // A null/undefined/non-object entry must funnel into the typed
-  // SchemaValidationError rather than throwing a raw TypeError from `step.id`.
-  const entry: unknown = step;
-  if (entry === null || typeof entry !== 'object') {
-    issues.push({ path, message: 'Step entry must be an object', severity: 'error' });
-    return;
-  }
+  if (!validateObjectEntry(step, path, 'Step', issues)) return;
 
   if (!step.id || typeof step.id !== 'string') {
     issues.push({

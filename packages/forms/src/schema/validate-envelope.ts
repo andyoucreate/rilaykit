@@ -18,6 +18,35 @@ export function isSchemaEnvelope(value: unknown): value is { id: string; version
 }
 
 /**
+ * Guards one entry of a schema array before it is dereferenced.
+ *
+ * Untrusted JSON puts `null`, `undefined` and bare scalars wherever an object is
+ * declared. Every such entry must funnel into the typed SchemaValidationError
+ * rather than throwing a raw TypeError off the first property read, so this is
+ * the single guard every array walker (rows, fields, repeatable rows, steps)
+ * calls before touching an entry.
+ *
+ * @param entryLabel Subject of the issue message, e.g. "Row" → "Row entry must be an object".
+ * @returns `true` when the entry is a real object and may be dereferenced.
+ */
+export function validateObjectEntry(
+  entry: unknown,
+  path: string,
+  entryLabel: string,
+  issues: SchemaIssue[]
+): boolean {
+  if (entry === null || typeof entry !== 'object') {
+    issues.push({
+      path,
+      message: `${entryLabel} entry must be an object`,
+      severity: 'error',
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
  * Validates the `id`/`version` envelope shared by every serialized schema.
  *
  * Single source of truth for envelope rules — form and flow schemas both
