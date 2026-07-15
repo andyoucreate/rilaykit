@@ -88,17 +88,24 @@ describe('Conditions at Scale', () => {
 
     const formConfig = formBuilder.build();
 
-    render(
+    const { container } = render(
       <FormProvider formConfig={formConfig}>
         <FormBody />
       </FormProvider>
     );
 
-    // Every one of the 100 fields is rendered, exactly once
+    // Queried through the container rather than testing-library's `screen`.
+    // This is a SCALE test: at 100 fields the assertions cost far more than the
+    // thing under test — the mount is ~137ms while `getAllByRole('textbox')`
+    // alone is ~1.1s, because jsdom recomputes the accessibility tree. That put
+    // the test at a ~3s median against the default 5s timeout with enough
+    // variance to time out roughly 1 run in 4, which is a CI failure that says
+    // nothing about RilayKit. A count-based DOM query measures the same
+    // contract — every field rendered exactly once — for a few ms.
+    expect(container.querySelectorAll('input')).toHaveLength(100);
     for (let i = 0; i < 100; i++) {
-      expect(screen.getByTestId(`field-field${i}`)).toBeInTheDocument();
+      expect(container.querySelectorAll(`[data-testid="field-field${i}"]`)).toHaveLength(1);
     }
-    expect(screen.getAllByRole('textbox')).toHaveLength(100);
   });
 
   it('ConditionDependencyGraph should resolve exact dependents for 100 fields', () => {
@@ -172,8 +179,7 @@ describe('Conditions at Scale', () => {
     expect(graph.getAffectedFields('trigger10')).toEqual([]);
   });
 
-  it('should demonstrate re-render isolation with Zustand selectors', async () => {
-    const _config = createTestConfig();
+  it('re-renders only the edited field, not its siblings', async () => {
     const renderCounts: Record<string, number> = {};
 
     // Create a tracking component
@@ -212,9 +218,15 @@ describe('Conditions at Scale', () => {
     expect(renderCounts.field2).toBe(1);
     expect(renderCounts.field3).toBe(1);
 
-    // Note: With the current architecture, all fields might re-render
-    // when ANY value changes because conditions are evaluated globally.
-    // This test documents the current behavior.
+    // THE CONTRACT. Asserting only the mount counts above proves nothing: they
+    // are trivially true of an implementation that re-renders every field on
+    // every keystroke, which is the thing this is supposed to forbid. Isolation
+    // is only observable ACROSS a change.
+    fireEvent.change(screen.getByTestId('field-field1'), { target: { value: 'x' } });
+
+    expect(renderCounts.field1).toBe(2);
+    expect(renderCounts.field2).toBe(1);
+    expect(renderCounts.field3).toBe(1);
   });
 });
 

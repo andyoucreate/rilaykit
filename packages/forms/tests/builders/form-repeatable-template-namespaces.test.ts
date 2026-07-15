@@ -57,11 +57,11 @@ describe('repeatable template field namespaces', () => {
   });
 
   it('still rejects two colliding template field ids WITHIN one repeatable', () => {
-    const builder = form.create(makeCatalog(), 'f').addRepeatable('addresses', (r) =>
-      r
-        .add({ id: 'name', type: 'text', props: {} })
-        .add({ id: 'name', type: 'text', props: {} })
-    );
+    const builder = form
+      .create(makeCatalog(), 'f')
+      .addRepeatable('addresses', (r) =>
+        r.add({ id: 'name', type: 'text', props: {} }).add({ id: 'name', type: 'text', props: {} })
+      );
 
     expect(builder.validate()).not.toEqual([]);
     expect(() => builder.build()).toThrow(/Duplicate field IDs: name/);

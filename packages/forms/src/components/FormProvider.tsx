@@ -111,19 +111,34 @@ export interface FormProviderProps {
  *
  * Deliberately NOT the config object's identity: a config is rebuilt on every
  * parent render in normal usage, so resetting on identity would wipe the user's
- * input on each one. Only the shape of what can be STORED is compared — the
- * field ids and the repeatable ids with their own field ids — so a re-emitted
- * identical schema (new objects, same shape) does not reset, while a schema that
- * adds or drops a field does. Presentation-only churn (labels, props, row
- * layout) is intentionally invisible here: it orphans no value.
+ * input on each one. Only the shape of what can be STORED is compared — each
+ * field's id AND type, and the repeatable ids with their own fields — so a
+ * re-emitted identical schema (new objects, same shape) does not reset, while a
+ * schema that adds, drops or RETYPES a field does. Presentation-only churn
+ * (labels, props, row layout) is intentionally invisible here: it orphans no
+ * value.
+ *
+ * The component is part of it because an id says WHICH value a field holds while
+ * its type says what KIND of value it can hold. Retyping `{id:'x', type:'text'}`
+ * to `{id:'x', type:'number'}` under a stable form id orphans the stored string
+ * exactly as removing the field would — and the host's evolved contract says
+ * number.
  */
 function buildConfigSignature(formConfig: FormConfiguration): string {
-  const fieldIds = (formConfig.allFields ?? []).map((field) => field.id).sort();
+  const fields = fieldShapes(formConfig.allFields);
   const repeatables = Object.entries(formConfig.repeatableFields ?? {})
-    .map(([id, config]) => [id, (config.allFields ?? []).map((field) => field.id).sort()] as const)
+    .map(([id, config]) => [id, fieldShapes(config.allFields)] as const)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
-  return JSON.stringify([formConfig.id, fieldIds, repeatables]);
+  return JSON.stringify([formConfig.id, fields, repeatables]);
+}
+
+/**
+ * Each field as `id:componentId`, order-independent — what the field can hold.
+ * `componentId` is the compiled form of the schema's `type`.
+ */
+function fieldShapes(fields: FormConfiguration['allFields']): string[] {
+  return (fields ?? []).map((field) => `${field.id}:${field.componentId}`).sort();
 }
 
 export function FormProvider({

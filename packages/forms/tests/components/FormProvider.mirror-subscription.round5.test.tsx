@@ -2,8 +2,8 @@ import { ril } from '@rilaykit/core';
 import { render, waitFor } from '@testing-library/react';
 import React, { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { FormProvider } from '../../src/components/FormProvider';
 import { form } from '../../src/builders/form';
+import { FormProvider } from '../../src/components/FormProvider';
 import { useFieldActions } from '../../src/stores';
 
 /**

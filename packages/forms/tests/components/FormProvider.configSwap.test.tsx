@@ -15,6 +15,15 @@ const MockInput = ({ field, id }: ComponentRenderContext) => (
   />
 );
 
+const MockNumberInput = ({ field, id }: ComponentRenderContext) => (
+  <input
+    type="number"
+    data-testid={`input-${id}`}
+    value={String(field?.value ?? '')}
+    onChange={(e) => field?.onChange(e.target.valueAsNumber)}
+  />
+);
+
 /**
  * A form id is stable BUSINESS identity; the schema behind it evolves. When a
  * backend re-emits an evolved schema under the SAME id — the realistic
@@ -28,7 +37,10 @@ const MockInput = ({ field, id }: ComponentRenderContext) => (
  */
 
 function createRil() {
-  return ril.create().component('input', { name: 'Text Input', renderer: MockInput });
+  return ril
+    .create()
+    .component('input', { name: 'Text Input', renderer: MockInput })
+    .component('number', { name: 'Number Input', renderer: MockNumberInput });
 }
 
 function schemaWith(fieldIds: string[]): FormSchema {
@@ -187,6 +199,57 @@ describe('FormProvider resets on a genuine config swap under a stable form id', 
 
     // The user's input survives unrelated parent renders.
     expect(screen.getByTestId('input-a')).toHaveValue('typed');
+  });
+
+  // The signature captures what the form can HOLD. A field's id says WHICH
+  // value it holds; its type says what KIND of value it can hold. An evolved
+  // schema that retypes a field under a stable id is a genuine config change —
+  // the value the old type accepted is an orphan the new one cannot hold.
+  it('drops a value whose field the evolved schema retyped', async () => {
+    const config = createRil();
+    const onSubmit = vi.fn();
+
+    const v1 = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'x', type: 'input', props: {} }] },
+      config
+    );
+    const v2 = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'x', type: 'number', props: {} }] },
+      config
+    );
+
+    function Host() {
+      const [compiled, setCompiled] = useState(v1);
+      return (
+        <>
+          <button type="button" data-testid="swap" onClick={() => setCompiled(v2)}>
+            swap
+          </button>
+          <Form
+            formConfig={compiled.formConfig}
+            defaultValues={compiled.defaultValues}
+            onSubmit={onSubmit}
+          >
+            <FormBody />
+            <button type="submit" data-testid="submit">
+              Submit
+            </button>
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+
+    fireEvent.change(screen.getByTestId('input-x'), { target: { value: 'not-a-number' } });
+    fireEvent.click(screen.getByTestId('swap'));
+    await waitFor(() => expect(screen.getByTestId('input-x')).toHaveAttribute('type', 'number'));
+
+    fireEvent.click(screen.getByTestId('submit'));
+
+    // The host's evolved contract says number: a string must not reach it.
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toEqual({});
   });
 
   // GUARD — a recompile of the SAME schema is structurally identical, even
