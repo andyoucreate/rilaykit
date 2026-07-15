@@ -7,6 +7,7 @@ export * from './errors';
 // Export configuration
 export {
   catalogEntryKey,
+  clonePlainData,
   ril,
   type RilayInstance,
   type RilayPlugin,

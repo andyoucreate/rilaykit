@@ -44,7 +44,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * each source object/array maps to its clone, so a cycle is reproduced in the
  * output instead of recursing until the stack overflows.
  */
-function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
+export function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
   if (Array.isArray(value)) {
     const existing = seen.get(value);
     if (existing !== undefined) return existing as T;
@@ -65,7 +65,16 @@ function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new WeakMa
     const cloned: Record<string, unknown> = {};
     seen.set(value, cloned);
     for (const [key, item] of Object.entries(value)) {
-      cloned[key] = clonePlainData(item, seen);
+      // `defineProperty`, not `cloned[key] = ...`: a plain assignment routes a
+      // `__proto__` key through Object.prototype's accessor, which grafts a
+      // prototype and DROPS the key — a clone must reproduce every own key it
+      // was given, `__proto__` included.
+      Object.defineProperty(cloned, key, {
+        value: clonePlainData(item, seen),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
     return cloned as T;
   }

@@ -127,6 +127,24 @@ export function structureFormValues(
  *     nextKeys: { items: 2 }
  *   }
  */
+/**
+ * Defines `table[key] = value` as a real own data property.
+ *
+ * A plain `table[key] = value` routes a `__proto__` key through
+ * Object.prototype's accessor: the value is swallowed and the object's
+ * prototype is grafted instead, so that entry silently vanishes from the form.
+ * (Object-local, never Object.prototype — the verdict is "wrong, not
+ * exploitable".) `defineProperty` bypasses the accessor and records the key.
+ */
+function defineOwn(table: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(table, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
 export function flattenRepeatableValues(
   data: Record<string, unknown>,
   repeatableConfigs: Record<string, RepeatableFieldConfig>
@@ -159,17 +177,17 @@ export function flattenRepeatableValues(
             : {};
 
         for (const [fieldId, fieldValue] of Object.entries(item)) {
-          values[buildCompositeKey(key, itemKey, fieldId)] = fieldValue;
+          defineOwn(values, buildCompositeKey(key, itemKey, fieldId), fieldValue);
         }
 
         keyCounter++;
       }
 
-      order[key] = keys;
-      nextKeys[key] = keyCounter;
+      defineOwn(order as Record<string, unknown>, key, keys);
+      defineOwn(nextKeys as Record<string, unknown>, key, keyCounter);
     } else {
       // Regular field — pass through
-      values[key] = value;
+      defineOwn(values, key, value);
     }
   }
 

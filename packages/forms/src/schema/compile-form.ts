@@ -1,6 +1,7 @@
 import {
   type ConditionConfig,
   type ConditionalBehavior,
+  clonePlainData,
   type FieldConfigFor,
   type FieldConfigOf,
   type FieldEffect,
@@ -125,10 +126,10 @@ export function compileForm<C extends Record<string, any>>(
 
   // 2b. Opt-in: check every field's props against its component's propsSchema.
   //     Walks the ORIGINAL schema, not the normalized rows, so issue paths point
-  //     at the caller's own declaration.
-  if (options?.validateProps) {
-    validateFieldProps(schema, config);
-  }
+  //     at the caller's own declaration. Returns each field's COERCED props: a
+  //     propsSchema is a Standard Schema and may transform or default, and
+  //     discarding its output would make every such transform meaningless.
+  const coercedProps = options?.validateProps ? validateFieldProps(schema, config) : undefined;
 
   // 3. Build via form builder
   const builder = form.create(config, schema.id);
@@ -138,7 +139,7 @@ export function compileForm<C extends Record<string, any>>(
       const rep = row.repeatable;
       builder.addRepeatable(rep.id, (r) => {
         for (const fieldRow of rep.rows) {
-          const resolved = resolveFields<C>(fieldRow.fields, registry);
+          const resolved = resolveFields<C>(fieldRow.fields, registry, coercedProps);
           r.add(...resolved);
         }
         if (rep.min !== undefined) r.min(rep.min);
@@ -149,7 +150,7 @@ export function compileForm<C extends Record<string, any>>(
       });
     } else {
       const fieldRow = row as FormSchemaFieldRow;
-      const resolved = resolveFields<C>(fieldRow.fields, registry);
+      const resolved = resolveFields<C>(fieldRow.fields, registry, coercedProps);
       builder.add(...resolved);
     }
   }
@@ -789,8 +790,14 @@ function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
  * @throws ConfigurationError if a component's propsSchema validates asynchronously
  *   — a catalog defect, not a schema defect, so it is never collected as an issue
  */
-function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): void {
+/**
+ * Each field's props as its propsSchema returned them, keyed by field identity.
+ */
+type CoercedPropsByField = Map<FormSchemaField, unknown>;
+
+function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): CoercedPropsByField {
   const issues: SchemaIssue[] = [];
+  const coerced: CoercedPropsByField = new Map();
 
   for (const { field, path } of collectFieldsWithPaths(schema)) {
     // Unknown component types are already reported by validateSchema (see
@@ -798,7 +805,10 @@ function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): vo
     if (!config.hasComponent(field.type)) continue;
 
     const result = config.validateProps(field.type, field.props ?? {});
-    if (result.success) continue;
+    if (result.success) {
+      coerced.set(field, result.value);
+      continue;
+    }
 
     for (const issue of result.issues) {
       // The issue's own path locates the offending prop WITHIN the props object
@@ -817,6 +827,8 @@ function validateFieldProps<C>(schema: FormSchema, config: RilayInstance<C>): vo
   if (issues.length > 0) {
     throw new SchemaValidationError(issues);
   }
+
+  return coerced;
 }
 
 /**
@@ -931,11 +943,19 @@ function mergeDefaultValues(
     }
   }
 
+  // Deep-clone, not spread: a shallow copy detaches only the TOP level, leaving
+  // every nested object and array shared between two compiles of the same schema
+  // AND with the caller's own parsed JSON — mutating one compile's nested
+  // default corrupts the others and the input. clonePlainData is cycle-safe and
+  // passes functions and Standard Schema objects through by identity.
   if (inlineDefaults.size === 0) {
-    return schema.defaultValues === undefined ? undefined : { ...schema.defaultValues };
+    return schema.defaultValues === undefined ? undefined : clonePlainData(schema.defaultValues);
   }
 
-  return { ...Object.fromEntries(inlineDefaults), ...(schema.defaultValues ?? {}) };
+  return clonePlainData({
+    ...Object.fromEntries(inlineDefaults),
+    ...(schema.defaultValues ?? {}),
+  });
 }
 
 /**
@@ -951,12 +971,19 @@ function mergeDefaultValues(
  * consumer downstream, the builder's `.add(...)` included, then type-checks with
  * no cast of its own.
  */
-function resolveFields<C>(fields: FormSchemaField[], registry?: Bindings): FieldConfigFor<C>[] {
+function resolveFields<C>(
+  fields: FormSchemaField[],
+  registry?: Bindings,
+  coercedProps?: CoercedPropsByField
+): FieldConfigFor<C>[] {
   return fields.map((field) => {
+    // Keyed by field identity: normalizeToRows rewraps rows but reuses the very
+    // same field objects, so the map built from the original schema still hits.
+    const props = coercedProps?.has(field) ? coercedProps.get(field) : field.props;
     const resolved: FieldConfigOf<Record<string, Record<string, unknown>>, string> = {
       id: field.id,
       type: field.type,
-      props: field.props,
+      props: props as Record<string, unknown>,
       ...(field.validation
         ? { validation: resolveFieldValidation(field.validation, registry) }
         : {}),
