@@ -159,18 +159,28 @@ export interface FieldSchemaEffect {
 }
 
 // =================================================================
-// REGISTRY — resolves non-serializable logic
+// BINDINGS — resolves non-serializable logic
 // =================================================================
 
 /**
- * Registry for custom validators and effect handlers.
+ * Consumer-supplied resolution for non-serializable schema references
+ * (custom validators, effect handlers).
  * Provided by the consumer alongside the ril config.
  */
-export interface SchemaRegistry {
+export interface Bindings {
   /** Custom validators indexed by key */
   readonly validators?: Record<string, CustomValidatorFactory>;
   /** Effect handlers indexed by key */
   readonly effects?: Record<string, SchemaEffectHandler>;
+}
+
+/** @deprecated Renamed to `Bindings`. */
+export type SchemaRegistry = Bindings;
+
+/** Options accepted by `compileForm`. */
+export interface CompileFormOptions {
+  /** Resolution for the schema's validator/effect string references. */
+  readonly bindings?: Bindings;
 }
 
 /**
@@ -184,7 +194,7 @@ export type CustomValidatorFactory = (
 
 /**
  * Effect handler with optional params (3rd argument).
- * The fromSchema resolver curries params into a standard FieldEffectHandler.
+ * The compileForm resolver curries params into a standard FieldEffectHandler.
  */
 export type SchemaEffectHandler = (
   newValue: unknown,
@@ -197,7 +207,7 @@ export type SchemaEffectHandler = (
 // =================================================================
 
 /**
- * Result of fromSchema() — separates formConfig from defaultValues
+ * Result of compileForm() — separates formConfig from defaultValues
  * because FormConfiguration does not have a defaultValues field.
  * defaultValues is a separate prop on FormProvider / Form.
  */

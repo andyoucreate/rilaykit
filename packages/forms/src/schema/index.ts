@@ -1,11 +1,14 @@
 export {
-  fromSchema,
+  compileForm,
   isFormSchema,
   resolveFieldValidation,
   resolveValidationDescriptor,
   validateSchema,
-} from './from-schema';
+} from './compile-form';
+export { fromSchema } from './from-schema';
 export type {
+  Bindings,
+  CompileFormOptions,
   CustomValidatorFactory,
   FieldSchemaEffect,
   FieldSchemaValidation,
