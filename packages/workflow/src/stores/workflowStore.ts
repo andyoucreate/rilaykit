@@ -416,7 +416,17 @@ export function useFlowSubmitting(): boolean {
 }
 
 /**
- * Select all workflow data
+ * Select all workflow data, keyed by step id.
+ *
+ * SHAPE: the store's INTERNAL representation — a repeatable's rows are flat
+ * composite keys (`lines[k0].label`), not the authored `lines: [{label}]`. This
+ * is the live escape hatch: it is `allData` as the store holds it, and the only
+ * way to observe what a removal actually removed.
+ *
+ * The AUTHORED shape is what every host CALLBACK receives — the completion
+ * payload, `onAfterValidation` and its helper, and all three analytics data
+ * callbacks. Reach for those when you want the contract rather than the store.
+ * See {@link structureStepSlice} for the full boundary list.
  */
 export function useFlowData(): Record<string, unknown> {
   const store = useFlowStore();
@@ -424,7 +434,10 @@ export function useFlowData(): Record<string, unknown> {
 }
 
 /**
- * Select current step data
+ * Select the CURRENT step's data.
+ *
+ * SHAPE: flat composite keys, as {@link useFlowData} — the store's internal
+ * representation, not the authored one.
  */
 export function useStepData(): Record<string, unknown> {
   const store = useFlowStore();
@@ -432,7 +445,10 @@ export function useStepData(): Record<string, unknown> {
 }
 
 /**
- * Select data for a specific step
+ * Select data for a specific step.
+ *
+ * SHAPE: flat composite keys, as {@link useFlowData} — the store's internal
+ * representation, not the authored one.
  */
 export function useStepDataById(stepId: string): Record<string, unknown> | undefined {
   const store = useFlowStore();
@@ -522,8 +538,12 @@ export interface UseFlowActionsResult {
 }
 
 /**
- * Get stable action references for workflow
- * Actions don't cause re-renders
+ * Get stable action references for workflow. Actions don't cause re-renders.
+ *
+ * `setStepData` / `setAllData` accept host-authored data in EITHER shape: the
+ * store normalises a repeatable's authored array to its internal flat keys on
+ * the way in, exactly as it does for the compiled defaults and for every write
+ * the provider makes. See `createWorkflowStore`'s `normalizeSlice`.
  */
 export function useFlowActions(): UseFlowActionsResult {
   const store = useFlowStore();
