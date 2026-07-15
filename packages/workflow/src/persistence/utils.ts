@@ -22,6 +22,7 @@ export function workflowStateToPersisted(
     currentStepIndex: state.currentStepIndex,
     allData: { ...state.allData },
     stepData: { ...state.stepData },
+    repeatableOrders: state.repeatableOrders,
     visitedSteps: Array.from(state.visitedSteps),
     passedSteps: Array.from(state.passedSteps),
     lastSaved: Date.now(),
@@ -37,6 +38,10 @@ export function persistedToWorkflowState(data: PersistedWorkflowData): Partial<W
     currentStepIndex: data.currentStepIndex,
     allData: { ...data.allData },
     stepData: { ...data.stepData },
+    // Absent in a snapshot written before the order was persisted: leave it
+    // undefined so the caller falls back to reconstruction rather than
+    // restoring an empty order that would erase every row.
+    repeatableOrders: data.repeatableOrders,
     visitedSteps: new Set(data.visitedSteps),
     passedSteps: new Set(data.passedSteps || []),
     isSubmitting: false,

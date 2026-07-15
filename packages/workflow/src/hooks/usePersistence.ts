@@ -173,6 +173,11 @@ export function usePersistence({
         currentState.currentStepIndex !== lastSavedState.currentStepIndex ||
         JSON.stringify(currentState.allData) !== JSON.stringify(lastSavedState.allData) ||
         JSON.stringify(currentState.stepData) !== JSON.stringify(lastSavedState.stepData) ||
+        // A reorder rewrites the order and NOTHING else, so without this a
+        // moved row is never auto-saved — the very change the order mirror
+        // exists to capture would be the one change persistence ignores.
+        JSON.stringify(currentState.repeatableOrders) !==
+          JSON.stringify(lastSavedState.repeatableOrders) ||
         currentState.visitedSteps.size !== lastSavedState.visitedSteps.size ||
         !Array.from(currentState.visitedSteps).every((step) =>
           lastSavedState.visitedSteps.has(step)
@@ -197,6 +202,7 @@ export function usePersistence({
           currentStepIndex: data.currentStepIndex,
           allData: data.allData,
           stepData: data.stepData,
+          repeatableOrders: data.repeatableOrders,
           visitedSteps: new Set(data.visitedSteps),
           passedSteps: new Set(data.passedSteps || []),
           isSubmitting: false,

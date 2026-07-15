@@ -9,6 +9,13 @@ export interface WorkflowState {
   currentStepIndex: number;
   allData: Record<string, any>;
   stepData: Record<string, any>;
+  /**
+   * Live repeatable row order per step (`stepId -> repeatableId -> keys`),
+   * mirrored from each step's form. Deliberately outside `allData`, which is the
+   * host's completion payload — bookkeeping has no business in it. Optional: a
+   * flow with no repeatable has none.
+   */
+  repeatableOrders?: Record<string, Record<string, string[]>>;
   visitedSteps: Set<string>;
   passedSteps: Set<string>;
   isSubmitting: boolean;

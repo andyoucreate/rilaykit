@@ -229,6 +229,7 @@ export function WorkflowProvider({
       currentStepIndex: state.currentStepIndex,
       allData: state.allData,
       stepData: state.stepData,
+      repeatableOrders: state._repeatableOrders,
       visitedSteps: state.visitedSteps,
       passedSteps: state.passedSteps,
       isSubmitting: state.isSubmitting,
@@ -244,6 +245,7 @@ export function WorkflowProvider({
         currentStepIndex: state.currentStepIndex,
         allData: state.allData,
         stepData: state.stepData,
+        repeatableOrders: state._repeatableOrders,
         visitedSteps: state.visitedSteps,
         passedSteps: state.passedSteps,
         isSubmitting: state.isSubmitting,
@@ -392,6 +394,13 @@ export function WorkflowProvider({
               stepData: mergedStepData,
               visitedSteps: new Set(persistedData.visitedSteps),
               passedSteps: new Set(persistedData.passedSteps || []),
+              // Only when the snapshot carries one: a snapshot written before
+              // the order was persisted must fall back to reconstruction from
+              // the flat keys, not restore an empty order (which resolves to no
+              // rows at all and would erase the user's data).
+              ...(persistedData.repeatableOrders
+                ? { _repeatableOrders: persistedData.repeatableOrders }
+                : {}),
             });
             persistLoadResolvedRef.current = true;
             return;
