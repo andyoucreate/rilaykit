@@ -9,6 +9,7 @@ import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { EffectEngine } from '../effects/effect-engine';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
+import { useIsomorphicLayoutEffect } from '../hooks/useIsomorphicLayoutEffect';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
 import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
 import { FormStoreContext, createFormStore } from '../stores';
@@ -121,11 +122,23 @@ export function FormProvider({
   const prevFormIdRef = useRef(formConfig.id);
 
   // Reset when form ID changes — reinitialize repeatable configs and min items.
-  // This MUST run before the effect-engine effect below so that, on a step
+  //
+  // This MUST be a LAYOUT effect, not a passive one. The form id changes when the
+  // mounted form is swapped (e.g. a workflow step transition), and the store still
+  // holds the PREVIOUS form's values until this reset runs. A passive effect is
+  // flushed in a scheduler macrotask, so it leaves a window in which the new
+  // form's fields are already committed and painted while the store is still
+  // stale — the browser can paint one frame of the previous step's values, and,
+  // worse, ANY write landing in that window (a user keystroke, or a programmatic
+  // prefill such as a step's `onAfterValidation` binding) is silently destroyed
+  // by the reset that follows. A layout effect runs synchronously after the
+  // commit and before paint, making the reset atomic with the swap.
+  //
+  // This MUST also run before the effect-engine effect below so that, on a step
   // transition where both steps share a field id, the new step's initial effects
   // observe the NEW step's reset values rather than the previous step's leftover
-  // values. React runs effects in declaration order, so this stays first.
-  useEffect(() => {
+  // values. Layout effects run before passive effects, so this stays first.
+  useIsomorphicLayoutEffect(() => {
     if (prevFormIdRef.current !== formConfig.id) {
       prevFormIdRef.current = formConfig.id;
 
