@@ -74,6 +74,17 @@ export interface FormSchemaField {
   readonly type: string;
   /** Component props (JSON-serializable) */
   readonly props?: Record<string, unknown>;
+  /**
+   * Initial value for this field, declared inline (streaming-friendly: a field
+   * carries its own default, so a schema can be consumed field-by-field without
+   * waiting for a trailing `defaultValues` block).
+   *
+   * Merged into the compiled `defaultValues`. The schema-level
+   * `FormSchema.defaultValues[id]` is the explicit override and WINS when both
+   * are present. Ignored for fields inside a repeatable template — those use
+   * `FormSchemaRepeatable.defaultValue`.
+   */
+  readonly default?: unknown;
   /** Validation descriptors */
   readonly validation?: FieldSchemaValidation;
   /** Conditions — pass-through (already JSON-serializable ConditionConfig) */

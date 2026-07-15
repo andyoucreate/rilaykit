@@ -27,6 +27,7 @@ import type {
   FieldSchemaEffect,
   FieldSchemaValidation,
   FormSchema,
+  FormSchemaField,
   FormSchemaFieldRow,
   FormSchemaRepeatableRow,
   FormSchemaResult,
@@ -144,10 +145,11 @@ export function compileForm<C extends Record<string, any>>(
   // 4. Build
   const formConfig = builder.build();
 
-  // 5. Return separated result
+  // 5. Return separated result — per-field inline defaults merged under the
+  //    schema-level defaultValues block (the explicit override wins).
   return {
     formConfig,
-    defaultValues: schema.defaultValues,
+    defaultValues: mergeDefaultValues(schema, rows),
   };
 }
 
@@ -628,6 +630,41 @@ function normalizeToRows(schema: FormSchema): FormSchemaRow[] {
 
 function isRepeatableRow(row: FormSchemaRow): row is FormSchemaRepeatableRow {
   return row.kind === 'repeatable';
+}
+
+/**
+ * Collects every top-level field of a normalized row list.
+ * Repeatable templates are excluded — their per-item defaults come from
+ * `FormSchemaRepeatable.defaultValue`, not from the form's `defaultValues`.
+ */
+function collectTopLevelFields(rows: FormSchemaRow[]): FormSchemaField[] {
+  return rows.flatMap((row) => (isRepeatableRow(row) ? [] : row.fields));
+}
+
+/**
+ * Merges per-field inline `default` values with the schema-level
+ * `defaultValues` block. The schema-level block is the explicit override, so it
+ * is spread LAST and wins on key collisions.
+ *
+ * Returns `undefined` when neither source contributes anything, keeping the
+ * result identical to the pre-inline-default behaviour for schemas that use no
+ * defaults at all.
+ */
+function mergeDefaultValues(
+  schema: FormSchema,
+  rows: FormSchemaRow[]
+): Record<string, unknown> | undefined {
+  const inlineDefaults: Record<string, unknown> = {};
+  for (const field of collectTopLevelFields(rows)) {
+    if (field.default !== undefined) {
+      inlineDefaults[field.id] = field.default;
+    }
+  }
+
+  const hasInline = Object.keys(inlineDefaults).length > 0;
+  if (!hasInline) return schema.defaultValues;
+
+  return { ...inlineDefaults, ...(schema.defaultValues ?? {}) };
 }
 
 /**
