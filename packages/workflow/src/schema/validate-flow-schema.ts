@@ -222,7 +222,8 @@ function validateAfterRef(
 }
 
 /**
- * Reports a step binding reference that no supplied binding resolves.
+ * Reports a step binding reference that no supplied binding resolves, or that
+ * resolves to something that is not callable.
  *
  * Validation must catch what `compileFlow` would otherwise only discover at
  * resolution time (a NotFoundError from deep inside the compile), so a schema
@@ -245,10 +246,24 @@ function validateBindingRef(
 ): void {
   if (bindings === undefined) return;
 
-  if (getOwn(table, key) === undefined) {
+  const binding = getOwn(table, key);
+  if (binding === undefined) {
     issues.push({
       path,
       message: `${kind} binding "${key}" not found in bindings`,
+      severity: 'error',
+    });
+    return;
+  }
+
+  // A binding that EXISTS but is not callable is a schema/bindings mismatch.
+  // Mirrors the validator/effect guards on the forms side: report it here rather
+  // than compiling a step whose `allowSkip` / `after` blows up as a raw
+  // TypeError the first time navigation invokes it.
+  if (typeof binding !== 'function') {
+    issues.push({
+      path,
+      message: `${kind} binding "${key}" in bindings is not a function`,
       severity: 'error',
     });
   }

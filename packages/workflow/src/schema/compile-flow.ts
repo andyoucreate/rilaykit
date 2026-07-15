@@ -81,13 +81,13 @@ function compileStepForm<C extends Record<string, unknown>>(
  * <Flow of={workflowConfig} defaults={defaultValues} onComplete={handleComplete} />
  *
  * @throws {SchemaValidationError} for every defect in the schema as handed in —
- *   structural errors AND unresolved `allowSkip` / `onAfterValidation` /
- *   validator / effect binding references alike. `validateFlowSchema` runs
- *   first and accumulates all of them, so this is what a `compileFlow` caller
- *   normally sees. Its `documentKind` is `'flow'`.
- * @throws {NotFoundError} only when a binding reference somehow reaches
- *   resolution unvalidated — i.e. the resolvers' own guard, reachable by
- *   calling them directly, not through this function.
+ *   structural errors, unresolved AND non-callable `allowSkip` /
+ *   `onAfterValidation` / validator / effect bindings alike, whether or not any
+ *   bindings were supplied. `validateFlowSchema` runs first and accumulates all
+ *   of them, so this is the ONLY error contract a `compileFlow` caller sees. Its
+ *   `documentKind` is `'flow'`.
+ * @throws {NotFoundError} never through this function — the resolvers keep their
+ *   own guard, reachable only by calling them directly.
  */
 export function compileFlow<C extends Record<string, unknown>>(
   schema: FlowSchema,
@@ -96,7 +96,14 @@ export function compileFlow<C extends Record<string, unknown>>(
 ): FlowSchemaResult {
   const bindings: FlowBindings | undefined = options?.bindings;
 
-  validateFlowSchema(schema, catalog, bindings);
+  // `?? {}` is load-bearing. `validateFlowSchema` skips binding checks when NO
+  // bindings are supplied, because validating a schema's structure before its
+  // bindings exist is legitimate — but a COMPILE has no such excuse: the resolve
+  // below would then throw an untyped NotFoundError with no `issues[]`, the one
+  // escape from this function's error contract. Handing the validator an empty
+  // table says "these are the bindings", so every reference is reported at its
+  // own path like any other schema defect.
+  validateFlowSchema(schema, catalog, bindings ?? {});
 
   const builder = flow.create(catalog, schema.id, schema.name, schema.description);
   // A Map accumulator, not a plain object: `step.id` is untrusted, and

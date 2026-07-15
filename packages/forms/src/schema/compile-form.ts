@@ -1,7 +1,7 @@
 import {
   type ConditionConfig,
   type ConditionalBehavior,
-  clonePlainData,
+  ConfigurationError,
   type FieldConfigFor,
   type FieldConfigOf,
   type FieldEffect,
@@ -9,11 +9,12 @@ import {
   type FormConfiguration,
   type FormValidationConfig,
   InvalidSchemaError,
-  type PropsValidationResult,
   NotFoundError,
+  type PropsValidationResult,
   type RilayInstance,
   type StandardSchema,
   ValidationError,
+  clonePlainData,
   email as emailValidator,
   getOwn,
   maxLength as maxLengthValidator,
@@ -87,6 +88,15 @@ const VALID_CONDITION_OPERATORS = new Set([
   'notExists',
 ]);
 
+/**
+ * The composite half of the operator whitelist.
+ *
+ * The evaluator reads `logicalOperator === 'or'` and treats EVERYTHING else as
+ * AND, so an unlisted value (a miscased `"OR"`, a typo) is not a no-op: it
+ * silently inverts the author's intent. It has to be rejected, not defaulted.
+ */
+const VALID_LOGICAL_OPERATORS = new Set(['and', 'or']);
+
 // =================================================================
 // PUBLIC API
 // =================================================================
@@ -130,7 +140,51 @@ export function compileForm<C extends Record<string, any>>(
   //     deliberately discarded; see validateFieldProps.
   if (options?.validateProps) validateFieldProps(schema, config);
 
-  // 3. Build via form builder
+  // 3-4. Assemble and build via the form builder.
+  //
+  //  The builder owns checks the schema walker cannot do alone (id uniqueness
+  //  across rows and repeatables, characters reserved for composite keys).
+  //  Direct builder users keep its own error classes; the SCHEMA path
+  //  re-surfaces them as SchemaValidationError so a schema consumer only ever
+  //  handles ONE error contract.
+  //
+  //  The wrap spans ASSEMBLY, not just `build()`: `addRepeatable` rejects a
+  //  bracketed id at call time with a ConfigurationError, long before build()
+  //  is reached.
+  let formConfig: FormConfiguration<C>;
+  try {
+    formConfig = assembleForm<C>(schema, rows, config, registry);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new SchemaValidationError(builderErrorToIssues(error, schema));
+    }
+    if (error instanceof ConfigurationError) {
+      throw new SchemaValidationError(configurationErrorToIssues(error, schema));
+    }
+    throw error;
+  }
+
+  // 5. Return separated result — per-field inline defaults merged under the
+  //    schema-level defaultValues block (the explicit override wins).
+  return {
+    formConfig,
+    defaultValues: mergeDefaultValues(schema, rows),
+  };
+}
+
+/**
+ * Drives the form builder from a normalized schema.
+ *
+ * Extracted so ONE try/catch can span the whole builder interaction: the
+ * builder raises some defects while being fed (`addRepeatable`) and others only
+ * at `build()`, and both must reach the schema error contract.
+ */
+function assembleForm<C extends Record<string, any>>(
+  schema: FormSchema,
+  rows: FormSchemaRow[],
+  config: RilayInstance<C>,
+  registry: Bindings | undefined
+): FormConfiguration<C> {
   const builder = form.create(config, schema.id);
 
   for (const row of rows) {
@@ -162,27 +216,65 @@ export function compileForm<C extends Record<string, any>>(
     builder.setSubmitOptions(schema.submitOptions);
   }
 
-  // 4. Build
-  //    The builder owns checks the schema walker cannot do alone (id uniqueness
-  //    across rows and repeatables). Direct builder users keep its own
-  //    ValidationError; the SCHEMA path re-surfaces it as SchemaValidationError
-  //    so a schema consumer only ever handles ONE error contract.
-  let formConfig: FormConfiguration<C>;
-  try {
-    formConfig = builder.build();
-  } catch (error) {
-    if (error instanceof ValidationError) {
-      throw new SchemaValidationError(builderErrorToIssues(error, schema));
+  return builder.build();
+}
+
+/**
+ * Re-surfaces a builder `ConfigurationError` as schema `issues[]`.
+ *
+ * The builder's message is authoritative and is kept verbatim; only the PATH
+ * has to be recovered, which the error's `meta` (`{ id }`, plus `{ fieldId }`
+ * for a repeatable's template field) makes possible. An error that names no
+ * locatable declaration degrades to a root-path issue rather than being lost.
+ */
+function configurationErrorToIssues(error: ConfigurationError, schema: FormSchema): SchemaIssue[] {
+  const meta = error.meta ?? {};
+  const id = typeof meta.id === 'string' ? meta.id : undefined;
+  const fieldId = typeof meta.fieldId === 'string' ? meta.fieldId : undefined;
+
+  return [
+    {
+      path: id === undefined ? '' : (locateRepeatablePath(schema, id, fieldId) ?? ''),
+      message: error.message,
+      severity: 'error',
+    },
+  ];
+}
+
+/**
+ * Finds the schema path of a repeatable declaration, or of one of its template
+ * fields when `fieldId` is given. Returns undefined when nothing matches.
+ */
+function locateRepeatablePath(
+  schema: FormSchema,
+  repeatableId: string,
+  fieldId: string | undefined
+): string | undefined {
+  if (!Array.isArray(schema.rows)) return undefined;
+
+  for (let i = 0; i < schema.rows.length; i++) {
+    const row = schema.rows[i];
+    if (row === null || typeof row !== 'object' || !isRepeatableRow(row)) continue;
+    if (row.repeatable?.id !== repeatableId) continue;
+
+    const repeatablePath = `rows[${i}].repeatable`;
+    if (fieldId === undefined) return `${repeatablePath}.id`;
+
+    const fieldRows = row.repeatable.rows;
+    if (!Array.isArray(fieldRows)) return `${repeatablePath}.id`;
+    for (let j = 0; j < fieldRows.length; j++) {
+      const fields = fieldRows[j]?.fields;
+      if (!Array.isArray(fields)) continue;
+      for (let k = 0; k < fields.length; k++) {
+        if (fields[k]?.id === fieldId) {
+          return `${repeatablePath}.rows[${j}].fields[${k}].id`;
+        }
+      }
     }
-    throw error;
+    return `${repeatablePath}.id`;
   }
 
-  // 5. Return separated result — per-field inline defaults merged under the
-  //    schema-level defaultValues block (the explicit override wins).
-  return {
-    formConfig,
-    defaultValues: mergeDefaultValues(schema, rows),
-  };
+  return undefined;
 }
 
 /**
@@ -747,6 +839,20 @@ export function validateConditionConfig(
     issues.push({
       path: `${path}.value`,
       message: 'matches must use a string pattern in a serialized schema',
+      severity: 'error',
+    });
+  }
+
+  // Checked at EVERY node, before the composite early-return: `logicalOperator`
+  // is the composite node's operator, and the leaf-only whitelist below never
+  // sees it.
+  if (
+    condition.logicalOperator !== undefined &&
+    !VALID_LOGICAL_OPERATORS.has(condition.logicalOperator)
+  ) {
+    issues.push({
+      path: `${path}.logicalOperator`,
+      message: `Invalid condition logicalOperator "${condition.logicalOperator}"`,
       severity: 'error',
     });
   }

@@ -4,7 +4,7 @@ import type {
   StepDataHelper,
   WorkflowContext,
 } from '@rilaykit/core';
-import { NotFoundError, ril } from '@rilaykit/core';
+import { ril } from '@rilaykit/core';
 import { SchemaValidationError } from '@rilaykit/forms';
 import {
   type FlowBindings,
@@ -427,7 +427,12 @@ describe('compileFlow', () => {
     expect(validate['~standard'].validate('bar')).toEqual({ value: 'bar' });
   });
 
-  it('throws NotFoundError for an unresolved allowSkip binding', () => {
+  // An unresolved binding is a defect of the schema as handed in, and
+  // `compileFlow` presents ONE error contract for those: SchemaValidationError
+  // with an issue path'd at the offending declaration. It used to escape as an
+  // untyped NotFoundError with no `issues[]` whenever no bindings at all were
+  // supplied.
+  it('throws SchemaValidationError for an unresolved allowSkip binding', () => {
     const schema: FlowSchema = {
       version: 1,
       id: 'wf',
@@ -449,12 +454,14 @@ describe('compileFlow', () => {
       caught = error;
     }
 
-    expect(caught).toBeInstanceOf(NotFoundError);
-    expect((caught as NotFoundError).message).toBe(
-      'allowSkip binding "missing" not found for step "a"'
-    );
-    expect((caught as NotFoundError).code).toBe('NOT_FOUND');
-    expect((caught as NotFoundError).meta).toEqual({ binding: 'missing', stepId: 'a' });
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    expect((caught as SchemaValidationError).issues).toEqual([
+      {
+        path: 'steps[0].allowSkip',
+        message: 'allowSkip binding "missing" not found in bindings',
+        severity: 'error',
+      },
+    ]);
   });
 
   it('throws SchemaValidationError for a malformed allowSkip payload', () => {
@@ -489,7 +496,7 @@ describe('compileFlow', () => {
     ]);
   });
 
-  it('throws NotFoundError for an unresolved onAfterValidation binding', () => {
+  it('throws SchemaValidationError for an unresolved onAfterValidation binding', () => {
     const schema: FlowSchema = {
       version: 1,
       id: 'wf',
@@ -511,12 +518,14 @@ describe('compileFlow', () => {
       caught = error;
     }
 
-    expect(caught).toBeInstanceOf(NotFoundError);
-    expect((caught as NotFoundError).message).toBe(
-      'onAfterValidation binding "ghost" not found for step "a"'
-    );
-    expect((caught as NotFoundError).code).toBe('NOT_FOUND');
-    expect((caught as NotFoundError).meta).toEqual({ binding: 'ghost', stepId: 'a' });
+    expect(caught).toBeInstanceOf(SchemaValidationError);
+    expect((caught as SchemaValidationError).issues).toEqual([
+      {
+        path: 'steps[0].onAfterValidation',
+        message: 'onAfterValidation binding "ghost" not found in bindings',
+        severity: 'error',
+      },
+    ]);
   });
 });
 

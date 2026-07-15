@@ -109,7 +109,11 @@ describe('compileForm error contract', () => {
       ],
     };
 
-    expectIssue(() => compileForm(schema, makeCatalog()), 'fields[1].id', 'Duplicate field ID "dup"');
+    expectIssue(
+      () => compileForm(schema, makeCatalog()),
+      'fields[1].id',
+      'Duplicate field ID "dup"'
+    );
   });
 
   it('reports a truthy NON-ARRAY "rows" instead of throwing a raw TypeError', () => {
@@ -151,15 +155,73 @@ describe('compileForm error contract', () => {
     const schema = {
       version: 1,
       id: 'f',
-      fields: [
-        { id: 'a', type: 'text', props: {}, validation: { rules: [{ type: 'notAFn' }] } },
-      ],
+      fields: [{ id: 'a', type: 'text', props: {}, validation: { rules: [{ type: 'notAFn' }] } }],
     };
 
     expectIssue(
       () => compileForm(schema, makeCatalog(), { bindings: { validators: { notAFn: 'nope' } } }),
       'fields[0].validation.rules[0]',
       'Validator "notAFn" in bindings is not a function'
+    );
+  });
+
+  it('reports an invalid "logicalOperator" on a COMPOSITE condition node', () => {
+    // The walker checks the operator whitelist on LEAF nodes only, and a
+    // composite returns before it. A miscased "OR" therefore compiles, and the
+    // evaluator (`logicalOperator === 'or'`) silently reads it as AND —
+    // inverting the author's intent with no error anywhere.
+    const schema = {
+      version: 1,
+      id: 'f',
+      fields: [
+        { id: 'a', type: 'text', props: {} },
+        {
+          id: 'b',
+          type: 'text',
+          props: {},
+          conditions: {
+            visible: {
+              logicalOperator: 'OR',
+              conditions: [
+                { field: 'a', operator: 'equals', value: 'x' },
+                { field: 'a', operator: 'equals', value: 'y' },
+              ],
+            },
+          },
+        },
+      ],
+    };
+
+    expectIssue(
+      () => compileForm(schema, makeCatalog()),
+      'fields[1].conditions.visible.logicalOperator',
+      'Invalid condition logicalOperator "OR"'
+    );
+  });
+
+  it('re-surfaces a builder ConfigurationError as SchemaValidationError issues', () => {
+    // A bracket in a repeatable id is rejected by the BUILDER, which throws its
+    // own ConfigurationError from the assembly phase — outside the `build()`
+    // try/catch that re-surfaces the builder's ValidationError. The schema path
+    // must present ONE error contract, whichever error class the builder picks.
+    const schema = {
+      version: 1,
+      id: 'f',
+      rows: [
+        {
+          kind: 'repeatable',
+          repeatable: {
+            id: 'items[0]',
+            rows: [{ kind: 'fields', fields: [{ id: 'name', type: 'text', props: {} }] }],
+          },
+        },
+      ],
+    };
+
+    expectIssue(
+      () => compileForm(schema, makeCatalog()),
+      'rows[0].repeatable.id',
+      'Repeatable ID "items[0]" cannot contain "[" or "]" (reserved for composite keys)'
     );
   });
 });
