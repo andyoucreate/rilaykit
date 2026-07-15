@@ -402,13 +402,19 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     expect(allData.items).toBeDefined();
 
-    // The step data is stored under the step ID 'items'.
-    // It should contain structured data with the items array.
+    // The step data is stored under the step ID 'items', in the store's INTERNAL
+    // shape: flat composite keys. `allData` deliberately speaks one shape — a
+    // deleted repeatable row must have keys to delete, and every writer (the
+    // value mirror, prefill bindings, the persistence layer) has to agree on
+    // what the step holds. The AUTHORED nested-array shape is the HOST contract
+    // and is produced at the boundaries that hand data out — the completion
+    // payload and `onAfterValidation` — not in the store. What this test is
+    // about is that nothing is LOST across the round trip.
     const itemsStepData = allData.items;
-    expect(itemsStepData.items).toBeDefined();
-    expect(itemsStepData.items).toHaveLength(2);
-    expect(itemsStepData.items[0]).toEqual(expect.objectContaining({ name: 'Widget', qty: 5 }));
-    expect(itemsStepData.items[1]).toEqual(expect.objectContaining({ name: 'Gadget', qty: 10 }));
+    expect(itemsStepData['items[k0].name']).toBe('Widget');
+    expect(itemsStepData['items[k0].qty']).toBe(5);
+    expect(itemsStepData['items[k1].name']).toBe('Gadget');
+    expect(itemsStepData['items[k1].qty']).toBe(10);
 
     // The remounted form should also rehydrate the repeatable UI from workflow allData.
     await waitFor(() => {

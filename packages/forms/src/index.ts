@@ -21,6 +21,7 @@ export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
 export {
   structureFormValues,
   flattenRepeatableValues,
+  buildCompositeKey,
   parseCompositeKey,
 } from './utils/repeatable-data';
 export * from './schema';

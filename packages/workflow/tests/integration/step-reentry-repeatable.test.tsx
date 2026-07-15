@@ -158,10 +158,16 @@ describe('step re-entry — repeatable removals', () => {
     fireEvent.click(screen.getByTestId('submit-flow'));
     await waitFor(() => expect(onWorkflowComplete).toHaveBeenCalledTimes(1));
 
+    // The completion payload is the HOST contract: the authored nested shape,
+    // regardless of how the flow was completed. (This assertion used to expect
+    // the store's internal flat keys — the payload's shape depended on whether
+    // the user happened to leave through the form's own submit, which passes
+    // through `structureFormValues`, or through a custom control, which did not.
+    // Structuring at the submission boundary makes the two agree.)
     const payload = onWorkflowComplete.mock.calls[0][0] as Record<string, unknown>;
     const stepData = payload.items as Record<string, unknown>;
-    expect(stepData['lines[k0].label']).toBe('keep');
-    expect(Object.keys(stepData)).not.toContain('lines[k1].label');
+    expect(stepData.lines).toEqual([{ label: 'keep' }]);
+    expect(JSON.stringify(stepData)).not.toContain('drop-me');
   });
 
   it('does not resurrect a deleted repeatable row on step re-entry', async () => {

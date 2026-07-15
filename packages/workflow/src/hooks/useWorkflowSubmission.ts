@@ -1,6 +1,7 @@
 import { getLogger } from '@rilaykit/core';
 import type { WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
+import { structureWorkflowData } from '../utils/structureWorkflowData';
 import type { WorkflowState } from './useWorkflowState';
 
 const log = getLogger('workflow:submission');
@@ -13,15 +14,19 @@ export interface UseWorkflowSubmissionProps {
   onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
   /**
    * Live accessor for the latest `allData`. The `workflowState` prop is a
-   * render-time snapshot: on the FINAL step, `handleSubmit` writes the
-   * structured step values into the store then calls `submitWorkflow()`
-   * synchronously in the same tick — no React commit between — so the snapshot
-   * still holds the pre-submit final-step slice (flat repeatable composite
-   * keys, missing untouched defaults). Reading the store live mirrors
-   * {@link useWorkflowNavigation} and hands the callbacks the canonical
-   * structured completion payload.
+   * render-time snapshot: on the FINAL step, `handleSubmit` writes the step
+   * values into the store then calls `submitWorkflow()` synchronously in the
+   * same tick — no React commit between — so the snapshot still holds the
+   * pre-submit final-step slice (missing untouched defaults). Reading the store
+   * live mirrors {@link useWorkflowNavigation}.
    */
   getAllData: () => Record<string, unknown>;
+  /**
+   * Live accessor for the mirrored repeatable row order, per step. The store
+   * holds each slice flat; the completion payload is structured on the way out,
+   * and only this can put the rows in the order the user arranged them.
+   */
+  getRepeatableOrders?: () => Record<string, Record<string, string[]>>;
   analyticsStartTime: React.MutableRefObject<number>;
   /**
    * Shared flag flipped once the workflow completes so the abandon cleanup in
@@ -50,6 +55,7 @@ export function useWorkflowSubmission({
   setSubmitting,
   onWorkflowComplete,
   getAllData,
+  getRepeatableOrders,
   analyticsStartTime,
   workflowCompletedRef,
   clearPersistedState,
@@ -65,9 +71,22 @@ export function useWorkflowSubmission({
     setSubmitting(true);
 
     // Read the completion payload from the LIVE store, not the render-time
-    // snapshot: on the final step the just-written structured step data has not
-    // committed to a new render yet (see getAllData docs).
-    const completionData = getAllData();
+    // snapshot: on the final step the just-written step data has not committed
+    // to a new render yet (see getAllData docs).
+    //
+    // The store holds every slice FLAT — one internal shape, so a removed
+    // repeatable row has keys to delete and no writer can disagree about what
+    // the step holds. The host contract is the AUTHORED shape, so the payload
+    // is structured here, at the boundary. Doing it here rather than trusting
+    // whatever shape happened to be written also makes the payload independent
+    // of HOW the user completed the flow: a flow finished with a custom submit
+    // button now yields the same nested arrays as one finished through the
+    // form's own submit.
+    const completionData = structureWorkflowData(
+      getAllData(),
+      workflowConfig.steps,
+      getRepeatableOrders?.()
+    );
 
     try {
       // Call onWorkflowComplete callback if provided
@@ -104,6 +123,8 @@ export function useWorkflowSubmission({
     }
   }, [
     getAllData,
+    getRepeatableOrders,
+    workflowConfig.steps,
     workflowConfig.analytics,
     workflowConfig.id,
     workflowContext,

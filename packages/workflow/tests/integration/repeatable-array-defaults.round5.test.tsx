@@ -53,12 +53,17 @@ function LinesProbe() {
 }
 
 function Harness() {
-  const { goNext, goPrevious, currentStep, submitWorkflow } = useFlow();
+  const { goNext, goPrevious, currentStep, submitWorkflow, workflowState } = useFlow();
   return (
     <div>
       <output data-testid="step">{currentStep?.id}</output>
+      <output data-testid="alldata">{JSON.stringify(workflowState.allData)}</output>
       <button type="button" data-testid="next" onClick={() => goNext()}>
         next
+      </button>
+      {/* The REAL chrome path: the form's own submit drives the advance. */}
+      <button type="submit" data-testid="form-next">
+        form next
       </button>
       <button type="button" data-testid="back" onClick={() => goPrevious()}>
         back
@@ -116,9 +121,11 @@ describe('array-shaped repeatable defaults — deletion', () => {
     fireEvent.click(screen.getByTestId('submit-flow'));
     await waitFor(() => expect(onWorkflowComplete).toHaveBeenCalledTimes(1));
 
+    // The deleted row is gone, and the payload keeps the AUTHORED shape the
+    // host declared its defaults in — flat is internal only.
     const payload = onWorkflowComplete.mock.calls[0][0] as Record<string, unknown>;
     expect(JSON.stringify(payload)).not.toContain('beta');
-    expect((payload.items as Record<string, unknown>)['lines[k0].label']).toBe('alpha');
+    expect((payload.items as Record<string, unknown>).lines).toEqual([{ label: 'alpha' }]);
   });
 
   it('does not resurrect a default-authored row on step re-entry', async () => {
@@ -138,6 +145,62 @@ describe('array-shaped repeatable defaults — deletion', () => {
     expect(screen.getByTestId('lines-order').textContent).toBe('k0');
     expect((screen.getByTestId('lines[k0].label') as HTMLInputElement).value).toBe('alpha');
     expect(screen.queryByTestId('lines[k1].label')).toBeNull();
+  });
+});
+
+/**
+ * The step slice must hold ONE shape no matter which path wrote it.
+ *
+ * Navigating away through the form's own submit hands the workflow
+ * `structureFormValues`' output — the AUTHORED array shape — and it lands back
+ * in the step slice. That is the same mismatch the defaults created, through a
+ * second door: the row the user deletes after re-entering is then unreachable
+ * to `_removeFieldValues` all over again.
+ */
+describe('array-shaped repeatable defaults — the form-submit write-back', () => {
+  it('keeps the step slice flat after a form-driven advance', async () => {
+    render(
+      <WorkflowProvider workflowConfig={buildFlow()} defaultValues={DEFAULT_VALUES}>
+        <Harness />
+      </WorkflowProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('lines[k1].label')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('form-next'));
+    await waitFor(() => expect(screen.getByTestId('step').textContent).toBe('review'));
+
+    const slice = JSON.parse(screen.getByTestId('alldata').textContent ?? '{}').items as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(slice)).not.toContain('lines');
+    expect(slice['lines[k0].label']).toBe('alpha');
+    expect(slice['lines[k1].label']).toBe('beta');
+  });
+
+  it('does not resurrect a row deleted after a form-driven round trip', async () => {
+    render(
+      <WorkflowProvider workflowConfig={buildFlow()} defaultValues={DEFAULT_VALUES}>
+        <Harness />
+      </WorkflowProvider>
+    );
+
+    // Away through the form's submit, and back.
+    await waitFor(() => expect(screen.getByTestId('lines[k1].label')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('form-next'));
+    await waitFor(() => expect(screen.getByTestId('step').textContent).toBe('review'));
+    fireEvent.click(screen.getByTestId('back'));
+    await waitFor(() => expect(screen.getByTestId('step').textContent).toBe('items'));
+
+    // Now delete a row — the slice must lose it, whichever door wrote the slice.
+    await deleteSecondRow();
+
+    const slice = JSON.parse(screen.getByTestId('alldata').textContent ?? '{}').items as Record<
+      string,
+      unknown
+    >;
+    expect(JSON.stringify(slice)).not.toContain('beta');
   });
 });
 

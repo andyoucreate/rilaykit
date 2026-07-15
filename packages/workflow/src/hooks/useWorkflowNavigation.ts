@@ -9,6 +9,7 @@ import {
 } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useRef } from 'react';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+import { structureStepSlice } from '../utils/structureWorkflowData';
 
 const log = getLogger('workflow:navigation');
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
@@ -31,6 +32,12 @@ export interface UseWorkflowNavigationProps {
    * transition would wipe the freshly written data.
    */
   getAllData: () => Record<string, unknown>;
+  /**
+   * Live accessor for the mirrored repeatable row order, per step. Needed to
+   * hand `onAfterValidation` its rows in the order the user actually arranged
+   * them: the flat values can only ever recover their insertion order.
+   */
+  getRepeatableOrders?: () => Record<string, Record<string, string[]>>;
   /**
    * Shared signal read by {@link useWorkflowAnalytics} to suppress
    * `onStepComplete` for a skipped step. A skip is not a completion.
@@ -61,6 +68,7 @@ export function useWorkflowNavigation({
   markStepPassed,
   setStepData,
   getAllData,
+  getRepeatableOrders,
   pendingSkipRef,
   onStepChange,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
@@ -250,12 +258,19 @@ export function useWorkflowNavigation({
       try {
         const helper = createStepDataHelper();
         // Read the LIVE current-step slice rather than the render-time
-        // `workflowState.stepData` snapshot. handleSubmit writes the structured
-        // form values via setStepData(values) then calls goNext() in the same
-        // tick (no React commit between), so the snapshot is pre-submit: it holds
-        // only incrementally-changed fields (flat repeatable composite keys) and
-        // is missing untouched defaults. Mirrors the round-6 submission fix.
-        const liveStepData = (getAllData()[currentStep.id] ?? {}) as Record<string, unknown>;
+        // `workflowState.stepData` snapshot. handleSubmit writes the step's
+        // values via setStepData(values) then calls goNext() in the same tick
+        // (no React commit between), so the snapshot is pre-submit: it holds
+        // only incrementally-changed fields and is missing untouched defaults.
+        //
+        // The slice is stored flat (one internal shape, so a removed repeatable
+        // row has keys to delete); this callback is a HOST boundary, so it is
+        // structured on the way out.
+        const liveStepData = structureStepSlice(
+          (getAllData()[currentStep.id] ?? {}) as Record<string, unknown>,
+          currentStep.formConfig?.repeatableFields,
+          getRepeatableOrders?.()[currentStep.id]
+        );
         await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
         log.error('onAfterValidation failed:', error);
@@ -282,6 +297,7 @@ export function useWorkflowNavigation({
     currentStep,
     createStepDataHelper,
     getAllData,
+    getRepeatableOrders,
     workflowContext,
     workflowConfig.analytics,
     workflowState.currentStepIndex,

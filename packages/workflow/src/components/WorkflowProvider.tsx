@@ -28,7 +28,7 @@ import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
-import { normalizeRepeatableSlices } from '../utils/normalizeRepeatableSlices';
+import { flattenAuthoredSlice, normalizeRepeatableSlices } from '../utils/normalizeRepeatableSlices';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -270,6 +270,11 @@ export function WorkflowProvider({
   // Live reader for navigation: the workflowState snapshot goes stale within
   // a single navigation tick (e.g. onAfterValidation prefilling the next step)
   const getAllData = useCallback(() => store.getState().allData, [store]);
+
+  // Live reader for the mirrored row order — same rationale as `getAllData`:
+  // the boundaries that structure a slice for the host run inside a single
+  // navigation/submit tick, before any React commit refreshes a snapshot.
+  const getRepeatableOrders = useCallback(() => store.getState()._repeatableOrders, [store]);
 
   const setFieldValue = useCallback(
     (fieldId: string, value: unknown, stepId: string) =>
@@ -553,6 +558,7 @@ export function WorkflowProvider({
     markStepPassed,
     setStepData: setStepDataAction,
     getAllData,
+    getRepeatableOrders,
     pendingSkipRef,
     onStepChange: onStepChangeRef.current,
   });
@@ -629,6 +635,7 @@ export function WorkflowProvider({
     setSubmitting,
     onWorkflowComplete: onWorkflowCompleteRef.current,
     getAllData,
+    getRepeatableOrders,
     analyticsStartTime,
     workflowCompletedRef,
     clearPersistedState: persistenceInfo.clearPersistedData,
@@ -689,19 +696,34 @@ export function WorkflowProvider({
     [repeatableOrders, currentStep?.id]
   );
 
+  // Every wholesale slice write goes through here: the form's own submit hands
+  // back `structureFormValues`' AUTHORED output, and a host calling
+  // `setStepData` may pass authored arrays too. Both are the second door the
+  // shape mismatch came through — normalise before the slice lands, keeping the
+  // live row keys so the order mirror keeps describing the same rows.
+  const writeStepSlice = useCallback(
+    (data: Record<string, unknown>, stepId: string) => {
+      setStepDataAction(
+        flattenAuthoredSlice(data, formConfig?.repeatableFields, currentStepRepeatableOrder),
+        stepId
+      );
+    },
+    [setStepDataAction, formConfig?.repeatableFields, currentStepRepeatableOrder]
+  );
+
   // Create step data setter
   const handleSetStepData = useCallback(
     (data: Record<string, unknown>) => {
-      setStepDataAction(data, currentStep?.id || '');
+      writeStepSlice(data, currentStep?.id || '');
     },
-    [setStepDataAction, currentStep?.id]
+    [writeStepSlice, currentStep?.id]
   );
 
   // Create form submission handler
   const handleSubmit = useCallback(
     async (values: Record<string, unknown>) => {
       if (currentStep?.id && values) {
-        setStepDataAction(values, currentStep.id);
+        writeStepSlice(values, currentStep.id);
       }
 
       if (workflowContext.isLastStep) {
@@ -728,7 +750,7 @@ export function WorkflowProvider({
       goNext,
       canGoNext,
       currentStep?.id,
-      setStepDataAction,
+      writeStepSlice,
     ]
   );
 
