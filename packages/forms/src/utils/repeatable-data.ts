@@ -11,6 +11,28 @@ import type { RepeatableFieldConfig } from '@rilaykit/core';
 const COMPOSITE_KEY_REGEX = /^([^[\]]+)\[([^\]]+)\]\.(.+)$/;
 
 /**
+ * Defines `table[key] = value` as a real own data property.
+ *
+ * A plain `table[key] = value` routes a `__proto__` key through
+ * Object.prototype's accessor: the value is swallowed and the object's
+ * prototype is grafted instead, so that entry silently vanishes from the form.
+ * (Object-local, never Object.prototype — the verdict is "wrong, not
+ * exploitable".) `defineProperty` bypasses the accessor and records the key.
+ *
+ * EVERY write in this file that is keyed by an author-chosen id — a field id, a
+ * template field id, a repeatable id — must go through this helper. Plain `=`
+ * and `Object.assign` both use [[Set]] semantics and launder the fix away.
+ */
+function defineOwn(table: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(table, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
  * Build a composite key from parts: `repeatableId[key].fieldId`
  */
 export function buildCompositeKey(repeatableId: string, itemKey: string, fieldId: string): string {
@@ -71,8 +93,10 @@ export function structureFormValues(
       // Template fields first (preserve declaration order)
       for (const templateField of config.allFields) {
         const compositeKey = buildCompositeKey(repeatableId, itemKey, templateField.id);
-        if (compositeKey in values) {
-          item[templateField.id] = values[compositeKey];
+        if (hasOwn(values, compositeKey)) {
+          // `defineOwn`: a template field named `__proto__` must land as a real
+          // key of the submitted row, not be swallowed by the accessor.
+          defineOwn(item, templateField.id, getOwn(values, compositeKey));
           processedKeys.add(compositeKey);
         }
       }
@@ -92,18 +116,21 @@ export function structureFormValues(
       // Own-property only — `in` is prototype-inclusive, so a row field named
       // `toString` would read as "already carried" and be dropped.
       if (!hasOwn(item, parsed.fieldId)) {
-        item[parsed.fieldId] = value;
+        defineOwn(item, parsed.fieldId, value);
       }
       processedKeys.add(key);
     }
 
-    result[repeatableId] = items;
+    // `defineOwn`: a repeatable named `__proto__` would otherwise have its whole
+    // array grafted onto `result`'s prototype — the rows render, the user fills
+    // them in, and the submitted payload silently omits the key entirely.
+    defineOwn(result, repeatableId, items);
   }
 
   // Copy non-composite values directly
   for (const [key, value] of Object.entries(values)) {
     if (!processedKeys.has(key) && !parseCompositeKey(key)) {
-      result[key] = value;
+      defineOwn(result, key, value);
     }
   }
 
@@ -127,24 +154,6 @@ export function structureFormValues(
  *     nextKeys: { items: 2 }
  *   }
  */
-/**
- * Defines `table[key] = value` as a real own data property.
- *
- * A plain `table[key] = value` routes a `__proto__` key through
- * Object.prototype's accessor: the value is swallowed and the object's
- * prototype is grafted instead, so that entry silently vanishes from the form.
- * (Object-local, never Object.prototype — the verdict is "wrong, not
- * exploitable".) `defineProperty` bypasses the accessor and records the key.
- */
-function defineOwn(table: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(table, key, {
-    value,
-    writable: true,
-    enumerable: true,
-    configurable: true,
-  });
-}
-
 export function flattenRepeatableValues(
   data: Record<string, unknown>,
   repeatableConfigs: Record<string, RepeatableFieldConfig>
@@ -250,7 +259,7 @@ export function initializeRepeatableState(
 } {
   // Step 1 — flatten any nested repeatable arrays.
   const hasArrayDefaults = Object.keys(repeatableConfigs).some((id) =>
-    Array.isArray(rawValues[id])
+    Array.isArray(getOwn(rawValues, id))
   );
 
   let values: Record<string, unknown>;
@@ -260,8 +269,16 @@ export function initializeRepeatableState(
   if (hasArrayDefaults) {
     const flattened = flattenRepeatableValues(rawValues, repeatableConfigs);
     values = flattened.values;
-    Object.assign(order, flattened.order);
-    Object.assign(nextKeys, flattened.nextKeys);
+    // `Object.assign` copies with [[Set]] semantics, which would launder the
+    // `defineOwn` work `flattenRepeatableValues` just did: a `__proto__`
+    // repeatable's order would be grafted as this object's PROTOTYPE and lost.
+    // Re-define each entry as a real own property instead.
+    for (const [id, keys] of Object.entries(flattened.order)) {
+      defineOwn(order as Record<string, unknown>, id, keys);
+    }
+    for (const [id, nextKey] of Object.entries(flattened.nextKeys)) {
+      defineOwn(nextKeys as Record<string, unknown>, id, nextKey);
+    }
   } else {
     values = { ...rawValues };
   }
@@ -271,13 +288,13 @@ export function initializeRepeatableState(
   for (const [id, config] of Object.entries(repeatableConfigs)) {
     // A flattened array default (even an empty `[]`) counts as an explicit
     // source: the key is present on `order` after Step 1.
-    const fromArray = Object.prototype.hasOwnProperty.call(order, id);
+    const fromArray = hasOwn(order, id);
 
     let keys: string[];
     let nextKey: number;
     if (fromArray) {
-      keys = order[id];
-      nextKey = nextKeys[id] ?? keys.length;
+      keys = getOwn(order, id) as string[];
+      nextKey = getOwn(nextKeys, id) ?? keys.length;
     } else {
       const reconstructed = collectItemKeysFromFlat(values, id);
       keys = reconstructed.keys;
@@ -308,8 +325,10 @@ export function initializeRepeatableState(
     // it must not surface in `_repeatableOrder`, `_repeatableNextKey`, or the
     // structured output.
     if (keys.length > 0) {
-      order[id] = keys;
-      nextKeys[id] = nextKey;
+      // `defineOwn`, not a plain write: a `__proto__` repeatable's rows would
+      // otherwise be swallowed by Object.prototype's accessor and never render.
+      defineOwn(order as Record<string, unknown>, id, keys);
+      defineOwn(nextKeys as Record<string, unknown>, id, nextKey);
     } else {
       delete order[id];
       delete nextKeys[id];

@@ -465,7 +465,10 @@ export function useFieldState(fieldId: string): FieldState {
     (state) => (getOwn(state.validationStates, fieldId) ?? 'idle') as ValidationState
   );
   const touched = useStore(store, (state) => getOwn(state.touched, fieldId) ?? false);
-  const defaultValue = useStore(store, (state) => state._defaultValues[fieldId]);
+  // Own-property only, like every sibling selector above: a field named
+  // `toString` would otherwise resolve Object.prototype's method as its default
+  // and report the pristine field as permanently dirty.
+  const defaultValue = useStore(store, (state) => getOwn(state._defaultValues, fieldId));
 
   return {
     value,
