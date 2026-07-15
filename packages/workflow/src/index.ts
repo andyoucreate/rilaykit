@@ -17,6 +17,9 @@ export { FlowProgress } from './components/FlowProgress';
 export type { FlowProgressProps } from './components/FlowProgress';
 export { useFlow, WorkflowProvider } from './components/WorkflowProvider';
 
+// Schema layer (JSON flow definitions)
+export * from './schema';
+
 // Hooks
 export * from './hooks';
 
