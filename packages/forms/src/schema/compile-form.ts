@@ -753,26 +753,40 @@ function resolveFields<C>(fields: FormSchemaField[], registry?: Bindings): Field
 }
 
 /**
+ * Resolves one or more validation descriptors into the `validate` value shared
+ * by field- and form-level validation configs: a single schema stays single, a
+ * list stays a list, and absent rules resolve to `undefined`.
+ */
+function resolveRuleSchemas<T = unknown>(
+  rules: ValidationDescriptor | ValidationDescriptor[] | undefined,
+  registry?: Bindings
+): StandardSchema<T> | StandardSchema<T>[] | undefined {
+  if (!rules) return undefined;
+  const descriptors = Array.isArray(rules) ? rules : [rules];
+  const schemas = descriptors.map((descriptor) => resolveValidationDescriptor(descriptor, registry));
+  // Descriptors are resolved from string keys at runtime, so the schema's input
+  // type cannot be known statically — the caller's `T` is the contract. This is
+  // the single, deliberate cast of the schema-resolution path.
+  return (schemas.length === 1 ? schemas[0] : schemas) as StandardSchema<T> | StandardSchema<T>[];
+}
+
+/**
  * Resolves field-level validation descriptors into a FieldValidationConfig.
  */
 export function resolveFieldValidation(
   validation: FieldSchemaValidation,
   registry?: Bindings
 ): FieldValidationConfig {
-  const config: FieldValidationConfig = {
+  // `validate` is readonly on FieldValidationConfig, so it is resolved up-front
+  // and spread in at construction rather than assigned through a cast.
+  const validate = resolveRuleSchemas(validation.rules, registry);
+
+  return {
     validateOnChange: validation.validateOnChange,
     validateOnBlur: validation.validateOnBlur,
     debounceMs: validation.debounceMs,
+    ...(validate === undefined ? {} : { validate }),
   };
-
-  if (validation.rules) {
-    const descriptors = Array.isArray(validation.rules) ? validation.rules : [validation.rules];
-    const schemas = descriptors.map((d) => resolveValidationDescriptor(d, registry));
-
-    (config as any).validate = schemas.length === 1 ? schemas[0] : schemas;
-  }
-
-  return config;
 }
 
 /**
@@ -782,19 +796,14 @@ function resolveFormValidation(
   validation: FormSchemaValidationConfig,
   registry?: Bindings
 ): FormValidationConfig {
-  const config: FormValidationConfig = {
+  // Same readonly-`validate` construction as resolveFieldValidation.
+  const validate = resolveRuleSchemas<Record<string, any>>(validation.rules, registry);
+
+  return {
     validateOnSubmit: validation.validateOnSubmit,
     validateOnStepChange: validation.validateOnStepChange,
+    ...(validate === undefined ? {} : { validate }),
   };
-
-  if (validation.rules) {
-    const descriptors = Array.isArray(validation.rules) ? validation.rules : [validation.rules];
-    const schemas = descriptors.map((d) => resolveValidationDescriptor(d, registry));
-
-    (config as any).validate = schemas.length === 1 ? schemas[0] : schemas;
-  }
-
-  return config;
 }
 
 /**

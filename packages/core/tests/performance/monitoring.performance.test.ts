@@ -307,41 +307,42 @@ describe('Monitoring Performance Tests', () => {
   });
 
   describe('Sample Rate Filtering', () => {
-    it('should drop roughly 90% of events at a 0.1 sample rate', () => {
+    it('keeps exactly the events the sampler admits and drops the rest', () => {
       const config: MonitoringConfig = {
         enabled: true,
         sampleRate: 0.1, // Only track 10% of events
       };
 
+      // Construct BEFORE stubbing: the session id also consumes Math.random(),
+      // which would otherwise offset the deterministic sampler sequence below.
       const sampledMonitor = new RilayMonitor(config);
       const adapter = new LocalStorageAdapter();
       sampledMonitor.addAdapter(adapter);
 
-      const eventCount = 1000;
+      // The sampler keeps an event when `Math.random() <= sampleRate`. Real
+      // randomness made this assertion probabilistic (~5σ) and it flaked, so we
+      // drive it deterministically: exactly every 10th event is admitted.
+      let sample = 0;
+      const randomSpy = vi
+        .spyOn(Math, 'random')
+        .mockImplementation(() => (sample++ % 10 === 0 ? 0.05 : 0.5));
 
-      // Track many events
+      const eventCount = 1000;
       for (let i = 0; i < eventCount; i++) {
         sampledMonitor.track('component_update', 'test_component', { updateCount: i });
       }
 
       sampledMonitor.flush();
       const storedEvents = adapter.getStoredEvents();
+      randomSpy.mockRestore();
 
-      // Should have tracked approximately 10% of events (with some variance)
-      expect(storedEvents.length).toBeLessThan(eventCount * 0.2);
-      expect(storedEvents.length).toBeGreaterThan(eventCount * 0.05);
-
-      // Sampling drops events wholesale but never corrupts the ones it keeps,
-      // and never invents or duplicates one.
-      const seen = new Set<number>();
+      // Exactly the admitted events survive — identity, not just a count.
+      expect(storedEvents.map((event) => event.data.updateCount)).toEqual(
+        Array.from({ length: 100 }, (_, k) => k * 10)
+      );
       for (const event of storedEvents) {
         expect(event.type).toBe('component_update');
         expect(event.source).toBe('test_component');
-        const updateCount = event.data.updateCount as number;
-        expect(updateCount).toBeGreaterThanOrEqual(0);
-        expect(updateCount).toBeLessThan(eventCount);
-        expect(seen.has(updateCount)).toBe(false);
-        seen.add(updateCount);
       }
 
       sampledMonitor.destroy();
