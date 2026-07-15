@@ -106,12 +106,15 @@ function buildFlow() {
         formConfig: form
           .create(catalog, 'items-form')
           .addRepeatable('lines', (rb) => rb.add({ id: 'label', type: 'text', props: {} })),
-        // READ: the data param + the helper's readers, in ONE invocation.
-        // WRITE: setNextStepFields prefills the NEXT step's repeatable.
-        onAfterValidation: (data, helper) => {
+        // READ: the data param + the helper's readers + the CONTEXT param, in
+        // ONE invocation. One invocation must speak ONE shape: a host reading
+        // `context.allData[stepId].lines` next to a `data.lines` that is an
+        // array has been handed two representations of the same values.
+        onAfterValidation: (data, helper, context) => {
           hostReads.afterValidationParam = structuredClone(data);
           hostReads.helperGetStepData = structuredClone(helper.getStepData('items'));
           hostReads.helperGetAllData = structuredClone(helper.getAllData().items);
+          hostReads.afterValidationContextAllData = structuredClone(context.allData.items);
           helper.setNextStepFields({ tags: [{ name: 'x' }, { name: 'y' }] });
         },
       })
@@ -271,6 +274,10 @@ describe('PROOF: the repeatable shape boundary', () => {
         workflowConfig={{ ...buildFlow(), persistence: { adapter } }}
         defaultValues={DEFAULT_VALUES}
         onWorkflowComplete={onWorkflowComplete}
+        // READ: onStepChange's context — a documented host callback.
+        onStepChange={(_from, _to, context) => {
+          hostReads.stepChangeContextAllData = structuredClone(context.allData.items);
+        }}
       >
         <Harness />
       </WorkflowProvider>
@@ -310,11 +317,19 @@ describe('PROOF: the repeatable shape boundary', () => {
     expect(hostReads.afterValidationParam).toEqual(ITEMS_AUTHORED);
     expect(hostReads.helperGetStepData).toEqual(ITEMS_AUTHORED);
     expect(hostReads.helperGetAllData).toEqual(ITEMS_AUTHORED);
+    // The CONTEXT param of that same invocation — the door that spoke flat
+    // while the `data` param one argument to its left spoke authored.
+    expect(hostReads.afterValidationContextAllData).toEqual(ITEMS_AUTHORED);
 
-    // ---- READ: analytics.onStepComplete — the authored shape.
+    // ---- READ: onStepChange's context.
+    expect(hostReads.stepChangeContextAllData).toEqual(ITEMS_AUTHORED);
+
+    // ---- READ: analytics.onStepComplete — the authored shape, in BOTH the
+    // data param and the context that rides along with it.
     expect(analytics.onStepComplete).toHaveBeenCalledTimes(1);
     expect(analytics.onStepComplete.mock.calls[0][0]).toBe('items');
     expect(analytics.onStepComplete.mock.calls[0][2]).toEqual(ITEMS_AUTHORED);
+    expect(analytics.onStepComplete.mock.calls[0][3].allData.items).toEqual(ITEMS_AUTHORED);
 
     // The helper-prefilled repeatable landed FLAT and is live in the form.
     await waitFor(() => expect(screen.getByTestId('tags[k1].name')).toBeTruthy());

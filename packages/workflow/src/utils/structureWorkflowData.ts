@@ -90,16 +90,29 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  *   (packages/workflow/tests/stores/store-enforces-flat-shape.test.tsx): a new
  *   action added without normalisation fails there, unread comment or not.
  *
- *   READS (structure, here and in {@link structureWorkflowData}):
+ *   READS (structure, here and in {@link structureWorkflowData}) — unlike the
+ *   writes, these are still an ENUMERATED list, because a read door that leaks
+ *   FLAT to a host is invisible to an invariant that demands flat. Every host
+ *   callback receives the AUTHORED shape:
  *     - the completion payload (`useWorkflowSubmission`)
  *     - `onAfterValidation`'s `data` param AND the helper's `getStepData` /
  *       `getAllData` — one invocation, one shape
  *     - `analytics.onStepComplete` / `onWorkflowComplete` / `onWorkflowAbandon`
+ *     - `WorkflowContext.allData` / `.stepData` — built once in
+ *       WorkflowProvider's `baseWorkflowContext` and handed to `onStepChange`,
+ *       to `onAfterValidation`'s THIRD param, and to every analytics callback.
+ *       It spoke flat while the `data` param beside it spoke authored: the same
+ *       "two representations in one invocation" the helper's readers were fixed
+ *       for, on the parameter next door. Nothing internal reads it — the
+ *       conditions and `resolveAllowSkip` go to the store directly — so it owes
+ *       the host contract and nothing else.
  *
  *   DELIBERATELY FLAT (the store's live view, not the host contract):
  *     - `useFlow().workflowState.allData` / `.stepData`, `useFlowData()`,
  *       `useStepData()`, `useStepDataById()` — the escape hatch, and the only
  *       way to observe the store as it is
+ *     - `useFlowStoreApi()` — the raw store. Its `setState` bypasses the actions
+ *       and therefore the invariant; write through `useFlowActions()`.
  *     - the persistence snapshot handed to an adapter — a round-trip format,
  *       normalised again on restore
  *

@@ -598,7 +598,14 @@ export function useFlowActions(): UseFlowActionsResult {
 }
 
 /**
- * Get the raw store for advanced use cases
+ * Get the raw store for advanced use cases.
+ *
+ * BYPASSES THE GUARD: a `setState` here goes around the actions, and the
+ * normalisation lives in the actions. Planting an authored repeatable array
+ * (`setState({allData:{items:{lines:[{label:'a'}]}}})`) breaks the store's
+ * flat-composite-key invariant, and the row it plants is one the user cannot
+ * delete. Write through {@link useFlowActions} — every action there normalises,
+ * whichever shape you hand it.
  */
 export function useFlowStoreApi(): WorkflowStore {
   return useFlowStore();

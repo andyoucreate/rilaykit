@@ -5,6 +5,7 @@ import {
   type WorkflowConfig,
   type WorkflowContext,
   getLogger,
+  getOwn,
 } from '@rilaykit/core';
 import { FormProvider, parseCompositeKey } from '@rilaykit/forms';
 import type React from 'react';
@@ -28,6 +29,7 @@ import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
 
 // Noop adapter — always call usePersistence to respect Rules of Hooks
 const NOOP_PERSISTENCE_ADAPTER: WorkflowPersistenceAdapter = {
@@ -453,29 +455,6 @@ export function WorkflowProvider({
     ]
   );
 
-  // Create workflow context for conditions and callbacks
-  const baseWorkflowContext = useMemo(
-    (): Omit<
-      WorkflowContext,
-      'isFirstStep' | 'isLastStep' | 'visibleVisitedSteps' | 'passedSteps'
-    > => ({
-      workflowId: workflowConfig.id,
-      currentStepIndex: workflowState.currentStepIndex,
-      totalSteps: workflowConfig.steps.length,
-      allData: workflowState.allData,
-      stepData: workflowState.stepData,
-      visitedSteps: workflowState.visitedSteps,
-    }),
-    [
-      workflowConfig.id,
-      workflowConfig.steps.length,
-      workflowState.currentStepIndex,
-      workflowState.allData,
-      workflowState.stepData,
-      workflowState.visitedSteps,
-    ]
-  );
-
   // Get current step info. Clamp a corrupt/out-of-range live index into range
   // so downstream consumers (FormProvider, useStep, ...) never see an undefined
   // step. This is the render-time safety net complementing the persistence clamp.
@@ -486,6 +465,52 @@ export function WorkflowProvider({
     if (index >= 0 && index < steps.length) return steps[index];
     return steps[Math.min(Math.max(0, index), steps.length - 1)];
   }, [workflowConfig.steps, workflowState.currentStepIndex]);
+
+  // The HOST-facing workflow context.
+  //
+  // SHAPE: `allData` / `stepData` are the AUTHORED shape, like every other read
+  // handed to a host callback. This object goes to `onStepChange`, to
+  // `onAfterValidation`'s third parameter, and to every analytics callback — and
+  // `onAfterValidation` receives it in the SAME invocation as its authored
+  // `data` param. Publishing the store's flat keys here handed one callback two
+  // representations of the same values and made
+  // `context.allData[stepId].lines.forEach(...)` throw on undefined.
+  //
+  // Nothing INTERNAL reads these two fields: the conditions evaluate against
+  // `workflowState` directly (see `conditionValues`), and `resolveAllowSkip`
+  // takes the store's `allData` straight. They exist to be handed out, so they
+  // speak the contract. See {@link structureStepSlice} for the boundary list.
+  const baseWorkflowContext = useMemo(
+    (): Omit<
+      WorkflowContext,
+      'isFirstStep' | 'isLastStep' | 'visibleVisitedSteps' | 'passedSteps'
+    > => ({
+      workflowId: workflowConfig.id,
+      currentStepIndex: workflowState.currentStepIndex,
+      totalSteps: workflowConfig.steps.length,
+      allData: structureWorkflowData(
+        workflowState.allData,
+        workflowConfig.steps,
+        workflowState.repeatableOrders
+      ),
+      stepData: structureStepSlice(
+        workflowState.stepData,
+        currentStep?.formConfig?.repeatableFields,
+        currentStep ? getOwn(workflowState.repeatableOrders, currentStep.id) : undefined
+      ),
+      visitedSteps: workflowState.visitedSteps,
+    }),
+    [
+      workflowConfig.id,
+      workflowConfig.steps,
+      workflowState.currentStepIndex,
+      workflowState.allData,
+      workflowState.stepData,
+      workflowState.repeatableOrders,
+      workflowState.visitedSteps,
+      currentStep,
+    ]
+  );
 
   // Memoize formConfig
   const formConfig = useMemo(() => currentStep?.formConfig, [currentStep?.formConfig]);
