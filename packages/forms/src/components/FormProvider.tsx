@@ -52,6 +52,17 @@ export interface FormProviderProps {
   onSubmit?: (data: Record<string, unknown>) => void | Promise<void>;
   onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
   className?: string;
+  /**
+   * Extra read-only values that field conditions may reference, merged UNDER
+   * the store's own values (a live field always wins over an external key of
+   * the same name). These never enter the store and are never submitted.
+   *
+   * A multi-step host passes the other steps' data here so a field can declare
+   * a condition against a field captured on an earlier step
+   * (`when('stepA.fieldX')`). Without it, a cross-step condition has nothing to
+   * resolve against and silently evaluates to hidden / not-required.
+   */
+  conditionValues?: Record<string, unknown>;
 }
 
 // =================================================================
@@ -65,6 +76,7 @@ export function FormProvider({
   onSubmit,
   onFieldChange,
   className,
+  conditionValues,
 }: FormProviderProps) {
   // Create store once - stable across renders
   // Synchronously initialize repeatable configs and default values
@@ -206,6 +218,14 @@ export function FormProvider({
     return unsubscribe;
   }, [store]);
 
+  // Conditions resolve against the store's own values layered over any
+  // host-supplied external values, so a cross-step reference resolves while a
+  // live local field still shadows an external key of the same name.
+  const conditionEvaluationValues = useMemo(
+    () => (conditionValues ? { ...conditionValues, ...formValues } : formValues),
+    [conditionValues, formValues]
+  );
+
   // Evaluate conditions using specialized hook
   const {
     fieldConditions,
@@ -217,7 +237,7 @@ export function FormProvider({
     isFieldReadonly,
   } = useFormConditions({
     formConfig,
-    formValues,
+    formValues: conditionEvaluationValues,
     repeatableOrder,
   });
 

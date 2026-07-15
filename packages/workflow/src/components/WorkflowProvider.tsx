@@ -7,6 +7,7 @@ import {
   getLogger,
 } from '@rilaykit/core';
 import { FormProvider } from '@rilaykit/forms';
+import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import type React from 'react';
 import {
   createContext,
@@ -729,6 +730,20 @@ export function WorkflowProvider({
     formConfig?.repeatableFields,
   ]);
 
+  // Cross-step condition data: every step's captured values, flattened so a
+  // field condition can reference an earlier step's field by bare name
+  // (`accountType`) or by qualified path (`type.accountType`). FormProvider
+  // layers the current step's live store values on top, so this only ever
+  // supplies the keys the current form does not own.
+  const conditionValues = useMemo(
+    () =>
+      combineWorkflowDataForConditions(
+        (workflowState?.allData ?? {}) as Record<string, unknown>,
+        (workflowState?.stepData ?? {}) as Record<string, unknown>
+      ),
+    [workflowState?.allData, workflowState?.stepData]
+  );
+
   const formProviderKey = useMemo(
     () => workflowState.isInitializing.toString(),
     [workflowState.isInitializing]
@@ -741,6 +756,7 @@ export function WorkflowProvider({
           key={formProviderKey}
           formConfig={formConfig}
           defaultValues={formProviderDefaultValues}
+          conditionValues={conditionValues}
           onFieldChange={setValue}
           data-workflow-id={workflowConfig.id}
           className={className}
