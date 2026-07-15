@@ -82,6 +82,30 @@ export interface PartEntry<TPart = unknown> {
 export type CatalogEntry = ComponentEntry<never> | ToolEntry<never, never> | PartEntry<never>;
 
 /**
+ * A field config for ONE registered component type `K` of a catalog `C` (the
+ * map `{ componentType → propsType }`), with `props` narrowed to that
+ * component's own props.
+ *
+ * This is the single source of truth for the field config shape: the form
+ * builder's `FieldConfig<C, T>` and the dynamic-building `FieldConfigFor<C>`
+ * both derive from it, so the two cannot drift apart.
+ */
+export type FieldConfigOf<C, K extends keyof C & string> = {
+  /** Unique identifier for the field. Auto-generated if not provided */
+  readonly id?: string;
+  /** Component type from the registered components */
+  readonly type: K;
+  /** Component-specific properties */
+  readonly props?: Partial<C[K]>;
+  /** Validation configuration for this field */
+  readonly validation?: FieldValidationConfig;
+  /** Conditional behavior configuration for this field */
+  readonly conditions?: ConditionalBehavior;
+  /** Field effects configuration for reactive field-to-field behaviors */
+  readonly effects?: FieldEffects;
+};
+
+/**
  * The discriminated union of valid field configs for a catalog `C` (the map
  * `{ componentType → propsType }`). Enables fully-typed dynamic/runtime field
  * building against the registered component types — no `any`.
@@ -97,20 +121,13 @@ export type CatalogEntry = ComponentEntry<never> | ToolEntry<never, never> | Par
  * const alsoBad: FieldConfigFor<Cat> = { type: 'text', props: { label: 42 } }; // ✗ wrong prop
  * ```
  *
- * The `validation` / `conditions` / `effects` slots use the core types the form
- * builder's own `FieldConfig<C, T>` uses, so a `FieldConfigFor<C>` is directly
- * assignable to the builder's `.add(...)` — no cast at the builder boundary.
+ * Every member is a `FieldConfigOf<C, K>` — the same type the form builder's
+ * `FieldConfig<C, T>` is defined as — so a `FieldConfigFor<C>` is directly
+ * assignable to the builder's `.add(...)` by construction, no cast at the
+ * builder boundary.
  */
 export type FieldConfigFor<C> = {
-  [K in keyof C & string]: {
-    readonly id?: string;
-    readonly type: K;
-    readonly props?: Partial<C[K]>;
-    readonly validation?: FieldValidationConfig;
-    readonly conditions?: ConditionalBehavior;
-    readonly effects?: FieldEffects;
-    readonly default?: unknown;
-  };
+  [K in keyof C & string]: FieldConfigOf<C, K>;
 }[keyof C & string];
 
 export type PropsValidationResult =

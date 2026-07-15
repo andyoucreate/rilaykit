@@ -677,17 +677,7 @@ function mergeDefaultValues(
  * the narrowing is asserted here exactly once — every consumer downstream, the
  * builder's `.add(...)` included, then type-checks with no cast of its own.
  */
-function resolveFields<C extends Record<string, any>>(
-  fields: {
-    id: string;
-    type: string;
-    props?: Record<string, unknown>;
-    validation?: FieldSchemaValidation;
-    conditions?: ConditionalBehavior;
-    effects?: FieldSchemaEffect[];
-  }[],
-  registry?: Bindings
-): FieldConfigFor<C>[] {
+function resolveFields<C>(fields: FormSchemaField[], registry?: Bindings): FieldConfigFor<C>[] {
   return fields.map((field) => {
     const resolved = {
       id: field.id,

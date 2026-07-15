@@ -1,5 +1,6 @@
 import {
   type ConditionalBehavior,
+  type FieldConfigOf,
   type FieldEffect,
   type FieldEffects,
   type FieldValidationConfig,
@@ -44,20 +45,10 @@ const log = getLogger('forms:builder');
  * };
  * ```
  */
-export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
-  /** Unique identifier for the field. Auto-generated if not provided */
-  id?: string;
-  /** Component type from the registered components */
-  type: T;
-  /** Component-specific properties */
-  props?: Partial<C[T]>;
-  /** Validation configuration for this field */
-  validation?: FieldValidationConfig;
-  /** Conditional behavior configuration for this field */
-  conditions?: ConditionalBehavior;
-  /** Field effects configuration for reactive field-to-field behaviors */
-  effects?: FieldEffects;
-};
+export type FieldConfig<C extends Record<string, any>, T extends keyof C> = FieldConfigOf<
+  C,
+  T & string
+>;
 
 /**
  * Form builder for creating type-safe form configurations
