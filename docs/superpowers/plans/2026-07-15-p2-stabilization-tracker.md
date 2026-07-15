@@ -77,6 +77,23 @@ string-keyed lookup on a plain object indexed by untrusted schema input must use
   - Packaging class (opened in r3) extended to all 4 packages: spurious non-optional `typescript` + `react-dom` peerDeps removed, missing LICENSE added, and the child-process dist guard now covers every published package (CJS ≡ ESM parity), not just the all-in-one.
   - Gate: 178 files / 1773 tests (+21), 2-3 consecutive identical runs, type-check 4/4, build 6/6.
 
+## Round 5 — 7 bugs (5 golden), all real, nothing refuted. THE COUNT IS FALLING: 10, 12, 13, 11, 7.
+
+Two CRITICAL data-integrity bugs, both PRE-EXISTING, both verified at HEAD:
+- [x] CRITICAL: the first edit on the INITIAL step wiped every untouched default of that step (createWorkflowStore seeds allData but stepData:{}; only navigation seeds stepData, which the initial step never does — so the first _setFieldValue overwrote allData[stepId] with {} + the typed value). Fixed by merging into allData[stepId] (allData is the source of truth); fixed a latent cross-step write bug for free.
+- [x] CRITICAL: the append-only-mirror class I declared CLOSED in r4 RE-ENTERED through array-shaped defaults — a SHAPE MISMATCH: authored defaults live as `lines:[{...}]`, the mirror speaks flat composite keys, so _removeFieldValues never touched the array. A row the user deleted was RESURRECTED and SUBMITTED. Root fix: the store speaks ONE shape (flat) for every writer; structuring happens only at host boundaries.
+  - The fixer proved MY premise wrong: "structureFormValues already structures the payload" was half-true — the write-back was the only thing doing it, and TWO TESTS CONTRADICTED EACH OTHER on the payload shape (form-submit pinned nested arrays; submitWorkflow() pinned flat keys). Two contracts, one field. Now: flat internally, authored shape at every host boundary, regardless of path.
+  - A THIRD bug found while fixing: the mirror subscriptions were in a PASSIVE effect — same class as the r3 form-id race. Between commit and macrotask flush the form is interactive with nothing listening; a write landing there becomes the subscription's own prevValues baseline — lost forever, not late.
+  - Honest consequence disclosed: `useFlow().workflowState.allData` now exposes flat keys — a real change to a public read surface.
+- [x] _repeatableOrders never persisted (r4 fixed only in-session re-entry); backward compat pinned.
+- [x] resetWorkflow() never reset the form store — the reset was invisible; the two stores diverged silently.
+- [x] Flow.Skip on the LAST step was an INERT button (offered, enabled, did nothing, flow never completed).
+- [x] compileForm hot-swap under a STABLE form id kept stale state — a removed field was still submitted (the realistic server-driven case: stable business id, evolving schema).
+- [x] @rilaykit/workflow threw SchemaValidationError without exporting it — the exact class P3 self-correction must catch. Now re-exported with a single shared class identity (instanceof works cross-package; proven against the built dists).
+
+Process note (my error): I briefed a fixer with "the findings are in the workflow output" — which it could not read. It FLAGGED the gap instead of inventing, and 4 findings had to be re-dispatched with full text. Brief agents self-containedly.
+Open DX trap noted, not fixed: a top-level field `defaultValue` is silently accepted and ignored (FormFieldConfig has no such key, and TS does not reject it).
+
 ## Campaign trajectory (honest)
 P1: 50 bugs / 8 rounds. P2: 46 bugs / 4 rounds (10, 12, 13, 11). ~96 total. NOT converging by bug-count.
 What IS converging: the CLASSES. prototype-keys (closed via an exhaustive lifecycle test after 7 escapes);
