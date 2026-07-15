@@ -185,3 +185,29 @@ describe('compileForm — malformed entries inside a repeatable', () => {
     });
   }
 });
+
+describe('compileForm — field/repeatable ID namespace', () => {
+  it('refuses to compile a schema whose field id collides with a repeatable id', () => {
+    const schema = {
+      version: 1 as const,
+      id: 'f',
+      rows: [
+        { kind: 'fields' as const, fields: [{ id: 'items', type: 'text' }] },
+        {
+          kind: 'repeatable' as const,
+          repeatable: { id: 'items', rows: [{ fields: [{ id: 'n', type: 'text' }] }] },
+        },
+      ],
+    };
+
+    let caught: unknown;
+    try {
+      compileForm(schema, makeCatalog());
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain('items');
+  });
+});

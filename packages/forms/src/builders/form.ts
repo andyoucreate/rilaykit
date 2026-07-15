@@ -1,5 +1,6 @@
 import {
   type ConditionalBehavior,
+  type FieldConfigFor,
   type FieldConfigOf,
   type FieldEffect,
   type FieldEffects,
@@ -49,6 +50,29 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = Fiel
   C,
   T & string
 >;
+
+/**
+ * Maps a tuple of component-type keys — one per `.add(...)` argument — to the
+ * field config each argument must satisfy, narrowing `props` PER ARGUMENT to
+ * the props of the component type THAT argument declares.
+ *
+ * `Ks` is inferred position-by-position from each argument's own `type` literal
+ * (reverse mapped-type inference: `FieldConfigOf<C, Ks[I]>` pins `type: Ks[I]`),
+ * so `props` is then checked against `Partial<C[Ks[I]]>` and nothing else.
+ *
+ * A single `T extends keyof C & string` shared across a variadic call instead
+ * widens `T` to the union of every type passed, and `Partial<C['a' | 'b']>`
+ * distributes to `Partial<C['a']> | Partial<C['b']>` — which happily accepts
+ * `a`'s props on a `b` field. That is the hole this closes.
+ *
+ * Note this cannot simply be `FieldConfigFor<C>`: `ril.create()` produces a
+ * catalog carrying a string index signature, which collapses `keyof C & string`
+ * to `string` and `Partial<C[string]>` to `Partial<never>`, rejecting every
+ * valid call. Inferring `Ks` from the argument's literal `type` sidesteps it.
+ */
+type FieldConfigTuple<C extends Record<string, any>, Ks extends readonly (keyof C & string)[]> = {
+  [I in keyof Ks]: FieldConfigOf<C, Ks[I]>;
+};
 
 /**
  * Form builder for creating type-safe form configurations
@@ -275,12 +299,18 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ], { spacing: 'loose', alignment: 'center' });
    * ```
    */
-  add<T extends keyof C & string>(...fields: FieldConfig<C, T>[]): this;
-  add<T extends keyof C & string>(fields: FieldConfig<C, T>[]): this;
-  add<T extends keyof C & string>(...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[]]): this {
+  // `FieldConfigFor<C>`, not `FieldConfig<C, T>`: a single inferred `T` widens to
+  // the UNION of every type in a mixed call, which widens `props` to the union of
+  // every sibling's props — so `{ type: 'a', props: <b's props> }` type-checked.
+  // The distributed union narrows each argument independently to the config of
+  // the very type that argument declares, so a wrong-props-for-type pairing
+  // matches no member of the union.
+  add<const Fs extends readonly (keyof C & string)[]>(...fields: FieldConfigTuple<C, Fs>): this;
+  add<const Fs extends readonly (keyof C & string)[]>(fields: FieldConfigTuple<C, Fs>): this;
+  add(...args: FieldConfigFor<C>[] | [FieldConfigFor<C>[]]): this {
     // Check if first argument is an array (explicit array syntax)
-    const fieldConfigs: FieldConfig<C, T>[] =
-      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfig<C, T>[]);
+    const fieldConfigs: FieldConfigFor<C>[] =
+      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfigFor<C>[]);
 
     if (fieldConfigs.length === 0) {
       throw new ConfigurationError('At least one field is required');
@@ -312,8 +342,11 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ]);
    * ```
    */
-  addSeparateRows<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): this {
-    for (const config of fieldConfigs) {
+  // Same per-argument narrowing as `.add` — see FieldConfigTuple.
+  addSeparateRows<const Fs extends readonly (keyof C & string)[]>(
+    fieldConfigs: FieldConfigTuple<C, Fs>
+  ): this {
+    for (const config of fieldConfigs as readonly FieldConfigFor<C>[]) {
       // Use array syntax to ensure we're using the correct overload
       this.add(config);
     }
@@ -755,10 +788,20 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       errors.push(error instanceof Error ? error.message : String(error));
     }
 
-    // Check for duplicate repeatable IDs
+    // Top-level field ids and repeatable ids are ONE namespace, not two.
+    // `structureFormValues` writes `result[repeatableId] = items` and then copies
+    // every non-composite value into that same object, so a top-level field
+    // sharing a repeatable's id overwrites the entire array — the submitted
+    // payload silently loses it. Checking the two namespaces separately (as this
+    // did) lets that schema compile clean.
+    //
+    // Repeatable TEMPLATE fields are deliberately exempt: they submit under
+    // composite keys (`items[k0].name`), never as a top-level payload key, so a
+    // template field may legitimately reuse its own repeatable's id.
     const repeatableIds = repeatableRows.map((row) => row.repeatable.id);
+    const payloadIds = [...allFields.map((field) => field.id), ...repeatableIds];
     try {
-      ensureUnique(repeatableIds, 'repeatable');
+      ensureUnique(payloadIds, 'field or repeatable');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
