@@ -36,7 +36,11 @@ export function validateFlowSchema<C extends Record<string, unknown>>(
 ): void {
   const issues: SchemaIssue[] = [];
 
-  validateSchemaEnvelope(schema, 'Flow schema', issues);
+  // A non-object root cannot be walked any further: report and stop, rather
+  // than throwing a raw TypeError off the first property read.
+  if (!validateSchemaEnvelope(schema, 'Flow schema', issues)) {
+    throw new SchemaValidationError(issues);
+  }
 
   if (!schema.name || typeof schema.name !== 'string') {
     issues.push({

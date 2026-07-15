@@ -53,12 +53,26 @@ export function validateObjectEntry(
  * delegate here so a new rule (or version) lands in one place.
  *
  * @param schemaLabel Subject of the issue messages, e.g. "Form schema".
+ * @returns `false` when the root is not an object and no further property may
+ *   be read; the caller must stop walking.
  */
 export function validateSchemaEnvelope(
   schema: { readonly id?: unknown; readonly version?: unknown },
   schemaLabel: string,
   issues: SchemaIssue[]
-): void {
+): boolean {
+  // Guard the ROOT before the first envelope read: `compileForm(null)` /
+  // `compileFlow(null)` used to throw a raw TypeError off `schema.id` instead of
+  // the typed SchemaValidationError every other hostile-JSON path produces.
+  if (schema === null || typeof schema !== 'object') {
+    issues.push({
+      path: '',
+      message: `${schemaLabel} must be an object`,
+      severity: 'error',
+    });
+    return false;
+  }
+
   if (!schema.id || typeof schema.id !== 'string') {
     issues.push({
       path: 'id',
@@ -74,4 +88,6 @@ export function validateSchemaEnvelope(
       severity: 'error',
     });
   }
+
+  return true;
 }

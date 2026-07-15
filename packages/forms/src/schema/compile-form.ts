@@ -5,11 +5,13 @@ import {
   type FieldConfigOf,
   type FieldEffect,
   type FieldValidationConfig,
+  type FormConfiguration,
   type FormValidationConfig,
   InvalidSchemaError,
   NotFoundError,
   type RilayInstance,
   type StandardSchema,
+  ValidationError,
   email as emailValidator,
   getOwn,
   maxLength as maxLengthValidator,
@@ -158,7 +160,19 @@ export function compileForm<C extends Record<string, any>>(
   }
 
   // 4. Build
-  const formConfig = builder.build();
+  //    The builder owns checks the schema walker cannot do alone (id uniqueness
+  //    across rows and repeatables). Direct builder users keep its own
+  //    ValidationError; the SCHEMA path re-surfaces it as SchemaValidationError
+  //    so a schema consumer only ever handles ONE error contract.
+  let formConfig: FormConfiguration<C>;
+  try {
+    formConfig = builder.build();
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new SchemaValidationError(builderErrorToIssues(error, schema));
+    }
+    throw error;
+  }
 
   // 5. Return separated result — per-field inline defaults merged under the
   //    schema-level defaultValues block (the explicit override wins).
@@ -166,6 +180,79 @@ export function compileForm<C extends Record<string, any>>(
     formConfig,
     defaultValues: mergeDefaultValues(schema, rows),
   };
+}
+
+/**
+ * Re-surfaces a builder `ValidationError` as schema `issues[]`.
+ *
+ * The builder owns the id-uniqueness checks the schema walker cannot do alone,
+ * but it reports them as a core ValidationError with a flat message — escaping
+ * the `issues[]` contract that schema consumers (and P3 self-correction) rely
+ * on. This walks the ORIGINAL schema so every duplicate id gets a path pointing
+ * at the offending declaration; anything not attributable to a specific field
+ * degrades to a root-path issue rather than being lost.
+ */
+function builderErrorToIssues(error: ValidationError, schema: FormSchema): SchemaIssue[] {
+  const issues: SchemaIssue[] = [];
+  const seen = new Set<string>();
+
+  const visitField = (field: { id?: string } | undefined, path: string): void => {
+    const id = field?.id;
+    if (typeof id !== 'string' || id.length === 0) return;
+    if (seen.has(id)) {
+      issues.push({
+        path: `${path}.id`,
+        message: `Duplicate field ID "${id}"`,
+        severity: 'error',
+      });
+      return;
+    }
+    seen.add(id);
+  };
+
+  if (Array.isArray(schema.fields)) {
+    for (let i = 0; i < schema.fields.length; i++) {
+      visitField(schema.fields[i], `fields[${i}]`);
+    }
+  }
+
+  if (Array.isArray(schema.rows)) {
+    for (let i = 0; i < schema.rows.length; i++) {
+      const row = schema.rows[i];
+      if (row === null || typeof row !== 'object') continue;
+
+      if (isRepeatableRow(row)) {
+        const rep = row.repeatable;
+        // A repeatable id shares the payload namespace with top-level field ids.
+        if (typeof rep?.id === 'string' && rep.id.length > 0) {
+          if (seen.has(rep.id)) {
+            issues.push({
+              path: `rows[${i}].repeatable.id`,
+              message: `Duplicate field ID "${rep.id}"`,
+              severity: 'error',
+            });
+          } else {
+            seen.add(rep.id);
+          }
+        }
+        continue;
+      }
+
+      const fieldRow = row as FormSchemaFieldRow;
+      if (!Array.isArray(fieldRow.fields)) continue;
+      for (let j = 0; j < fieldRow.fields.length; j++) {
+        visitField(fieldRow.fields[j], `rows[${i}].fields[${j}]`);
+      }
+    }
+  }
+
+  if (issues.length === 0) {
+    // Not attributable to a specific declaration — surface the builder's own
+    // message rather than throwing an empty issue list.
+    issues.push({ path: '', message: error.message, severity: 'error' });
+  }
+
+  return issues;
 }
 
 /**
@@ -205,8 +292,11 @@ export function validateSchema<C extends Record<string, any>>(
 ): void {
   const issues: SchemaIssue[] = [];
 
-  // Top-level structure
-  validateSchemaEnvelope(schema, 'Form schema', issues);
+  // Top-level structure. A non-object root cannot be walked any further: report
+  // and stop, rather than throwing a raw TypeError off the first property read.
+  if (!validateSchemaEnvelope(schema, 'Form schema', issues)) {
+    throw new SchemaValidationError(issues);
+  }
 
   const hasFields = Array.isArray(schema.fields);
   const hasRows = Array.isArray(schema.rows);
@@ -419,18 +509,40 @@ function validateField<C extends Record<string, any>>(
     });
   }
 
-  if (field.validation?.rules) {
-    validateValidationDescriptors(
-      field.validation.rules,
-      `${path}.validation.rules`,
-      registry,
-      issues
-    );
+  if (field.validation !== undefined) {
+    // A non-object `validation` used to fall through `?.rules` as undefined and
+    // was SILENTLY DROPPED — an invalid schema compiled with no validation at
+    // all. Report the structural mismatch instead.
+    if (field.validation === null || typeof field.validation !== 'object') {
+      issues.push({
+        path: `${path}.validation`,
+        message: 'Field "validation" must be an object',
+        severity: 'error',
+      });
+    } else if (field.validation.rules) {
+      validateValidationDescriptors(
+        field.validation.rules,
+        `${path}.validation.rules`,
+        registry,
+        issues
+      );
+    }
   }
 
-  if (field.effects) {
-    for (let i = 0; i < field.effects.length; i++) {
-      validateEffect(field.effects[i], `${path}.effects[${i}]`, registry, issues);
+  if (field.effects !== undefined) {
+    // A non-array `effects` used to be walked as if it were one and silently
+    // contributed nothing: the declared effects never wired up and NOTHING was
+    // reported. A structural mismatch must be an issue.
+    if (!Array.isArray(field.effects)) {
+      issues.push({
+        path: `${path}.effects`,
+        message: 'Field "effects" must be an array',
+        severity: 'error',
+      });
+    } else {
+      for (let i = 0; i < field.effects.length; i++) {
+        validateEffect(field.effects[i], `${path}.effects[${i}]`, registry, issues);
+      }
     }
   }
 
@@ -523,6 +635,8 @@ function validateEffect(
   registry: Bindings | undefined,
   issues: SchemaIssue[]
 ): void {
+  if (!validateObjectEntry(effect, path, 'Effect', issues)) return;
+
   if (!effect.watch || typeof effect.watch !== 'string') {
     issues.push({
       path: `${path}.watch`,
@@ -587,6 +701,11 @@ export function validateConditionConfig(
   path: string,
   issues: SchemaIssue[]
 ): void {
+  // Guard every node, not just the root: the recursion walks untrusted children,
+  // so a null child in a composite tree must be reported here rather than
+  // escaping as a raw TypeError off the first property read below.
+  if (!validateObjectEntry(condition, path, 'Condition', issues)) return;
+
   // A `RegExp` does not JSON round-trip, so a serialized `matches` condition
   // must carry a string pattern. Checked before the composite early-return so
   // the rule holds at every node of the tree.
