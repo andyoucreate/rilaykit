@@ -323,9 +323,26 @@ const STEP_IDENTITY_STATE: Record<string, OrphanProbe | null> = {
    * this naming a dead step while `WorkflowProvider` CLAMPS its `currentStep`
    * into the shrunken list — so the mirror holds `step-bravo`'s rows and the
    * boundary is handed `step-alpha`'s configs, which declare no repeatable at
-   * all. The mismatch is unavoidable (the owner cannot be re-derived without
-   * a store call the recompile never makes), so the BOUNDARY must not need
-   * the configs to be right.
+   * all.
+   *
+   * THIS USED TO SAY THE MISMATCH WAS UNAVOIDABLE — "the owner cannot be
+   * re-derived without a store call the recompile never makes". That was
+   * false, and it was the eighth invariant hiding inside a justification: a
+   * recompile DOES make a store call, `_reconcileStepSet`, which
+   * `WorkflowProvider` discharges at its seam on every render, and the owner
+   * is re-derived there like everything else the step set decides. What is
+   * genuinely unavoidable is narrower: a store whose steps have moved and
+   * whose reconcile has not run YET — the window this harness deliberately
+   * sits in, since `dropBravo` moves the steps and calls nothing. The
+   * BOUNDARY must not need the configs to be right in that window, which is
+   * what this probe pins.
+   *
+   * The clamp itself is the open question this cannot answer: `currentStep`
+   * is the index clamped into the live list, so dropping the user's step
+   * silently moves them to a neighbour. Whether that is the intended product
+   * behaviour is a decision for the navigation layer, not a fact the store
+   * can derive. See the INSERT section below for the same question from the
+   * other side.
    */
   _currentStepId: {
     seed: (store) => store.getState()._setStepData({ lines: AUTHORED }, BRAVO),
@@ -965,6 +982,303 @@ describe('NO step-identity-keyed member can tell whether its step was born or mo
       mounted: revealedIsVisible(false),
       born: revealedIsVisible(true),
     }).toEqual({ mounted: true, born: true });
+  });
+});
+
+// =================================================================
+// THE STEP SET MOVING UNDER A FIXED INDEX
+// =================================================================
+
+/**
+ * THE SAME CLASS AGAIN, AND THE HALF EVERY ENUMERATION ABOVE STRUCTURALLY
+ * CANNOT SEE.
+ *
+ * Everything above mutates the step set at the END — a step is born, dies or is
+ * renamed AFTER the user's position — so `currentStepIndex` keeps naming the
+ * same step throughout and the mirror's owner is right by accident. This mutates
+ * the step set BEFORE the user's position: a model inserts `step-intro` at index
+ * 0, and `currentStepIndex` — untouched, still 0 — now names a DIFFERENT STEP.
+ *
+ * `WorkflowProvider` renders `getSteps()[currentStepIndex]`, so the user is
+ * looking at `step-intro`. `_currentStepId` was re-derived only by the actions
+ * that MOVE the index (`_setCurrentStep`, `_reset`, `_loadPersistedState`), and
+ * a recompile moves no index — it moves the STEPS under one. So the owner stayed
+ * on `step-alpha` and `stepData` was a faithful, freshly-derived view of the
+ * WRONG STEP'S SLICE.
+ *
+ * IT IS NOT A LAG, IT IS AN OVERRIDE. `stepData` is spread LAST in
+ * `combineWorkflowDataForConditions`, so `step-alpha`'s values did not merely
+ * arrive late for `step-intro`'s field conditions — they were spread ON TOP of
+ * the fresh `allData` the mirror is supposed to be a view of, and beat it. This
+ * reaches the SCREEN.
+ *
+ * ZERO ACTIONS, AND NOTHING HEALS IT. No click, no navigation, no write of any
+ * kind follows the recompile — nothing does, because a recompile is not a call.
+ * And nothing later will: only an action that moves the index re-derived the
+ * owner, and the user is exactly where they were.
+ *
+ * THE FIX IS THE LESSON, FOR THE EIGHTH TIME. The owner is not a thing an action
+ * publishes when it happens to move the index; it is a function of
+ * `(currentStepIndex, getSteps())`, so it is derived at the store's write
+ * boundary alongside the mirror it owns, and re-derived at
+ * `_reconcileStepSet` — the one event that exists when the steps themselves
+ * move. The table of three publishers is gone, exactly as `MIRROR_PUBLISHERS`
+ * before it.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT DECIDE, AND MUST NOT.
+ *
+ * "A step is inserted before the user — is the user's position an INDEX or an
+ * IDENTITY?" is a real question, and it is a PRODUCT question. If position is an
+ * index, an insert at 0 moves the user backwards onto the new step. If position
+ * is an identity, the user stays on `step-alpha` and the index should have been
+ * bumped to follow them.
+ *
+ * The store does not get a vote, and this test does not encode an answer to it.
+ * `WorkflowProvider` renders `getSteps()[currentStepIndex]` — position is an
+ * INDEX today, unconditionally, and that is a fact about the navigation layer
+ * that this file merely observes. What the store owes is narrower and true under
+ * EITHER answer: whatever step the user is RENDERED, the mirror is a view of
+ * THAT step's slice. Today that is spelled `getSteps()[currentStepIndex]`
+ * because that is what the provider renders. The desync above is a bug under
+ * both readings — under the identity reading the index is ALSO wrong, and the
+ * store would still be right to mirror whatever the index ends up naming.
+ *
+ * So if the identity reading is ever chosen, the fix belongs in the navigation
+ * layer (bump the index to keep naming the same step), and everything here keeps
+ * holding without a line changing — which is the point of the mirror being a
+ * derivation rather than an opinion.
+ */
+
+const INTRO = 'step-intro';
+const FLAG = 'flag';
+const GATED = 'gated';
+
+/**
+ * `step-intro`, inserted BEFORE `step-alpha`. Both steps declare a field called
+ * `flag` — that is not a contrivance, it is what makes the override observable:
+ * `stepData` is the layer that decides a bare field id, so a mirror owned by the
+ * wrong step answers `flag` with the wrong step's value.
+ */
+function buildInsertedFlow(includeIntro: boolean) {
+  const base = flow.create(catalog, 'wf', 'Order');
+  const withIntro = includeIntro
+    ? base.addStep({
+        id: INTRO,
+        title: 'Intro',
+        formConfig: form
+          .create(catalog, 'intro-form')
+          .add({ id: FLAG, type: 'text', props: {} })
+          .add({
+            id: GATED,
+            type: 'text',
+            props: {},
+            conditions: { visible: when(FLAG).equals('intro-value') },
+          }),
+      })
+    : base;
+  return withIntro
+    .addStep({
+      id: ALPHA,
+      title: 'Alpha',
+      formConfig: form.create(catalog, 'alpha-form').add({ id: FLAG, type: 'text', props: {} }),
+    })
+    .build();
+}
+
+const INSERTED_DEFAULTS: Record<string, unknown> = {
+  [INTRO]: { [FLAG]: 'intro-value' },
+  [ALPHA]: { [FLAG]: 'alpha-value' },
+};
+
+/**
+ * A store whose steps move UNDER a fixed index, built the way the provider does.
+ * `insertIntro` is the whole recompile: the steps change and the provider's seam
+ * is discharged. No action moves the index, because nothing navigated.
+ */
+function createInsertHarness() {
+  let liveSteps: ReadonlyArray<StepConfig> = buildInsertedFlow(false).steps;
+  const store = createWorkflowStore({
+    getSteps: () => liveSteps,
+    defaultValues: INSERTED_DEFAULTS,
+    defaultStepIndex: 0,
+  });
+  return {
+    store,
+    insertIntro: () => {
+      liveSteps = buildInsertedFlow(true).steps;
+      store.getState()._reconcileStepSet();
+    },
+    getLiveSteps: () => liveSteps,
+  };
+}
+
+describe('the step the mirror belongs to is the step the user is RENDERED, always', () => {
+  it('an insert BEFORE the index re-owns the mirror, with no action driven at all', () => {
+    const { store, insertIntro, getLiveSteps } = createInsertHarness();
+
+    insertIntro();
+
+    const state = store.getState();
+    const rendered = getLiveSteps()[state.currentStepIndex]?.id;
+    // The user is rendered `step-intro`. The mirror is a view of `step-intro`.
+    // Those are the same sentence, and the store must not be able to say one
+    // without the other.
+    expect({ rendered, owner: state._currentStepId }).toEqual({
+      rendered: INTRO,
+      owner: INTRO,
+    });
+    // And the mirror follows its owner BY IDENTITY, as it does everywhere else —
+    // this is the claim that the owner is the ONLY thing that needed fixing.
+    expect(state.stepData).toBe(state.allData[INTRO]);
+  });
+
+  /**
+   * IDEMPOTENT, AND IT MUST BE. The provider discharges `_reconcileStepSet` on
+   * EVERY render, unguarded. A re-derivation that published a fresh state on a
+   * second call with nothing moved would notify every subscriber, which sets the
+   * provider's `useState`, which renders, which reconciles — the loop the
+   * unguarded seam exists to be safe against.
+   */
+  it('reconciling again with the steps unmoved publishes nothing', () => {
+    const { store, insertIntro } = createInsertHarness();
+    insertIntro();
+
+    const before = store.getState();
+    const notified = vi.fn();
+    const unsubscribe = store.subscribe(notified);
+    store.getState()._reconcileStepSet();
+    store.getState()._reconcileStepSet();
+    unsubscribe();
+
+    expect(notified).not.toHaveBeenCalled();
+    expect(store.getState()).toBe(before);
+  });
+});
+
+/**
+ * THE TRIPWIRE, AS A DIFFERENTIAL — because the members it must catch are the
+ * ones nobody has written yet.
+ *
+ * The differential at the bottom of the previous section asks whether a member
+ * can tell that its step was BORN rather than mounted. It cannot see this bug:
+ * `step-bravo` is born at the END, so the index names the same step in both
+ * arms and `_currentStepId` is equal in both by luck.
+ *
+ * This asks the question that has no lucky answer:
+ *
+ *   a store that MOUNTED with `step-intro` at index 0, and a store that mounted
+ *   WITHOUT it and had it INSERTED at index 0 by a recompile, must be
+ *   INDISTINGUISHABLE.
+ *
+ * The members compared are read off the two real stores at runtime by the same
+ * `stepIdentityMembers` derivation. A member added tomorrow that is re-derived
+ * only on the writes that MOVE THE INDEX will, by that very fact, differ between
+ * the two arms — the recompile arm moves no index. It cannot pass and it cannot
+ * hide, and nobody has to have thought of it.
+ *
+ * IT IS DRIVEN AT THE STORE, NOT THE PROVIDER, AND DELIBERATELY. The born/mounted
+ * differential above builds both arms through `WorkflowProvider`, which is right
+ * for it: what it forbids anyone from observing is when a step was COMPILED, and
+ * the provider is what compiles. This forbids a STORE MEMBER from observing that
+ * its owner moved without an index write — a property of `createWorkflowStore`
+ * and of nothing else — so the store is the level that states it, and the two
+ * arms differ in exactly one fact rather than in a whole render tree.
+ *
+ * The provider is still driven for real, on this very mutation, by the condition
+ * test at the bottom of this describe — which is the half that matters most,
+ * because it is the half the user sees.
+ *
+ * (A provider-level version of this differential does NOT pass today, and not
+ * because of anything above: `_repeatableOrders` gains an empty `step-intro`
+ * entry in the recompile arm and not in the mounted one, because
+ * `WorkflowProvider`'s `handleRepeatableOrderChange` attributes a form's order
+ * report to `currentStep?.id` READ AT CALL TIME rather than to the step whose
+ * form produced it. That is a PROVIDER invariant of this same class, it is
+ * PRE-EXISTING — it reproduces identically on the intact store — and it is out
+ * of this change's scope. It is inert today: an empty entry and an absent one are
+ * observationally identical at both boundaries that read the mirror.)
+ */
+
+/** `step-intro` at index 0, there all along. */
+function mountedWithIntro(): WorkflowStore {
+  return createWorkflowStore({
+    getSteps: () => buildInsertedFlow(true).steps,
+    defaultValues: INSERTED_DEFAULTS,
+    defaultStepIndex: 0,
+  });
+}
+
+/** The same `step-intro`, inserted at index 0 by a recompile. No action between. */
+function insertedIntro(): WorkflowStore {
+  const { store, insertIntro } = createInsertHarness();
+  insertIntro();
+  return store;
+}
+
+describe('NO step-identity-keyed member can tell whether the step set moved under the index', () => {
+  it('every member the derivation finds is identical in both stores', () => {
+    const inserted = insertedIntro();
+    const mounted = mountedWithIntro();
+    const liveStepIds = [INTRO, ALPHA];
+
+    const members = [
+      ...new Set([
+        ...stepIdentityMembers(inserted.getState(), liveStepIds),
+        ...stepIdentityMembers(mounted.getState(), liveStepIds),
+      ]),
+    ].sort();
+
+    // The derivation must be looking at something, or every assertion below is
+    // vacuously true.
+    expect(members.length).toBeGreaterThan(0);
+    expect(members.every((name) => name in STEP_IDENTITY_STATE)).toBe(true);
+
+    for (const name of members) {
+      const key = name as keyof WorkflowStoreState;
+      expect({ member: name, value: inserted.getState()[key] }).toEqual({
+        member: name,
+        value: mounted.getState()[key],
+      });
+    }
+  });
+
+  /**
+   * THE COST, ON THE SCREEN.
+   *
+   * `_currentStepId` is not a payload key — it is the OWNER of the layer that
+   * decides every bare field id a condition names. `step-intro`'s own field is
+   * gated on `step-intro`'s own `flag`, and the mirror hands the evaluation
+   * `step-alpha`'s `flag` instead — spread LAST, so it beats the correct value
+   * sitting right there in `allData`. The field belongs on the screen and is not
+   * on it, for as long as the flow is open.
+   *
+   * The differential for the reason it is always the differential: a field's
+   * visibility must not depend on which turn the model inserted a step on.
+   */
+  function gatedIsVisible(recompile: boolean): boolean {
+    let visible: boolean | undefined;
+    function Probe() {
+      visible = useFlow().conditionsHelpers.isFieldVisible(GATED);
+      return null;
+    }
+    const tree = (config: WorkflowConfig) => (
+      <WorkflowProvider workflowConfig={config} defaultValues={INSERTED_DEFAULTS}>
+        <Probe />
+      </WorkflowProvider>
+    );
+    const { rerender, unmount } = render(tree(buildInsertedFlow(!recompile)));
+    // The recompile, and the last thing that happens. Nothing follows it.
+    if (recompile) rerender(tree(buildInsertedFlow(true)));
+    const answer = visible as boolean;
+    unmount();
+    return answer;
+  }
+
+  it('a condition on a step INSERTED at the index evaluates as it does when that step was mounted', () => {
+    expect({
+      mounted: gatedIsVisible(false),
+      inserted: gatedIsVisible(true),
+    }).toEqual({ mounted: true, inserted: true });
   });
 });
 

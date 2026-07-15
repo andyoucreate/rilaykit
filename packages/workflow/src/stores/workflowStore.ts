@@ -104,6 +104,13 @@ export interface WorkflowStoreState {
    * store created without `steps`. There is then no slice for the mirror to be
    * a view OF, so the mirror is left exactly where it is.
    *
+   * THE INVARIANT, and it is unconditional in the same way `stepData`'s is: at
+   * every instant this store is observable, `_currentStepId ===
+   * getSteps()[currentStepIndex]?.id ?? null`. The step that owns the mirror is
+   * the step the user is RENDERED — `WorkflowProvider` renders
+   * `getSteps()[currentStepIndex]`, and there is no second opinion about where
+   * the user is.
+   *
    * DERIVED, NEVER PASSED IN. This used to be a value each caller handed the
    * store alongside the index, justified by "every write through
    * WorkflowProvider names its step" — true of the provider and false of the
@@ -112,9 +119,26 @@ export interface WorkflowStoreState {
    * nothing else re-named the step, so every later write to the real current
    * step was misread as a cross-step write and withheld forever.
    *
-   * So it is not a parameter, it is a function of the index: every path that
-   * moves `currentStepIndex` re-derives this from the store's own `steps`. No
-   * caller can be the one who forgot, because no caller is asked to remember.
+   * AND THEN IT WAS A DERIVATION EACH INDEX-MOVING ACTION PERFORMED FOR ITSELF,
+   * WHICH IS A TABLE OF PUBLISHERS IN A DERIVATION'S CLOTHES. Three actions
+   * re-derived it, and they were exhaustive over the ways the INDEX moves — so
+   * the table looked complete, and was, over the wrong domain. This is a
+   * function of TWO inputs and the other one is `getSteps()`, which is LIVE:
+   * a model inserts a step at index 0, `currentStepIndex` is untouched and now
+   * names a different step, the provider renders that different step, and this
+   * still named the step the user never left. Zero actions ran, so no table
+   * could have had an entry for it. The mirror then derived the WRONG step's
+   * slice — correctly, freshly, from the wrong owner — and
+   * `combineWorkflowDataForConditions` spreads it LAST, so it beat the right
+   * values sitting in `allData` and a field's visibility came out wrong on the
+   * screen.
+   *
+   * So it is not a parameter and not an action's chore: it is derived at the
+   * store's WRITE BOUNDARY (see `createWorkflowStore`'s `withDerived`), from
+   * both its inputs, on every write — and re-derived by
+   * {@link WorkflowStoreState._reconcileStepSet}, which is the only
+   * announcement the second input ever makes. No caller can be the one who
+   * forgot, because no caller is asked to remember.
    */
   _currentStepId: string | null;
   /**
@@ -242,7 +266,8 @@ function readStepSlice(allData: Record<string, unknown>, stepId: string): Record
 }
 
 /**
- * A state patch as an action writes it, before the mirror is derived onto it.
+ * A state patch as an action writes it, before the derived members are written
+ * onto it.
  */
 type StatePatch = Partial<WorkflowStoreState>;
 
@@ -250,7 +275,7 @@ type StatePatch = Partial<WorkflowStoreState>;
  * The `set` every action in this store is handed. See
  * {@link WorkflowStoreState.stepData} for why it is not the raw one.
  */
-type MirroredSet = (patch: StatePatch | ((state: WorkflowStoreState) => StatePatch)) => void;
+type DerivingSet = (patch: StatePatch | ((state: WorkflowStoreState) => StatePatch)) => void;
 
 // =================================================================
 // STORE FACTORY
@@ -382,26 +407,42 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
   return createStore<WorkflowStoreState>()(
     subscribeWithSelector((rawSet, get) => {
       /**
-       * THE MIRROR, DERIVED — the one and only place `stepData` is written.
+       * EVERYTHING THIS STORE DERIVES, WRITTEN ONTO A PATCH — the one and only
+       * place `_currentStepId` and `stepData` are ever written.
        *
-       * Every action below is handed THIS as its `set`, so `stepData` is not
-       * something an action publishes, it is something that happens to an
-       * action's patch on the way out. `stepData` is a view of
-       * `allData[_currentStepId]` and both of those are in the patch's own
-       * result, so the view is computable from it — with no help from, and no
-       * cooperation by, the action that produced it.
+       * Every action below is handed this (through `set`), so neither the mirror
+       * nor its owner is something an action publishes: they are something that
+       * happens to an action's patch on the way out. The owner is a function of
+       * `(currentStepIndex, getSteps())` and the mirror is a function of
+       * `(allData, owner)` — every input is in the patch's own result or is read
+       * live, so both are computable from it, with no help from and no
+       * cooperation by the action that produced it.
        *
-       * WHY THIS AND NOT AN EIGHTH ENTRY IN A TABLE. Six invariants in this
-       * store have now died to "the internal caller respects it", and the mirror
-       * had a table of publishers with `_setAllData` missing from it. Every fix
-       * that stuck deleted the asking rather than correcting the answer:
-       * `_currentStepId` stopped being a parameter and became a function of the
-       * index; the reset seed stopped being a cached value and became a function
-       * of the live steps; `_loadPersistedState`'s mirror stopped being a value
-       * the provider computed and became a function of the restored slice. This
-       * is the same move, made once for all writers instead of once per writer.
-       * A new action added tomorrow cannot forget the mirror, because it is
-       * never asked.
+       * WHY THE OWNER IS HERE AND NOT IN THE THREE ACTIONS THAT USED TO PUBLISH
+       * IT. `_currentStepId` was already a DERIVATION — nobody passed it in, it
+       * was `ownerOf(index)` — but it was a derivation each index-moving action
+       * performed for itself, which is a table of publishers wearing a
+       * derivation's clothes. It had three entries (`_setCurrentStep`, `_reset`,
+       * `_loadPersistedState`) and they were, between them, exhaustive over the
+       * ways the INDEX moves. They were silent about the other way the pair can
+       * come apart: the STEPS moving under a fixed index. A model inserts a step
+       * at index 0, `currentStepIndex` is untouched and now names a DIFFERENT
+       * step, the provider renders that different step — and the owner, which no
+       * action was asked to re-derive because no action ran, stayed on the step
+       * the user had left without moving. The mirror then faithfully,
+       * freshly derived the WRONG step's slice, and spread it last over the
+       * conditions. See {@link WorkflowStoreState._currentStepId}.
+       *
+       * So the owner is not re-derived when an action happens to move the index;
+       * it is re-derived whenever anything is written at all, from the index and
+       * the steps live at that instant. The table is gone, exactly as
+       * `MIRROR_PUBLISHERS` before it, and for the same reason: a question asked
+       * of each writer has an answer each writer can get wrong.
+       *
+       * THE MIRROR FOLLOWED FOR FREE, and that is the whole point of the
+       * ordering: `stepData` is derived from the owner in the same expression,
+       * one line later, so fixing the owner fixed the view without the view
+       * being mentioned.
        *
        * IT DERIVES FROM `allData`, WHICH IS WHY IT SUBSUMES THE CROSS-STEP RULE
        * FOR FREE. A write naming another step changes `allData[other]` and
@@ -411,17 +452,26 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
        * different step") was a special case of the derivation all along; it is
        * now a consequence rather than a clause.
        *
-       * A `null` owner is the one thing it cannot answer: there are no steps, so
-       * there is no slice to be a view of, and the patch passes through
-       * untouched. See {@link WorkflowStoreState._currentStepId}.
+       * A `null` owner is the one thing it cannot answer: the index names no
+       * step (there are none, or it is out of range), so there is no slice for
+       * the mirror to be a view OF and the mirror is left exactly where it is.
        */
-      const set: MirroredSet = (patch) => {
-        rawSet((state) => {
-          const written = typeof patch === 'function' ? patch(state) : patch;
-          const next = { ...state, ...written };
-          if (next._currentStepId === null) return written;
-          return { ...written, stepData: readStepSlice(next.allData, next._currentStepId) };
-        });
+      const withDerived = (state: WorkflowStoreState, written: StatePatch): StatePatch => {
+        const next = { ...state, ...written };
+        const owner = ownerOf(next.currentStepIndex);
+        if (owner === null) return { ...written, _currentStepId: null };
+        return {
+          ...written,
+          _currentStepId: owner,
+          stepData: readStepSlice(next.allData, owner),
+        };
+      };
+
+      /**
+       * The `set` every action is handed. See {@link withDerived}.
+       */
+      const set: DerivingSet = (patch) => {
+        rawSet((state) => withDerived(state, typeof patch === 'function' ? patch(state) : patch));
       };
 
       return {
@@ -451,8 +501,16 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
 
         // Actions
         /**
-         * Move navigation. The mirror follows on its own — it is a view of the
-         * CURRENT step's slice, and this is what makes a step current.
+         * Move navigation — and say NOTHING about the mirror or its owner. Both
+         * follow on their own: the owner is a function of the index this writes,
+         * and the mirror is a view of the slice the owner names.
+         *
+         * It used to re-derive the owner itself (`_currentStepId:
+         * ownerOf(stepIndex)`), which was one of three actions doing so and
+         * looked exhaustive — those three ARE every way the index moves. The way
+         * the pair actually came apart was the steps moving under an index that
+         * did not, which no action here could have been asked about. See
+         * {@link withDerived}.
          *
          * `goToStep` used to re-seed `stepData` itself ("to prevent leaking
          * fields from the previous step"), which is the store's invariant
@@ -461,7 +519,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
          * fields that comment names.
          */
         _setCurrentStep: (stepIndex) => {
-          set({ currentStepIndex: stepIndex, _currentStepId: ownerOf(stepIndex) });
+          set({ currentStepIndex: stepIndex });
         },
 
         _setStepData: (data, stepId) => {
@@ -527,15 +585,34 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
          * `flattenAuthoredSlice` hands back the slice it was given. There is no
          * branch that could clobber, because there is no branch.
          *
+         * IT RE-DERIVES THE MIRROR'S OWNER TOO, AND IT IS THE ONLY THING THAT
+         * CAN. `_currentStepId` is a function of `(currentStepIndex, getSteps())`
+         * and this action is the only announcement the second input ever makes.
+         * Every OTHER way the pair can come apart is an action moving the index,
+         * and the write boundary re-derives the owner on any write at all — but a
+         * step being INSERTED BEFORE the user is not a write. `currentStepIndex`
+         * is untouched and now names a different step; the provider renders that
+         * different step; nothing else in this store's life will ever notice,
+         * because the user is exactly where they were and only a move used to
+         * ask. This action does not mention the owner either — it just writes,
+         * and the boundary derives — but it is the reason there is a write at
+         * all. See {@link withDerived}.
+         *
          * IDEMPOTENT, AND IT MUST BE — it runs on every render of the provider,
          * unguarded, because a guard on "did the steps change?" is one more thing
          * a caller can get wrong and this class is made of exactly those. So it
          * PUBLISHES NOTHING when nothing moved: no `set`, no notification, no
          * render loop. A second call computes the same identities and returns.
          *
-         * The mirror follows the slice it mirrors, as everywhere else — and here
-         * as everywhere else, that costs this action not one line. See
-         * {@link WorkflowStoreState.stepData}.
+         * AND IT ASKS THAT OF THE DERIVED PATCH, NOT OF THE TWO KEYS IT WRITES
+         * BY HAND. "Did anything move?" used to compare `allData` and
+         * `_repeatableOrders` — the members this action names — which was a
+         * correct answer to the wrong question: what this action PUBLISHES is
+         * whatever the write boundary derives onto what it writes, and the owner
+         * moving is invisible in the two keys above. So the check is applied to
+         * the boundary's own output, and a member the boundary starts deriving
+         * tomorrow is covered here for the same reason it is covered
+         * everywhere else — nobody had to remember it.
          */
         _reconcileStepSet: () => {
           const state = get();
@@ -544,11 +621,17 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
             getSteps(),
             state._repeatableOrders
           );
-          if (normalized.data === state.allData && normalized.orders === state._repeatableOrders) {
-            return;
-          }
+          const patch = withDerived(state, {
+            allData: normalized.data,
+            _repeatableOrders: normalized.orders,
+          });
+          const moved = Object.keys(patch).some(
+            (key) =>
+              !Object.is(patch[key as keyof StatePatch], state[key as keyof WorkflowStoreState])
+          );
+          if (!moved) return;
 
-          set({ allData: normalized.data, _repeatableOrders: normalized.orders });
+          set(patch);
         },
 
         /**
@@ -674,11 +757,11 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
             allData: seed.data,
             // The index returns to its default, so the mirror's owner does too —
             // and the mirror itself follows the owner, as ever, without this
-            // action saying anything about it. It used to blank `stepData` here,
-            // which was the same "a fresh session has an empty mirror" theory the
-            // initial state held, and just as wrong: the user lands on the default
-            // step, and that step's slice is the freshly seeded defaults.
-            _currentStepId: ownerOf(state._defaultStepIndex),
+            // action saying anything about either. It used to blank `stepData`
+            // here, which was the same "a fresh session has an empty mirror"
+            // theory the initial state held, and just as wrong: the user lands on
+            // the default step, and that step's slice is the freshly seeded
+            // defaults.
             // Derived in the same breath as the slice it describes, from an empty
             // mirror, so the two cannot disagree about the rows.
             _repeatableOrders: seed.orders,
@@ -715,13 +798,16 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
                 ? { allData: normalized.data, _repeatableOrders: normalized.orders }
                 : {}),
               // A restore MOVES the index — `currentStepIndex` is part of the
-              // snapshot — so the mirror's owner is re-derived from where the
-              // restore actually landed. Any `_currentStepId` in the snapshot is
-              // ignored on purpose: it is the index that says where the user is,
-              // and a snapshot carrying a stale pair must not be able to reinstate
-              // the desync this derivation exists to make unrepresentable.
-              _currentStepId: ownerOf(restored.currentStepIndex),
-              // AND THE MIRROR IT OWNS IS NOT MENTIONED HERE AT ALL, ON THE SAME
+              // snapshot — and the mirror's owner is re-derived from where the
+              // restore actually landed WITHOUT this action saying so, at the
+              // write boundary, from the index restored above. A
+              // `_currentStepId` in the snapshot arrives through the
+              // `{...state, ...persistedState}` spread and is overwritten there:
+              // it is the index that says where the user is, and a snapshot
+              // carrying a stale pair has no standing to reinstate the desync
+              // the derivation exists to forbid — and now no way to.
+              //
+              // AND THE MIRROR IT OWNS IS NOT MENTIONED HERE EITHER, ON THE SAME
               // TERMS AND THEN SOME. A `stepData` in the snapshot arrives through
               // the `{...state, ...persistedState}` spread above and is
               // OVERWRITTEN on the way out by the derivation at this store's write
