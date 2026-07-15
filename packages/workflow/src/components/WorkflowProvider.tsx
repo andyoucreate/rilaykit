@@ -134,6 +134,41 @@ function calculateInitialSteps(
   return { visitedSteps, passedSteps };
 }
 
+/**
+ * Layers a persisted `allData` over the compiled `defaultValues`, step by step.
+ *
+ * Per step: the persisted keys win, the default keys the snapshot does not carry
+ * survive, and a step the snapshot never mentions keeps its defaults whole. A
+ * non-object slice on either side cannot be merged key-wise, so the persisted
+ * one is taken as-is.
+ *
+ * The accumulator is a Map: a step id is data, and `merged['__proto__'] = slice`
+ * on a plain object reassigns the prototype instead of recording a key, silently
+ * dropping that step. `Object.fromEntries` defines every key as an own property.
+ */
+function mergeStepSlices(
+  defaults: Record<string, unknown>,
+  persisted: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = new Map<string, unknown>(Object.entries(defaults));
+
+  for (const [stepId, persistedSlice] of Object.entries(persisted)) {
+    const defaultSlice = merged.get(stepId);
+    merged.set(
+      stepId,
+      isMergeableSlice(defaultSlice) && isMergeableSlice(persistedSlice)
+        ? { ...defaultSlice, ...persistedSlice }
+        : persistedSlice
+    );
+  }
+
+  return Object.fromEntries(merged);
+}
+
+function isMergeableSlice(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 // =================================================================
 // WORKFLOW PROVIDER
 // =================================================================
@@ -307,11 +342,21 @@ export function WorkflowProvider({
         try {
           const persistedData = await persistenceHookRef.current.loadPersistedData();
           if (persistedData) {
-            // Merge loaded state as the base, but keys the user already set
-            // before the load resolved WIN — preserve in-flight user input
-            // rather than overwriting it.
+            // Layer the snapshot OVER the compiled defaults rather than
+            // replacing them. A snapshot only carries what its session recorded:
+            // the steps it says nothing about are not steps with no data, they
+            // are steps it has no opinion about, and the flow's own defaults are
+            // the answer for them. Replacing wholesale blanked every default of
+            // every step the user had not reached.
+            const mergedAllData = mergeStepSlices(
+              store.getState()._defaultValues,
+              persistedData.allData
+            );
+
+            // Keys the user already set before the load resolved WIN over the
+            // loaded state — preserve in-flight user input rather than
+            // overwriting it.
             const userEdits = userEditsBeforeLoadRef.current;
-            const mergedAllData: Record<string, unknown> = { ...persistedData.allData };
             for (const [stepId, edits] of userEdits) {
               const base = (mergedAllData[stepId] as Record<string, unknown> | undefined) ?? {};
               mergedAllData[stepId] = { ...base, ...edits };
