@@ -1,4 +1,4 @@
-import { getLogger } from '@rilaykit/core';
+import { getLogger, getOwn } from '@rilaykit/core';
 import type { FieldEffect, FieldEffectContext } from '@rilaykit/core';
 import type { FormStore } from '../stores/formStore';
 
@@ -102,7 +102,9 @@ export class EffectEngine {
     newValue: unknown,
     incomingChain: CascadeChain | null = null
   ): void {
-    const effects = this.effectsMap[fieldId];
+    // Own-property only: `fieldId` is a store key, so an unwatched field named
+    // `constructor` would otherwise resolve an inherited method here.
+    const effects = getOwn(this.effectsMap, fieldId);
     if (!effects || effects.length === 0) return;
 
     const chain: CascadeChain = incomingChain ?? { visited: new Set(), depth: 0 };

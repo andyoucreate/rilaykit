@@ -849,32 +849,16 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     const allFields = this.getFields();
 
-    // Build effectsMap: watchFieldId -> FieldEffect[]
-    const effectsMap: Record<string, FieldEffect[]> = {};
-    for (const field of allFields) {
-      if (field.effects) {
-        for (const effect of field.effects) {
-          const key = effect.watchFieldId;
-          if (!effectsMap[key]) {
-            effectsMap[key] = [];
-          }
-          effectsMap[key].push(effect);
-        }
-      }
-    }
-    // Also process repeatable fields
+    // Build effectsMap: watchFieldId -> FieldEffect[].
+    // A Map accumulator, not a plain object: `watchFieldId` comes from the
+    // (possibly schema-authored) field config, and a plain object answers
+    // `effectsMap['toString']` with an inherited method — the guard then reads
+    // it as "already present" and `.push` blows up on a function.
+    const effectsMap = new Map<string, FieldEffect[]>();
+    indexEffects(allFields, effectsMap);
     if (repeatableFields) {
       for (const config of Object.values(repeatableFields)) {
-        for (const field of config.allFields) {
-          if (field.effects) {
-            for (const effect of field.effects) {
-              if (!effectsMap[effect.watchFieldId]) {
-                effectsMap[effect.watchFieldId] = [];
-              }
-              effectsMap[effect.watchFieldId].push(effect);
-            }
-          }
-        }
+        indexEffects(config.allFields, effectsMap);
       }
     }
 
@@ -886,7 +870,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       config: this.config,
       validation: this.formValidation,
       submitOptions: this._submitOptions,
-      effectsMap: Object.keys(effectsMap).length > 0 ? effectsMap : undefined,
+      // `Object.fromEntries` defines every key as an own data property, so a
+      // watched field named `__proto__` stays a real key of the index.
+      effectsMap: effectsMap.size > 0 ? Object.fromEntries(effectsMap) : undefined,
     };
   }
 
@@ -995,6 +981,26 @@ export class form<C extends Record<string, any> = Record<string, never>> {
         0
       ),
     };
+  }
+}
+
+/**
+ * Indexes every field's effects into `into`, keyed by watched field id.
+ *
+ * The single accumulator for both effect sources (top-level fields and
+ * repeatable templates) so the two cannot drift.
+ */
+function indexEffects(fields: readonly FormFieldConfig[], into: Map<string, FieldEffect[]>): void {
+  for (const field of fields) {
+    if (!field.effects) continue;
+    for (const effect of field.effects) {
+      const existing = into.get(effect.watchFieldId);
+      if (existing) {
+        existing.push(effect);
+      } else {
+        into.set(effect.watchFieldId, [effect]);
+      }
+    }
   }
 }
 

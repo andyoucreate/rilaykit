@@ -1,5 +1,5 @@
 import type { RilayInstance } from '@rilaykit/core';
-import { NotFoundError } from '@rilaykit/core';
+import { NotFoundError, getOwn } from '@rilaykit/core';
 import { compileForm } from '@rilaykit/forms';
 import { flow } from '../builders/flow';
 import type {
@@ -15,6 +15,10 @@ import { validateFlowSchema } from './validate-flow-schema';
  *
  * The single lookup-or-throw for every `FlowBindings` table, so the
  * unresolved-binding error contract (message + metadata) is defined once.
+ *
+ * Own-property only: the table is a plain object supplied by the consumer and
+ * `key` comes from untrusted schema JSON, so a `toString` reference must read
+ * as absent rather than resolve to an inherited method.
  */
 function resolveBinding<T>(
   table: Record<string, T> | undefined,
@@ -22,7 +26,7 @@ function resolveBinding<T>(
   kind: 'allowSkip' | 'onAfterValidation',
   stepId: string
 ): T {
-  const value = table?.[key];
+  const value = getOwn(table, key);
   if (!value) {
     throw new NotFoundError(`${kind} binding "${key}" not found for step "${stepId}"`, {
       binding: key,
@@ -63,7 +67,10 @@ export function compileFlow<C extends Record<string, unknown>>(
   validateFlowSchema(schema, catalog, bindings);
 
   const builder = flow.create(catalog, schema.id, schema.name, schema.description);
-  const defaultValues: Record<string, unknown> = {};
+  // A Map accumulator, not a plain object: `step.id` is untrusted, and
+  // `defaultValues['__proto__'] = x` on a plain object reassigns the prototype
+  // instead of recording a key — silently discarding that step's defaults.
+  const defaultValues = new Map<string, unknown>();
 
   for (const step of schema.steps) {
     const { formConfig, defaultValues: stepDefaults } = compileForm(step.form, catalog, {
@@ -71,7 +78,7 @@ export function compileFlow<C extends Record<string, unknown>>(
     });
 
     if (stepDefaults !== undefined) {
-      defaultValues[step.id] = stepDefaults;
+      defaultValues.set(step.id, stepDefaults);
     }
 
     builder.addStep({
@@ -95,6 +102,7 @@ export function compileFlow<C extends Record<string, unknown>>(
   return {
     workflowConfig: builder.build(),
     // Mirror compileForm: omit the channel entirely when nothing contributed.
-    defaultValues: Object.keys(defaultValues).length > 0 ? defaultValues : undefined,
+    // `Object.fromEntries` defines every key as an own data property.
+    defaultValues: defaultValues.size > 0 ? Object.fromEntries(defaultValues) : undefined,
   };
 }

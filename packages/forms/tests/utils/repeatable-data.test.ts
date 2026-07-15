@@ -344,3 +344,38 @@ describe('roundtrip: flatten ↔ structure', () => {
     expect(structured).toEqual(original);
   });
 });
+
+// =================================================================
+// PROTOTYPE-KEY LOOKUPS
+// =================================================================
+
+describe('Prototype-key repeatable ids and field ids', () => {
+  it('structures a repeatable whose id is a prototype key without inheriting from Object.prototype', () => {
+    const configs = { toString: createRepeatableConfig('toString', ['name']) };
+
+    const result = structureFormValues({ 'toString[k0].name': 'Widget' }, configs, {});
+
+    expect(Object.getOwnPropertyDescriptor(result, 'toString')?.value).toEqual([]);
+  });
+
+  it('carries a non-template row field named "toString" into the structured item', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const result = structureFormValues(
+      { 'items[k0].name': 'Widget', 'items[k0].toString': 'extra' },
+      configs,
+      { items: ['k0'] }
+    );
+
+    expect(result.items).toEqual([{ name: 'Widget', toString: 'extra' }]);
+  });
+
+  it('does not treat a plain array-valued field named "toString" as a repeatable', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const { values, order } = flattenRepeatableValues({ toString: ['a', 'b'] }, configs);
+
+    expect(values).toEqual({ toString: ['a', 'b'] });
+    expect(order).toEqual({});
+  });
+});

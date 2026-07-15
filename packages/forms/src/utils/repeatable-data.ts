@@ -1,3 +1,4 @@
+import { getOwn, hasOwn } from '@rilaykit/core';
 import type { RepeatableFieldConfig } from '@rilaykit/core';
 
 // =================================================================
@@ -57,7 +58,9 @@ export function structureFormValues(
   // no active rows (absent from `repeatableOrder`) still submits as an empty
   // array — never `undefined` — so consumers get a stable array shape.
   for (const [repeatableId, config] of Object.entries(repeatableConfigs)) {
-    const keys = repeatableOrder[repeatableId] ?? [];
+    // Own-property only: a repeatable id of `toString` would otherwise resolve
+    // an inherited method here and blow up on iteration.
+    const keys = getOwn(repeatableOrder, repeatableId) ?? [];
     const items: Record<string, unknown>[] = [];
 
     const itemByKey = new Map<string, Record<string, unknown>>();
@@ -86,7 +89,9 @@ export function structureFormValues(
       if (!parsed || parsed.repeatableId !== repeatableId) continue;
       const item = itemByKey.get(parsed.itemKey);
       if (!item) continue; // orphan key (not in active order) — skip
-      if (!(parsed.fieldId in item)) {
+      // Own-property only — `in` is prototype-inclusive, so a row field named
+      // `toString` would read as "already carried" and be dropped.
+      if (!hasOwn(item, parsed.fieldId)) {
         item[parsed.fieldId] = value;
       }
       processedKeys.add(key);
@@ -135,7 +140,9 @@ export function flattenRepeatableValues(
   const nextKeys: Record<string, number> = {};
 
   for (const [key, value] of Object.entries(data)) {
-    if (repeatableConfigs[key] && Array.isArray(value)) {
+    // Own-property only: a plain field named `toString` holding an array must
+    // not be mistaken for a configured repeatable.
+    if (getOwn(repeatableConfigs, key) && Array.isArray(value)) {
       // This is a repeatable field — flatten the array
       const keys: string[] = [];
       let keyCounter = 0;

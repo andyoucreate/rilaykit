@@ -11,6 +11,7 @@ import {
   type RilayInstance,
   type StandardSchema,
   email as emailValidator,
+  getOwn,
   maxLength as maxLengthValidator,
   max as maxValidator,
   minLength as minLengthValidator,
@@ -47,15 +48,20 @@ import { isSchemaEnvelope, validateSchemaEnvelope } from './validate-envelope';
 
 const ZERO_PARAM_BUILTINS = new Set(['required', 'email', 'url', 'number']);
 
-const PARAMETERIZED_BUILTINS: Record<string, string[]> = {
-  minLength: ['min'],
-  maxLength: ['max'],
-  min: ['min'],
-  max: ['max'],
-  pattern: ['pattern'],
-};
+/**
+ * A Map, not a plain object: this table is indexed by an untrusted schema's
+ * `type`, and a plain object would answer `toString` / `constructor` /
+ * `__proto__` with an inherited method instead of `undefined`.
+ */
+const PARAMETERIZED_BUILTINS = new Map<string, string[]>([
+  ['minLength', ['min']],
+  ['maxLength', ['max']],
+  ['min', ['min']],
+  ['max', ['max']],
+  ['pattern', ['pattern']],
+]);
 
-const ALL_BUILTIN_NAMES = new Set([...ZERO_PARAM_BUILTINS, ...Object.keys(PARAMETERIZED_BUILTINS)]);
+const ALL_BUILTIN_NAMES = new Set([...ZERO_PARAM_BUILTINS, ...PARAMETERIZED_BUILTINS.keys()]);
 
 // =================================================================
 // CONDITION OPERATORS (for validation)
@@ -484,8 +490,8 @@ function validateValidationDescriptors(
       }
 
       // Check parameterized built-ins
-      if (PARAMETERIZED_BUILTINS[type]) {
-        const requiredParams = PARAMETERIZED_BUILTINS[type];
+      const requiredParams = PARAMETERIZED_BUILTINS.get(type);
+      if (requiredParams) {
         for (const param of requiredParams) {
           if (!params || params[param] === undefined) {
             issues.push({
@@ -509,8 +515,9 @@ function validateValidationDescriptors(
           }
         }
       } else if (!ALL_BUILTIN_NAMES.has(type)) {
-        // Check registry
-        if (!registry?.validators?.[type]) {
+        // Check registry — own-property only: the bindings table is a plain
+        // object supplied by the consumer, and `type` is untrusted.
+        if (getOwn(registry?.validators, type) === undefined) {
           issues.push({
             path: descPath,
             message: `Unknown validator type "${type}". Not a built-in and not found in registry.`,
@@ -548,12 +555,26 @@ function validateEffect(
       message: 'Effect must have a non-empty "handler" registry key',
       severity: 'error',
     });
-  } else if (!registry?.effects?.[effect.handler]) {
-    issues.push({
-      path: `${path}.handler`,
-      message: `Effect handler "${effect.handler}" not found in registry`,
-      severity: 'error',
-    });
+  } else {
+    // Own-property only: the bindings table is a plain object supplied by the
+    // consumer, and `handler` is untrusted — a `toString` handler must read as
+    // absent, not resolve to Object.prototype.toString and compile a no-op.
+    const bound = getOwn(registry?.effects, effect.handler);
+    if (bound === undefined) {
+      issues.push({
+        path: `${path}.handler`,
+        message: `Effect handler "${effect.handler}" not found in registry`,
+        severity: 'error',
+      });
+    } else if (typeof bound !== 'function') {
+      // A binding that EXISTS but is not callable is a schema/bindings mismatch:
+      // report it here rather than deferring to a raw TypeError at effect time.
+      issues.push({
+        path: `${path}.handler`,
+        message: `Effect handler "${effect.handler}" in bindings is not a function`,
+        severity: 'error',
+      });
+    }
   }
 }
 
@@ -707,17 +728,20 @@ function mergeDefaultValues(
   schema: FormSchema,
   rows: FormSchemaRow[]
 ): Record<string, unknown> | undefined {
-  const inlineDefaults: Record<string, unknown> = {};
+  // A Map accumulator, not a plain object: `field.id` is untrusted, and
+  // `inlineDefaults['__proto__'] = x` on a plain object reassigns the prototype
+  // instead of recording a key — silently dropping that field's default.
+  // `Object.fromEntries` then defines every key as an own data property.
+  const inlineDefaults = new Map<string, unknown>();
   for (const field of collectTopLevelFields(rows)) {
     if (field.default !== undefined) {
-      inlineDefaults[field.id] = field.default;
+      inlineDefaults.set(field.id, field.default);
     }
   }
 
-  const hasInline = Object.keys(inlineDefaults).length > 0;
-  if (!hasInline) return schema.defaultValues;
+  if (inlineDefaults.size === 0) return schema.defaultValues;
 
-  return { ...inlineDefaults, ...(schema.defaultValues ?? {}) };
+  return { ...Object.fromEntries(inlineDefaults), ...(schema.defaultValues ?? {}) };
 }
 
 /**
@@ -826,9 +850,10 @@ export function resolveValidationDescriptor(
     return resolveBuiltinValidator(type, params, message);
   }
 
-  // Registry lookup
-  if (registry?.validators?.[type]) {
-    return registry.validators[type](params, message);
+  // Registry lookup — own-property only (see validateValidationDescriptors).
+  const factory = getOwn(registry?.validators, type);
+  if (factory) {
+    return factory(params, message);
   }
 
   throw new InvalidSchemaError(`Unknown validator type: "${type}"`, { type });
@@ -884,8 +909,10 @@ function resolveBuiltinValidator(
  */
 function resolveEffects(effects: FieldSchemaEffect[], registry?: Bindings): FieldEffect[] {
   return effects.map((effect) => {
-    const registryHandler = registry?.effects?.[effect.handler];
-    if (!registryHandler) {
+    // Own-property only (see validateEffect) — this is the last line of defence
+    // for callers that reach the resolver without the structural pass.
+    const registryHandler = getOwn(registry?.effects, effect.handler);
+    if (typeof registryHandler !== 'function') {
       throw new NotFoundError(`Effect handler "${effect.handler}" not found in registry`, {
         handler: effect.handler,
       });

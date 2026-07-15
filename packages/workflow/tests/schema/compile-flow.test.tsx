@@ -122,6 +122,61 @@ describe('compileFlow', () => {
     expect(defaultValues).toEqual({ personal: { name: 'Ada' }, company: { siren: '123' } });
   });
 
+  it('does not resolve an allowSkip binding named "toString" off Object.prototype', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: 'a',
+          title: 'A',
+          form: { version: 1, id: 'a', fields: [{ id: 'x', type: 'text' }] },
+          allowSkip: { binding: 'toString' },
+        },
+      ],
+    };
+
+    let caught: unknown;
+    try {
+      compileFlow(schema, makeCatalog(), { bindings: { allowSkip: {} } });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(NotFoundError);
+    expect((caught as NotFoundError).message).toBe(
+      'allowSkip binding "toString" not found for step "a"'
+    );
+  });
+
+  it('keeps a step id of "__proto__" as a real defaultValues key', () => {
+    const schema: FlowSchema = {
+      version: 1,
+      id: 'wf',
+      name: 'W',
+      steps: [
+        {
+          id: '__proto__',
+          title: 'Proto',
+          form: {
+            version: 1,
+            id: 'proto',
+            fields: [{ id: 'name', type: 'text', default: 'Ada' }],
+          },
+        },
+      ],
+    };
+
+    const { defaultValues } = compileFlow(schema, makeCatalog());
+
+    expect(defaultValues).toBeDefined();
+    expect(Object.keys(defaultValues as Record<string, unknown>)).toEqual(['__proto__']);
+    expect(
+      Object.getOwnPropertyDescriptor(defaultValues as Record<string, unknown>, '__proto__')?.value
+    ).toEqual({ name: 'Ada' });
+  });
+
   it('omits defaultValues when no step declares any', () => {
     const schema: FlowSchema = {
       version: 1,

@@ -15,6 +15,7 @@ export {
 
 // Export shared utilities
 export * from './utils/builderHelpers';
+export * from './utils/ownProperty';
 
 // Export validation system
 export * from './validation';
