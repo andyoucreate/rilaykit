@@ -8,6 +8,7 @@ import {
   type FormValidationConfig,
   InvalidSchemaError,
   NotFoundError,
+  type PropsValidationResult,
   type RilayInstance,
   type StandardSchema,
   email as emailValidator,
@@ -89,9 +90,11 @@ const VALID_CONDITION_OPERATORS = new Set([
  *
  * @param schema - The JSON form schema (from backend or local JSON)
  * @param config - The ril instance containing registered components
- * @param options - Optional compile options ({ bindings } for custom validators/effects)
+ * @param options - Optional compile options ({ bindings } for custom validators/effects,
+ *                  { validateProps: true } to check field props against propsSchema)
  * @returns A FormSchemaResult with formConfig and optional defaultValues
- * @throws SchemaValidationError if the schema is invalid
+ * @throws SchemaValidationError if the schema is invalid, or — with
+ *         `validateProps: true` — if any field's props violate its propsSchema
  *
  * @example
  * ```typescript
@@ -111,6 +114,11 @@ export function compileForm<C extends Record<string, any>>(
 
   // 2. Normalize: flat fields → rows
   const rows = normalizeToRows(schema);
+
+  // 2b. Opt-in: check every field's props against its component's propsSchema
+  if (options?.validateProps) {
+    validateFieldProps(rows, config);
+  }
 
   // 3. Build via form builder
   const builder = form.create(config, schema.id);
@@ -634,6 +642,55 @@ function normalizeToRows(schema: FormSchema): FormSchemaRow[] {
 
 function isRepeatableRow(row: FormSchemaRow): row is FormSchemaRepeatableRow {
   return row.kind === 'repeatable';
+}
+
+/**
+ * Collects every field of a normalized row list, repeatable templates included.
+ * The props of a repeatable's template fields are as compilable — and as
+ * wrong-able — as any other field's, so prop validation must see them too.
+ */
+function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
+  return rows.flatMap((row) =>
+    isRepeatableRow(row) ? row.repeatable.rows.flatMap((fieldRow) => fieldRow.fields) : row.fields
+  );
+}
+
+/**
+ * Checks every field's `props` against its component's `propsSchema`.
+ *
+ * Accumulates across all fields so an agent gets the complete correction list in
+ * one pass instead of one violation per round-trip.
+ *
+ * @throws SchemaValidationError if any field's props violate its propsSchema
+ */
+function validateFieldProps<C extends Record<string, any>>(
+  rows: FormSchemaRow[],
+  config: RilayInstance<C>
+): void {
+  const issues: SchemaIssue[] = [];
+
+  for (const field of collectAllFields(rows)) {
+    let result: PropsValidationResult;
+    try {
+      result = config.validateProps(field.type, field.props ?? {});
+    } catch (error) {
+      // An unknown component type is already reported by validateSchema, so a
+      // NotFoundError here would only duplicate it. Anything else (e.g. an async
+      // propsSchema → ConfigurationError) is a real catalog defect: let it out.
+      if (error instanceof NotFoundError) continue;
+      throw error;
+    }
+
+    if (result.success) continue;
+
+    for (const issue of result.issues) {
+      issues.push({ path: field.id, message: issue.message, severity: 'error' });
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new SchemaValidationError(issues);
+  }
 }
 
 /**

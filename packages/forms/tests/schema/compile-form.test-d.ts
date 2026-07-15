@@ -23,9 +23,10 @@ describe('compileForm public type surface', () => {
     expectTypeOf<SchemaRegistry>().toEqualTypeOf<Bindings>();
   });
 
-  it('names the CompileFormOptions field `bindings`', () => {
+  it('names the CompileFormOptions fields `bindings` and `validateProps`', () => {
     expectTypeOf<CompileFormOptions>().toEqualTypeOf<{
       readonly bindings?: Bindings;
+      readonly validateProps?: boolean;
     }>();
   });
 

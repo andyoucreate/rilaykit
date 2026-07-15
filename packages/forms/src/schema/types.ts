@@ -192,6 +192,16 @@ export type SchemaRegistry = Bindings;
 export interface CompileFormOptions {
   /** Resolution for the schema's validator/effect string references. */
   readonly bindings?: Bindings;
+  /**
+   * When true, each field's `props` are checked against its component's
+   * `propsSchema` and every violation is reported as a `SchemaValidationError`
+   * issue pathed to the field id. Fields whose component declares no
+   * `propsSchema` are skipped.
+   *
+   * Off by default — prop validation is the opt-in self-correction hook for
+   * agent-authored schemas, not a cost paid by hand-written ones.
+   */
+  readonly validateProps?: boolean;
 }
 
 /**
