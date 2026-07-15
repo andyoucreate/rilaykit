@@ -982,6 +982,16 @@ export function WorkflowProvider({
   // who was typing into it — wiping the validation error they were reading and
   // ejecting their focus to the body — even when the load restored nothing at
   // all. A restore that does deliver data bumps the generation itself.
+  //
+  // The STEP travels with the form as `instanceId` (below), and does NOT belong
+  // in this key. It is the same fact — "a step change is a form swap" — but the
+  // two mechanisms are not interchangeable. `children` is rendered INSIDE the
+  // FormProvider, so a key that carried the step would remount the host's whole
+  // subtree on every navigation: nav buttons, panels, anything the host holds
+  // state in. `instanceId` reaches the reset FormProvider already runs for a
+  // config change — a layout effect, atomic with the swap and invisible to
+  // `children`. Same guarantee, and it costs the host nothing it did not
+  // already pay.
   const seedGeneration = useStore(store, (state) => state._seedGeneration);
   const formProviderKey = useMemo(() => `seed:${seedGeneration}`, [seedGeneration]);
 
@@ -991,6 +1001,7 @@ export function WorkflowProvider({
         <FormProvider
           key={formProviderKey}
           formConfig={formConfig}
+          instanceId={currentStep?.id}
           defaultValues={formProviderDefaultValues}
           conditionValues={conditionValues}
           onFieldChange={setValue}

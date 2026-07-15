@@ -49,6 +49,28 @@ export function useForm(): FormConfigContextValue {
 export interface FormProviderProps {
   children: React.ReactNode;
   formConfig: FormConfiguration;
+  /**
+   * WHO this form is mounted for, when the host has an identity the config does
+   * not carry. Two mounts with the same config but different `instanceId` are
+   * two DIFFERENT forms, and swapping between them resets the store exactly as a
+   * config change does.
+   *
+   * `formConfig` alone answers "what can this form hold"; it cannot answer
+   * "whose values are these". A workflow step is the case that needs the
+   * difference: form ids are NOT unique within a flow — `flow.build()` and
+   * `validateFlowSchema` enforce STEP id uniqueness and are silent on form ids,
+   * a form id is only a signature input and a monitoring label (never a key into
+   * workflow data, which is keyed by step id), and `form.create(catalog)`
+   * auto-generates one. So two steps reusing one form — the same built form
+   * handed to two `addStep` calls — are structurally IDENTICAL here, and without
+   * this the swap between them was invisible: the previous step's values,
+   * errors, touched, dirty and validation states stayed mounted and were
+   * presented as the new step's own.
+   *
+   * Optional, because a standalone form has no owner and its config IS its whole
+   * identity. Hosts that mount one form per surface never need it.
+   */
+  instanceId?: string;
   defaultValues?: Record<string, unknown>;
   onSubmit?: (data: Record<string, unknown>) => void | Promise<void>;
   onFieldChange?: (fieldId: string, value: unknown, formData: Record<string, unknown>) => void;
@@ -101,7 +123,14 @@ export interface FormProviderProps {
 // =================================================================
 
 /**
- * Cheap STRUCTURAL identity of a built config: which values it can hold.
+ * Cheap identity of a mounted form: WHOSE values it holds, and which values it
+ * can hold.
+ *
+ * `instanceId` is the "whose" — an identity the host has and the config does
+ * not. It leads the signature because a change to it is a form swap on its own,
+ * whatever the shape says. See {@link FormProviderProps.instanceId}: two
+ * workflow steps may legitimately reuse ONE form, and then the shape below is
+ * identical and only this tells the two mounts apart.
  *
  * The reset used to key on `formConfig.id` alone, but a form id is stable
  * BUSINESS identity while the schema behind it evolves. A backend re-emitting an
@@ -124,13 +153,13 @@ export interface FormProviderProps {
  * exactly as removing the field would — and the host's evolved contract says
  * number.
  */
-function buildConfigSignature(formConfig: FormConfiguration): string {
+function buildConfigSignature(formConfig: FormConfiguration, instanceId?: string): string {
   const fields = fieldShapes(formConfig.allFields);
   const repeatables = Object.entries(formConfig.repeatableFields ?? {})
     .map(([id, config]) => [id, fieldShapes(config.allFields)] as const)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
-  return JSON.stringify([formConfig.id, fields, repeatables]);
+  return JSON.stringify([instanceId ?? null, formConfig.id, fields, repeatables]);
 }
 
 /**
@@ -144,6 +173,7 @@ function fieldShapes(fields: FormConfiguration['allFields']): string[] {
 export function FormProvider({
   children,
   formConfig,
+  instanceId,
   defaultValues = {},
   onSubmit,
   onFieldChange,
@@ -188,11 +218,21 @@ export function FormProvider({
   // dispatching to the latest validator.
   const validateFieldRef = useRef<((fieldId: string) => Promise<unknown>) | null>(null);
 
-  // Track genuine config changes — see `buildConfigSignature`. A form swap is
-  // any change to WHAT THE FORM CAN HOLD, not just to its id: a workflow step
-  // transition (id changes) and a hot-swapped schema under a stable id (only the
-  // field set changes) are the same event as far as the store is concerned.
-  const configSignature = useMemo(() => buildConfigSignature(formConfig), [formConfig]);
+  // Track genuine form swaps — see `buildConfigSignature`. A swap is any change
+  // to WHOSE VALUES THESE ARE or to WHAT THE FORM CAN HOLD; neither is "the id
+  // changed". A hot-swapped schema under a stable id (only the field set
+  // changes) and a move to a different owner holding an identical form (only
+  // `instanceId` changes) are the same event as far as the store is concerned.
+  //
+  // That second case is why `instanceId` exists. This used to read "a workflow
+  // step transition (id changes)" and rely on it: a step transition was ASSUMED
+  // to change the form id. Two steps may reuse one form, and then a transition
+  // changed nothing here — the previous step's values stayed mounted, and the
+  // workflow wrote them into the new step's slice on submit.
+  const configSignature = useMemo(
+    () => buildConfigSignature(formConfig, instanceId),
+    [formConfig, instanceId]
+  );
   const prevConfigSignatureRef = useRef(configSignature);
 
   // Brackets the form-id reset so the values subscription can tell a wholesale
@@ -201,13 +241,14 @@ export function FormProvider({
   // reliably covers exactly the reset's own notification.
   const isResettingRef = useRef(false);
 
-  // Reset when the form's structure changes — reinitialize repeatable configs
-  // and min items.
+  // Reset when the mounted form is swapped — reinitialize repeatable configs and
+  // min items.
   //
-  // This MUST be a LAYOUT effect, not a passive one. The form id changes when the
-  // mounted form is swapped (e.g. a workflow step transition), and the store still
-  // holds the PREVIOUS form's values until this reset runs. A passive effect is
-  // flushed in a scheduler macrotask, so it leaves a window in which the new
+  // This MUST be a LAYOUT effect, not a passive one. The signature changes when
+  // the mounted form is swapped (a workflow step transition, or a schema
+  // re-emitted with a new shape), and the store still holds the PREVIOUS form's
+  // values until this reset runs. A passive effect is flushed in a scheduler
+  // macrotask, so it leaves a window in which the new
   // form's fields are already committed and painted while the store is still
   // stale — the browser can paint one frame of the previous step's values, and,
   // worse, ANY write landing in that window (a user keystroke, or a programmatic
