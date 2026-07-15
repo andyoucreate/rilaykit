@@ -2,6 +2,7 @@ import {
   type ConditionConfig,
   type ConditionalBehavior,
   type FieldConfigFor,
+  type FieldConfigOf,
   type FieldEffect,
   type FieldValidationConfig,
   type FormValidationConfig,
@@ -671,15 +672,18 @@ function mergeDefaultValues(
  * Converts schema fields into catalog-typed field configs.
  * Resolves validation descriptors and effect references.
  *
- * The lone cast is the schema→catalog boundary. A JSON schema carries an opaque
- * `type: string`; only `validateSchema` (via `config.hasComponent`) proves it is
- * a key of `C`, and that runtime proof cannot be expressed to the compiler. So
- * the narrowing is asserted here exactly once — every consumer downstream, the
- * builder's `.add(...)` included, then type-checks with no cast of its own.
+ * The lone cast narrows the catalog key at the schema→catalog boundary, and
+ * nothing else. A JSON schema carries an opaque `type: string`; only
+ * `validateSchema` (via `config.hasComponent`) proves it is a key of `C`, and
+ * that runtime proof cannot be expressed to the compiler. Every other slot of
+ * the literal is checked against the catalog-agnostic instantiation of the very
+ * same `FieldConfigOf` the builder consumes, so the shape cannot drift — every
+ * consumer downstream, the builder's `.add(...)` included, then type-checks with
+ * no cast of its own.
  */
 function resolveFields<C>(fields: FormSchemaField[], registry?: Bindings): FieldConfigFor<C>[] {
   return fields.map((field) => {
-    const resolved = {
+    const resolved: FieldConfigOf<Record<string, Record<string, unknown>>, string> = {
       id: field.id,
       type: field.type,
       props: field.props,
