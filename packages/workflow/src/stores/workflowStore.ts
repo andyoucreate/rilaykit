@@ -6,6 +6,8 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import {
   flattenAuthoredSlice,
   normalizeRepeatableSlices,
+  reconcileRepeatableOrders,
+  sameRowKeys,
 } from '../utils/normalizeRepeatableSlices';
 
 // =================================================================
@@ -67,6 +69,25 @@ export interface WorkflowStoreState {
    * host on completion, and a bookkeeping key has no business in it. The order
    * is unreconstructable from the values (a move rewrites the order only), so
    * re-entering a step would silently revert the user's reorder without it.
+   *
+   * THE THIRD INVARIANT: where this names a repeatable's rows, it names the row
+   * keys THIS STORE'S OWN SLICE for that step holds — never the keys of the rows
+   * they replaced. An entry is a claim about rows that exist; its ABSENCE is not
+   * an empty claim but no claim at all, which the read boundary answers by
+   * reconstructing insertion order from the flat keys.
+   *
+   * RECONCILED, NEVER LEFT BEHIND. The mirror is consulted on the way in
+   * (`flattenAuthoredSlice`'s `liveOrder`, so a host re-authoring the rows the
+   * mirror describes does not re-key them out from under it) and applied on the
+   * way out (`structureStepSlice`'s `mirroredOrder`, the only path a user's
+   * reorder has to the completion payload). Those two used to disagree about
+   * when it was trustworthy: the write side declined a mirror whose length did
+   * not match and re-keyed the rows `k0..kn`, while the read side applied that
+   * same mirror to the new keys regardless — so a host's array came back
+   * re-sequenced by an arrangement belonging to rows that were gone. A write
+   * that re-keys rows now hands the mirror the keys it wrote, so there is no
+   * stale claim left for the read side to trust. See
+   * {@link reconcileRepeatableOrders}.
    */
   _repeatableOrders: Record<string, Record<string, string[]>>;
   /**
@@ -120,13 +141,11 @@ export interface WorkflowStoreState {
  */
 function isSameRepeatableOrder(a: Record<string, string[]>, b: Record<string, string[]>): boolean {
   const aIds = Object.keys(a);
-  const bIds = Object.keys(b);
-  if (aIds.length !== bIds.length) return false;
+  if (aIds.length !== Object.keys(b).length) return false;
   return aIds.every((id) => {
     const aKeys = getOwn(a, id);
     const bKeys = getOwn(b, id);
-    if (!aKeys || !bKeys || aKeys.length !== bKeys.length) return false;
-    return aKeys.every((key, index) => key === bKeys[index]);
+    return !!aKeys && !!bKeys && sameRowKeys(aKeys, bKeys);
   });
 }
 
@@ -233,19 +252,36 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
    * way in and no caller can be the one who forgot. The live row order is read
    * from the store's own mirror, which is strictly better than any caller could
    * do — it keeps the row KEYS stable across a re-author.
+   *
+   * AND THE THIRD INVARIANT, in the same breath, because it is the same write.
+   * The mirror the normalisation consulted is also the mirror the normalisation
+   * can invalidate — a re-author that re-keys the rows leaves every claim the
+   * mirror made about them false — so the write reports the mirror it leaves
+   * behind rather than leaving a caller to notice. See
+   * {@link WorkflowStoreState._repeatableOrders}.
    */
   const normalizeSlice = (
     state: WorkflowStoreState,
     data: Record<string, unknown>,
     stepId: string
-  ): Record<string, unknown> =>
-    flattenAuthoredSlice(
+  ): { slice: Record<string, unknown>; orders: Record<string, Record<string, string[]>> } => {
+    const flat = flattenAuthoredSlice(
       data,
       getSteps().find((step) => step.id === stepId)?.formConfig?.repeatableFields,
       getOwn(state._repeatableOrders, stepId)
     );
+    return {
+      slice: flat.slice,
+      orders: reconcileRepeatableOrders(state._repeatableOrders, stepId, flat.rowKeys),
+    };
+  };
 
-  const initialAllData = normalizeRepeatableSlices({ ...defaultValues }, getSteps());
+  // The mirror starts empty — nothing has been arranged yet — so the defaults
+  // have no claim to keep honest and the reconciled orders are `{}` by
+  // construction. They are read back rather than assumed so that this is the
+  // same one normaliser every other door uses.
+  const initial = normalizeRepeatableSlices({ ...defaultValues }, getSteps(), {});
+  const initialAllData = initial.data;
 
   return createStore<WorkflowStoreState>()(
     subscribeWithSelector((set, get) => ({
@@ -263,7 +299,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       _defaultValues: initialAllData,
       _defaultStepIndex: defaultStepIndex,
       _currentStepId: ownerOf(defaultStepIndex),
-      _repeatableOrders: {},
+      _repeatableOrders: initial.orders,
       _seedGeneration: 0,
 
       // Actions
@@ -301,19 +337,23 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
 
       _setStepData: (data, stepId) => {
         set((state) => {
-          const slice = normalizeSlice(state, data, stepId);
+          const { slice, orders } = normalizeSlice(state, data, stepId);
           return {
             ...mirrorIfCurrent(state, stepId, slice),
             allData: {
               ...state.allData,
               [stepId]: slice,
             },
+            _repeatableOrders: orders,
           };
         });
       },
 
       _setAllData: (data) => {
-        set({ allData: normalizeRepeatableSlices(data, getSteps()) });
+        set((state) => {
+          const normalized = normalizeRepeatableSlices(data, getSteps(), state._repeatableOrders);
+          return { allData: normalized.data, _repeatableOrders: normalized.orders };
+        });
       },
 
       /**
@@ -326,17 +366,18 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
        */
       _setFieldValue: (fieldId, value, stepId) => {
         set((state) => {
-          const newStepData = normalizeSlice(
+          const { slice, orders } = normalizeSlice(
             state,
             { ...readStepSlice(state, stepId), [fieldId]: value },
             stepId
           );
           return {
-            ...mirrorIfCurrent(state, stepId, newStepData),
+            ...mirrorIfCurrent(state, stepId, slice),
             allData: {
               ...state.allData,
-              [stepId]: newStepData,
+              [stepId]: slice,
             },
+            _repeatableOrders: orders,
           };
         });
       },
@@ -429,15 +470,24 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
       _loadPersistedState: (persistedState) => {
         set((state) => {
           const restored = { ...state, ...persistedState };
+          // A snapshot is host-authored data like any other: it may have been
+          // written by a build that stored authored arrays, or by a host that
+          // saved its own. It comes in through the same guard — and the mirror
+          // that guard consults is the RESTORED one, because a snapshot carrying
+          // an arrangement carries it for the very rows it is restoring
+          // alongside. Reaching for the live mirror instead would sequence the
+          // incoming session's rows by the outgoing session's arrangement.
+          const normalized = persistedState.allData
+            ? normalizeRepeatableSlices(
+                persistedState.allData,
+                getSteps(),
+                restored._repeatableOrders
+              )
+            : undefined;
           return {
             ...restored,
-            // A snapshot is host-authored data like any other: it may have been
-            // written by a build that stored authored arrays, or by a host that
-            // saved its own. It comes in through the same guard.
-            ...(persistedState.allData
-              ? {
-                  allData: normalizeRepeatableSlices(persistedState.allData, getSteps()),
-                }
+            ...(normalized
+              ? { allData: normalized.data, _repeatableOrders: normalized.orders }
               : {}),
             // A restore MOVES the index — `currentStepIndex` is part of the
             // snapshot — so the mirror's owner is re-derived from where the

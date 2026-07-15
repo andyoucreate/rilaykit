@@ -10,6 +10,29 @@ function isSlice(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Row-key list equality — the unit the order mirror is compared in. */
+export function sameRowKeys(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((key, index) => key === b[index]);
+}
+
+/**
+ * One step slice normalised to the store's internal shape, and the row keys the
+ * normalisation ASSIGNED.
+ *
+ * `rowKeys` is what makes the order mirror derivable rather than remembered: a
+ * write that re-authors a repeatable's rows reports the keys it gave them, so
+ * the store can keep the mirror describing the rows that are actually there
+ * instead of the rows they replaced. It is empty when the slice carried no
+ * authored array — the overwhelmingly common case, a form reporting its own
+ * composite keys, which re-keys nothing.
+ */
+export interface FlattenedSlice {
+  slice: Record<string, unknown>;
+  rowKeys: Record<string, string[]>;
+}
+
+const NO_ROW_KEYS: Record<string, string[]> = Object.freeze(Object.create(null));
+
 /**
  * Rewrites one step slice from the AUTHORED shape (a repeatable's rows as an
  * array under its bare id) into the store's internal flat composite keys.
@@ -25,6 +48,15 @@ function isSlice(value: unknown): value is Record<string, unknown> {
  * length mismatch means the mirror is not describing these rows, so it is not
  * trusted.
  *
+ * NOT TRUSTING THE MIRROR IS ONLY HALF THE ANSWER, which is why `rowKeys` comes
+ * back out. This function declining to use a stale mirror does not make the
+ * mirror any less stale, and the READ boundary ({@link structureStepSlice})
+ * trusts it unconditionally — so a length mismatch used to re-key the rows here
+ * and leave the mirror sequencing the host's fresh array by the arrangement of
+ * the rows it replaced. The two consumers disagreeing about when the mirror is
+ * describing these rows IS the desync; reporting the keys assigned lets the
+ * store settle it at the write, where it can.
+ *
  * The accumulator is a Map: both a field id and a repeatable id are author
  * data, and a plain `flat['__proto__'] = value` reassigns the prototype instead
  * of recording the key.
@@ -33,15 +65,16 @@ export function flattenAuthoredSlice(
   slice: Record<string, unknown>,
   repeatableConfigs: Record<string, RepeatableFieldConfig> | undefined,
   liveOrder?: Record<string, string[]>
-): Record<string, unknown> {
-  if (!repeatableConfigs) return slice;
+): FlattenedSlice {
+  if (!repeatableConfigs) return { slice, rowKeys: NO_ROW_KEYS };
 
   const authoredIds = Object.keys(repeatableConfigs).filter((id) =>
     Array.isArray(getOwn(slice, id))
   );
-  if (authoredIds.length === 0) return slice;
+  if (authoredIds.length === 0) return { slice, rowKeys: NO_ROW_KEYS };
 
   const flat = new Map<string, unknown>();
+  const assigned = new Map<string, string[]>();
 
   for (const [key, value] of Object.entries(slice)) {
     if (!authoredIds.includes(key)) {
@@ -64,6 +97,7 @@ export function flattenAuthoredSlice(
       captured && captured.length === items.length
         ? captured
         : items.map((_, index) => `k${index}`);
+    assigned.set(key, itemKeys);
 
     items.forEach((rawItem, index) => {
       // Degrade gracefully: a null / non-object row (e.g. a null entry from
@@ -75,7 +109,59 @@ export function flattenAuthoredSlice(
     });
   }
 
-  return Object.fromEntries(flat);
+  return { slice: Object.fromEntries(flat), rowKeys: Object.fromEntries(assigned) };
+}
+
+/**
+ * Folds the row keys a write ASSIGNED back into one step's order mirror, so the
+ * mirror never describes rows that are no longer there.
+ *
+ * ONLY THE CLAIMS THE MIRROR ALREADY MAKES ARE RECONCILED. An absent entry is
+ * not an empty one — it is the mirror declining to have an opinion, and the read
+ * boundary answers that by reconstructing insertion order from the flat keys,
+ * which is exactly what a repeatable nobody has reordered is in. Inventing an
+ * entry for it would only restate that, and would put a bookkeeping key into
+ * every persistence snapshot to say nothing.
+ */
+function reconcileStepOrder(
+  current: Record<string, string[]> | undefined,
+  rowKeys: Record<string, string[]>
+): Record<string, string[]> | undefined {
+  if (!current) return current;
+
+  const next = new Map<string, string[]>(Object.entries(current));
+  let changed = false;
+
+  for (const [id, assigned] of Object.entries(rowKeys)) {
+    const existing = next.get(id);
+    if (!existing || sameRowKeys(existing, assigned)) continue;
+    next.set(id, assigned);
+    changed = true;
+  }
+
+  return changed ? Object.fromEntries(next) : current;
+}
+
+/**
+ * {@link reconcileStepOrder} for the whole store's mirror. Returns the map's own
+ * identity when nothing moved, so an unrelated re-render is not published.
+ *
+ * The accumulator is a Map: a step id is author data, and a plain
+ * `next['__proto__'] = order` reassigns the prototype instead of recording the
+ * key, silently dropping that step's arrangement.
+ */
+export function reconcileRepeatableOrders(
+  orders: Record<string, Record<string, string[]>>,
+  stepId: string,
+  rowKeys: Record<string, string[]>
+): Record<string, Record<string, string[]>> {
+  const current = getOwn(orders, stepId);
+  const reconciled = reconcileStepOrder(current, rowKeys);
+  if (reconciled === current || reconciled === undefined) return orders;
+
+  const next = new Map<string, Record<string, string[]>>(Object.entries(orders));
+  next.set(stepId, reconciled);
+  return Object.fromEntries(next);
 }
 
 /**
@@ -96,16 +182,30 @@ export function flattenAuthoredSlice(
  * The authored/structured shape remains the public contract of the submitted
  * form payload (`structureFormValues`); flat is internal only.
  *
+ * `orders` IS NOT OPTIONAL, and that is the whole point. This used to take the
+ * data and the steps and nothing else — mirror-blind — because its first caller
+ * was store CREATION, where the mirror is empty by construction and there is
+ * genuinely no arrangement to preserve. "There is no order to consult" was TRUE
+ * of that caller. It was FALSE of `_setAllData` and `_loadPersistedState`, two
+ * PUBLIC actions routed through it later: they re-indexed a host's rows `k0..kn`
+ * underneath a mirror that still named `k1, k0`, and the host read its own array
+ * back reversed. The store had two normalisers, one of which quietly did not
+ * maintain the invariant — so a caller reaching for the wrong one was the door
+ * nobody enumerated. There is now one, it takes the mirror, and it hands back
+ * the mirror it leaves behind.
+ *
  * The accumulator is a Map: a step id is untrusted data, and
  * `normalized['__proto__'] = slice` on a plain object reassigns the prototype
  * instead of recording a key, silently dropping that step.
  */
 export function normalizeRepeatableSlices(
   data: Record<string, unknown>,
-  steps: ReadonlyArray<StepConfig>
-): Record<string, unknown> {
+  steps: ReadonlyArray<StepConfig>,
+  orders: Record<string, Record<string, string[]>>
+): { data: Record<string, unknown>; orders: Record<string, Record<string, string[]>> } {
   const normalized = new Map<string, unknown>(Object.entries(data));
   let changed = false;
+  let nextOrders = orders;
 
   for (const step of steps) {
     const repeatableConfigs = step.formConfig?.repeatableFields;
@@ -117,12 +217,13 @@ export function normalizeRepeatableSlices(
     // `flattenAuthoredSlice` returns the slice itself when there is no authored
     // array, so an already-flat slice keeps its identity and unrelated
     // memoisation and change detection do not churn.
-    const flat = flattenAuthoredSlice(slice, repeatableConfigs);
-    if (flat === slice) continue;
+    const flat = flattenAuthoredSlice(slice, repeatableConfigs, getOwn(nextOrders, step.id));
+    nextOrders = reconcileRepeatableOrders(nextOrders, step.id, flat.rowKeys);
+    if (flat.slice === slice) continue;
 
-    normalized.set(step.id, flat);
+    normalized.set(step.id, flat.slice);
     changed = true;
   }
 
-  return changed ? Object.fromEntries(normalized) : data;
+  return { data: changed ? Object.fromEntries(normalized) : data, orders: nextOrders };
 }

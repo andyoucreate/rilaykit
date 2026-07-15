@@ -90,6 +90,12 @@ function reconstructRowOrder(slice: Record<string, unknown>, repeatableId: strin
  *   (packages/workflow/tests/stores/store-enforces-flat-shape.test.tsx): a new
  *   action added without normalisation fails there, unread comment or not.
  *
+ *   FLAT IS NOT THE WHOLE INVARIANT — the row KEYS matter too, and that
+ *   enumeration cannot see them: it asserts the shape that comes out, and a door
+ *   that flattens to the wrong keys passes it. The store's row-order mirror
+ *   (`_repeatableOrders`) is closed separately, by
+ *   packages/workflow/tests/stores/store-enforces-order-mirror.test.tsx.
+ *
  *   READS (structure, here and in {@link structureWorkflowData}) — unlike the
  *   writes, these are still an ENUMERATED list, because a read door that leaks
  *   FLAT to a host is invisible to an invariant that demands flat. Every host
@@ -142,9 +148,19 @@ export function structureStepSlice(
     const reconstructed = reconstructRowOrder(slice, id);
     if (reconstructed.length === 0) continue;
 
+    // THE ONLY PATH A USER'S REORDER HAS TO THE HOST. A move rewrites the order
+    // and nothing else — the values cannot tell us the user dragged `beta` above
+    // `alpha` — so dropping the mirror here does not degrade the payload, it
+    // silently submits the arrangement the user explicitly rejected. Pinned by
+    // `a user reorder reaches the completion payload` in
+    // packages/workflow/tests/stores/store-enforces-order-mirror.test.tsx.
+    //
     // A captured order may only re-sequence rows that actually resolved: it can
     // never resurrect a row whose values are gone (the user deleted it), and a
-    // row it does not mention keeps its reconstructed position at the end.
+    // row it does not mention keeps its reconstructed position at the end. That
+    // tolerance is a backstop, NOT the contract — the store reconciles the
+    // mirror to the keys each write assigns, so a stale claim does not reach
+    // here in the first place. See `WorkflowStoreState._repeatableOrders`.
     const captured = mirroredOrder ? getOwn(mirroredOrder, id) : undefined;
     const resolved = captured
       ? [

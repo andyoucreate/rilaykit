@@ -24,11 +24,42 @@ describe('flattenAuthoredSlice — re-authoring a repeatable REPLACES its rows',
       LINES
     );
 
-    expect(flat).toEqual({ note: 'kept', 'lines[k0].label': 'gamma' });
+    expect(flat.slice).toEqual({ note: 'kept', 'lines[k0].label': 'gamma' });
   });
 
   it('leaves the composite keys of an untouched repeatable alone', () => {
     const slice = { 'lines[k0].label': 'alpha', note: 'kept' };
-    expect(flattenAuthoredSlice(slice, LINES)).toBe(slice);
+    expect(flattenAuthoredSlice(slice, LINES).slice).toBe(slice);
+  });
+});
+
+describe('flattenAuthoredSlice — reporting the row keys it assigned', () => {
+  // The order mirror cannot be kept honest by a caller that does not know which
+  // rows were re-keyed, and only this function knows: it is the one that decides
+  // whether the mirror still describes the rows it is handed. See
+  // `reconcileRepeatableOrders`.
+  it('reports the mirrored keys when it honours the mirror', () => {
+    const flat = flattenAuthoredSlice({ lines: [{ label: 'a' }, { label: 'b' }] }, LINES, {
+      lines: ['k1', 'k0'],
+    });
+
+    expect(flat.rowKeys).toEqual({ lines: ['k1', 'k0'] });
+    expect(flat.slice).toEqual({ 'lines[k1].label': 'a', 'lines[k0].label': 'b' });
+  });
+
+  it('reports the fresh keys when the mirror cannot be describing these rows', () => {
+    // Three rows against an arrangement of two: the mirror is stale, so the rows
+    // are re-indexed — and saying so is what lets the store retire the claim.
+    const flat = flattenAuthoredSlice(
+      { lines: [{ label: 'a' }, { label: 'b' }, { label: 'c' }] },
+      LINES,
+      { lines: ['k1', 'k0'] }
+    );
+
+    expect(flat.rowKeys).toEqual({ lines: ['k0', 'k1', 'k2'] });
+  });
+
+  it('reports nothing when the slice re-authors no rows', () => {
+    expect(flattenAuthoredSlice({ 'lines[k0].label': 'a' }, LINES).rowKeys).toEqual({});
   });
 });
