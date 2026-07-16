@@ -24,4 +24,12 @@ export {
   buildCompositeKey,
   parseCompositeKey,
 } from './utils/repeatable-data';
+export {
+  evaluateConditionLive,
+  isFieldVisibleInData,
+  isRepeatableVisible,
+  pickVisibleSubmitValues,
+  resolveFieldConditionalBehavior,
+} from './utils/submit-visibility';
+export type { VisibleSubmitValues } from './utils/submit-visibility';
 export * from './schema';

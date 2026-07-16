@@ -1,11 +1,52 @@
 import { getLogger } from '@rilaykit/core';
-import type { SubmitOptions, ValidationResult } from '@rilaykit/core';
+import type {
+  FormConfiguration,
+  RepeatableFieldConfig,
+  SubmitOptions,
+  ValidationResult,
+} from '@rilaykit/core';
 import type React from 'react';
 import { useCallback, useRef } from 'react';
 import type { FormStore } from '../stores';
-import { structureFormValues } from '../utils/repeatable-data';
+import { defineOwn, structureFormValues } from '../utils/repeatable-data';
+import { pickVisibleSubmitValues } from '../utils/submit-visibility';
 
 const log = getLogger('forms:submission');
+
+/**
+ * The payload exactly as the host receives it, on EVERY submit path (`force`
+ * included — force skips VALIDATION, not the visibility contract):
+ * currently-hidden fields dropped when a `formConfig` is supplied, then
+ * composite keys structured back into authored arrays. A repeatable whose
+ * whole template is hidden is left out of structuring too, so it does not
+ * resurface as an array key with its rows filtered empty.
+ */
+function buildSubmitPayload(
+  values: Record<string, unknown>,
+  repeatableConfigs: Record<string, RepeatableFieldConfig>,
+  repeatableOrder: Record<string, string[]>,
+  formConfig: FormConfiguration | undefined,
+  conditionData: Record<string, unknown>
+): Record<string, unknown> {
+  let visibleValues = values;
+  let visibleConfigs = repeatableConfigs;
+
+  if (formConfig) {
+    const picked = pickVisibleSubmitValues(values, formConfig, conditionData);
+    visibleValues = picked.values;
+    if (picked.hiddenRepeatableIds.size > 0) {
+      visibleConfigs = {};
+      for (const [id, config] of Object.entries(repeatableConfigs)) {
+        // `defineOwn`: a repeatable id is author data; see repeatable-data.
+        if (!picked.hiddenRepeatableIds.has(id)) defineOwn(visibleConfigs, id, config);
+      }
+    }
+  }
+
+  return Object.keys(visibleConfigs).length > 0
+    ? structureFormValues(visibleValues, visibleConfigs, repeatableOrder)
+    : visibleValues;
+}
 
 export interface UseFormSubmissionWithStoreProps {
   store: FormStore;
@@ -21,6 +62,26 @@ export interface UseFormSubmissionWithStoreProps {
    * form whose identity never changes, which is exactly the standalone case.
    */
   instanceKey?: string;
+  /**
+   * The live form configuration — what makes the payload visibility filter
+   * possible. The store holds values for every field it was ever handed
+   * (seeded defaults of hidden fields, values typed into a since-hidden field:
+   * both deliberate, for re-reveal UX), but validation already treats an
+   * invisible field as NONEXISTENT, and the payload must agree: a
+   * currently-hidden field's value shipping to the host is an answer to a
+   * question the user never saw. Optional so the hook stays usable on its own;
+   * a caller that omits it ships the values unfiltered, as before.
+   */
+  formConfig?: FormConfiguration;
+  /**
+   * Live data the visibility conditions evaluate against at submit time. Must
+   * reproduce the RENDER-TIME visibility semantics or the filter would drop a
+   * field the user is looking at: host-supplied external condition values
+   * (cross-step references in a workflow) layered UNDER the live store values,
+   * with every bare name the form owns answering from the store alone.
+   * Defaults to the live store values — exactly right standalone.
+   */
+  getConditionValues?: () => Record<string, unknown>;
 }
 
 function isFormEvent(value: unknown): value is React.FormEvent {
@@ -33,6 +94,8 @@ export function useFormSubmissionWithStore({
   validateForm,
   defaultSubmitOptions,
   instanceKey,
+  formConfig,
+  getConditionValues,
 }: UseFormSubmissionWithStoreProps) {
   // Use ref to store current onSubmit callback
   const onSubmitRef = useRef(onSubmit);
@@ -40,6 +103,13 @@ export function useFormSubmissionWithStore({
 
   const defaultSubmitOptionsRef = useRef(defaultSubmitOptions);
   defaultSubmitOptionsRef.current = defaultSubmitOptions;
+
+  // Refs, like onSubmit: a submit reads WHATEVER IS CURRENT when it ships, and
+  // a recompiled config (growth chunk) must not recreate the callback.
+  const formConfigRef = useRef(formConfig);
+  formConfigRef.current = formConfig;
+  const getConditionValuesRef = useRef(getConditionValues);
+  getConditionValuesRef.current = getConditionValues;
 
   // Generation of the MOUNTED FORM, bumped on every swap — see `instanceKey`.
   // A submit is work started ON a form, but everything it needs on the far side
@@ -86,16 +156,16 @@ export function useFormSubmissionWithStore({
       try {
         // force takes priority over skipInvalid
         if (resolvedOptions.force) {
-          // Skip validation entirely — submit current values as-is
+          // Skip validation entirely — submit current values, minus the fields
+          // the user cannot currently see.
           const currentState = store.getState();
-          const hasRepeatables = Object.keys(currentState._repeatableConfigs).length > 0;
-          const structuredValues = hasRepeatables
-            ? structureFormValues(
-                currentState.values as Record<string, unknown>,
-                currentState._repeatableConfigs,
-                currentState._repeatableOrder
-              )
-            : (currentState.values as Record<string, unknown>);
+          const structuredValues = buildSubmitPayload(
+            currentState.values as Record<string, unknown>,
+            currentState._repeatableConfigs,
+            currentState._repeatableOrder,
+            formConfigRef.current,
+            getConditionValuesRef.current?.() ?? (currentState.values as Record<string, unknown>)
+          );
 
           if (onSubmitRef.current) {
             await onSubmitRef.current(structuredValues);
@@ -146,15 +216,15 @@ export function useFormSubmissionWithStore({
           );
         }
 
-        // Structure values (flatten composite keys into arrays)
-        const hasRepeatables = Object.keys(currentState._repeatableConfigs).length > 0;
-        const structuredValues = hasRepeatables
-          ? structureFormValues(
-              valuesToSubmit,
-              currentState._repeatableConfigs,
-              currentState._repeatableOrder
-            )
-          : valuesToSubmit;
+        // Drop currently-hidden fields, then structure composite keys into
+        // authored arrays.
+        const structuredValues = buildSubmitPayload(
+          valuesToSubmit,
+          currentState._repeatableConfigs,
+          currentState._repeatableOrder,
+          formConfigRef.current,
+          getConditionValuesRef.current?.() ?? (currentState.values as Record<string, unknown>)
+        );
 
         // Call onSubmit if provided
         if (onSubmitRef.current) {

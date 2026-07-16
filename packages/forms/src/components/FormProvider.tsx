@@ -6,7 +6,15 @@ import type {
 } from '@rilaykit/core';
 import { ConfigurationError, getOwn, hasOwn } from '@rilaykit/core';
 import type React from 'react';
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { EffectEngine } from '../effects/effect-engine';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
@@ -483,6 +491,29 @@ function isUpgradableDefault(
   const baselineDefault = getOwn(defaultsBaseline, fieldId);
   if (getOwn(values, fieldId) !== baselineDefault) return false;
   return !plainDataEquals(nextDefault, baselineDefault);
+}
+
+/**
+ * Layers host-supplied external condition values UNDER a set of form values,
+ * admitting only the names this form does not own. One definition for the two
+ * moments that must agree on what conditions see: the render-time evaluation
+ * (`conditionEvaluationValues`) and the submit-time payload visibility filter
+ * (`getSubmitConditionValues`) — a filter measuring visibility differently
+ * from the screen would drop a field the user was looking at.
+ */
+function mergeExternalConditionValues(
+  conditionValues: Record<string, unknown> | undefined,
+  ownFieldIds: ReadonlySet<string>,
+  formValues: Record<string, unknown>
+): Record<string, unknown> {
+  if (!conditionValues) return formValues;
+  const external: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(conditionValues)) {
+    if (!ownFieldIds.has(key)) {
+      external[key] = value;
+    }
+  }
+  return { ...external, ...formValues };
 }
 
 export function FormProvider({
@@ -1116,16 +1147,30 @@ export function FormProvider({
   // external values filling ONLY the names this form does not own — so a
   // qualified cross-step reference (`stepA.fieldX`) resolves, while every bare
   // name the form declares answers from the live store alone, touched or not.
-  const conditionEvaluationValues = useMemo(() => {
-    if (!conditionValues) return formValues;
-    const external: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(conditionValues)) {
-      if (!ownFieldIds.has(key)) {
-        external[key] = value;
-      }
-    }
-    return { ...external, ...formValues };
-  }, [conditionValues, formValues, ownFieldIds]);
+  const conditionEvaluationValues = useMemo(
+    () => mergeExternalConditionValues(conditionValues, ownFieldIds, formValues),
+    [conditionValues, formValues, ownFieldIds]
+  );
+
+  // The SAME merge, read LIVE for the submit payload's visibility filter. The
+  // memo above is a render snapshot; a submit runs after awaits, and the
+  // filter deciding what ships must see visibility exactly as the user last
+  // did — evaluated against the store as it is NOW, external values layered
+  // underneath, or a field visible through a cross-step reference would be
+  // dropped from the payload the user just confirmed.
+  const conditionValuesRef = useRef(conditionValues);
+  conditionValuesRef.current = conditionValues;
+  const ownFieldIdsRef = useRef(ownFieldIds);
+  ownFieldIdsRef.current = ownFieldIds;
+  const getSubmitConditionValues = useCallback(
+    () =>
+      mergeExternalConditionValues(
+        conditionValuesRef.current,
+        ownFieldIdsRef.current,
+        store.getState().values as Record<string, unknown>
+      ),
+    [store]
+  );
 
   // Evaluate conditions using specialized hook
   const {
@@ -1240,6 +1285,10 @@ export function FormProvider({
     defaultSubmitOptions: formConfig.submitOptions,
     // A submit in flight is work started ON this form; a swap abandons it.
     instanceKey: formIdentity,
+    // The payload visibility filter: a currently-hidden field's value must not
+    // ship, mirroring validation's "invisible = nonexistent" contract.
+    formConfig,
+    getConditionValues: getSubmitConditionValues,
   });
 
   // Memoize form config context

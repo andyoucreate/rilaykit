@@ -329,6 +329,11 @@ export function WorkflowProvider({
   // a single navigation tick (e.g. onAfterValidation prefilling the next step)
   const getAllData = useCallback(() => store.getState().allData, [store]);
 
+  // Live reader for the current step's data mirror — same rationale as
+  // `getAllData`. Feeds the completion payload's visibility evaluation, which
+  // must see the store as it is inside the submit tick.
+  const getStepData = useCallback(() => store.getState().stepData, [store]);
+
   // Live reader for the mirrored row order — same rationale as `getAllData`:
   // the boundaries that structure a slice for the host run inside a single
   // navigation/submit tick, before any React commit refreshes a snapshot.
@@ -719,6 +724,7 @@ export function WorkflowProvider({
     setSubmitting,
     onWorkflowComplete: onWorkflowCompleteRef.current,
     getAllData,
+    getStepData,
     getRepeatableOrders,
     analyticsStartTime,
     workflowCompletedRef,

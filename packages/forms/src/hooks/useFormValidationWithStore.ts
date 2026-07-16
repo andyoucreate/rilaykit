@@ -1,15 +1,11 @@
 import type {
-  ConditionBuilder,
-  ConditionConfig,
   ConditionalBehavior,
   FormConfiguration,
   FormFieldConfig,
-  RepeatableFieldConfig,
   ValidationResult,
 } from '@rilaykit/core';
 import {
   createValidationContext,
-  evaluateCondition,
   getOwn,
   hasUnifiedValidation,
   isEmptyValue,
@@ -23,45 +19,19 @@ import {
   holdsOnlyConditionalRequiredError,
 } from '../utils/conditional-required';
 import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
-import { scopeConditions } from '../utils/scope-conditions';
+// The condition resolution/evaluation these hooks used to define inline lives
+// in utils/submit-visibility.ts now, shared with the submit payload boundary:
+// "invisible = nonexistent" is ONE contract, so validation and submission must
+// measure visibility identically.
+import {
+  evaluateConditionLive,
+  isRepeatableVisible,
+  resolveFieldConditionalBehavior,
+} from '../utils/submit-visibility';
 
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
   return { isValid: true, errors: [] };
-}
-
-/**
- * Evaluate a single condition against form data, returning false on error.
- */
-function evaluateConditionLive(
-  condition: ConditionConfig | ConditionBuilder,
-  formData: Record<string, unknown>
-): boolean {
-  try {
-    if (typeof condition === 'object' && condition && 'build' in condition) {
-      return evaluateCondition(condition.build(), formData);
-    }
-    return evaluateCondition(condition, formData);
-  } catch {
-    return false;
-  }
-}
-
-function evaluateTemplateVisibleCondition(
-  condition: ConditionConfig | ConditionBuilder | undefined,
-  formData: Record<string, unknown>
-): boolean {
-  if (!condition) return true;
-  return evaluateConditionLive(condition, formData);
-}
-
-function isRepeatableVisible(
-  config: RepeatableFieldConfig,
-  formData: Record<string, unknown>
-): boolean {
-  return config.allFields.some((field) =>
-    evaluateTemplateVisibleCondition(field.conditions?.visible, formData)
-  );
 }
 
 export interface UseFormValidationWithStoreProps {
@@ -122,30 +92,8 @@ export function useFormValidationWithStore({
   // store values at validation time — the render-derived conditions snapshot
   // lags a tick behind and would evaluate against stale data.
   const resolveConditionalBehavior = useCallback(
-    (fieldId: string): ConditionalBehavior | undefined => {
-      const staticField = formConfigRef.current.allFields.find((f) => f.id === fieldId);
-      if (staticField) return staticField.conditions;
-
-      const parsed = parseCompositeKey(fieldId);
-      if (parsed && formConfigRef.current.repeatableFields) {
-        const repeatableConfig = getOwn(
-          formConfigRef.current.repeatableFields,
-          parsed.repeatableId
-        );
-        const templateField = repeatableConfig?.allFields.find((f) => f.id === parsed.fieldId);
-        if (repeatableConfig && templateField?.conditions) {
-          const templateFieldIds = new Set(repeatableConfig.allFields.map((f) => f.id));
-          return scopeConditions(
-            templateField.conditions,
-            parsed.repeatableId,
-            parsed.itemKey,
-            templateFieldIds
-          );
-        }
-      }
-
-      return undefined;
-    },
+    (fieldId: string): ConditionalBehavior | undefined =>
+      resolveFieldConditionalBehavior(formConfigRef.current, fieldId),
     []
   );
 

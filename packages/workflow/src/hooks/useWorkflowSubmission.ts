@@ -1,6 +1,7 @@
 import { getLogger } from '@rilaykit/core';
 import type { WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
+import { pickVisibleCompletionData } from '../utils/pickVisibleCompletionData';
 import { structureWorkflowData } from '../utils/structureWorkflowData';
 import type { WorkflowState } from './workflow-state';
 
@@ -21,6 +22,14 @@ export interface UseWorkflowSubmissionProps {
    * live mirrors {@link useWorkflowNavigation}.
    */
   getAllData: () => Record<string, unknown>;
+  /**
+   * Live accessor for the current step's data mirror — same rationale as
+   * {@link getAllData}. Feeds the visibility evaluation that keeps hidden
+   * steps/fields out of the completion payload: `useWorkflowConditions`
+   * evaluates against `combine(allData, stepData)`, and the payload filter
+   * must measure visibility the same way, live.
+   */
+  getStepData?: () => Record<string, unknown>;
   /**
    * Live accessor for the mirrored repeatable row order, per step. The store
    * holds each slice flat; the completion payload is structured on the way out,
@@ -55,6 +64,7 @@ export function useWorkflowSubmission({
   setSubmitting,
   onWorkflowComplete,
   getAllData,
+  getStepData,
   getRepeatableOrders,
   analyticsStartTime,
   workflowCompletedRef,
@@ -83,8 +93,15 @@ export function useWorkflowSubmission({
     // of HOW the user completed the flow: a flow finished with a custom submit
     // button now yields the same nested arrays as one finished through the
     // form's own submit.
+    //
+    // Before structuring, CURRENTLY-HIDDEN steps and fields are dropped: the
+    // seeded defaults of a step the user never reached (and the values of
+    // fields whose question stands retracted) live in the store on purpose,
+    // but shipping them to the host would hand it answers the user never gave,
+    // byte-identical to real ones. Validation already treats the invisible as
+    // nonexistent; the payload boundary agrees here.
     const completionData = structureWorkflowData(
-      getAllData(),
+      pickVisibleCompletionData(getAllData(), workflowConfig.steps, getStepData?.() ?? {}),
       workflowConfig.steps,
       getRepeatableOrders?.()
     );
@@ -124,6 +141,7 @@ export function useWorkflowSubmission({
     }
   }, [
     getAllData,
+    getStepData,
     getRepeatableOrders,
     workflowConfig.steps,
     workflowConfig.analytics,
