@@ -1,1 +1,7 @@
-export { Catalog, useCatalog, useCatalogEntry, type CatalogProps } from './catalog-context';
+export {
+  Catalog,
+  useCatalog,
+  useCatalogEntry,
+  useCatalogOrNull,
+  type CatalogProps,
+} from './catalog-context';

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { ril } from '@rilaykit/core';
+import { ConfigurationError, ril } from '@rilaykit/core';
 import { Catalog } from '@rilaykit/core/react';
 import { Part } from '../../src/react/Part';
 
@@ -53,5 +53,21 @@ describe('<Part>', () => {
   it('renders nothing for an unregistered part type rather than crashing', () => {
     const { container } = mount(<Part part={{ type: 'data', name: 'usage', data: {} }} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders using an explicit catalog prop with no <Catalog> ancestor', () => {
+    render(
+      <Part
+        part={{ type: 'tool', toolCallId: 'c4', name: 'search_flights', state: 'streaming', input: { from: 'CDG' } }}
+        catalog={catalog}
+      />
+    );
+    expect(screen.getByRole('button')).toHaveTextContent('streaming:CDG');
+  });
+
+  it('throws a ConfigurationError with neither a catalog prop nor a <Catalog> ancestor', () => {
+    expect(() =>
+      render(<Part part={{ type: 'tool', toolCallId: 'c5', name: 'search_flights', state: 'ready', input: {} }} />)
+    ).toThrow(ConfigurationError);
   });
 });

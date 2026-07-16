@@ -34,6 +34,14 @@ export function useCatalog(): AnyCatalog {
   return value;
 }
 
+/**
+ * Like useCatalog, but returns null outside a provider — for components that
+ * accept an explicit catalog prop as an alternative.
+ */
+export function useCatalogOrNull(): AnyCatalog | null {
+  return useContext(CatalogContext);
+}
+
 export function useCatalogEntry(
   kind: 'component' | 'tool' | 'part',
   name: string

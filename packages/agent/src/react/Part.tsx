@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import type { RilayInstance } from '@rilaykit/core';
-import { useCatalog } from '@rilaykit/core/react';
+import { ConfigurationError, type RilayInstance } from '@rilaykit/core';
+import { useCatalogOrNull } from '@rilaykit/core/react';
 import { isToolPart, type Part as PartType } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 
@@ -23,8 +23,13 @@ export interface PartProps {
  * without the renderer knowing anything about transport.
  */
 export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps) {
-  const contextCatalog = useCatalog();
+  const contextCatalog = useCatalogOrNull();
   const resolved = catalog ?? contextCatalog;
+  if (!resolved) {
+    throw new ConfigurationError(
+      'Part requires either a catalog prop or a nearest <Catalog value={...}> provider'
+    );
+  }
 
   const resolve = useCallback(
     (output: unknown) => {
