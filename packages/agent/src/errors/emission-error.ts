@@ -1,4 +1,4 @@
-import type { SchemaValidationError } from '@rilaykit/forms';
+import type { SchemaIssue, SchemaValidationError } from '@rilaykit/forms';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 export interface EmissionIssue {
@@ -53,6 +53,30 @@ function safeMessage(error: unknown): string {
 }
 
 /**
+ * Defensively maps a single schema issue to the wire shape. The structural
+ * check in `isSchemaValidationError` only verifies `issues` is an *array* — a
+ * hand-forged (or otherwise misbehaving) error can still populate it with
+ * `null`/`undefined` holes, or with issue objects whose `path`/`message` are
+ * throwing getters. Either would otherwise crash the "never throws" contract
+ * `toEmissionResult` promises its callers, same as `safeMessage` guards the
+ * top-level error message. A rogue entry maps to a fixed placeholder rather
+ * than being dropped, so `issues.length` still lines up with the source array.
+ */
+function safeIssue(issue: SchemaIssue | null | undefined): EmissionIssue {
+  try {
+    if (!issue) return { path: '', message: 'Unrenderable issue' };
+    return {
+      path: issue.path,
+      message: issue.message,
+      severity: issue.severity,
+      ...(issue.expectedKeys ? { expectedKeys: issue.expectedKeys } : {}),
+    };
+  } catch {
+    return { path: '', message: 'Unrenderable issue' };
+  }
+}
+
+/**
  * Structural check against `SchemaValidationError`, not `instanceof` — this module
  * is imported by `lib/catalog.ts`-style server blueprints and must never pull a
  * runtime value from `@rilaykit/forms` (forms' main entry bundles its React
@@ -74,12 +98,7 @@ export function toEmissionResult(
   if (isSchemaValidationError(error)) {
     return {
       error: safeMessage(error),
-      issues: error.issues.map((issue) => ({
-        path: issue.path,
-        message: issue.message,
-        severity: issue.severity,
-        ...(issue.expectedKeys ? { expectedKeys: issue.expectedKeys } : {}),
-      })),
+      issues: error.issues.map(safeIssue),
       expectedKeys,
     };
   }

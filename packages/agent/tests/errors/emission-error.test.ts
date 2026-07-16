@@ -81,6 +81,88 @@ describe('toEmissionResult', () => {
   });
 });
 
+describe('the structural SchemaValidationError discriminant', () => {
+  // `isSchemaValidationError` narrows structurally (own `code` + `issues` shape),
+  // not via `instanceof SchemaValidationError` — see the docstring on
+  // `isSchemaValidationError` in emission-error.ts. These pin that exact
+  // boundary so a revert to `instanceof`, or a weakening of the structural
+  // check, fails here even though it would not fail against a real
+  // `SchemaValidationError`.
+
+  it('PIN: treats a hand-forged Error carrying the schema-validation code AND a well-formed issues array as a schema error, mapping its issues through', () => {
+    const forged = new Error('forged schema error') as Error & {
+      code: string;
+      issues: Array<{ path: string; message: string; severity: 'error' | 'warning' }>;
+    };
+    forged.code = 'SCHEMA_VALIDATION_ERROR';
+    forged.issues = [
+      { path: 'fields[0].type', message: 'Unknown component "slect"', severity: 'error' },
+    ];
+
+    // This already passes on the current structural check — it pins the dual-package
+    // motivation (a `SchemaValidationError` thrown by one installed copy of
+    // `@rilaykit/forms` must still be recognized here even when it fails
+    // `instanceof` against a different copy) rather than driving new behavior.
+    expect(toEmissionResult(forged, ['id', 'fields'])).toEqual({
+      error: 'forged schema error',
+      issues: [{ path: 'fields[0].type', message: 'Unknown component "slect"', severity: 'error' }],
+      expectedKeys: ['id', 'fields'],
+    });
+  });
+
+  it('PIN: falls to the generic branch when an Error carries the schema-validation code but no issues array', () => {
+    const forged = new Error('has the code, no issues') as Error & { code: string };
+    forged.code = 'SCHEMA_VALIDATION_ERROR';
+
+    // Also already passes — pins that the `code` alone does not qualify: both
+    // halves of the structural check (`code` AND `Array.isArray(issues)`) are
+    // required, so this yields the generic message-only shape.
+    expect(toEmissionResult(forged, ['id', 'fields'])).toEqual({
+      error: 'has the code, no issues',
+      issues: [],
+      expectedKeys: ['id', 'fields'],
+    });
+  });
+});
+
+describe('toEmissionResult never throws on a rogue schema-validation issue', () => {
+  function forgeSchemaError(issues: unknown[]): Error {
+    const forged = new Error('forged schema error') as Error & { code: string; issues: unknown[] };
+    forged.code = 'SCHEMA_VALIDATION_ERROR';
+    forged.issues = issues;
+    return forged;
+  }
+
+  it('maps a null issue entry to a safe placeholder instead of crashing on property access', () => {
+    const forged = forgeSchemaError([null]);
+
+    expect(() => toEmissionResult(forged)).not.toThrow();
+    expect(toEmissionResult(forged)).toEqual({
+      error: 'forged schema error',
+      issues: [{ path: '', message: 'Unrenderable issue' }],
+      expectedKeys: [],
+    });
+  });
+
+  it('maps an issue whose "path" getter throws to a safe placeholder instead of crashing', () => {
+    const rogueIssue = {
+      get path(): string {
+        throw new Error('path getter blew up');
+      },
+      message: 'irrelevant',
+      severity: 'error' as const,
+    };
+    const forged = forgeSchemaError([rogueIssue]);
+
+    expect(() => toEmissionResult(forged)).not.toThrow();
+    expect(toEmissionResult(forged)).toEqual({
+      error: 'forged schema error',
+      issues: [{ path: '', message: 'Unrenderable issue' }],
+      expectedKeys: [],
+    });
+  });
+});
+
 describe('validateNodeProps', () => {
   const propsSchema = z.object({ label: z.string() });
 

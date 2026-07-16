@@ -222,17 +222,21 @@ function inspectSchemaError(): SchemaErrorReport {
 
 /**
  * Mirrors `packages/core/tests/isomorphic-entry.test.ts`'s technique: an
- * isomorphic main entry must never load runtime React into a fresh process's
- * module graph, since server code (`lib/catalog.ts`-style blueprints, RSC)
- * imports it directly. A module-scope `createContext` there crashes a Server
- * Component. `require.cache` is inspected from INSIDE the child process — this
- * has to run isolated from every other `require()` in this file, which is why
- * it is its own `execFileSync` call rather than reusing `inspectPublishedBundles`.
+ * isomorphic main entry must never load a disqualifying module into a fresh
+ * process's module graph — runtime React (a module-scope `createContext`
+ * crashes a Server Component) or `@rilaykit/forms` (its main entry bundles
+ * React components, same problem one hop away). `require.cache` is inspected
+ * from INSIDE the child process — this has to run isolated from every other
+ * `require()` in this file, which is why it is its own `execFileSync` call
+ * rather than reusing `inspectPublishedBundles`. Generalized over `pattern`
+ * so both guards share one probe (DRY) rather than forking the script per
+ * disqualifying module.
  */
-function requireDoesNotPullReact(entryPath: string): boolean {
+function requireDoesNotPull(entryPath: string, pattern: RegExp): boolean {
   const script = `
     require(${JSON.stringify(entryPath)});
-    const pulled = Object.keys(require.cache).some((p) => /node_modules[\\\\/]react[\\\\/]/.test(p));
+    const pattern = new RegExp(${JSON.stringify(pattern.source)});
+    const pulled = Object.keys(require.cache).some((p) => pattern.test(p));
     process.exit(pulled ? 1 : 0);
   `;
   try {
@@ -242,6 +246,20 @@ function requireDoesNotPullReact(entryPath: string): boolean {
     return false;
   }
 }
+
+const REACT_MODULE_PATH = /node_modules[\\/]react[\\/]/;
+
+/**
+ * `@rilaykit/forms`, resolved from `@rilaykit/agent`'s main entry. In THIS
+ * monorepo forms is a `workspace:*` dependency: `node_modules/@rilaykit/forms`
+ * is a symlink, and Node's `require()` resolves it to its REAL path before
+ * caching — confirmed by probing `require.cache` directly, the resolved key is
+ * `.../packages/forms/dist/index.js`, never `node_modules/@rilaykit/forms/`.
+ * A real npm install (no workspace symlink) puts it under
+ * `node_modules/@rilaykit/forms/` instead, so the pattern below matches both
+ * shapes rather than assuming either one.
+ */
+const FORMS_MODULE_PATH = /node_modules[\\/]@rilaykit[\\/]forms[\\/]|[\\/]packages[\\/]forms[\\/]/;
 
 describe.skipIf(!isBuilt)('every published bundle loads in a real node process', () => {
   for (const pkg of PUBLISHED_PACKAGES) {
@@ -296,15 +314,19 @@ describe.skipIf(!isBuilt)('every published bundle loads in a real node process',
     expect(report.identityMatchesAllInOne).toBe(true);
   });
 
-  it('@rilaykit/agent: the main entry does not pull React into the module graph', () => {
+  it('@rilaykit/agent: the main entry does not pull React or @rilaykit/forms into the module graph', () => {
     // uiTools, manifest, parsePartialJson, and the emission-error helpers are
     // PURE SCHEMAS meant to be imported by server code (see the module docstring
     // on `packages/agent/src/tools/ui-tools.ts`). React components live behind
     // `@rilaykit/agent/react` instead — this is what keeps the split real rather
-    // than a documentation-only promise.
+    // than a documentation-only promise. `@rilaykit/forms` is guarded for the
+    // same reason: its main entry bundles React components, so pulling it in
+    // would reintroduce the exact defect the React guard exists to catch, one
+    // hop away.
     const agent = PUBLISHED_PACKAGES.find((pkg) => pkg.name === '@rilaykit/agent');
     if (!agent) throw new Error('@rilaykit/agent is missing from PUBLISHED_PACKAGES');
-    expect(requireDoesNotPullReact(entries(agent).cjs)).toBe(true);
+    expect(requireDoesNotPull(entries(agent).cjs, REACT_MODULE_PATH)).toBe(true);
+    expect(requireDoesNotPull(entries(agent).cjs, FORMS_MODULE_PATH)).toBe(true);
   });
 
   // NOTE: `rilaykit`'s own main entry is NOT guarded the same way here. Unlike
