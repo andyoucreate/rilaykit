@@ -173,6 +173,22 @@ export function useFormValidationWithStore({
     [resolveConditionalBehavior, store]
   );
 
+  // Whether a field id still resolves in the LIVE config — a static field or a
+  // repeatable template field. A streamed field id can arrive torn (`na`) and
+  // complete to a different id (`name`) mid-await; the in-flight run's field is
+  // then gone from allFields. Writing its verdict under the old key would create
+  // a ghost the clearing loops (which iterate the LIVE allFields) can never
+  // reach, wedging isValid with no visible error. Mirrors the fieldConfig lookup.
+  const fieldExistsLive = useCallback((fieldId: string): boolean => {
+    if (formConfigRef.current.allFields.some((field) => field.id === fieldId)) return true;
+    const parsed = parseCompositeKey(fieldId);
+    if (parsed && formConfigRef.current.repeatableFields) {
+      const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
+      return repeatableConfig?.allFields.some((field) => field.id === parsed.fieldId) ?? false;
+    }
+    return false;
+  }, []);
+
   // Optimized field validation with stable dependencies
   const validateField = useCallback(
     async (fieldId: string, value?: unknown): Promise<ValidationResult> => {
@@ -264,6 +280,16 @@ export function useFormValidationWithStore({
         // stale result overwrite the current one.
         if (isStale()) return result;
 
+        // The field's id was renamed/removed while we awaited (a torn streamed id
+        // completed to a different id). Its verdict would land under a key no
+        // live field owns — a ghost the allFields-only clearing can never reach,
+        // wedging isValid with no visible error. Drop it and clear any stale key.
+        if (!fieldExistsLive(fieldId)) {
+          state._setErrors(fieldId, []);
+          state._setValidationState(fieldId, 'valid');
+          return result;
+        }
+
         // The field may have become invisible while we awaited (a condition on
         // another field flipped). Writing errors on a now-hidden field would
         // wedge the global isValid with no visible error. Mirror the pre-await
@@ -312,6 +338,13 @@ export function useFormValidationWithStore({
         };
         // Superseded by a newer run — drop this stale error.
         if (isStale()) return errorResult;
+        // The field's id was renamed/removed while we awaited — dropping the
+        // verdict avoids a ghost error key that wedges isValid unreachably.
+        if (!fieldExistsLive(fieldId)) {
+          state._setErrors(fieldId, []);
+          state._setValidationState(fieldId, 'valid');
+          return errorResult;
+        }
         // Field became invisible while we awaited — do not write errors on it.
         if (!isFieldVisibleLive(fieldId)) {
           state._setErrors(fieldId, []);
@@ -323,7 +356,7 @@ export function useFormValidationWithStore({
         return errorResult;
       }
     },
-    [store, isFieldVisibleLive, isFieldRequiredLive]
+    [store, isFieldVisibleLive, isFieldRequiredLive, fieldExistsLive]
   );
 
   // Optimized form validation with stable dependencies
