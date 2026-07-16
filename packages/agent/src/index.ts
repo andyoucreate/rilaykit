@@ -8,3 +8,6 @@ export {
   type TextPart,
   type ToolPart,
 } from './types/part';
+export { uiTools } from './tools/ui-tools';
+export { componentNodeSchema } from './tools/component-node-schema';
+export type { ComponentNode } from './types/component-node';

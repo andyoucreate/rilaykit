@@ -40,7 +40,8 @@
   "dependencies": {
     "@rilaykit/core": "workspace:*",
     "@rilaykit/forms": "workspace:*",
-    "@rilaykit/workflow": "workspace:*"
+    "@rilaykit/workflow": "workspace:*",
+    "zod": "^4.4.3"
   },
   "peerDependencies": { "react": ">=18.0.0" },
   "devDependencies": {
@@ -52,7 +53,6 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8",
-    "zod": "^4.4.3"
+    "vitest": "^4.1.8"
   }
 }
