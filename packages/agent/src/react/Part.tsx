@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { ConfigurationError, getOwn, type RilayInstance } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
-import { isToolPart, type Part as PartType, type PartState } from '../types/part';
+import { isToolPart, type Part as PartType, type ToolPart } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 import { ShowComponent } from './fallbacks/ShowComponent';
 import { ShowFlow } from './fallbacks/ShowFlow';
@@ -25,21 +25,33 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
  * error views for every unfinished node. For `show_form` this is a FOR-NOW
  * decision: Task 12 introduces progressive mounting for it. Flows render at
  * `ready` ONLY by spec — a deliberate scope cut, not a deferral.
+ *
+ * The interactive built-ins (`show_form`, `show_flow`) mount at `ready` ONLY:
+ * at `done`/`error` they render the bare `DefaultTool` marker (its
+ * `data-tool-name`/`data-tool-state` hooks carry the styling), because a
+ * rehydrated conversation must not re-arm an already-answered tool call —
+ * hosts override via `.renderers()` for richer settled UX.
  */
 const BUILT_IN_TOOLS: Record<
   string,
-  (input: unknown, state: PartState, resolve: (output: unknown) => void) => React.ReactElement | null
+  (part: ToolPart, resolve: (output: unknown) => void) => React.ReactElement | null
 > = {
-  show_component: (input, state) =>
+  show_component: ({ input, state }) =>
     state === 'streaming' ? null : <ShowComponent node={(input as { node?: unknown }).node} />,
-  show_form: (input, state, resolve) =>
-    state === 'streaming' ? null : (
-      <ShowForm schema={(input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
-    ),
-  show_flow: (input, state, resolve) =>
-    state === 'streaming' ? null : (
-      <ShowFlow schema={(input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
-    ),
+  show_form: (part, resolve) => {
+    if (part.state === 'streaming') return null;
+    if (part.state !== 'ready') return <DefaultTool part={part} />;
+    return (
+      <ShowForm schema={(part.input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+    );
+  },
+  show_flow: (part, resolve) => {
+    if (part.state === 'streaming') return null;
+    if (part.state !== 'ready') return <DefaultTool part={part} />;
+    return (
+      <ShowFlow schema={(part.input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+    );
+  },
 };
 
 export interface PartProps {
@@ -79,7 +91,7 @@ export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps
     const Renderer = entry?.renderer;
     if (!Renderer) {
       const builtIn = getOwn(BUILT_IN_TOOLS, part.name);
-      if (builtIn) return builtIn(part.input, part.state, resolve);
+      if (builtIn) return builtIn(part, resolve);
       return Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
     }
     return (

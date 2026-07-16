@@ -8,7 +8,11 @@ export function EmissionErrorView({ result }: { readonly result: EmissionResult 
       {result.issues.length > 0 && (
         <ul data-agent-error-issues>
           {result.issues.map((issue) => (
-            <li key={`${issue.path}:${issue.message}`} data-agent-error-path={issue.path}>
+            <li
+              key={`${issue.path}:${issue.message}`}
+              data-agent-error-path={issue.path}
+              data-agent-error-expected-keys={issue.expectedKeys?.join(',')}
+            >
               {issue.message}
             </li>
           ))}

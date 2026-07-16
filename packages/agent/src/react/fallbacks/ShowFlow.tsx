@@ -48,7 +48,33 @@ export function ShowFlow({ schema, resolve }: ShowFlowProps) {
 
   const compiled = useMemo((): Compiled => {
     try {
-      return { result: compileFlow(schema as FlowSchema, catalog), error: null };
+      const { workflowConfig, defaultValues } = compileFlow(schema as FlowSchema, catalog, {
+        validateProps: true,
+      });
+      return {
+        result: {
+          workflowConfig: {
+            ...workflowConfig,
+            // Untrusted JSON never chooses to skip validation: an emitted
+            // per-step `submitOptions.force` / `skipInvalid` is neutralized at
+            // this HITL boundary so completion only ever carries
+            // engine-validated values.
+            steps: workflowConfig.steps.map((step) => ({
+              ...step,
+              formConfig: {
+                ...step.formConfig,
+                submitOptions: {
+                  ...step.formConfig.submitOptions,
+                  force: false,
+                  skipInvalid: false,
+                },
+              },
+            })),
+          },
+          defaultValues,
+        },
+        error: null,
+      };
     } catch (error) {
       if (error instanceof SchemaValidationError) {
         return { result: null, error: toEmissionResult(error, ['id', 'name', 'steps']) };

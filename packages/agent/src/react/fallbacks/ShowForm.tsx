@@ -45,7 +45,22 @@ export function ShowForm({ schema, resolve }: ShowFormProps) {
 
   const compiled = useMemo((): Compiled => {
     try {
-      return { result: compileForm(schema as FormSchema, catalog), error: null };
+      const { formConfig, defaultValues } = compileForm(schema as FormSchema, catalog, {
+        validateProps: true,
+      });
+      return {
+        result: {
+          formConfig: {
+            ...formConfig,
+            // Untrusted JSON never chooses to skip validation: an emitted
+            // `submitOptions.force` / `skipInvalid` is neutralized at this HITL
+            // boundary so `resolve` only ever carries engine-validated values.
+            submitOptions: { ...formConfig.submitOptions, force: false, skipInvalid: false },
+          },
+          defaultValues,
+        },
+        error: null,
+      };
     } catch (error) {
       if (error instanceof SchemaValidationError) {
         return { result: null, error: toEmissionResult(error, ['id', 'fields']) };

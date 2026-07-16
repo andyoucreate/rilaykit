@@ -28,7 +28,7 @@ const catalog = ril
 function showFlow(
   schema: unknown,
   onResolve?: (id: string, output: unknown) => void,
-  state: 'streaming' | 'ready' = 'ready'
+  state: 'streaming' | 'ready' | 'done' | 'error' = 'ready'
 ) {
   return render(
     <Catalog value={catalog}>
@@ -110,10 +110,86 @@ describe('show_flow built-in renderer (HITL)', () => {
       ],
     });
     expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+    // Not just the container: a specific issue must be rendered, so a regression
+    // emptying `issues[]` fails here.
+    const issue = document.querySelector('[data-agent-error-path="steps[0].form.fields[0].type"]');
+    expect(issue).not.toBeNull();
+    expect(issue).toHaveTextContent(
+      'Unknown component type "nonexistent". Must be registered in ril config.'
+    );
+  });
+
+  it('validates props of KNOWN components: a wrong prop key yields an emission error carrying per-issue expectedKeys', () => {
+    showFlow({
+      id: 'bad-props',
+      name: 'Bad props',
+      steps: [
+        {
+          id: 's',
+          title: 'S',
+          form: { id: 'f', fields: [{ id: 'x', type: 'text', props: { labell: 'Name' } }] },
+        },
+      ],
+    });
+    expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+    const issue = document.querySelector(
+      '[data-agent-error-path="steps[0].form.fields[0].props.label"]'
+    );
+    expect(issue).not.toBeNull();
+    expect(issue?.getAttribute('data-agent-error-expected-keys')).toBe('label');
   });
 
   it('renders NOTHING while streaming — flows render at ready ONLY (deliberate spec cut)', () => {
     const { container } = showFlow(schema, undefined, 'streaming');
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each(['done', 'error'] as const)(
+    'at %s: no flow controls, no resolve — only the bare DefaultTool marker (a rehydrated part must not re-arm the HITL loop)',
+    (state) => {
+      const onResolve = vi.fn();
+      showFlow(schema, onResolve, state);
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      const marker = document.querySelector('[data-part="tool"]');
+      expect(marker).not.toBeNull();
+      expect(marker?.getAttribute('data-tool-name')).toBe('show_flow');
+      expect(marker?.getAttribute('data-tool-state')).toBe(state);
+      expect(onResolve).not.toHaveBeenCalled();
+    }
+  );
+
+  it('a step form emitting submitOptions.force cannot bypass engine validation', async () => {
+    const onResolve = vi.fn();
+    showFlow(
+      {
+        id: 'guarded',
+        name: 'Guarded',
+        steps: [
+          {
+            id: 'only',
+            title: 'Only',
+            form: {
+              id: 'f',
+              fields: [
+                {
+                  id: 'name',
+                  type: 'text',
+                  props: { label: 'Name' },
+                  validation: { rules: ['required'] },
+                },
+              ],
+              submitOptions: { force: true },
+            },
+          },
+        ],
+      },
+      onResolve
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Let any in-flight submit chain (async validation → completion) settle.
+    await waitFor(() => Promise.resolve());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onResolve).not.toHaveBeenCalled();
   });
 });
