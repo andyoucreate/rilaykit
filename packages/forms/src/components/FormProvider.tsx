@@ -335,6 +335,71 @@ function collectRetypedFields(
   return { fieldIds, storeKeys };
 }
 
+/**
+ * Structural equality over PLAIN DATA — the shape a compiled default can hold:
+ * JSON containers and primitives; anything else compares by identity, mirroring
+ * how `clonePlainData` passes functions and schema objects through untouched.
+ *
+ * This exists for exactly one comparison: a newly compiled default against the
+ * committed baseline default. Identity cannot carry it — every compile of a
+ * streamed schema deep-clones its `defaultValues`, so two compiles of the SAME
+ * emission hand over different objects, and keying the upgrade on `!==` would
+ * re-seed (and re-notify the host) on every chunk. Only a default that differs
+ * IN VALUE is a torn container having completed.
+ */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function plainDataEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') return Number.isNaN(a) && Number.isNaN(b);
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((entry, index) => plainDataEquals(entry, b[index]));
+  }
+  if (isPlainRecord(a) && isPlainRecord(b)) {
+    const aKeys = Object.keys(a);
+    return (
+      aKeys.length === Object.keys(b).length &&
+      aKeys.every((key) => hasOwn(b, key) && plainDataEquals(getOwn(a, key), getOwn(b, key)))
+    );
+  }
+  return false;
+}
+
+/**
+ * Whether an UNTOUCHED field's committed baseline default may be UPGRADED to a
+ * newly compiled default — the second way a default arrives late. A composite
+ * default cut mid-stream (`["alpha","beta"]` torn after `"alpha",`) recovers,
+ * seeds, and becomes the baseline; the chunk that completes it then finds the
+ * field existing WITH a baseline, so the "default newly appeared" detection
+ * stays silent and the torn value would freeze into submit.
+ *
+ * The guard is the exact untouched-guard family proven against the workflow
+ * echo, stated positively: the field's live value must BE — by identity — the
+ * committed baseline default (any user write replaces that identity, and a
+ * host echoing captured values back through `defaultValues` echoes either that
+ * same identity or the user's own object, neither of which differs from what
+ * is already held), the field must be untouched (a blur is the user's even
+ * over an unchanged value), and the new default must differ from the baseline
+ * IN VALUE (see `plainDataEquals` — a recompile of the same emission must not
+ * fire). Used by both the detection pass and the seeding pass so the two can
+ * never disagree.
+ */
+function isUpgradableDefault(
+  fieldId: string,
+  nextDefault: unknown,
+  defaultsBaseline: Record<string, unknown>,
+  values: Record<string, unknown>,
+  touched: Record<string, boolean>
+): boolean {
+  if (getOwn(touched, fieldId)) return false;
+  if (!hasOwn(defaultsBaseline, fieldId) || !hasOwn(values, fieldId)) return false;
+  const baselineDefault = getOwn(defaultsBaseline, fieldId);
+  if (getOwn(values, fieldId) !== baselineDefault) return false;
+  return !plainDataEquals(nextDefault, baselineDefault);
+}
+
 export function FormProvider({
   children,
   formConfig,
@@ -517,31 +582,44 @@ export function FormProvider({
     // two chunks included — and only ids absent from the last committed shape,
     // or retyped since it, may be seeded.
     //
-    // A field's `default` may also arrive one chunk AFTER the field's core
-    // (id/type/props): the field is then already mounted and the default's
-    // chunk moves NO signature — defaults are deliberately not in the shape,
-    // an appearing default orphans no value. The late default is detected by
-    // diffing the compiled defaults against the committed `_defaultValues`
-    // baseline instead, and seeded under the same never-overwrite guard: only
-    // a field the user has neither typed into (`hasOwn(values, ...)`) nor
-    // TOUCHED (the store's own blur tracking) may be filled.
+    // A field's `default` may also arrive late, in two forms, and the default's
+    // chunk moves NO signature either way — defaults are deliberately not in
+    // the shape, a default orphans no value. APPEARING: the default lands one
+    // chunk after the field's core (id/type/props), detected as a key new to
+    // the committed `_defaultValues` baseline, and seeded under the
+    // never-overwrite guard — only a field the user has neither typed into
+    // (`hasOwn(values, ...)`) nor TOUCHED (the store's own blur tracking) may
+    // be filled. UPGRADING: a composite default arrived TORN (an array cut
+    // mid-stream recovers as its prefix), seeded, became the baseline — and
+    // the chunk that completes it finds the field existing WITH a baseline, so
+    // only a VALUE diff against that baseline can see it; see
+    // `isUpgradableDefault` for the (stricter) guard that gates it.
     //
     // The guard is part of the DETECTION, not only of the seeding: a workflow
     // host echoes the values it captured back through `defaultValues`, so a
-    // key that is new to the baseline but already held (or touched) is the
+    // key that is new to the baseline but already held (or touched) — or one
+    // whose held value is no longer the baseline's own identity — is the
     // user's own work coming back around, not a late default — treating it as
     // one would rewrite `_defaultValues` with user-authored state and corrupt
     // the dirty-flag reference and every later no-arg `reset()`.
     const signatureMoved = prevConfigSignatureRef.current !== configSignature;
     const currentState = store.getState();
     const defaultsBaseline = currentState._defaultValues;
-    const hasLateDefault = formConfig.allFields.some(
-      (field) =>
-        hasOwn(defaultValues, field.id) &&
-        !hasOwn(defaultsBaseline, field.id) &&
-        !hasOwn(currentState.values, field.id) &&
-        !getOwn(currentState.touched, field.id)
-    );
+    const hasLateDefault = formConfig.allFields.some((field) => {
+      if (!hasOwn(defaultValues, field.id)) return false;
+      if (!hasOwn(defaultsBaseline, field.id)) {
+        // APPEARING — new to the baseline, and not the user's own key.
+        return !hasOwn(currentState.values, field.id) && !getOwn(currentState.touched, field.id);
+      }
+      // UPGRADING — already in the baseline, completed to a different value.
+      return isUpgradableDefault(
+        field.id,
+        getOwn(defaultValues, field.id),
+        defaultsBaseline,
+        currentState.values,
+        currentState.touched
+      );
+    });
     if (signatureMoved || hasLateDefault) {
       const prevShape = prevShapeRef.current;
       prevConfigSignatureRef.current = configSignature;
@@ -612,17 +690,35 @@ export function FormProvider({
       const prevRepeatableIds = new Set(prevShape.repeatables.keys());
 
       // Seed defaults for the plain fields that APPEARED — and for the fields
-      // whose DEFAULT appeared only now. `hasOwn` guards the live store even
-      // for a brand-new id: nothing that already holds a value is ever
+      // whose DEFAULT appeared (or completed) only now. `hasOwn` guards the
+      // live store even for a brand-new id: nothing the user holds is ever
       // overwritten, and a touched field is the user's even while empty (the
       // local `touched` copy: a just-retyped field is untouched by construction).
       for (const field of formConfig.allFields) {
-        if (hasOwn(values, field.id) || getOwn(touched, field.id)) continue;
+        if (getOwn(touched, field.id)) continue;
         if (!hasOwn(grownDefaults, field.id)) continue;
-        // A field the committed baseline already covered keeps its state: only
-        // a newcomer (id absent from the last committed shape) or a newly
-        // arrived default (id absent from the committed baseline) seeds.
-        if (prevFieldIds.has(field.id) && hasOwn(defaultsBaseline, field.id)) continue;
+        if (hasOwn(values, field.id)) {
+          // A held value blocks seeding UNLESS it is the committed baseline
+          // default itself, untouched, being UPGRADED by a torn default that
+          // completed — see `isUpgradableDefault`.
+          if (
+            !isUpgradableDefault(
+              field.id,
+              getOwn(grownDefaults, field.id),
+              defaultsBaseline,
+              values,
+              touched
+            )
+          ) {
+            continue;
+          }
+        } else if (prevFieldIds.has(field.id) && hasOwn(defaultsBaseline, field.id)) {
+          // A field the committed baseline already covered keeps its state:
+          // only a newcomer (id absent from the last committed shape), a
+          // retyped field (excluded above), or a newly arrived default (id
+          // absent from the committed baseline) seeds.
+          continue;
+        }
         defineOwn(values, field.id, getOwn(grownDefaults, field.id));
         seeded = true;
       }
