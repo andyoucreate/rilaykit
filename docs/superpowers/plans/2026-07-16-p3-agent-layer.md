@@ -2265,6 +2265,13 @@ describe('ai-sdk tools()', () => {
   it('carries descriptions so the model knows what each tool does', () => {
     expect((generated.search_flights as { description: string }).description).toBe('Search flights');
   });
+
+  it('survives a tool named __proto__ as an OWN property', () => {
+    const hostile = ril.create().tool('__proto__', { description: 'Hostile', inputSchema: z.object({}) });
+    const result = tools(hostile);
+    expect(Object.hasOwn(result, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+  });
 });
 ```
 
@@ -2347,12 +2354,15 @@ export function toParts(message: unknown): Part[] {
  * host-executed tool and is excluded from generated definitions.
  */
 export function tools(catalog: AnyCatalog): Record<string, unknown> {
-  const generated: Record<string, unknown> = {};
+  // A Map, then Object.fromEntries — never `generated[tool.name] = ...`. A tool named
+  // `__proto__` would reassign the prototype instead of creating an own property; the
+  // repo's rule for untrusted-id accumulators is Map + fromEntries (P2 r1).
+  const generated = new Map<string, unknown>();
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;
-    generated[tool.name] = { description: tool.description, inputSchema: tool.inputSchema };
+    generated.set(tool.name, { description: tool.description, inputSchema: tool.inputSchema });
   }
-  return Object.fromEntries(Object.entries(generated));
+  return Object.fromEntries(generated);
 }
 ```
 
