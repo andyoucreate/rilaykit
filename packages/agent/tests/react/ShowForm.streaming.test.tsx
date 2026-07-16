@@ -127,3 +127,87 @@ describe('show_form progressive mounting', () => {
     expect(screen.getAllByLabelText('Name')).toHaveLength(1);
   });
 });
+
+const FULL_WITH_DEFAULT =
+  '{"schema":{"id":"c","fields":[{"id":"name","type":"text","props":{"label":"Name"},"default":"Karl"},{"id":"email","type":"text","props":{"label":"Email"}}]}}';
+
+function partAt(chars: number, state: 'streaming' | 'ready') {
+  const raw = FULL_WITH_DEFAULT.slice(0, chars);
+  const { value } = parsePartialJson(raw);
+  return (
+    <Catalog value={catalog}>
+      <Part
+        part={{
+          type: 'tool',
+          toolCallId: 'c1',
+          name: 'show_form',
+          state,
+          input: value ?? {},
+          rawInput: state === 'streaming' ? raw : undefined,
+        }}
+      />
+    </Catalog>
+  );
+}
+
+/** Final `[Name, Email]` values of a single-chunk emission — the parity oracle. */
+function singleChunkFinalValues(): [string, string] {
+  const baseline = render(partAt(FULL_WITH_DEFAULT.length, 'ready'));
+  const values: [string, string] = [
+    (screen.getByLabelText('Name') as HTMLInputElement).value,
+    (screen.getByLabelText('Email') as HTMLInputElement).value,
+  ];
+  baseline.unmount();
+  return values;
+}
+
+describe('show_form late-arriving streamed default', () => {
+  // The emission cut EXACTLY between the field core (id/type/props) and its
+  // `default`: the field mounts without a default, and the default's chunk
+  // changes no shape signature — the seam this suite pins.
+  const CORE_DEFAULT_BOUNDARY = FULL_WITH_DEFAULT.indexOf(',"default"');
+
+  it('applies a default that arrives one chunk AFTER the field core', () => {
+    const expected = singleChunkFinalValues();
+
+    const { rerender } = render(partAt(CORE_DEFAULT_BOUNDARY, 'streaming'));
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+
+    rerender(partAt(FULL_WITH_DEFAULT.length, 'ready'));
+
+    expect([
+      (screen.getByLabelText('Name') as HTMLInputElement).value,
+      (screen.getByLabelText('Email') as HTMLInputElement).value,
+    ]).toEqual(expected);
+    expect(screen.getByLabelText('Name')).toHaveValue('Karl');
+  });
+
+  it('a late default NEVER overwrites what the user typed before its chunk arrived', async () => {
+    const { rerender } = render(partAt(CORE_DEFAULT_BOUNDARY, 'streaming'));
+    await userEvent.type(screen.getByLabelText('Name'), 'Bob');
+
+    rerender(partAt(FULL_WITH_DEFAULT.length, 'ready'));
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Bob');
+  });
+
+  it.each([
+    ['between the field core and its default', CORE_DEFAULT_BOUNDARY],
+    ['mid-default (inside the torn string)', FULL_WITH_DEFAULT.indexOf('Karl') + 2],
+    ['after the default, before the next field', FULL_WITH_DEFAULT.indexOf('{"id":"email"')],
+    ['mid-second-field', FULL_WITH_DEFAULT.indexOf('"Email"') + 3],
+  ])(
+    'values at ready are chunk-boundary-INDEPENDENT — cut %s',
+    (_label, cut) => {
+      const expected = singleChunkFinalValues();
+
+      const { rerender } = render(partAt(cut, 'streaming'));
+      rerender(partAt(FULL_WITH_DEFAULT.length, 'ready'));
+
+      expect([
+        (screen.getByLabelText('Name') as HTMLInputElement).value,
+        (screen.getByLabelText('Email') as HTMLInputElement).value,
+      ]).toEqual(expected);
+    }
+  );
+});

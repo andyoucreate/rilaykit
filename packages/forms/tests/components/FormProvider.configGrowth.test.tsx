@@ -1,11 +1,12 @@
 import { type ComponentRenderContext, ril } from '@rilaykit/core';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Form } from '../../src/components/Form';
 import { FormBody } from '../../src/components/FormBody';
 import { compileForm } from '../../src/schema/compile-form';
 import type { FormSchema } from '../../src/schema/types';
+import { type FormStore, useFormStoreApi } from '../../src/stores';
 
 const MockInput = ({ field, id }: ComponentRenderContext) => (
   <input
@@ -134,6 +135,200 @@ describe('FormProvider registers appended fields incrementally — growth is not
       expect(screen.getByTestId('input-lines[k0].label')).toBeInTheDocument()
     );
     expect(screen.getByTestId('input-a')).toHaveValue('typed');
+  });
+
+  it('applies a `default` that arrives AFTER its field mounted — same shape, no signature change', async () => {
+    const config = createRil();
+
+    // Same shape (`a:input`) in both compiles: the second chunk only carries
+    // the late default, so neither reset nor growth-registration fires.
+    const bare = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'a', type: 'input', props: { label: 'a' } }] },
+      config
+    );
+    const withDefault = compileForm(schemaWith(['a']), config);
+
+    function Host() {
+      const [compiled, setCompiled] = useState(bare);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(withDefault)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    expect(screen.getByTestId('input-a')).toHaveValue('');
+
+    fireEvent.click(screen.getByTestId('grow'));
+
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue('seed-a'));
+  });
+
+  it('a late default NEVER overwrites what the user already typed', async () => {
+    const config = createRil();
+
+    const bare = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'a', type: 'input', props: { label: 'a' } }] },
+      config
+    );
+    const withDefault = compileForm(schemaWith(['a']), config);
+
+    function Host() {
+      const [compiled, setCompiled] = useState(bare);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(withDefault)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    fireEvent.change(screen.getByTestId('input-a'), { target: { value: 'typed-by-user' } });
+
+    fireEvent.click(screen.getByTestId('grow'));
+
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue('typed-by-user'));
+  });
+
+  it('a late default NEVER fills a field the user has TOUCHED, even while it holds no value', async () => {
+    const config = createRil();
+
+    const bare = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'a', type: 'input', props: { label: 'a' } }] },
+      config
+    );
+    const withDefault = compileForm(schemaWith(['a']), config);
+
+    let storeRef: FormStore | null = null;
+    function CaptureStore() {
+      storeRef = useFormStoreApi();
+      return null;
+    }
+
+    function Host() {
+      const [compiled, setCompiled] = useState(bare);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(withDefault)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <CaptureStore />
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+
+    // The store's own touched tracking — what a blur records — is the guard.
+    act(() => {
+      storeRef?.getState()._setTouched('a');
+    });
+
+    fireEvent.click(screen.getByTestId('grow'));
+
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue(''));
+  });
+
+  it('a host echoing captured values back through `defaultValues` is NOT a late default — the baseline stays pristine', async () => {
+    const config = createRil();
+
+    const bare = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'a', type: 'input', props: { label: 'a' } }] },
+      config
+    );
+
+    let storeRef: FormStore | null = null;
+    function CaptureStore() {
+      storeRef = useFormStoreApi();
+      return null;
+    }
+
+    // A workflow host mirrors what the user typed and hands it back as
+    // `defaultValues` on the next render — same shape, user-authored keys.
+    function Host() {
+      const [echoed, setEchoed] = useState<Record<string, unknown>>({});
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="echo"
+            onClick={() => setEchoed({ a: 'typed-by-user' })}
+          >
+            echo
+          </button>
+          <Form formConfig={bare.formConfig} defaultValues={echoed}>
+            <CaptureStore />
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    fireEvent.change(screen.getByTestId('input-a'), { target: { value: 'typed-by-user' } });
+
+    fireEvent.click(screen.getByTestId('echo'));
+
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue('typed-by-user'));
+    // The user's own work coming back around never becomes the reset baseline.
+    expect(storeRef?.getState()._defaultValues).toEqual({});
+  });
+
+  it('a late default lands in `_defaultValues` too — a later reset restores it, not ""', async () => {
+    const config = createRil();
+
+    const bare = compileForm(
+      { version: 1, id: 'f', fields: [{ id: 'a', type: 'input', props: { label: 'a' } }] },
+      config
+    );
+    const withDefault = compileForm(schemaWith(['a']), config);
+
+    let storeRef: FormStore | null = null;
+    function CaptureStore() {
+      storeRef = useFormStoreApi();
+      return null;
+    }
+
+    function Host() {
+      const [compiled, setCompiled] = useState(bare);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(withDefault)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <CaptureStore />
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    fireEvent.click(screen.getByTestId('grow'));
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue('seed-a'));
+
+    // A no-arg reset restores the CURRENT form's defaults — the late default
+    // must be part of that baseline, or reset would wipe it back to "".
+    act(() => {
+      storeRef?.getState()._reset();
+    });
+
+    await waitFor(() => expect(screen.getByTestId('input-a')).toHaveValue('seed-a'));
   });
 
   it('a different instanceId is a DIFFERENT form even when the shape only grew — the swap still resets', async () => {

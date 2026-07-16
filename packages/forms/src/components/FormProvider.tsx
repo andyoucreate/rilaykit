@@ -419,7 +419,33 @@ export function FormProvider({
     // the newcomers incrementally; NEVER reset. Every key the store already
     // holds is the user's — a keystroke landing between two chunks included —
     // and only ids absent from the last committed shape may be seeded.
-    if (prevConfigSignatureRef.current !== configSignature) {
+    //
+    // A field's `default` may also arrive one chunk AFTER the field's core
+    // (id/type/props): the field is then already mounted and the default's
+    // chunk moves NO signature — defaults are deliberately not in the shape,
+    // an appearing default orphans no value. The late default is detected by
+    // diffing the compiled defaults against the committed `_defaultValues`
+    // baseline instead, and seeded under the same never-overwrite guard: only
+    // a field the user has neither typed into (`hasOwn(values, ...)`) nor
+    // TOUCHED (the store's own blur tracking) may be filled.
+    //
+    // The guard is part of the DETECTION, not only of the seeding: a workflow
+    // host echoes the values it captured back through `defaultValues`, so a
+    // key that is new to the baseline but already held (or touched) is the
+    // user's own work coming back around, not a late default — treating it as
+    // one would rewrite `_defaultValues` with user-authored state and corrupt
+    // the dirty-flag reference and every later no-arg `reset()`.
+    const signatureMoved = prevConfigSignatureRef.current !== configSignature;
+    const currentState = store.getState();
+    const defaultsBaseline = currentState._defaultValues;
+    const hasLateDefault = formConfig.allFields.some(
+      (field) =>
+        hasOwn(defaultValues, field.id) &&
+        !hasOwn(defaultsBaseline, field.id) &&
+        !hasOwn(currentState.values, field.id) &&
+        !getOwn(currentState.touched, field.id)
+    );
+    if (signatureMoved || hasLateDefault) {
       const prevShape = prevShapeRef.current;
       prevConfigSignatureRef.current = configSignature;
       prevShapeRef.current = configShape;
@@ -428,12 +454,16 @@ export function FormProvider({
 
       // The grown templates replace the previous ones wholesale: an EXISTING
       // repeatable's template may itself have grown a field, and appends after
-      // this chunk must pad rows from the current template.
-      store.setState({ _repeatableConfigs: repeatableConfigs });
+      // this chunk must pad rows from the current template. A late default
+      // alone moves no template, so the install stays growth-gated.
+      if (signatureMoved) {
+        store.setState({ _repeatableConfigs: repeatableConfigs });
+      }
 
       // Baseline of the GROWN shape — the source seeded from, and the new
       // dirty-flag reference (`value !== _defaultValues[fieldId]`), which must
-      // know the appended fields' defaults.
+      // know the appended fields' — and the late-arriving — defaults, so a
+      // later no-arg `reset()` restores them instead of "".
       const {
         values: grownDefaults,
         order: grownOrder,
@@ -450,15 +480,19 @@ export function FormProvider({
       const nextKeys = { ...state._repeatableNextKey };
       let seeded = false;
 
-      // Seed defaults for the plain fields that APPEARED. `hasOwn` guards the
-      // live store even for a brand-new id: nothing that already holds a value
-      // is ever overwritten.
+      // Seed defaults for the plain fields that APPEARED — and for the fields
+      // whose DEFAULT appeared only now. `hasOwn` guards the live store even
+      // for a brand-new id: nothing that already holds a value is ever
+      // overwritten, and a touched field is the user's even while empty.
       for (const field of formConfig.allFields) {
-        if (prevFieldIds.has(field.id) || hasOwn(values, field.id)) continue;
-        if (hasOwn(grownDefaults, field.id)) {
-          defineOwn(values, field.id, getOwn(grownDefaults, field.id));
-          seeded = true;
-        }
+        if (hasOwn(values, field.id) || getOwn(state.touched, field.id)) continue;
+        if (!hasOwn(grownDefaults, field.id)) continue;
+        // A field the committed baseline already covered keeps its state: only
+        // a newcomer (id absent from the last committed shape) or a newly
+        // arrived default (id absent from the committed baseline) seeds.
+        if (prevFieldIds.has(field.id) && hasOwn(defaultsBaseline, field.id)) continue;
+        defineOwn(values, field.id, getOwn(grownDefaults, field.id));
+        seeded = true;
       }
 
       // Install rows for the repeatables that APPEARED (min-padding included).
