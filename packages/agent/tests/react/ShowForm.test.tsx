@@ -147,6 +147,41 @@ describe('show_form built-in renderer (HITL)', () => {
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 
+  it('a NEW tool call through the SAME <Part> gets a FRESH answer slot — call B resolves after call A already did', async () => {
+    // "One answer per tool call" is scoped to the tool CALL, not the component
+    // instance: a standalone <Part> re-rendered with a new toolCallId must not
+    // inherit call A's settled state, or call B can never resolve (deadlock).
+    const onResolve = vi.fn();
+    const partFor = (toolCallId: string) => (
+      <Catalog value={catalog}>
+        <Part
+          part={{ type: 'tool', toolCallId, name: 'show_form', state: 'ready', input: { schema } }}
+          onResolve={onResolve}
+        />
+      </Catalog>
+    );
+    const { rerender } = render(partFor('call-a'));
+    await userEvent.type(screen.getByLabelText('Name'), 'Ann');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+    await waitFor(() =>
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call-a', {
+        status: 'submitted',
+        values: { name: 'Ann' },
+      })
+    );
+
+    rerender(partFor('call-b'));
+    await userEvent.type(screen.getByLabelText('Name'), 'Bob');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+    await waitFor(() =>
+      expect(onResolve).toHaveBeenCalledWith('call-b', {
+        status: 'submitted',
+        values: { name: 'Bob' },
+      })
+    );
+    expect(onResolve).toHaveBeenCalledTimes(2);
+  });
+
   it('mounts progressively while the part is streaming, with submit LOCKED until the input is provably complete', () => {
     // No rawInput accompanies the deep-partial input here, so there is no
     // completeness signal: the complete-looking field mounts (progressive

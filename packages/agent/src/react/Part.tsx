@@ -1,7 +1,7 @@
 import { ConfigurationError, type RilayInstance, getOwn } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
 import type React from 'react';
-import { useCallback } from 'react';
+import { Fragment, useCallback } from 'react';
 import { parsePartialJson } from '../streaming/parse-partial-json';
 import { type Part as PartType, type ToolPart, isToolPart } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
@@ -10,6 +10,40 @@ import { ShowFlow } from './fallbacks/ShowFlow';
 import { ShowForm } from './fallbacks/ShowForm';
 
 type AnyCatalog = RilayInstance<Record<string, unknown>>;
+
+/** Bound for {@link sameJsonValue}: past it the comparison answers false, which
+ * only keeps the submit lock CLOSED — never crashes on pathological nesting. */
+const MAX_COMPARE_DEPTH = 64;
+
+/**
+ * Structural equality over JSON-shaped values (the only shapes both emission
+ * carriers can hold: JSON.parse output and the adapter's deep-partial parse).
+ * Used to prove that `rawInput`'s completeness signal speaks for the SAME data
+ * `input` renders — a mismatch keeps the streaming submit lock closed.
+ */
+function sameJsonValue(a: unknown, b: unknown, depth = 0): boolean {
+  if (Object.is(a, b)) return true;
+  if (depth >= MAX_COMPARE_DEPTH) return false;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, index) => sameJsonValue(item, b[index], depth + 1))
+    );
+  }
+  // Entries (own, enumerable) rather than bare property reads: a hostile key
+  // like `__proto__` must compare as data, never walk the prototype chain.
+  const aEntries = Object.entries(a);
+  const bEntries = new Map(Object.entries(b));
+  return (
+    aEntries.length === bEntries.size &&
+    aEntries.every(
+      ([key, value]) => bEntries.has(key) && sameJsonValue(value, bEntries.get(key), depth + 1)
+    )
+  );
+}
 
 /**
  * Renderers the agent layer ships out of the box, keyed by tool name. Used only
@@ -29,9 +63,10 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
  *
  * `show_form` streams PROGRESSIVELY instead: fields mount as their definitions
  * complete (lenient compilation), the user can start typing immediately, and
- * both answers stay LOCKED until the emitted JSON is provably complete —
- * `rawInput` parses as complete JSON, or the part reaches `ready`. Without a
- * `rawInput` there is no completeness signal, so the lock holds until `ready`.
+ * both answers stay LOCKED until the RENDERED content is provably complete —
+ * `rawInput` parses as complete JSON AND is (or structurally equals) what is
+ * being rendered, or the part reaches `ready`. A deep-partial `input` alone
+ * carries no completeness signal, so the lock then holds until `ready`.
  *
  * The interactive built-ins (`show_form`, `show_flow`) answer at `ready` ONLY:
  * at `done`/`error` they render the bare `DefaultTool` marker (its
@@ -44,7 +79,14 @@ const BUILT_IN_TOOLS: Record<
   (part: ToolPart, resolve: (output: unknown) => void) => React.ReactElement | null
 > = {
   show_component: ({ input, state }) =>
-    state === 'streaming' ? null : <ShowComponent node={(input as { node?: unknown }).node} />,
+    state === 'streaming' ? null : (
+      // `?.` — an adapter can hand `input: null` (output-error with no input,
+      // a torn emission); ShowComponent degrades `node: undefined` to a
+      // structured EmissionErrorView, so the null must reach it instead of
+      // throwing here, INSIDE the dispatcher, where it would collapse the
+      // whole <Parts> list (spec §8: never a render crash).
+      <ShowComponent node={(input as { node?: unknown } | null | undefined)?.node} />
+    ),
   show_form: (part, resolve) => {
     if (part.state === 'streaming') {
       // The adapter normally hands a deep-partial `input`; when only the raw
@@ -52,12 +94,20 @@ const BUILT_IN_TOOLS: Record<
       // checked — `input` wins when present, `rawInput` alone still mounts.
       const parsed =
         typeof part.rawInput === 'string' ? parsePartialJson(part.rawInput) : undefined;
-      const input = part.input ?? parsed?.value;
+      const contentFromRaw = part.input === undefined || part.input === null;
+      const input = contentFromRaw ? parsed?.value : part.input;
+      // The submit lock may only open when completeness is proven for the SAME
+      // data being rendered: `parsed.complete` speaks for `rawInput`, so it
+      // unlocks only when that parse IS the content (or structurally equals
+      // it). A deep-partial `input` disagreeing with a complete `rawInput`
+      // stays locked until `ready` — never a half-asked form with Submit live.
+      const complete =
+        parsed?.complete === true && (contentFromRaw || sameJsonValue(part.input, parsed.value));
       return (
         <ShowForm
           schema={(input as { schema?: unknown } | undefined)?.schema}
           resolve={resolve}
-          pending={parsed?.complete !== true}
+          pending={!complete}
         />
       );
     }
@@ -118,7 +168,13 @@ export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps
     const Renderer = entry?.renderer;
     if (!Renderer) {
       const builtIn = getOwn(BUILT_IN_TOOLS, part.name);
-      if (builtIn) return builtIn(part, resolve);
+      // Keyed by toolCallId: the interactive built-ins hold per-CALL state (a
+      // ShowForm instance's `settled` ref is its one-answer-per-call latch, its
+      // pinned form identity is per-call too). <Parts> keys its list the same
+      // way, but a STANDALONE <Part> re-rendered with a new toolCallId would
+      // otherwise reuse the instance — and an already-settled latch would
+      // swallow the new call's answer forever.
+      if (builtIn) return <Fragment key={part.toolCallId}>{builtIn(part, resolve)}</Fragment>;
       return Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
     }
     return (

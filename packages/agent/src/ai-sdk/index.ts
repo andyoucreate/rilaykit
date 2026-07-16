@@ -13,12 +13,29 @@ const STATE_MAP: ReadonlyMap<string, PartState> = new Map([
 interface SdkPart {
   readonly type?: string;
   readonly text?: string;
+  /** Only on `dynamic-tool` parts — static tool parts carry the name in `type`. */
+  readonly toolName?: string;
   readonly toolCallId?: string;
   readonly state?: string;
   readonly input?: unknown;
   readonly output?: unknown;
   readonly errorText?: string;
   readonly data?: unknown;
+}
+
+/**
+ * The tool name a part carries, under either AI SDK v5 shape: a statically
+ * known tool is `type: 'tool-${name}'`; a tool the SDK does not know statically
+ * (MCP, runtime-defined) is `type: 'dynamic-tool'` with a separate `toolName`.
+ * `undefined` — not a tool part (or a dynamic-tool part missing its name).
+ */
+function toolNameOf(part: SdkPart): string | undefined {
+  if (part.type === 'dynamic-tool') {
+    return typeof part.toolName === 'string' ? part.toolName : undefined;
+  }
+  return typeof part.type === 'string' && part.type.startsWith('tool-')
+    ? part.type.slice('tool-'.length)
+    : undefined;
 }
 
 /**
@@ -46,13 +63,14 @@ export function toParts(message: unknown): Part[] {
       });
       continue;
     }
-    if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+    const toolName = toolNameOf(part);
+    if (toolName !== undefined) {
       const state = STATE_MAP.get(part.state ?? '');
       if (!state || !part.toolCallId) continue;
       result.push({
         type: 'tool',
         toolCallId: part.toolCallId,
-        name: part.type.slice('tool-'.length),
+        name: toolName,
         state,
         input: part.input ?? {},
         output: part.output,

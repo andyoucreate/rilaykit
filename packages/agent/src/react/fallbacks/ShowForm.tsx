@@ -75,6 +75,10 @@ function hasStableIdentity(schema: unknown): boolean {
 export function ShowForm({ schema, resolve, pending = false }: ShowFormProps) {
   const catalog = useCatalog();
   const settled = useRef(false);
+  // The form's MOUNT identity, frozen at the first successful compile for this
+  // instance's lifetime — which is one tool call: <Part> keys the built-in on
+  // `toolCallId`, so a new call always gets a fresh instance (and a fresh pin).
+  const pinnedFormId = useRef<string | null>(null);
 
   const compiled = useMemo((): Compiled => {
     if (pending && !hasStableIdentity(schema)) return { result: null, error: null };
@@ -83,10 +87,17 @@ export function ShowForm({ schema, resolve, pending = false }: ShowFormProps) {
         validateProps: true,
         lenient: pending,
       });
+      // Idempotent first-write pin (same render-phase discipline as lazy ref
+      // init). A schema id CHANGING mid-call is a torn id completing ("cont" →
+      // "contact"), not a new form: FormProvider legitimately treats an id
+      // change as a form swap — and resets — so the completed id must never
+      // reach it. Same tool call = same form growing.
+      pinnedFormId.current ??= formConfig.id;
       return {
         result: {
           formConfig: {
             ...formConfig,
+            id: pinnedFormId.current,
             // Untrusted JSON never chooses to skip validation: an emitted
             // `submitOptions.force` / `skipInvalid` is neutralized at this HITL
             // boundary so `resolve` only ever carries engine-validated values.

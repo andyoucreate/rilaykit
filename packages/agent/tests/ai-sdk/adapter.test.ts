@@ -112,6 +112,98 @@ describe('ai-sdk toParts()', () => {
       { type: 'text', text: 'ok', state: 'done' },
     ]);
   });
+
+  describe('dynamic-tool parts (tools the SDK does not know statically)', () => {
+    it('maps a dynamic-tool part in each of the four states, recovering the name from `toolName`', () => {
+      const message = {
+        parts: [
+          {
+            type: 'dynamic-tool',
+            toolName: 'search_web',
+            toolCallId: 'd1',
+            state: 'input-streaming',
+            input: { q: 'par' },
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'search_web',
+            toolCallId: 'd2',
+            state: 'input-available',
+            input: { q: 'paris' },
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'search_web',
+            toolCallId: 'd3',
+            state: 'output-available',
+            input: { q: 'paris' },
+            output: { hits: 3 },
+          },
+          {
+            type: 'dynamic-tool',
+            toolName: 'search_web',
+            toolCallId: 'd4',
+            state: 'output-error',
+            input: { q: 'paris' },
+            errorText: 'boom',
+          },
+        ],
+      };
+      expect(toParts(message)).toEqual([
+        {
+          type: 'tool',
+          toolCallId: 'd1',
+          name: 'search_web',
+          state: 'streaming',
+          input: { q: 'par' },
+        },
+        {
+          type: 'tool',
+          toolCallId: 'd2',
+          name: 'search_web',
+          state: 'ready',
+          input: { q: 'paris' },
+        },
+        {
+          type: 'tool',
+          toolCallId: 'd3',
+          name: 'search_web',
+          state: 'done',
+          input: { q: 'paris' },
+          output: { hits: 3 },
+        },
+        {
+          type: 'tool',
+          toolCallId: 'd4',
+          name: 'search_web',
+          state: 'error',
+          input: { q: 'paris' },
+          errorText: 'boom',
+        },
+      ]);
+    });
+
+    it('normalizes a missing dynamic-tool input to {} — renderers never see undefined', () => {
+      const parts = toParts({
+        parts: [
+          { type: 'dynamic-tool', toolName: 'ping', toolCallId: 'd1', state: 'input-available' },
+        ],
+      });
+      expect(parts[0]).toMatchObject({ type: 'tool', name: 'ping', input: {} });
+    });
+
+    it('skips a dynamic-tool part with an unmapped state, a missing toolCallId, or a missing toolName', () => {
+      expect(
+        toParts({
+          parts: [
+            { type: 'dynamic-tool', toolName: 'x', toolCallId: 'd1', state: 'weird-state' },
+            { type: 'dynamic-tool', toolName: 'x', state: 'input-available' },
+            { type: 'dynamic-tool', toolCallId: 'd2', state: 'input-available' },
+          ],
+        })
+      ).toEqual([]);
+    });
+  });
 });
 
 describe('ai-sdk tools()', () => {

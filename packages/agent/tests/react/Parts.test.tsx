@@ -46,6 +46,31 @@ describe('<Parts>', () => {
     expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { id: 'c1' });
   });
 
+  it('a show_component part with null input degrades to a structured error — siblings keep rendering (spec §8: never a render crash)', () => {
+    // An adapter can hand `input: null` on an output-error with no input, or a
+    // torn emission. The built-in must degrade INSIDE its own slot, not throw
+    // in the dispatcher and collapse the whole list.
+    render(
+      <Catalog value={catalog}>
+        <Parts
+          parts={[
+            { type: 'text', text: 'first' },
+            {
+              type: 'tool',
+              toolCallId: 'c9',
+              name: 'show_component',
+              state: 'error',
+              input: null,
+              errorText: 'model aborted',
+            },
+          ]}
+        />
+      </Catalog>
+    );
+    expect(screen.getByText('first')).toBeInTheDocument();
+    expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+  });
+
   it('renders an empty list without crashing', () => {
     const { container } = render(
       <Catalog value={catalog}>
