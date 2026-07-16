@@ -1,7 +1,6 @@
 import type { RilayInstance } from '@rilaykit/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Part, PartState } from '../types/part';
-
-type AnyCatalog = RilayInstance<Record<string, unknown>>;
 
 const STATE_MAP: ReadonlyMap<string, PartState> = new Map([
   ['input-streaming', 'streaming'],
@@ -86,18 +85,34 @@ export function toParts(message: unknown): Part[] {
 }
 
 /**
+ * One generated AI SDK tool definition: the exact subset of the AI SDK's
+ * `Tool` shape this adapter emits. `inputSchema` stays the Standard Schema
+ * the host registered — the AI SDK's `FlexibleSchema` accepts Standard
+ * Schemas directly (its `StandardSchema` member), so the whole record is
+ * assignable to a `ToolSet` without this package importing `ai`.
+ */
+export interface AiSdkToolDefinition {
+  readonly description?: string;
+  readonly inputSchema: StandardSchemaV1<unknown, unknown>;
+}
+
+/**
  * Emits UI tools WITHOUT `execute`: the SDK's native HITL pattern — the stream stays
  * pending, the client renders from `input`, and `addToolResult` resumes the agent.
  * zod schemas pass through untouched; the SDK converts them itself.
  *
  * A tool registered without `inputSchema` is renderer-only (spec §4) — it renders a
  * host-executed tool and is excluded from generated definitions.
+ *
+ * Generic over the catalog's component map: `RilayInstance` is invariant in
+ * `C`, so a fixed `RilayInstance<Record<string, unknown>>` parameter would
+ * reject every fluently built catalog.
  */
-export function tools(catalog: AnyCatalog): Record<string, unknown> {
+export function tools<C>(catalog: RilayInstance<C>): Record<string, AiSdkToolDefinition> {
   // A Map, then Object.fromEntries — never `generated[tool.name] = ...`. A tool named
   // `__proto__` would reassign the prototype instead of creating an own property; the
   // repo's rule for untrusted-id accumulators is Map + fromEntries (P2 r1).
-  const generated = new Map<string, unknown>();
+  const generated = new Map<string, AiSdkToolDefinition>();
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;
     generated.set(tool.name, { description: tool.description, inputSchema: tool.inputSchema });

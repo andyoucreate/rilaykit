@@ -3,7 +3,6 @@ import type { RilayInstance } from '@rilaykit/core';
 import { z } from 'zod';
 import type { Part } from '../types/part';
 
-type AnyCatalog = RilayInstance<Record<string, unknown>>;
 const logger = getLogger('agent:anthropic');
 
 export interface AnthropicToolDefinition {
@@ -90,8 +89,12 @@ const ANTHROPIC_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
  *
  * A tool registered without `inputSchema` is renderer-only (spec §4) — it is
  * excluded from generated definitions, same as the ai-sdk adapter.
+ *
+ * Generic over the catalog's component map: `RilayInstance` is invariant in
+ * `C`, so a fixed `RilayInstance<Record<string, unknown>>` parameter would
+ * reject every fluently built catalog.
  */
-export function tools(catalog: AnyCatalog): AnthropicToolDefinition[] {
+export function tools<C>(catalog: RilayInstance<C>): AnthropicToolDefinition[] {
   const definitions: AnthropicToolDefinition[] = [];
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;

@@ -8,8 +8,8 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
 
 const CatalogContext = createContext<AnyCatalog | null>(null);
 
-export interface CatalogProps {
-  readonly value: AnyCatalog;
+export interface CatalogProps<C = Record<string, unknown>> {
+  readonly value: RilayInstance<C>;
   readonly children: React.ReactNode;
 }
 
@@ -18,13 +18,24 @@ export interface CatalogProps {
  * embedded in their config via the builders — for them this provider is an
  * override, not a requirement.
  *
+ * Generic over the catalog's component map: `RilayInstance` is invariant in
+ * `C` (renderer callbacks are contravariant in their props), so a fixed
+ * `RilayInstance<Record<string, unknown>>` prop would reject every fluently
+ * built catalog. The context itself stores the erased `AnyCatalog` view —
+ * consumers (useCatalog/useCatalogEntry) only use C-independent reads, and
+ * generics are erased at runtime, so the widening cast is safe.
+ *
  * Lives behind the `@rilaykit/core/react` subpath on purpose: `@rilaykit/core`
  * itself must stay free of runtime React so the isomorphic `lib/catalog.ts`
  * blueprint can be imported from a server component without tripping
  * "createContext is not supported in Server Components".
  */
-export function Catalog({ value, children }: CatalogProps) {
-  return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
+export function Catalog<C>({ value, children }: CatalogProps<C>) {
+  return (
+    <CatalogContext.Provider value={value as unknown as AnyCatalog}>
+      {children}
+    </CatalogContext.Provider>
+  );
 }
 
 export function useCatalog(): AnyCatalog {

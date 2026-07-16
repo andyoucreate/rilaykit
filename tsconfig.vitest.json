@@ -4,9 +4,17 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
+      "@rilaykit/core/react": ["packages/core/src/react/index.ts"],
       "@rilaykit/core": ["packages/core/src/index.ts"],
       "@rilaykit/forms": ["packages/forms/src/index.ts"],
       "@rilaykit/workflow": ["packages/workflow/src/index.ts"],
+      "@rilaykit/agent/react": ["packages/agent/src/react/index.ts"],
+      "@rilaykit/agent/ai-sdk": ["packages/agent/src/ai-sdk/index.ts"],
+      "@rilaykit/agent/anthropic": ["packages/agent/src/anthropic/index.ts"],
+      "@rilaykit/agent": ["packages/agent/src/index.ts"],
+      "rilaykit/react": ["packages/rilaykit/src/react/index.ts"],
+      "rilaykit/ai-sdk": ["packages/rilaykit/src/ai-sdk/index.ts"],
+      "rilaykit/anthropic": ["packages/rilaykit/src/anthropic/index.ts"],
       "rilaykit": ["packages/rilaykit/src/index.ts"]
     }
   },

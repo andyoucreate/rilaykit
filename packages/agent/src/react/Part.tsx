@@ -9,8 +9,6 @@ import { ShowComponent } from './fallbacks/ShowComponent';
 import { ShowFlow } from './fallbacks/ShowFlow';
 import { ShowForm } from './fallbacks/ShowForm';
 
-type AnyCatalog = RilayInstance<Record<string, unknown>>;
-
 /** Bound for {@link sameJsonValue}: past it the comparison answers false, which
  * only keeps the submit lock CLOSED — never crashes on pathological nesting. */
 const MAX_COMPARE_DEPTH = 64;
@@ -131,11 +129,13 @@ const BUILT_IN_TOOLS: Record<
   },
 };
 
-export interface PartProps {
+export interface PartProps<C = Record<string, unknown>> {
   readonly part: PartType;
   readonly onResolve?: (toolCallId: string, output: unknown) => void;
-  /** Explicit override; defaults to the nearest <Catalog value={...}>. */
-  readonly catalog?: AnyCatalog;
+  /** Explicit override; defaults to the nearest <Catalog value={...}>.
+   * Generic over the catalog's component map — `RilayInstance` is invariant
+   * in `C`, so a fixed map type would reject every fluently built catalog. */
+  readonly catalog?: RilayInstance<C>;
   readonly fallback?: React.ComponentType<{ part: PartType }>;
 }
 
@@ -147,8 +147,10 @@ export interface PartProps {
  * the HITL mirror that lets a consumer post the tool result back upstream
  * without the renderer knowing anything about transport.
  */
-export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps) {
+export function Part<C>({ part, onResolve, catalog, fallback: Fallback }: PartProps<C>) {
   const contextCatalog = useCatalogOrNull();
+  // Only C-independent reads (getTool/getPart) happen below, so the union of
+  // the caller's RilayInstance<C> and the context's erased AnyCatalog is fine.
   const resolved = catalog ?? contextCatalog;
   if (!resolved) {
     throw new ConfigurationError(

@@ -132,7 +132,16 @@ function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit
  * also have `.form()` and `.flow()` methods.
  */
 export const ril = {
-  create<CT extends Record<string, any> = Record<string, never>>(): RilayKit<CT> {
+  /**
+   * The default component map mirrors core's `ril.create()` (whose unbound
+   * generic resolves to `unknown`, an identity for intersections):
+   * `Record<never, never>` is the closest constraint-satisfying identity —
+   * `Record<never, never> & { card: P }` keeps `keyof` = `'card'` and
+   * `['card']` = `P`. A `Record<string, never>` default instead POISONS the
+   * accumulated map: its string index turns every `.renderers()` `ctx.props`
+   * into `never` and lets typo'd renderer keys type-check.
+   */
+  create<CT extends Record<string, any> = Record<never, never>>(): RilayKit<CT> {
     return wrapRil(OriginalRil.create<CT>());
   },
 } as const;

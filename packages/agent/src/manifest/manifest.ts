@@ -1,8 +1,6 @@
 import type { RilayInstance } from '@rilaykit/core';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
-type AnyCatalog = RilayInstance<Record<string, unknown>>;
-
 interface PropDescription {
   readonly name: string;
   readonly type: string;
@@ -131,8 +129,13 @@ function renderProp(prop: PropDescription): string {
  * Never throws: a component with no propsSchema, or a propsSchema this
  * module can't introspect, degrades to a description-only entry instead of
  * failing the whole manifest.
+ *
+ * Generic over the catalog's component map: `RilayInstance` is invariant in
+ * `C` (renderer callbacks are contravariant in their props), so a fixed
+ * `RilayInstance<Record<string, unknown>>` parameter would reject every
+ * fluently built catalog. Only C-independent read methods are used here.
  */
-export function manifest(catalog: AnyCatalog): string {
+export function manifest<C>(catalog: RilayInstance<C>): string {
   const lines: string[] = [];
 
   const components = catalog.getAllComponents();
