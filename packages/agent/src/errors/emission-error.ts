@@ -4,6 +4,15 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 export interface EmissionIssue {
   readonly path: string;
   readonly message: string;
+  /** Carried through from `SchemaIssue.severity` when the source issue has one. */
+  readonly severity?: 'error' | 'warning';
+  /**
+   * Carried through from `SchemaIssue.expectedKeys` when the source issue has one
+   * (per-COMPONENT accepted prop names — see `validateFieldProps`). Takes
+   * precedence over the top-level `EmissionResult.expectedKeys`, which is only a
+   * caller-supplied default.
+   */
+  readonly expectedKeys?: readonly string[];
 }
 
 /**
@@ -29,6 +38,20 @@ function pathToString(
     .join('.');
 }
 
+/**
+ * Extracts a human-readable message from an arbitrary thrown value, defensively.
+ * A rogue `Error` subclass can throw from its own `message` getter, and a rogue
+ * non-Error value can throw from `toString()`; either would otherwise crash the
+ * "never throws" contract `toEmissionResult` promises its callers.
+ */
+function safeMessage(error: unknown): string {
+  try {
+    return error instanceof Error ? error.message : String(error);
+  } catch {
+    return 'Unrenderable error';
+  }
+}
+
 /** Never throws. An emission failure is data the model retries from, not an exception. */
 export function toEmissionResult(
   error: unknown,
@@ -36,15 +59,17 @@ export function toEmissionResult(
 ): EmissionResult {
   if (error instanceof SchemaValidationError) {
     return {
-      error: error.message,
-      issues: error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+      error: safeMessage(error),
+      issues: error.issues.map((issue) => ({
+        path: issue.path,
+        message: issue.message,
+        severity: issue.severity,
+        ...(issue.expectedKeys ? { expectedKeys: issue.expectedKeys } : {}),
+      })),
       expectedKeys,
     };
   }
-  if (error instanceof Error) {
-    return { error: error.message, issues: [], expectedKeys };
-  }
-  return { error: String(error), issues: [], expectedKeys };
+  return { error: safeMessage(error), issues: [], expectedKeys };
 }
 
 function expectedKeysOf(schema: StandardSchemaV1): string[] {
