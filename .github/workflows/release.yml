@@ -135,7 +135,12 @@ jobs:
           version: 10
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level moderate
+        # This is a RELEASE gate, so it audits the tree that actually ships to
+        # consumers (`--prod`). Dev-only tooling advisories (e.g. undici under
+        # vitest, js-yaml under changesets) never reach an installed package and
+        # are handled separately via dependency updates — they must not block a
+        # release. A real advisory in a shipped dependency still fails this step.
+        run: pnpm audit --prod --audit-level moderate
 
   # Changeset Check
   changeset-check:
