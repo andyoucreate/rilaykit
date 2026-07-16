@@ -107,10 +107,13 @@ export const FormField = React.memo(function FormField({
   // it rather than remounting it: the timer survives, fires on the new step, and
   // validates the PREVIOUS step's text against the NEW step's rules — leaving an
   // error on a field the user is looking at empty and has never touched.
-  // `formInstanceKey` is deliberately a dependency the BODY does not read: its
-  // whole job is to make this effect re-run — i.e. to fire the cleanup — when the
-  // mounted form is swapped. The rule below reasons about what a body READS, and
-  // cannot see that a cleanup-only effect's deps are its TRIGGER, not its inputs.
+  // `formInstanceKey` and `componentId` are deliberately dependencies the BODY
+  // does not read: their whole job is to make this effect re-run — i.e. to fire
+  // the cleanup — when the mounted form is swapped OR the field is retyped
+  // mid-stream (`text`→`textarea`, same id, new component). Without the retype
+  // trigger a pending debounced run fires the ORPHANED pre-retype value's verdict
+  // onto the freshly re-registered control. The rule below reasons about what a
+  // body READS, and cannot see that a cleanup-only effect's deps are its TRIGGER.
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup trigger, not an input
   useEffect(
     () => () => {
@@ -119,7 +122,7 @@ export const FormField = React.memo(function FormField({
         debounceTimerRef.current = null;
       }
     },
-    [formInstanceKey]
+    [formInstanceKey, fieldConfig.componentId]
   );
 
   // Stable change handler

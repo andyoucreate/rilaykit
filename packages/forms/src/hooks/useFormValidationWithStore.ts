@@ -220,6 +220,16 @@ export function useFormValidationWithStore({
         return createSuccessResult();
       }
 
+      // The component this run is validating against. A mid-stream RETYPE
+      // (`text`→`textarea`, same id) re-registers the field as a fresh control;
+      // this run's verdict — computed for the OLD control's value — must not land
+      // on the new one. Captured before any await, compared after.
+      const startedComponentId = fieldConfig.componentId;
+      const wasRetyped = () => {
+        const current = formConfigRef.current.allFields.find((field) => field.id === fieldId);
+        return current !== undefined && current.componentId !== startedComponentId;
+      };
+
       // Skip if field is invisible (clear errors)
       if (!isFieldVisibleLive(fieldId)) {
         state._setErrors(fieldId, []);
@@ -280,11 +290,12 @@ export function useFormValidationWithStore({
         // stale result overwrite the current one.
         if (isStale()) return result;
 
-        // The field's id was renamed/removed while we awaited (a torn streamed id
-        // completed to a different id). Its verdict would land under a key no
-        // live field owns — a ghost the allFields-only clearing can never reach,
-        // wedging isValid with no visible error. Drop it and clear any stale key.
-        if (!fieldExistsLive(fieldId)) {
+        // The field's id was renamed/removed, or its component was retyped, while
+        // we awaited (a torn streamed id/type completed). Its verdict would land
+        // under a key no live field owns (rename → an unreachable ghost that
+        // wedges isValid), or onto a freshly re-registered control the user never
+        // touched (retype → a phantom error). Drop it and clear any stale key.
+        if (!fieldExistsLive(fieldId) || wasRetyped()) {
           state._setErrors(fieldId, []);
           state._setValidationState(fieldId, 'valid');
           return result;
@@ -338,9 +349,10 @@ export function useFormValidationWithStore({
         };
         // Superseded by a newer run — drop this stale error.
         if (isStale()) return errorResult;
-        // The field's id was renamed/removed while we awaited — dropping the
-        // verdict avoids a ghost error key that wedges isValid unreachably.
-        if (!fieldExistsLive(fieldId)) {
+        // The field's id was renamed/removed, or its component was retyped, while
+        // we awaited — dropping the verdict avoids a ghost error key (rename) or a
+        // phantom error on a re-registered control (retype).
+        if (!fieldExistsLive(fieldId) || wasRetyped()) {
           state._setErrors(fieldId, []);
           state._setValidationState(fieldId, 'valid');
           return errorResult;
