@@ -105,7 +105,19 @@ class PartialJsonParser {
 
       const member = this.parseValue();
       if (member.kind === 'drop') return partial();
-      result[key.value] = member.value;
+      // `defineProperty`, not `result[key.value] = ...`: a bare assignment
+      // routes a `__proto__` key through Object.prototype's setter, which
+      // GRAFTS the value onto the object's prototype instead of storing it
+      // as an own key. JSON.parse always creates an own property named
+      // "__proto__" — this must match that exactly, or the same input
+      // changes meaning between this mid-stream value and the eventual
+      // JSON.parse-backed complete emission.
+      Object.defineProperty(result, key.value, {
+        value: member.value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
       if (!member.closed) return partial();
 
       this.skipWhitespace();
@@ -195,13 +207,13 @@ class PartialJsonParser {
   }
 
   private parseKeyword(): ParseOutcome {
-    const rest = this.text.slice(this.pos);
     for (const { token, value } of KEYWORDS) {
-      if (rest.startsWith(token)) {
+      if (this.text.startsWith(token, this.pos)) {
         this.pos += token.length;
         return { kind: 'value', value, closed: true };
       }
       // The whole remaining input is a strict prefix of the keyword: torn.
+      const rest = this.text.slice(this.pos);
       if (rest.length < token.length && token.startsWith(rest)) {
         this.pos = this.text.length;
         return DROP;
@@ -222,6 +234,9 @@ export function parsePartialJson(text: string): PartialJsonResult {
   if (text.length === 0) return { value: undefined, complete: false };
 
   try {
+    // A root-level scalar (e.g. "12") is syntactically complete JSON on its
+    // own, even though a still-streaming caller could in principle extend it
+    // further (`12` -> `120`); that root-level ambiguity is accepted as-is.
     return { value: JSON.parse(text) as unknown, complete: true };
   } catch {
     // Not complete JSON — fall through to tolerant recovery.

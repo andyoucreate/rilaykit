@@ -209,3 +209,59 @@ describe('parsePartialJson — every-prefix properties over realistic emissions'
     expect(parsePartialJson(full)).toEqual({ value: JSON.parse(full), complete: true });
   });
 });
+
+describe('parsePartialJson — __proto__ key never grafts a prototype', () => {
+  // A bare `result[key] = value` assignment routes a `__proto__` key through
+  // Object.prototype's setter, which grafts the payload onto the object's
+  // PROTOTYPE instead of storing it as an own key. JSON.parse never does
+  // this (it always creates an own property named "__proto__"), so a
+  // hand-rolled builder must match that own-property semantics exactly, or
+  // the same input silently changes meaning between mid-stream and the
+  // final `JSON.parse`-backed emission.
+
+  it('keeps a top-level __proto__ key as an own property, not a grafted prototype', () => {
+    const { value } = parsePartialJson('{"__proto__":{"isAdmin":true},"name":"x');
+    expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
+    expect(Object.getOwnPropertyDescriptor(value as object, '__proto__')?.value).toEqual({
+      isAdmin: true,
+    });
+  });
+
+  it('keeps a nested __proto__ key as an own property, not a grafted prototype', () => {
+    const { value } = parsePartialJson('{"user":{"__proto__":{"isAdmin":true},"name":"x');
+    const user = (value as { user: unknown }).user;
+    expect(Object.getPrototypeOf(user)).toBe(Object.prototype);
+    expect(Object.getOwnPropertyDescriptor(user as object, '__proto__')?.value).toEqual({
+      isAdmin: true,
+    });
+  });
+
+  it('keeps an escaped-unicode __proto__ key as an own property, not a grafted prototype', () => {
+    // _ is "_": the key spells "__proto__" only after JSON unescaping.
+    const { value } = parsePartialJson('{"\\u005f\\u005fproto\\u005f\\u005f":{"isAdmin":true},"name":"x');
+    expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
+    expect(Object.getOwnPropertyDescriptor(value as object, '__proto__')?.value).toEqual({
+      isAdmin: true,
+    });
+  });
+
+  it('keeps an array-valued __proto__ key as an own property, not a grafted prototype', () => {
+    const { value } = parsePartialJson('{"__proto__":[1,2,3],"name":"x');
+    expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
+    expect(Object.getOwnPropertyDescriptor(value as object, '__proto__')?.value).toEqual([1, 2, 3]);
+  });
+});
+
+describe('parsePartialJson — pinned edge cases', () => {
+  // A bare number at the root is syntactically complete JSON on its own —
+  // the parser has no way to know the stream might still extend it into
+  // `120` or `12.5`. This matches the documented contract ("text was itself
+  // complete, valid JSON"); the root-level ambiguity is accepted as-is.
+  it('reports a bare root number as complete, per the documented contract', () => {
+    expect(parsePartialJson('12')).toEqual({ value: 12, complete: true });
+  });
+
+  it('does not report complete when trailing garbage follows a complete value', () => {
+    expect(parsePartialJson('{"a":1}xyz')).toEqual({ value: { a: 1 }, complete: false });
+  });
+});
