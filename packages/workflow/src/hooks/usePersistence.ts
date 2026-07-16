@@ -131,7 +131,25 @@ export function usePersistence({
           optionsRef.current.metadata
         );
 
+        // Completion clears the persisted data; a save that reaches the
+        // adapter after the flag flipped would resurrect the finished
+        // workflow, so skip the write entirely.
+        if (workflowCompletedRef?.current) {
+          persistenceStateRef.current.hasPendingChanges = false;
+          return;
+        }
+
         await adapterRef.current.save(storageKey, persistedData);
+
+        // The workflow may have completed (and cleared its persisted data)
+        // while the save above was in flight — in that case the write just
+        // resurrected the cleared record, so undo it instead of keeping it.
+        if (workflowCompletedRef?.current) {
+          await adapterRef.current.remove(storageKey);
+          persistenceStateRef.current.lastSavedState = undefined;
+          persistenceStateRef.current.hasPendingChanges = false;
+          return;
+        }
 
         // Update tracking state
         persistenceStateRef.current.lastSavedState = { ...state };
@@ -143,7 +161,7 @@ export function usePersistence({
         setIsPersisting(false);
       }
     },
-    [workflowId, storageKey, clearError, handleError]
+    [workflowId, storageKey, clearError, handleError, workflowCompletedRef]
   );
 
   /**
