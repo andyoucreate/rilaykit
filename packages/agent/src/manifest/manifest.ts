@@ -50,14 +50,15 @@ interface JsonSchemaExtension {
  * and gives the same information (name, type, optional, description) in one
  * shape regardless of which Standard Schema library produced it. A schema
  * that doesn't implement the extension (no propsSchema, a non-object
- * schema, or a vendor without the extension) degrades to `[]` — the
- * component still renders with its own description, just without a prop
- * list.
+ * schema, a vendor without the extension, or a malformed schema missing
+ * `~standard` entirely) degrades to `[]` — the component still renders with
+ * its own description, just without a prop list.
  */
 function describeProps(schema: StandardSchemaV1 | undefined): PropDescription[] {
   if (!schema) return [];
 
-  const extension = (schema['~standard'] as unknown as JsonSchemaExtension).jsonSchema;
+  const standard = schema['~standard'] as unknown as JsonSchemaExtension | undefined;
+  const extension = standard?.jsonSchema;
   if (!extension) return [];
 
   let jsonSchema: ObjectJsonSchema;
