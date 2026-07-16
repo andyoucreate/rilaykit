@@ -214,6 +214,14 @@ export class RilayMonitor {
       this.flushTimer = setInterval(() => {
         this.flush();
       }, this.config.flushInterval);
+
+      // On Node the interval would keep the event loop alive and prevent the
+      // process from exiting; unref it so a monitor alone never blocks exit.
+      // Browser timers are plain numbers with no `.unref`, hence the guard.
+      const timerHandle: { unref?: () => void } = this.flushTimer;
+      if (typeof timerHandle.unref === 'function') {
+        timerHandle.unref();
+      }
     }
   }
 
