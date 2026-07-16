@@ -218,6 +218,17 @@ export function WorkflowProvider({
   const stepsRef = useRef(workflowConfig.steps);
   stepsRef.current = workflowConfig.steps;
 
+  // The defaults AS THEY ARE NOW — the same seam, for the same reason. A
+  // recompile that ADDS a step delivers the defaults that step's form declares
+  // in the same new compile, as a new `defaultValues` prop. The store is
+  // created once, so a snapshot captured at mount is exactly the stale answer
+  // `stepsRef` exists to prevent for the steps: the born step rendered empty
+  // and the completion payload carried `{}` where a fresh mount of the same
+  // schema prefills. The store reads these live at `_reconcileStepSet`, under
+  // its untouched-only guard.
+  const defaultValuesRef = useRef(defaultValues);
+  defaultValuesRef.current = defaultValues;
+
   // Create Zustand store (once per provider mount)
   const storeRef = useRef<WorkflowStore | null>(null);
   if (!storeRef.current) {
@@ -227,6 +238,7 @@ export function WorkflowProvider({
       // and normalise it to its one internal shape — at EVERY write, including
       // the public `useFlowActions()` ones this provider never sees.
       getSteps: () => stepsRef.current,
+      getDefaultValues: () => defaultValuesRef.current,
       defaultStepIndex,
       initialVisitedSteps: initialSteps.visitedSteps,
       initialPassedSteps: initialSteps.passedSteps,

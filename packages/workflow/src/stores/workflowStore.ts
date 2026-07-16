@@ -1,5 +1,6 @@
 import type { StepConfig } from '@rilaykit/core';
 import { ConfigurationError, getOwn, hasOwn } from '@rilaykit/core';
+import { parseCompositeKey } from '@rilaykit/forms';
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -87,6 +88,16 @@ export interface WorkflowStoreState {
    * snapshot, which is correct on the same terms: authored is the shape a
    * snapshot speaks, and `_loadPersistedState` normalises the merge on the way
    * in against the steps live THEN.
+   *
+   * IT GROWS, ADDITIVELY AND GUARDED, when a recompile delivers a default the
+   * creation never saw — a born step's form declares one, and it arrives
+   * through `getDefaultValues()`, the store's second live input. The
+   * reconciliation admits it in this same authored shape (see
+   * `admitLateDefaults`), so a later `_reset` re-seeds the born step exactly
+   * as a store created with the full compile would. Only keys NEW to this
+   * baseline and unwritten in `allData` ever enter: a host echoing captured
+   * values back through `defaultValues` cannot rewrite it with user-authored
+   * state.
    */
   _defaultValues: Record<string, unknown>;
   _defaultStepIndex: number;
@@ -317,6 +328,27 @@ export interface CreateWorkflowStoreOptions {
    * else to meet it.
    */
   getSteps?: () => ReadonlyArray<StepConfig>;
+  /**
+   * The flow's defaults AS THEY ARE NOW — the second live input, and the exact
+   * mirror of {@link getSteps}. Omitted, the accessor answers with the
+   * `defaultValues` the store was created with, which is the truth for a store
+   * whose defaults never move.
+   *
+   * WHY THE DEFAULTS ARE LIVE TOO. A recompiled FlowSchema does not only move
+   * the STEP SET — a step born by the recompile brings the defaults its form
+   * declares, and they arrive in the same new compile the steps do. The steps
+   * had a seam (`getSteps` + `_reconcileStepSet`) while the defaults were
+   * captured once, at creation — so the born step rendered empty and the
+   * completion payload carried `{}` where a fresh mount of the SAME schema
+   * prefills. The store's own docstring assumed "a born step's default slice is
+   * already in `allData`", which is true only of defaults the store was CREATED
+   * holding, and false of the ones the recompile itself delivers.
+   *
+   * Read by `_reconcileStepSet` at the same seam the steps enter, and admitted
+   * under the untouched-only guard family — see the reconciliation itself for
+   * the guard.
+   */
+  getDefaultValues?: () => Record<string, unknown>;
   initialVisitedSteps?: Set<string>;
   initialPassedSteps?: Set<string>;
 }
@@ -326,6 +358,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
     defaultValues = {},
     defaultStepIndex = 0,
     getSteps = () => [],
+    getDefaultValues = () => defaultValues,
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
   } = options;
@@ -399,10 +432,123 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
    * Idempotent: `flattenAuthoredSlice` returns an already-flat slice's own
    * identity, so re-deriving from the same defaults against the same steps
    * yields the same value. Nothing here can feed itself.
+   *
+   * IT TAKES THE DEFAULTS RATHER THAN CLOSING OVER THEM, because the two
+   * moments read different owners: creation seeds from the `defaultValues`
+   * handed in, and `_reset` seeds from `state._defaultValues` — the SAME values
+   * plus every late default the reconciliation has admitted since. A reset
+   * closing over the creation copy would restore a flow the recompile had
+   * already replaced.
    */
-  const seedAllData = () => normalizeRepeatableSlices({ ...defaultValues }, getSteps(), {});
+  const seedAllData = (defaults: Record<string, unknown>) =>
+    normalizeRepeatableSlices({ ...defaults }, getSteps(), {});
 
-  const initial = seedAllData();
+  /**
+   * A step slice is a plain object keyed by field id — the only shape the
+   * late-default admission below may reason about. Anything else is carried
+   * through untouched, exactly as `normalizeRepeatableSlices` treats it.
+   */
+  const isSliceRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+
+  /**
+   * THE DEFAULTS MOVED — admit the ones that arrived LATE, and only those.
+   *
+   * `getDefaultValues()` is the store's second live input (see
+   * {@link CreateWorkflowStoreOptions.getDefaultValues}): a recompile that adds
+   * a step delivers that step's declared defaults in the same new compile, and
+   * a store seeded once at creation never sees them. This derives, at the same
+   * seam the steps enter, what the creation seed WOULD have held had the
+   * defaults been there — and nothing more.
+   *
+   * THE GUARD IS THE UNTOUCHED-ONLY FAMILY the form level proved against the
+   * workflow echo, stated at this store's granularity. A `(stepId, fieldId)`
+   * pair is admitted only when BOTH:
+   *
+   *   - the field is NEW TO THE BASELINE — `_defaultValues` makes no claim
+   *     about it. A key the baseline already holds is a default this store has
+   *     already answered for; a re-emit of the same compile must be a no-op,
+   *     and a changed VALUE for a known key is indistinguishable from a host
+   *     echoing state around, so neither re-seeds.
+   *   - NOTHING HAS WRITTEN THE FIELD — the step's slice holds neither the
+   *     bare id nor any composite key belonging to it. A value in the slice is
+   *     the user's (or a host write's), and a late default never rewrites it.
+   *     This is also what blocks the echo path: a host echoing captured values
+   *     back through `defaultValues` echoes keys the slice by definition
+   *     already holds, so nothing is admitted and — as important — nothing
+   *     enters the baseline, which is what keeps a later `_reset` restoring
+   *     the flow's own defaults rather than the user's typed state.
+   *
+   * WHAT IT RETURNS IS AUTHORED, ON BOTH SURFACES. The admitted values merge
+   * into `allData` in the shape the host declared them and are normalised by
+   * the same `normalizeRepeatableSlices` pass every other write goes through —
+   * the flat-shape invariant does not bend for this door. The baseline gains
+   * the same authored values, because `_defaultValues` is host-authored data
+   * that no step set can invalidate (see its docstring), and `_reset` derives
+   * the seed from it at the moment of use.
+   *
+   * `null` when nothing is admitted, so the reconcile's publishes-nothing
+   * discipline is untouched: a live defaults object recreated on every render
+   * with the same content admits nothing and writes nothing.
+   *
+   * The accumulators are Maps: step ids and field ids are author data, and a
+   * plain `out['__proto__'] = slice` reassigns the prototype instead of
+   * recording the key.
+   */
+  const admitLateDefaults = (
+    state: WorkflowStoreState
+  ): { allData: Record<string, unknown>; defaultValues: Record<string, unknown> } | null => {
+    const live = getDefaultValues();
+    if (live === state._defaultValues) return null;
+
+    let admitted = false;
+    const nextData = new Map<string, unknown>(Object.entries(state.allData));
+    const nextDefaults = new Map<string, unknown>(Object.entries(state._defaultValues));
+
+    for (const [stepId, liveSlice] of Object.entries(live)) {
+      if (!isSliceRecord(liveSlice)) continue;
+
+      const baselineSlice = getOwn(state._defaultValues, stepId);
+      if (baselineSlice !== undefined && !isSliceRecord(baselineSlice)) continue;
+
+      const heldRaw = getOwn(state.allData, stepId);
+      if (heldRaw !== undefined && !isSliceRecord(heldRaw)) continue;
+      const held = heldRaw ?? {};
+
+      // The repeatables this slice already captures — as flat composite keys,
+      // which is the shape a written repeatable actually holds. A composite key
+      // is self-describing, so this asks the data, never a config.
+      const heldRepeatables = new Set<string>();
+      for (const key of Object.keys(held)) {
+        const parsed = parseCompositeKey(key);
+        if (parsed) heldRepeatables.add(parsed.repeatableId);
+      }
+
+      const accepted = new Map<string, unknown>();
+      for (const [fieldId, value] of Object.entries(liveSlice)) {
+        if (baselineSlice && hasOwn(baselineSlice, fieldId)) continue;
+        if (hasOwn(held, fieldId)) continue;
+        if (heldRepeatables.has(fieldId)) continue;
+        accepted.set(fieldId, value);
+      }
+      if (accepted.size === 0) continue;
+
+      admitted = true;
+      nextData.set(stepId, Object.fromEntries(new Map([...Object.entries(held), ...accepted])));
+      nextDefaults.set(
+        stepId,
+        Object.fromEntries(new Map([...Object.entries(baselineSlice ?? {}), ...accepted]))
+      );
+    }
+
+    if (!admitted) return null;
+    return {
+      allData: Object.fromEntries(nextData),
+      defaultValues: Object.fromEntries(nextDefaults),
+    };
+  };
+
+  const initial = seedAllData(defaultValues);
   const initialOwner = ownerOf(defaultStepIndex);
 
   return createStore<WorkflowStoreState>()(
@@ -574,17 +720,20 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
          * enters the store, so the store re-derives at the moment its mutable
          * input moves, rather than at the moment some caller happens to write.
          *
-         * IT RE-SHAPES, IT NEVER RE-SEEDS — and that is what makes "a born step
-         * gets its defaults" and "a step holding the user's input is left alone"
-         * the same sentence rather than two cases to tell apart. This does not
-         * read `_defaultValues` and has no notion of which slices are the user's:
-         * it takes whatever `allData` holds for a live step and states it in the
-         * store's shape. A born step's default slice is already in `allData`
-         * (creation seeded it, authored, because the step was not there to ask) —
-         * so re-shaping it IS seeding it. A slice the user has typed into is
-         * re-shaped too, and re-shaping an already-flat slice is the identity:
-         * `flattenAuthoredSlice` hands back the slice it was given. There is no
-         * branch that could clobber, because there is no branch.
+         * IT RE-SHAPES WHAT THE STORE HOLDS, AND ADMITS WHAT IT WAS NEVER
+         * HANDED — the two ways a born step's defaults reach it, and they are
+         * different events. A default the store was CREATED holding is already
+         * in `allData` (creation seeded it, authored, because the step was not
+         * there to ask), so re-shaping it IS seeding it: no notion of which
+         * slices are the user's is needed, because re-shaping an already-flat
+         * slice is the identity — `flattenAuthoredSlice` hands back the slice
+         * it was given, and there is no branch that could clobber. But a
+         * default that arrives WITH the recompile — a born step's form declares
+         * it, and it enters through `getDefaultValues()`, the store's second
+         * live input — is in NEITHER `allData` nor the baseline, and re-shaping
+         * cannot conjure it. That half IS a seed, so it is the guarded half:
+         * see `admitLateDefaults` for the untouched-only admission that keeps
+         * "a step holding the user's input is left alone" true of it.
          *
          * IT RE-DERIVES THE MIRROR'S OWNER TOO, AND IT IS THE ONLY THING THAT
          * CAN. `_currentStepId` is a function of `(currentStepIndex, getSteps())`
@@ -617,14 +766,27 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
          */
         _reconcileStepSet: () => {
           const state = get();
+          // The OTHER live input, read at the same seam. A recompile that adds
+          // a step delivers the defaults its form declares, and they are not
+          // in `allData` — creation could not seed what it was never handed.
+          // Admission is guarded (untouched fields, new-to-baseline keys only —
+          // see `admitLateDefaults`), so "a step holding the user's input is
+          // left alone" survives this addition unchanged; the admitted values
+          // then flow through the same normalisation as everything else, so a
+          // late repeatable default lands flat like any other.
+          const late = admitLateDefaults(state);
           const normalized = normalizeRepeatableSlices(
-            state.allData,
+            late ? late.allData : state.allData,
             getSteps(),
             state._repeatableOrders
           );
           const patch = withDerived(state, {
             allData: normalized.data,
             _repeatableOrders: normalized.orders,
+            // The baseline learns the admitted defaults in the AUTHORED shape,
+            // so a later `_reset` re-seeds the born step exactly as a store
+            // created with the full compile would.
+            ...(late ? { _defaultValues: late.defaultValues } : {}),
           });
           const moved = Object.keys(patch).some(
             (key) =>
@@ -777,7 +939,12 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           // the cached copy could only ever answer for the mount's step set, and
           // re-planted the authored array of a step that had since been born.
           // See {@link WorkflowStoreState._defaultValues}.
-          const seed = seedAllData();
+          //
+          // FROM THE STATE'S OWN BASELINE, not the creation copy: the baseline
+          // carries every late default the reconciliation admitted since mount,
+          // and a reset that read the creation copy would restore a flow the
+          // recompile had already replaced.
+          const seed = seedAllData(state._defaultValues);
           set({
             currentStepIndex: state._defaultStepIndex,
             allData: seed.data,
