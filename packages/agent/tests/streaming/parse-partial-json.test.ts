@@ -22,11 +22,17 @@ describe('parsePartialJson', () => {
   });
 
   it('keeps a completed sibling when the next key is half-written', () => {
-    expect(parsePartialJson('{"id":"name","ty')).toEqual({ value: { id: 'name' }, complete: false });
+    expect(parsePartialJson('{"id":"name","ty')).toEqual({
+      value: { id: 'name' },
+      complete: false,
+    });
   });
 
   it('handles escaped quotes inside strings', () => {
-    expect(parsePartialJson('{"q":"say \\"hi\\""}')).toEqual({ value: { q: 'say "hi"' }, complete: true });
+    expect(parsePartialJson('{"q":"say \\"hi\\""}')).toEqual({
+      value: { q: 'say "hi"' },
+      complete: true,
+    });
   });
 
   it('never throws on garbage — it reports incompleteness', () => {
@@ -38,7 +44,8 @@ describe('parsePartialJson', () => {
   });
 
   it('parses every prefix of a real emission without throwing', () => {
-    const full = '{"schema":{"id":"contact","fields":[{"id":"name","type":"text","props":{"label":"Name"}}]}}';
+    const full =
+      '{"schema":{"id":"contact","fields":[{"id":"name","type":"text","props":{"label":"Name"}}]}}';
     for (let i = 0; i <= full.length; i++) {
       expect(() => parsePartialJson(full.slice(0, i))).not.toThrow();
     }
@@ -154,11 +161,22 @@ describe('parsePartialJson — every-prefix properties over realistic emissions'
           weight: -1.5e3,
           optional: false,
           fields: [
-            { id: 'email', type: 'text', props: { label: 'E-mail', placeholder: 'you@example.com' } },
+            {
+              id: 'email',
+              type: 'text',
+              props: { label: 'E-mail', placeholder: 'you@example.com' },
+            },
             { id: 'age', type: 'number', props: { min: 0, max: 120 } },
           ],
         },
-        { id: 'review', kind: 'summary', weight: 1, optional: true, notes: 'He said "go"', fields: [] },
+        {
+          id: 'review',
+          kind: 'summary',
+          weight: 1,
+          optional: true,
+          notes: 'He said "go"',
+          fields: [],
+        },
       ],
     },
   });
@@ -238,7 +256,9 @@ describe('parsePartialJson — __proto__ key never grafts a prototype', () => {
 
   it('keeps an escaped-unicode __proto__ key as an own property, not a grafted prototype', () => {
     // _ is "_": the key spells "__proto__" only after JSON unescaping.
-    const { value } = parsePartialJson('{"\\u005f\\u005fproto\\u005f\\u005f":{"isAdmin":true},"name":"x');
+    const { value } = parsePartialJson(
+      '{"\\u005f\\u005fproto\\u005f\\u005f":{"isAdmin":true},"name":"x'
+    );
     expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
     expect(Object.getOwnPropertyDescriptor(value as object, '__proto__')?.value).toEqual({
       isAdmin: true,

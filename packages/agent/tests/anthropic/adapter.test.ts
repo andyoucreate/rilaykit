@@ -1,6 +1,6 @@
+import { ril } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { ril } from '@rilaykit/core';
 import { toParts, tools } from '../../src/anthropic';
 
 const catalog = ril
@@ -21,7 +21,13 @@ describe('anthropic toParts()', () => {
     };
     expect(toParts(message)).toEqual([
       { type: 'text', text: 'hello', state: 'done' },
-      { type: 'tool', toolCallId: 'tu_1', name: 'search_flights', state: 'ready', input: { from: 'CDG' } },
+      {
+        type: 'tool',
+        toolCallId: 'tu_1',
+        name: 'search_flights',
+        state: 'ready',
+        input: { from: 'CDG' },
+      },
     ]);
   });
 
@@ -76,16 +82,23 @@ describe('anthropic tools()', () => {
   it('falls back to a manual inputJsonSchema for a non-zod Standard Schema', () => {
     const manual = ril.create().tool('custom', {
       description: 'Custom',
-      inputSchema: { '~standard': { version: 1, vendor: 'x', validate: (v: unknown) => ({ value: v }) } } as never,
+      inputSchema: {
+        '~standard': { version: 1, vendor: 'x', validate: (v: unknown) => ({ value: v }) },
+      } as never,
       inputJsonSchema: { type: 'object', properties: { q: { type: 'string' } } },
     } as never);
-    expect(tools(manual)[0].input_schema).toEqual({ type: 'object', properties: { q: { type: 'string' } } });
+    expect(tools(manual)[0].input_schema).toEqual({
+      type: 'object',
+      properties: { q: { type: 'string' } },
+    });
   });
 
   it('skips a tool whose schema cannot be converted rather than throwing', () => {
     const broken = ril.create().tool('broken', {
       description: 'Broken',
-      inputSchema: { '~standard': { version: 1, vendor: 'x', validate: (v: unknown) => ({ value: v }) } } as never,
+      inputSchema: {
+        '~standard': { version: 1, vendor: 'x', validate: (v: unknown) => ({ value: v }) },
+      } as never,
     } as never);
     expect(tools(broken)).toEqual([]);
   });

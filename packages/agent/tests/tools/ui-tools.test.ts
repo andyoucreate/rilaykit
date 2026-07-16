@@ -1,6 +1,6 @@
+import { ril } from '@rilaykit/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { ril } from '@rilaykit/core';
 import { uiTools } from '../../src/tools/ui-tools';
 
 const catalog = ril
@@ -13,11 +13,12 @@ const catalog = ril
 
 describe('uiTools()', () => {
   it('registers exactly the three premium tools, with intention verbs', () => {
-    expect(catalog.getAllTools().map((t) => t.name).sort()).toEqual([
-      'show_component',
-      'show_flow',
-      'show_form',
-    ]);
+    expect(
+      catalog
+        .getAllTools()
+        .map((t) => t.name)
+        .sort()
+    ).toEqual(['show_component', 'show_flow', 'show_form']);
   });
 
   it('registers schemas only — the server never sees React', () => {

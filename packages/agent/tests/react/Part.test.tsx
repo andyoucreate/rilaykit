@@ -1,8 +1,8 @@
+import { ConfigurationError, ril } from '@rilaykit/core';
+import { Catalog } from '@rilaykit/core/react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfigurationError, ril } from '@rilaykit/core';
-import { Catalog } from '@rilaykit/core/react';
 import { Part } from '../../src/react/Part';
 
 const catalog = ril
@@ -28,19 +28,38 @@ describe('<Part>', () => {
   });
 
   it('hands a tool renderer its state and input', () => {
-    mount(<Part part={{ type: 'tool', toolCallId: 'c1', name: 'search_flights', state: 'streaming', input: { from: 'CDG' } }} />);
+    mount(
+      <Part
+        part={{
+          type: 'tool',
+          toolCallId: 'c1',
+          name: 'search_flights',
+          state: 'streaming',
+          input: { from: 'CDG' },
+        }}
+      />
+    );
     expect(screen.getByRole('button')).toHaveTextContent('streaming:CDG');
   });
 
   it('wires resolve() to onResolve with the toolCallId — the HITL mirror', async () => {
     const onResolve = vi.fn();
-    mount(<Part part={{ type: 'tool', toolCallId: 'c1', name: 'search_flights', state: 'ready', input: {} }} onResolve={onResolve} />);
+    mount(
+      <Part
+        part={{ type: 'tool', toolCallId: 'c1', name: 'search_flights', state: 'ready', input: {} }}
+        onResolve={onResolve}
+      />
+    );
     await userEvent.click(screen.getByRole('button'));
     expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { picked: 'AF123' });
   });
 
   it('falls back to a humanized name for an unregistered tool', () => {
-    mount(<Part part={{ type: 'tool', toolCallId: 'c2', name: 'search_hotels', state: 'ready', input: {} }} />);
+    mount(
+      <Part
+        part={{ type: 'tool', toolCallId: 'c2', name: 'search_hotels', state: 'ready', input: {} }}
+      />
+    );
     expect(screen.getByText('Search hotels')).toBeInTheDocument();
   });
 
@@ -56,7 +75,12 @@ describe('<Part>', () => {
 
   it('prefers a consumer fallback over the built-in one', () => {
     const Fallback = ({ part }: { part: Part }) => <em>custom:{part.type}</em>;
-    mount(<Part part={{ type: 'tool', toolCallId: 'c3', name: 'nope', state: 'ready', input: {} }} fallback={Fallback} />);
+    mount(
+      <Part
+        part={{ type: 'tool', toolCallId: 'c3', name: 'nope', state: 'ready', input: {} }}
+        fallback={Fallback}
+      />
+    );
     expect(screen.getByText('custom:tool')).toBeInTheDocument();
   });
 
@@ -68,7 +92,13 @@ describe('<Part>', () => {
   it('renders using an explicit catalog prop with no <Catalog> ancestor', () => {
     render(
       <Part
-        part={{ type: 'tool', toolCallId: 'c4', name: 'search_flights', state: 'streaming', input: { from: 'CDG' } }}
+        part={{
+          type: 'tool',
+          toolCallId: 'c4',
+          name: 'search_flights',
+          state: 'streaming',
+          input: { from: 'CDG' },
+        }}
         catalog={catalog}
       />
     );
@@ -77,7 +107,17 @@ describe('<Part>', () => {
 
   it('throws a ConfigurationError with neither a catalog prop nor a <Catalog> ancestor', () => {
     expect(() =>
-      render(<Part part={{ type: 'tool', toolCallId: 'c5', name: 'search_flights', state: 'ready', input: {} }} />)
+      render(
+        <Part
+          part={{
+            type: 'tool',
+            toolCallId: 'c5',
+            name: 'search_flights',
+            state: 'ready',
+            input: {},
+          }}
+        />
+      )
     ).toThrow(ConfigurationError);
   });
 });

@@ -1,10 +1,10 @@
+import { ril } from '@rilaykit/core';
+import { Catalog } from '@rilaykit/core/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { ril } from '@rilaykit/core';
-import { Catalog } from '@rilaykit/core/react';
-import { MAX_NODE_DEPTH } from '../../src/react/fallbacks/ShowComponent';
 import { Part } from '../../src/react/Part';
+import { MAX_NODE_DEPTH } from '../../src/react/fallbacks/ShowComponent';
 import { uiTools } from '../../src/tools/ui-tools';
 
 let probedProps: Record<string, unknown> | null = null;
@@ -54,7 +54,9 @@ function deepTree(length: number): unknown {
 function showComponent(node: unknown, state: 'streaming' | 'ready' = 'ready') {
   return render(
     <Catalog value={catalog}>
-      <Part part={{ type: 'tool', toolCallId: 'c1', name: 'show_component', state, input: { node } }} />
+      <Part
+        part={{ type: 'tool', toolCallId: 'c1', name: 'show_component', state, input: { node } }}
+      />
     </Catalog>
   );
 }
@@ -126,7 +128,7 @@ describe('show_component built-in renderer', () => {
       type: 'stack',
       props: { gap: 8 },
       children: [
-        { type: 'badge', props: { labl: 'typo' } },   // invalid props
+        { type: 'badge', props: { labl: 'typo' } }, // invalid props
         { type: 'badge', props: { label: 'survivor' } },
       ],
     });
@@ -145,7 +147,10 @@ describe('show_component built-in renderer', () => {
   });
 
   it('renders NOTHING while the part is streaming — partial input must not produce error views', () => {
-    const { container } = showComponent({ type: 'stack', props: { gap: 8 }, children: undefined }, 'streaming');
+    const { container } = showComponent(
+      { type: 'stack', props: { gap: 8 }, children: undefined },
+      'streaming'
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -184,7 +189,9 @@ describe('show_component built-in renderer', () => {
 
   it('caps recursion — a 10,000-deep tree yields an error view, not a stack overflow', () => {
     showComponent(deepTree(10_000));
-    expect(screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)
+    ).toBeInTheDocument();
   });
 
   it('renders a tree exactly at the depth cap', () => {
@@ -200,7 +207,9 @@ describe('show_component built-in renderer', () => {
       children: [deepTree(MAX_NODE_DEPTH), { type: 'badge', props: { label: 'survivor' } }],
     });
     expect(screen.getByText('survivor')).toBeInTheDocument();
-    expect(screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)
+    ).toBeInTheDocument();
     expect(screen.queryByText('leaf')).not.toBeInTheDocument();
   });
 
@@ -236,7 +245,9 @@ describe('show_component built-in renderer', () => {
   it('reports non-array children instead of crashing', () => {
     showComponent({ type: 'stack', props: { gap: 8 }, children: 'nope' });
     expect(
-      screen.getByText('Invalid "children" on component "stack": expected an array of component nodes, got string')
+      screen.getByText(
+        'Invalid "children" on component "stack": expected an array of component nodes, got string'
+      )
     ).toBeInTheDocument();
   });
 });

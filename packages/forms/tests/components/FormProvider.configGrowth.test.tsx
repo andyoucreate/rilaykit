@@ -131,9 +131,7 @@ describe('FormProvider registers appended fields incrementally — growth is not
     fireEvent.click(screen.getByTestId('grow'));
 
     // The new repeatable pads to its min — and the padding did not reset `a`.
-    await waitFor(() =>
-      expect(screen.getByTestId('input-lines[k0].label')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('input-lines[k0].label')).toBeInTheDocument());
     expect(screen.getByTestId('input-a')).toHaveValue('typed');
   });
 
@@ -192,9 +190,7 @@ describe('FormProvider registers appended fields incrementally — growth is not
     fireEvent.click(screen.getByTestId('grow'));
 
     // The grown template reaches the existing row: `qty` renders on it.
-    await waitFor(() =>
-      expect(screen.getByTestId('input-lines[k0].qty')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('input-lines[k0].qty')).toBeInTheDocument());
     // The user's row survived the template growth untouched...
     expect(screen.getByTestId('input-lines[k0].label')).toHaveValue('typed-line');
     // ...and the late template default does NOT re-seed an existing row: live

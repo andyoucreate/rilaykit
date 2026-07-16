@@ -33,7 +33,9 @@ function isDigit(char: string): boolean {
 }
 
 function isNumberChar(char: string): boolean {
-  return isDigit(char) || char === '-' || char === '+' || char === '.' || char === 'e' || char === 'E';
+  return (
+    isDigit(char) || char === '-' || char === '+' || char === '.' || char === 'e' || char === 'E'
+  );
 }
 
 /**

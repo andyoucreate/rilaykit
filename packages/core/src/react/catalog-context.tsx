@@ -1,6 +1,7 @@
-import React, { createContext, useContext } from 'react';
-import { ConfigurationError } from '../errors';
+import type React from 'react';
+import { createContext, useContext } from 'react';
 import type { RilayInstance } from '../config/ril';
+import { ConfigurationError } from '../errors';
 import type { CatalogEntry } from '../types/catalog';
 
 type AnyCatalog = RilayInstance<Record<string, unknown>>;

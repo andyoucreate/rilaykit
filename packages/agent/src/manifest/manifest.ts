@@ -107,7 +107,9 @@ export function manifest(catalog: AnyCatalog): string {
     lines.push('## Available components');
     lines.push('');
     for (const component of components) {
-      lines.push(`- **${component.type}**${component.description ? ` — ${component.description}` : ''}`);
+      lines.push(
+        `- **${component.type}**${component.description ? ` — ${component.description}` : ''}`
+      );
       for (const prop of describeProps(component.propsSchema)) lines.push(renderProp(prop));
     }
     lines.push('');

@@ -1,4 +1,3 @@
-import { useMemo, useRef } from 'react';
 import { useCatalog } from '@rilaykit/core/react';
 import { SchemaValidationError } from '@rilaykit/forms';
 import {
@@ -10,6 +9,7 @@ import {
   WorkflowProvider,
   compileFlow,
 } from '@rilaykit/workflow';
+import { useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';
 

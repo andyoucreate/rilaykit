@@ -1,6 +1,6 @@
-import type React from 'react';
 import type { ComponentRenderContext, RilayInstance } from '@rilaykit/core';
 import { useCatalog } from '@rilaykit/core/react';
+import type React from 'react';
 import { toEmissionResult, validateNodeProps } from '../../errors/emission-error';
 import type { ComponentNode } from '../../types/component-node';
 import { EmissionErrorView } from './EmissionErrorView';
@@ -16,7 +16,9 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
 export const MAX_NODE_DEPTH = 64;
 
 function isNode(value: unknown): value is ComponentNode {
-  return typeof value === 'object' && value !== null && typeof (value as ComponentNode).type === 'string';
+  return (
+    typeof value === 'object' && value !== null && typeof (value as ComponentNode).type === 'string'
+  );
 }
 
 /**
@@ -24,7 +26,12 @@ function isNode(value: unknown): value is ComponentNode {
  * throwing, so a sibling's typo cannot take down the tree. That is the spec's
  * "a failing node produces a structured error part, never a render crash".
  */
-function renderNode(node: unknown, catalog: AnyCatalog, key: string, depth: number): React.ReactNode {
+function renderNode(
+  node: unknown,
+  catalog: AnyCatalog,
+  key: string,
+  depth: number
+): React.ReactNode {
   if (depth >= MAX_NODE_DEPTH) {
     return (
       <EmissionErrorView
@@ -68,7 +75,10 @@ function renderNode(node: unknown, catalog: AnyCatalog, key: string, depth: numb
   const Renderer = entry.renderer;
   if (!Renderer) {
     return (
-      <EmissionErrorView key={key} result={toEmissionResult(`No renderer attached for component "${node.type}"`)} />
+      <EmissionErrorView
+        key={key}
+        result={toEmissionResult(`No renderer attached for component "${node.type}"`)}
+      />
     );
   }
 

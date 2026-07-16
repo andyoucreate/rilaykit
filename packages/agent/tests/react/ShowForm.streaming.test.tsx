@@ -80,6 +80,11 @@ describe('show_form progressive mounting', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('renders NOTHING before the schema VALUE itself has arrived — a non-object schema is not an identity either', () => {
+    const { container } = streamTo('{"sch'.length);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('PRESERVES what the user typed as later chunks arrive — append-only, no reset', async () => {
     const { rerender } = streamTo(FULL.indexOf('{"id":"email"'));
     await userEvent.type(screen.getByLabelText('Name'), 'Karl');
@@ -196,18 +201,15 @@ describe('show_form late-arriving streamed default', () => {
     ['mid-default (inside the torn string)', FULL_WITH_DEFAULT.indexOf('Karl') + 2],
     ['after the default, before the next field', FULL_WITH_DEFAULT.indexOf('{"id":"email"')],
     ['mid-second-field', FULL_WITH_DEFAULT.indexOf('"Email"') + 3],
-  ])(
-    'values at ready are chunk-boundary-INDEPENDENT — cut %s',
-    (_label, cut) => {
-      const expected = singleChunkFinalValues();
+  ])('values at ready are chunk-boundary-INDEPENDENT — cut %s', (_label, cut) => {
+    const expected = singleChunkFinalValues();
 
-      const { rerender } = render(partAt(cut, 'streaming'));
-      rerender(partAt(FULL_WITH_DEFAULT.length, 'ready'));
+    const { rerender } = render(partAt(cut, 'streaming'));
+    rerender(partAt(FULL_WITH_DEFAULT.length, 'ready'));
 
-      expect([
-        (screen.getByLabelText('Name') as HTMLInputElement).value,
-        (screen.getByLabelText('Email') as HTMLInputElement).value,
-      ]).toEqual(expected);
-    }
-  );
+    expect([
+      (screen.getByLabelText('Name') as HTMLInputElement).value,
+      (screen.getByLabelText('Email') as HTMLInputElement).value,
+    ]).toEqual(expected);
+  });
 });

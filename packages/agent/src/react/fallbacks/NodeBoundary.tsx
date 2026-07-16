@@ -1,5 +1,5 @@
 import React from 'react';
-import { toEmissionResult, type EmissionResult } from '../../errors/emission-error';
+import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';
 
 interface NodeBoundaryProps {

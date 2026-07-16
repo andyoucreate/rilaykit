@@ -509,7 +509,11 @@ export function FormProvider({
         const rowKeys = getOwn(grownOrder, repeatableId);
         if (rowKeys === undefined) continue;
         defineOwn(order as Record<string, unknown>, repeatableId, rowKeys);
-        defineOwn(nextKeys as Record<string, unknown>, repeatableId, getOwn(grownNextKeys, repeatableId));
+        defineOwn(
+          nextKeys as Record<string, unknown>,
+          repeatableId,
+          getOwn(grownNextKeys, repeatableId)
+        );
         for (const [key, value] of Object.entries(grownDefaults)) {
           if (parseCompositeKey(key)?.repeatableId === repeatableId && !hasOwn(values, key)) {
             defineOwn(values, key, value);

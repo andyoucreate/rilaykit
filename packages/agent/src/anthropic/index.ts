@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
+import { z } from 'zod';
 import type { Part } from '../types/part';
 
 type AnyCatalog = RilayInstance<Record<string, unknown>>;
@@ -28,7 +28,9 @@ interface AnthropicBlock {
  * skipped entry rather than a crash.
  */
 export function toParts(message: unknown): Part[] {
-  const content = (message as { content?: readonly (AnthropicBlock | null | undefined)[] } | undefined)?.content;
+  const content = (
+    message as { content?: readonly (AnthropicBlock | null | undefined)[] } | undefined
+  )?.content;
   if (!Array.isArray(content)) return [];
 
   const result: Part[] = [];
@@ -38,14 +40,27 @@ export function toParts(message: unknown): Part[] {
       result.push({ type: 'text', text: block.text, state: 'done' });
       continue;
     }
-    if (block.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string') {
-      result.push({ type: 'tool', toolCallId: block.id, name: block.name, state: 'ready', input: block.input ?? {} });
+    if (
+      block.type === 'tool_use' &&
+      typeof block.id === 'string' &&
+      typeof block.name === 'string'
+    ) {
+      result.push({
+        type: 'tool',
+        toolCallId: block.id,
+        name: block.name,
+        state: 'ready',
+        input: block.input ?? {},
+      });
     }
   }
   return result;
 }
 
-function toJsonSchema(entry: { inputSchema?: unknown; inputJsonSchema?: Record<string, unknown> }): Record<string, unknown> | null {
+function toJsonSchema(entry: {
+  inputSchema?: unknown;
+  inputJsonSchema?: Record<string, unknown>;
+}): Record<string, unknown> | null {
   try {
     return z.toJSONSchema(entry.inputSchema as z.ZodType) as Record<string, unknown>;
   } catch {
@@ -70,7 +85,9 @@ export function tools(catalog: AnyCatalog): AnthropicToolDefinition[] {
     if (!tool.inputSchema) continue;
     const input_schema = toJsonSchema(tool);
     if (!input_schema) {
-      logger.warn(`Skipping tool "${tool.name}": inputSchema is not zod and no inputJsonSchema was provided`);
+      logger.warn(
+        `Skipping tool "${tool.name}": inputSchema is not zod and no inputJsonSchema was provided`
+      );
       continue;
     }
     definitions.push({ name: tool.name, description: tool.description, input_schema });

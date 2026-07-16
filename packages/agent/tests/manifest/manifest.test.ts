@@ -1,7 +1,7 @@
+import { ril } from '@rilaykit/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { ril } from '@rilaykit/core';
 import { manifest } from '../../src/manifest/manifest';
 import { uiTools } from '../../src/tools/ui-tools';
 
@@ -14,8 +14,14 @@ const catalog = ril
       placeholder: z.string().optional(),
     }),
   })
-  .component('badge', { description: 'A small status badge', propsSchema: z.object({ label: z.string() }) })
-  .tool('search_flights', { description: 'Search flights', inputSchema: z.object({ from: z.string() }) })
+  .component('badge', {
+    description: 'A small status badge',
+    propsSchema: z.object({ label: z.string() }),
+  })
+  .tool('search_flights', {
+    description: 'Search flights',
+    inputSchema: z.object({ from: z.string() }),
+  })
   .use(uiTools());
 
 describe('manifest()', () => {
@@ -87,6 +93,38 @@ describe('manifest() — never-throws degrade paths', () => {
 
     expect(output).toContain('- **spinner** — A schema-less component');
     expect(output).not.toMatch(/^\s{4}- /m);
+  });
+
+  // Pins: the remaining degrade arms, one per guard in `describeProps`/`manifest`.
+  it('degrades a NON-OBJECT propsSchema (JSON Schema without `properties`) to description-only', () => {
+    const scalarProps = ril.create().component('plain', {
+      description: 'Takes a bare string, not an object',
+      propsSchema: z.string(),
+    });
+    const output = manifest(scalarProps);
+    expect(output).toContain('- **plain** — Takes a bare string, not an object');
+    expect(output).not.toMatch(/^\s{4}- /m);
+  });
+
+  it('renders a prop whose JSON Schema carries no `type` (a union) as `unknown`, and an all-optional object without a required list', () => {
+    const unionProps = ril.create().component('mixed', {
+      description: 'Union-typed prop',
+      propsSchema: z.object({ value: z.union([z.string(), z.number()]).optional() }),
+    });
+    const output = manifest(unionProps);
+    expect(output).toContain('    - value: unknown (optional)');
+  });
+
+  it('lists a description-less component and a description-less tool by bare name', () => {
+    const bare = ril
+      .create()
+      .component('divider', {})
+      .tool('bare_tool', { inputSchema: z.object({}) });
+    const output = manifest(bare);
+    expect(output).toContain('- **divider**\n');
+    expect(output).toContain('- **bare_tool**\n');
+    expect(output).not.toContain('- **divider** —');
+    expect(output).not.toContain('- **bare_tool** —');
   });
 
   // Already-correct behavior (pin, not a bugfix): the try/catch around

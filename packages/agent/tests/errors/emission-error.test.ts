@@ -175,7 +175,10 @@ describe('validateNodeProps', () => {
 
   it('returns the PARSED value, not the raw input — zod strip mode drops excess keys', () => {
     expect(
-      validateNodeProps(propsSchema, { label: 'Name', dangerouslySetInnerHTML: { __html: '<img onerror=x>' } })
+      validateNodeProps(propsSchema, {
+        label: 'Name',
+        dangerouslySetInnerHTML: { __html: '<img onerror=x>' },
+      })
     ).toEqual({ ok: true, value: { label: 'Name' } });
   });
 
@@ -185,5 +188,51 @@ describe('validateNodeProps', () => {
     if (validation.ok) return;
     expect(validation.result.expectedKeys).toEqual(['label']);
     expect(validation.result.issues[0]?.path).toBe('label');
+  });
+
+  it('rejects an ASYNC propsSchema with a structured error — an agent emission renders synchronously or not at all', () => {
+    const asyncSchema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => Promise.resolve({ value: {} }),
+      },
+    } as unknown as Parameters<typeof validateNodeProps>[0];
+    const validation = validateNodeProps(asyncSchema, {});
+    expect(validation).toEqual({
+      ok: false,
+      result: {
+        error: 'propsSchema must validate synchronously to render an agent emission',
+        issues: [],
+        expectedKeys: [],
+      },
+    });
+  });
+
+  it('renders vendor-agnostic issue paths: `{ key }` segments, plain segments and a MISSING path all map to strings', () => {
+    // A non-zod Standard Schema vendor may report path segments as objects
+    // carrying `key` (per the spec), and may omit `path` entirely. Neither may
+    // crash or mangle the dotted path the model retries from.
+    const vendorSchema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({
+          issues: [
+            { message: 'bad leaf', path: [{ key: 'rows' }, 0, 'label'] },
+            { message: 'bad root' },
+          ],
+        }),
+      },
+    } as unknown as Parameters<typeof validateNodeProps>[0];
+    const validation = validateNodeProps(vendorSchema, {});
+    expect(validation.ok).toBe(false);
+    if (validation.ok) return;
+    expect(validation.result.issues).toEqual([
+      { path: 'rows.0.label', message: 'bad leaf' },
+      { path: '', message: 'bad root' },
+    ]);
+    // A schema with no zod-style `.shape` cannot name expected keys: empty, not a crash.
+    expect(validation.result.expectedKeys).toEqual([]);
   });
 });

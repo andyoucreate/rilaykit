@@ -1,5 +1,5 @@
-import React from 'react';
 import type { RilayInstance } from '@rilaykit/core';
+import type React from 'react';
 import type { Part as PartType } from '../types/part';
 import { Part } from './Part';
 

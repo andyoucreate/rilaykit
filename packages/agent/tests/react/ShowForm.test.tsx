@@ -102,9 +102,7 @@ describe('show_form built-in renderer (HITL)', () => {
     // validateSchema; the form must still mount.
     showForm({
       id: 'warned',
-      fields: [
-        { id: 'name', type: 'text', props: { label: 'Name' }, conditions: { visible: {} } },
-      ],
+      fields: [{ id: 'name', type: 'text', props: { label: 'Name' }, conditions: { visible: {} } }],
     });
     expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
     expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
@@ -174,6 +172,44 @@ describe('show_form built-in renderer (HITL)', () => {
     }
   );
 
+  it('a CATALOG defect (async propsSchema) is not an emission error — it surfaces raw instead of blaming the model', () => {
+    // Only SchemaValidationError — compileForm's single documented error
+    // contract for bad EMISSIONS — may become an EmissionErrorView. A broken
+    // catalog is the host's bug and must crash loudly, not be fed back to the
+    // model as something to retry.
+    const asyncSchema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => Promise.resolve({ value: {} }),
+      },
+    };
+    const brokenCatalog = ril
+      .create()
+      .component('text', {
+        description: 'Async propsSchema — a catalog defect',
+        propsSchema: asyncSchema as never,
+        renderer: () => <input />,
+      })
+      .use(uiTools());
+    expect(() =>
+      render(
+        <Catalog value={brokenCatalog}>
+          <Part
+            part={{
+              type: 'tool',
+              toolCallId: 'c1',
+              name: 'show_form',
+              state: 'ready',
+              input: { schema },
+            }}
+          />
+        </Catalog>
+      )
+    ).toThrow();
+    expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
+  });
+
   describe('emitted submitOptions cannot skip engine validation', () => {
     const forcedSchema = {
       id: 'guarded',
@@ -211,10 +247,7 @@ describe('show_form built-in renderer (HITL)', () => {
 
     it('skipInvalid: true with an invalid required field → submit does NOT resolve', async () => {
       const onResolve = vi.fn();
-      showForm(
-        { ...forcedSchema, submitOptions: { skipInvalid: true } },
-        onResolve
-      );
+      showForm({ ...forcedSchema, submitOptions: { skipInvalid: true } }, onResolve);
       await userEvent.click(screen.getByRole('button', { name: /submit/i }));
       await flushSubmissions();
       expect(onResolve).not.toHaveBeenCalled();

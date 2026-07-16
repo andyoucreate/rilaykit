@@ -1206,17 +1206,6 @@ function isRepeatableRow(row: FormSchemaRow): row is FormSchemaRepeatableRow {
 }
 
 /**
- * Collects every field of a normalized row list, repeatable templates included.
- * The props of a repeatable's template fields are as compilable — and as
- * wrong-able — as any other field's, so prop validation must see them too.
- */
-function collectAllFields(rows: FormSchemaRow[]): FormSchemaField[] {
-  return rows.flatMap((row) =>
-    isRepeatableRow(row) ? row.repeatable.rows.flatMap((fieldRow) => fieldRow.fields) : row.fields
-  );
-}
-
-/**
  * Checks every field's `props` against its component's `propsSchema`.
  *
  * Accumulates across all fields so an agent gets the complete correction list in

@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
-import { ConfigurationError, getOwn, type RilayInstance } from '@rilaykit/core';
+import { ConfigurationError, type RilayInstance, getOwn } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
+import type React from 'react';
+import { useCallback } from 'react';
 import { parsePartialJson } from '../streaming/parse-partial-json';
-import { isToolPart, type Part as PartType, type ToolPart } from '../types/part';
+import { type Part as PartType, type ToolPart, isToolPart } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 import { ShowComponent } from './fallbacks/ShowComponent';
 import { ShowFlow } from './fallbacks/ShowFlow';
@@ -62,14 +63,20 @@ const BUILT_IN_TOOLS: Record<
     }
     if (part.state !== 'ready') return <DefaultTool part={part} />;
     return (
-      <ShowForm schema={(part.input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+      <ShowForm
+        schema={(part.input as { schema?: unknown } | undefined)?.schema}
+        resolve={resolve}
+      />
     );
   },
   show_flow: (part, resolve) => {
     if (part.state === 'streaming') return null;
     if (part.state !== 'ready') return <DefaultTool part={part} />;
     return (
-      <ShowFlow schema={(part.input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+      <ShowFlow
+        schema={(part.input as { schema?: unknown } | undefined)?.schema}
+        resolve={resolve}
+      />
     );
   },
 };

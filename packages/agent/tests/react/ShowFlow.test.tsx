@@ -97,6 +97,71 @@ describe('show_flow built-in renderer (HITL)', () => {
     expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { status: 'cancelled' });
   });
 
+  it('a cancel AFTER completion does not double-resolve — one answer per tool call', async () => {
+    const onResolve = vi.fn();
+    showFlow(
+      {
+        id: 'quick',
+        name: 'Quick',
+        steps: [
+          {
+            id: 'only',
+            title: 'Only',
+            form: { id: 'f', fields: [{ id: 'name', type: 'text', props: { label: 'Name' } }] },
+          },
+        ],
+      },
+      onResolve
+    );
+    await userEvent.type(screen.getByLabelText('Name'), 'Karl');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(onResolve).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
+      status: 'submitted',
+      values: { only: { name: 'Karl' } },
+    });
+  });
+
+  it('a CATALOG defect (async propsSchema) is not an emission error — it surfaces raw instead of blaming the model', () => {
+    // Only SchemaValidationError — compileFlow's single documented error
+    // contract for bad EMISSIONS — may become an EmissionErrorView. A broken
+    // catalog is the host's bug and must crash loudly, not be fed back to the
+    // model as something to retry.
+    const asyncSchema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => Promise.resolve({ value: {} }),
+      },
+    };
+    const brokenCatalog = ril
+      .create()
+      .component('text', {
+        description: 'Async propsSchema — a catalog defect',
+        propsSchema: asyncSchema as never,
+        renderer: () => <input />,
+      })
+      .use(uiTools());
+    expect(() =>
+      render(
+        <Catalog value={brokenCatalog}>
+          <Part
+            part={{
+              type: 'tool',
+              toolCallId: 'c1',
+              name: 'show_flow',
+              state: 'ready',
+              input: { schema },
+            }}
+          />
+        </Catalog>
+      )
+    ).toThrow();
+    expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
+  });
+
   it('renders a structured error for a malformed schema instead of crashing', () => {
     showFlow({
       id: 'bad',
