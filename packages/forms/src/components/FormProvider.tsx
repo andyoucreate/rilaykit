@@ -644,6 +644,27 @@ export function FormProvider({
         order: grownOrder,
         nextKeys: grownNextKeys,
       } = initializeRepeatableState(defaultValues, repeatableConfigs, defaultRepeatableOrder);
+
+      // The rewritten baseline must not RE-CLONE an entry the store still
+      // holds PRISTINE. The per-field dirty flag and `isUpgradableDefault`
+      // both compare the live value to the baseline BY IDENTITY, and every
+      // compile clones its `defaultValues` — so installing the fresh clone for
+      // a field whose value never moved would sever that identity permanently:
+      // after one growth chunk, an untouched field would read dirty, and a
+      // default legitimately completing on a LATER chunk would be silently
+      // lost. Re-point each entry whose live value IS the committed baseline
+      // (identity — any user write replaced it; a user value merely EQUAL to
+      // the default never qualifies) and whose newly compiled default did not
+      // move IN VALUE. An entry whose default DID move is left as the fresh
+      // clone: it is exactly the upgrade the seeding pass below installs.
+      for (const key of Object.keys(grownDefaults)) {
+        if (!hasOwn(defaultsBaseline, key) || !hasOwn(currentState.values, key)) continue;
+        const held = getOwn(currentState.values, key);
+        if (held !== getOwn(defaultsBaseline, key)) continue;
+        if (plainDataEquals(held, getOwn(grownDefaults, key))) {
+          defineOwn(grownDefaults, key, held);
+        }
+      }
       store.getState()._setDefaultValues(grownDefaults);
 
       const state = store.getState();

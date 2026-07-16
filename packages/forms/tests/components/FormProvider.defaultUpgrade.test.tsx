@@ -277,6 +277,142 @@ describe('FormProvider upgrades an untouched torn streamed default when it compl
     await waitFor(() => expect(screen.getByTestId('input-name')).toHaveValue('custom'));
   });
 
+  it('still upgrades after a GROWTH pass — the rewritten baseline keeps the pristine value identity', async () => {
+    const config = createRil();
+    const onSubmit = vi.fn();
+
+    // Chunk 1: `tags`' default torn as ["alpha"].
+    const torn = compileForm(tagsSchema(['alpha']), config, { lenient: true });
+    // Chunk 2: GROWTH — a `notes` field appends; `tags`' default is STILL torn.
+    // The growth pass rewrites `_defaultValues` from this compile's fresh
+    // clones: if it re-clones the untouched `tags` baseline instead of keeping
+    // the live value's identity, the upgrade below is silently lost.
+    const grown = compileForm(
+      {
+        version: 1,
+        id: 'prefs-form',
+        fields: [
+          { id: 'tags', type: 'tags', props: {}, default: ['alpha'] },
+          { id: 'notes', type: 'text', props: {} },
+        ],
+      },
+      config,
+      { lenient: true }
+    );
+    // Chunk 3: the SAME emission completes `tags`' default.
+    const completed = compileForm(
+      {
+        version: 1,
+        id: 'prefs-form',
+        fields: [
+          { id: 'tags', type: 'tags', props: {}, default: ['alpha', 'beta'] },
+          { id: 'notes', type: 'text', props: {} },
+        ],
+      },
+      config
+    );
+
+    let storeRef: FormStore | null = null;
+
+    function Host() {
+      const [compiled, setCompiled] = useState(torn);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(grown)}>
+            grow
+          </button>
+          <button type="button" data-testid="complete" onClick={() => setCompiled(completed)}>
+            complete
+          </button>
+          <Form
+            formConfig={compiled.formConfig}
+            defaultValues={compiled.defaultValues}
+            onSubmit={onSubmit}
+          >
+            <CaptureStore
+              onStore={(store) => {
+                storeRef = store;
+              }}
+            />
+            <FormBody />
+            <button type="submit" data-testid="submit">
+              Submit
+            </button>
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    expect(screen.getByTestId('value-tags')).toHaveTextContent('["alpha"]');
+
+    // The growth chunk lands; `tags` is untouched throughout.
+    fireEvent.click(screen.getByTestId('grow'));
+    await waitFor(() => expect(screen.getByTestId('input-notes')).toBeInTheDocument());
+    expect(screen.getByTestId('value-tags')).toHaveTextContent('["alpha"]');
+
+    // The completing chunk lands: parity with the no-growth path above — the
+    // untouched field must end at the COMPLETE default.
+    fireEvent.click(screen.getByTestId('complete'));
+    await waitFor(() =>
+      expect(screen.getByTestId('value-tags')).toHaveTextContent('["alpha","beta"]')
+    );
+    expect(storeRef?.getState()._defaultValues.tags).toEqual(['alpha', 'beta']);
+
+    fireEvent.click(screen.getByTestId('submit'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toEqual({ tags: ['alpha', 'beta'], notes: undefined });
+  });
+
+  it('a growth pass never turns a pristine object-valued field dirty — the baseline keeps its identity', async () => {
+    const config = createRil();
+
+    const torn = compileForm(tagsSchema(['alpha']), config, { lenient: true });
+    const grown = compileForm(
+      {
+        version: 1,
+        id: 'prefs-form',
+        fields: [
+          { id: 'tags', type: 'tags', props: {}, default: ['alpha'] },
+          { id: 'notes', type: 'text', props: {} },
+        ],
+      },
+      config,
+      { lenient: true }
+    );
+
+    let storeRef: FormStore | null = null;
+
+    function Host() {
+      const [compiled, setCompiled] = useState(torn);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(grown)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <CaptureStore
+              onStore={(store) => {
+                storeRef = store;
+              }}
+            />
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+
+    fireEvent.click(screen.getByTestId('grow'));
+    await waitFor(() => expect(screen.getByTestId('input-notes')).toBeInTheDocument());
+
+    // The dirty flag compares by IDENTITY (`value !== _defaultValues[id]`): a
+    // pristine untouched field must still BE its own baseline after growth.
+    const state = storeRef?.getState();
+    expect(state?.values.tags).toBe(state?._defaultValues.tags);
+  });
+
   it('a workflow host echoing a user-edited value back through `defaultValues` never rewrites the baseline', async () => {
     const config = createRil();
 
