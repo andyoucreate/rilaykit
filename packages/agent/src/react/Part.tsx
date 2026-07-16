@@ -131,7 +131,10 @@ const BUILT_IN_TOOLS: Record<
 
 export interface PartProps<C = Record<string, unknown>> {
   readonly part: PartType;
-  readonly onResolve?: (toolCallId: string, output: unknown) => void;
+  /** `toolName` (the part's `name`) rides third so `addToolResult({ toolCallId,
+   * tool: toolName, output })` compiles against the AI SDK, which REQUIRES the
+   * tool name — additive, so 2-arg handlers keep type-checking. */
+  readonly onResolve?: (toolCallId: string, output: unknown, toolName: string) => void;
   /** Explicit override; defaults to the nearest <Catalog value={...}>.
    * Generic over the catalog's component map — `RilayInstance` is invariant
    * in `C`, so a fixed map type would reject every fluently built catalog. */
@@ -143,9 +146,10 @@ export interface PartProps<C = Record<string, unknown>> {
  * Single-part dispatcher: resolves a `Part` against the catalog's `tool:*` /
  * `part:*` namespaces and renders the matching entry.
  *
- * A tool's `resolve()` is wired straight to `onResolve(toolCallId, output)` —
- * the HITL mirror that lets a consumer post the tool result back upstream
- * without the renderer knowing anything about transport.
+ * A tool's `resolve()` is wired straight to `onResolve(toolCallId, output,
+ * toolName)` — the HITL mirror that lets a consumer post the tool result back
+ * upstream (the AI SDK's `addToolResult` requires all three) without the
+ * renderer knowing anything about transport.
  */
 export function Part<C>({ part, onResolve, catalog, fallback: Fallback }: PartProps<C>) {
   const contextCatalog = useCatalogOrNull();
@@ -160,7 +164,7 @@ export function Part<C>({ part, onResolve, catalog, fallback: Fallback }: PartPr
 
   const resolve = useCallback(
     (output: unknown) => {
-      if (isToolPart(part)) onResolve?.(part.toolCallId, output);
+      if (isToolPart(part)) onResolve?.(part.toolCallId, output, part.name);
     },
     [onResolve, part]
   );

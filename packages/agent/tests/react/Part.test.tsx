@@ -42,7 +42,7 @@ describe('<Part>', () => {
     expect(screen.getByRole('button')).toHaveTextContent('streaming:CDG');
   });
 
-  it('wires resolve() to onResolve with the toolCallId — the HITL mirror', async () => {
+  it('wires resolve() to onResolve with the toolCallId and tool name — the HITL mirror', async () => {
     const onResolve = vi.fn();
     mount(
       <Part
@@ -51,7 +51,8 @@ describe('<Part>', () => {
       />
     );
     await userEvent.click(screen.getByRole('button'));
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { picked: 'AF123' });
+    // The tool NAME rides third: the AI SDK's addToolResult requires it.
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { picked: 'AF123' }, 'search_flights');
   });
 
   it('falls back to a humanized name for an unregistered tool', () => {

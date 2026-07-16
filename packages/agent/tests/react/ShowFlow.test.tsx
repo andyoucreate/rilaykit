@@ -83,10 +83,14 @@ describe('show_flow built-in renderer (HITL)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-        status: 'submitted',
-        values: { personal: { name: 'Karl' }, company: { siren: '123456789' } },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'c1',
+        {
+          status: 'submitted',
+          values: { personal: { name: 'Karl' }, company: { siren: '123456789' } },
+        },
+        'show_flow'
+      )
     );
   });
 
@@ -94,7 +98,7 @@ describe('show_flow built-in renderer (HITL)', () => {
     const onResolve = vi.fn();
     showFlow(schema, onResolve);
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { status: 'cancelled' });
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { status: 'cancelled' }, 'show_flow');
   });
 
   it('a cancel AFTER completion does not double-resolve — one answer per tool call', async () => {
@@ -118,10 +122,11 @@ describe('show_flow built-in renderer (HITL)', () => {
     await waitFor(() => expect(onResolve).toHaveBeenCalledTimes(1));
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-      status: 'submitted',
-      values: { only: { name: 'Karl' } },
-    });
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+      'c1',
+      { status: 'submitted', values: { only: { name: 'Karl' } } },
+      'show_flow'
+    );
   });
 
   it('a CATALOG defect (async propsSchema) is not an emission error — it surfaces raw instead of blaming the model', () => {

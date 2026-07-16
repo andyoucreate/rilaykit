@@ -102,12 +102,20 @@ describe('the P3 loop, end to end', () => {
     await userEvent.type(screen.getByLabelText('Email'), 'karl@example.com');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
-    // 5. THE AGENT RECEIVES — engine-validated values, addressed to ITS call.
+    // 5. THE AGENT RECEIVES — engine-validated values, addressed to ITS call,
+    // WITH the tool name: the AI SDK's `addToolResult({ toolCallId, tool,
+    // output })` requires all three, so the documented integration
+    // `onResolve={(toolCallId, output, toolName) => addToolResult(...)}`
+    // works without a cast or a manual part lookup.
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call_42', {
-        status: 'submitted',
-        values: { name: 'Karl', email: 'karl@example.com' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'call_42',
+        {
+          status: 'submitted',
+          values: { name: 'Karl', email: 'karl@example.com' },
+        },
+        'show_form'
+      )
     );
   });
 
@@ -154,10 +162,14 @@ describe('the P3 loop, end to end', () => {
     // The resolved values are STEP-KEYED in the authored shape — downstream
     // consumers depend on `values[stepId][fieldId]`, never a flat merge.
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call_flow', {
-        status: 'submitted',
-        values: { personal: { name: 'Karl' }, company: { siren: '123456789' } },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'call_flow',
+        {
+          status: 'submitted',
+          values: { personal: { name: 'Karl' }, company: { siren: '123456789' } },
+        },
+        'show_flow'
+      )
     );
   });
 
@@ -189,20 +201,22 @@ describe('the P3 loop, end to end', () => {
     expect(submits).toHaveLength(2);
     await userEvent.click(submits[1]);
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call_b', {
-        status: 'submitted',
-        values: { b: 'two' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'call_b',
+        { status: 'submitted', values: { b: 'two' } },
+        'show_form'
+      )
     );
 
     // The first form is still live and resolves to ITS call — with ITS values.
     await userEvent.type(screen.getByLabelText('Alpha'), 'one');
     await userEvent.click(screen.getAllByRole('button', { name: /submit/i })[0]);
     await waitFor(() => expect(onResolve).toHaveBeenCalledTimes(2));
-    expect(onResolve).toHaveBeenLastCalledWith('call_a', {
-      status: 'submitted',
-      values: { a: 'one' },
-    });
+    expect(onResolve).toHaveBeenLastCalledWith(
+      'call_a',
+      { status: 'submitted', values: { a: 'one' } },
+      'show_form'
+    );
   });
 
   it('HITL re-emission after an error part: the failed call renders settled, the fresh call resolves', async () => {
@@ -238,10 +252,11 @@ describe('the P3 loop, end to end', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Karl');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call_retry', {
-        status: 'submitted',
-        values: { name: 'Karl' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'call_retry',
+        { status: 'submitted', values: { name: 'Karl' } },
+        'show_form'
+      )
     );
   });
 
@@ -300,9 +315,14 @@ describe('the P3 loop, end to end', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => expect(onResolve).toHaveBeenCalledTimes(1));
-    const [callId, output] = onResolve.mock.calls[0] as [string, Record<string, unknown>];
+    const [callId, output, toolName] = onResolve.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+      string,
+    ];
     expect(callId).toBe('call_hostile');
     expect(output.status).toBe('submitted');
+    expect(toolName).toBe('show_form');
 
     // The submitted values carry `__proto__` as an OWN key with the typed
     // value — and the payload's prototype is untouched.

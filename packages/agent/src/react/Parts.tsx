@@ -5,7 +5,10 @@ import { Part } from './Part';
 
 export interface PartsProps<C = Record<string, unknown>> {
   readonly parts: readonly PartType[];
-  readonly onResolve?: (toolCallId: string, output: unknown) => void;
+  /** `toolName` (the part's `name`) rides third so `addToolResult({ toolCallId,
+   * tool: toolName, output })` compiles against the AI SDK, which REQUIRES the
+   * tool name — additive, so 2-arg handlers keep type-checking. */
+  readonly onResolve?: (toolCallId: string, output: unknown, toolName: string) => void;
   /** Generic over the catalog's component map — `RilayInstance` is invariant
    * in `C`, so a fixed map type would reject every fluently built catalog. */
   readonly catalog?: RilayInstance<C>;

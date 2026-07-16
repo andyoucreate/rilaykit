@@ -204,10 +204,11 @@ describe('show_form torn schema id — mount identity is pinned per tool call', 
     expect(screen.getByLabelText('Name')).toHaveValue('Karl');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-        status: 'submitted',
-        values: { name: 'Karl' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'c1',
+        { status: 'submitted', values: { name: 'Karl' } },
+        'show_form'
+      )
     );
   });
 });

@@ -35,7 +35,7 @@ describe('<Parts>', () => {
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['pick-c1', 'pick-c2']);
   });
 
-  it('routes each part its OWN toolCallId — not the last one rendered', async () => {
+  it('routes each part its OWN toolCallId AND tool name — not the last one rendered', async () => {
     const onResolve = vi.fn();
     render(
       <Catalog value={catalog}>
@@ -43,7 +43,8 @@ describe('<Parts>', () => {
       </Catalog>
     );
     await userEvent.click(screen.getByText('pick-c1'));
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { id: 'c1' });
+    // The tool NAME rides third: the AI SDK's addToolResult requires it.
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { id: 'c1' }, 'pick');
   });
 
   it('a show_component part with null input degrades to a structured error — siblings keep rendering (spec §8: never a render crash)', () => {

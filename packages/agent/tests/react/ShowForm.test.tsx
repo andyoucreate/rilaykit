@@ -63,10 +63,11 @@ describe('show_form built-in renderer (HITL)', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Karl');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-        status: 'submitted',
-        values: { name: 'Karl' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'c1',
+        { status: 'submitted', values: { name: 'Karl' } },
+        'show_form'
+      )
     );
   });
 
@@ -74,7 +75,7 @@ describe('show_form built-in renderer (HITL)', () => {
     const onResolve = vi.fn();
     showForm(schema, onResolve);
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { status: 'cancelled' });
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', { status: 'cancelled' }, 'show_form');
   });
 
   it('renders a structured error for a malformed schema instead of crashing', () => {
@@ -129,10 +130,11 @@ describe('show_form built-in renderer (HITL)', () => {
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     await flushSubmissions();
 
-    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-      status: 'submitted',
-      values: { name: 'Karl' },
-    });
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+      'c1',
+      { status: 'submitted', values: { name: 'Karl' } },
+      'show_form'
+    );
   });
 
   it('a cancel RACING an in-flight submit yields exactly one answer', async () => {
@@ -164,20 +166,22 @@ describe('show_form built-in renderer (HITL)', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Ann');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledExactlyOnceWith('call-a', {
-        status: 'submitted',
-        values: { name: 'Ann' },
-      })
+      expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+        'call-a',
+        { status: 'submitted', values: { name: 'Ann' } },
+        'show_form'
+      )
     );
 
     rerender(partFor('call-b'));
     await userEvent.type(screen.getByLabelText('Name'), 'Bob');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
     await waitFor(() =>
-      expect(onResolve).toHaveBeenCalledWith('call-b', {
-        status: 'submitted',
-        values: { name: 'Bob' },
-      })
+      expect(onResolve).toHaveBeenCalledWith(
+        'call-b',
+        { status: 'submitted', values: { name: 'Bob' } },
+        'show_form'
+      )
     );
     expect(onResolve).toHaveBeenCalledTimes(2);
   });
@@ -273,10 +277,11 @@ describe('show_form built-in renderer (HITL)', () => {
       await userEvent.type(screen.getByLabelText('Name'), 'Karl');
       await userEvent.click(screen.getByRole('button', { name: /submit/i }));
       await waitFor(() =>
-        expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
-          status: 'submitted',
-          values: { name: 'Karl' },
-        })
+        expect(onResolve).toHaveBeenCalledExactlyOnceWith(
+          'c1',
+          { status: 'submitted', values: { name: 'Karl' } },
+          'show_form'
+        )
       );
     });
 
