@@ -31,8 +31,9 @@ export interface FormConfigContextValue {
    * meaningless and only ever compare it for equality: it changes exactly when
    * this provider swaps forms — a workflow step transition, or a schema
    * re-emitted with a new shape — and never on an ordinary re-render. A schema
-   * that merely GREW (fields appended, nothing dropped or retyped — a streaming
-   * emission being progressively mounted) is the SAME form and keeps it.
+   * that merely GREW (fields appended, nothing dropped) or RETYPED a field in
+   * place (a torn streamed `type` completing — a streaming emission being
+   * progressively mounted, either way) is the SAME form and keeps it.
    *
    * Anything below the provider that holds STEP-SCOPED work must key on it.
    * `formConfig` cannot stand in: two workflow steps may be handed the SAME
@@ -156,8 +157,9 @@ export interface FormProviderProps {
  * input on each one. Only the shape of what can be STORED is compared — each
  * field's id AND type, and the repeatable ids with their own fields — so a
  * re-emitted identical schema (new objects, same shape) does not reset, while a
- * schema that drops or RETYPES a field does — a schema that only APPENDS fields
- * is growth, not a swap; see below. Presentation-only churn
+ * schema that DROPS a field does — a schema that only APPENDS fields is growth,
+ * and one that RETYPES a field under a retained id set is an in-place
+ * correction, neither a swap; see below. Presentation-only churn
  * (labels, props, row layout) is intentionally invisible here: it orphans no
  * value.
  *
@@ -165,82 +167,172 @@ export interface FormProviderProps {
  * its type says what KIND of value it can hold. Retyping `{id:'x', type:'text'}`
  * to `{id:'x', type:'number'}` under a stable form id orphans the stored string
  * exactly as removing the field would — and the host's evolved contract says
- * number.
+ * number. But it orphans ONLY that field's value, so it is handled surgically —
+ * that one field re-registers — rather than by resetting siblings it never
+ * touched.
  *
- * A signature CHANGE is however not yet a swap. GROWTH — the same owner, the
- * same form id, and every previous field still present with its type intact —
- * is the same form gaining fields (a schema being progressively emitted by a
- * streaming agent), and it orphans no value: the appended fields register
- * incrementally and the store is NOT reset. Anything else a signature change
- * can mean — a field dropped, a field retyped, a different `instanceId`, a
- * different form id — IS a swap and still resets; see `isShapeGrowth`.
+ * A signature CHANGE is however not yet a swap. Two continuations keep the
+ * mounted form:
+ *
+ * GROWTH — the same owner, the same form id, and every previous field still
+ * present with its type intact — is the same form gaining fields (a schema
+ * being progressively emitted by a streaming agent), and it orphans no value:
+ * the appended fields register incrementally and the store is NOT reset.
+ *
+ * RETYPE — the same owner, the same form id, and the same field-id set, but
+ * one or more fields' `componentId` changed — is the same form CORRECTING
+ * itself mid-stream. A streamed `type` string can arrive torn at a chunk
+ * boundary on a value that is itself a registered component (`"text"` cut from
+ * `"textarea"`): the torn field mounts, the user types — in it and in sibling
+ * fields — and the next chunk completes the string. That completion changes
+ * one field's componentId under an unchanged identity; only THAT field's value
+ * is orphaned, so only that field is re-registered and every sibling keeps its
+ * keystrokes. Resetting here was the campaign-era data-loss bug: a single
+ * field's type completing mid-stream nuked the whole form.
+ *
+ * Anything else a signature change can mean — a field DROPPED, a different
+ * `instanceId`, a different form id — IS a swap and still resets; see
+ * `classifyShapeChange`.
  */
 interface ConfigShape {
   readonly instanceId: string | null;
   readonly formId: string;
-  /** Each top-level field as `id:componentId`, order-independent. */
-  readonly fields: readonly string[];
   /**
-   * Top-level field ids alone. NOT part of the signature (redundant with
-   * `fields`) — the growth path diffs on ids to seed exactly the fields that
-   * APPEARED, and `id:componentId` strings cannot be split back apart (an id
-   * may itself contain `:`).
+   * Each top-level field's `componentId` by field id — which value a field
+   * holds (the id) and what kind of value it can hold (the componentId, the
+   * compiled form of the schema's `type`). A Map rather than joined
+   * `id:componentId` strings: the growth/retype diff must split the pair back
+   * apart, and an id may itself contain any delimiter.
    */
-  readonly fieldIds: readonly string[];
-  /** Repeatable ids with their own template field shapes, id-sorted. */
-  readonly repeatables: readonly (readonly [string, readonly string[]])[];
+  readonly fields: ReadonlyMap<string, string>;
+  /** Repeatable ids with their own template field shapes. */
+  readonly repeatables: ReadonlyMap<string, ReadonlyMap<string, string>>;
 }
 
 function buildConfigShape(formConfig: FormConfiguration, instanceId?: string): ConfigShape {
   return {
     instanceId: instanceId ?? null,
     formId: formConfig.id,
-    fields: fieldShapes(formConfig.allFields),
-    fieldIds: (formConfig.allFields ?? []).map((field) => field.id),
-    repeatables: Object.entries(formConfig.repeatableFields ?? {})
-      .map(([id, config]) => [id, fieldShapes(config.allFields)] as const)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    fields: fieldComponentMap(formConfig.allFields),
+    repeatables: new Map(
+      Object.entries(formConfig.repeatableFields ?? {}).map(
+        ([id, config]) => [id, fieldComponentMap(config.allFields)] as const
+      )
+    ),
   };
 }
 
+/** Each field's componentId keyed by its id — what the field can hold. */
+function fieldComponentMap(fields: FormConfiguration['allFields']): ReadonlyMap<string, string> {
+  return new Map((fields ?? []).map((field) => [field.id, field.componentId]));
+}
+
+/** Entries id-sorted so the signature is insertion-order-independent. */
+function sortedShapeEntries(map: ReadonlyMap<string, string>): (readonly [string, string])[] {
+  return [...map].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
 function buildConfigSignature(shape: ConfigShape): string {
-  return JSON.stringify([shape.instanceId, shape.formId, shape.fields, shape.repeatables]);
+  return JSON.stringify([
+    shape.instanceId,
+    shape.formId,
+    sortedShapeEntries(shape.fields),
+    [...shape.repeatables]
+      .map(([id, template]) => [id, sortedShapeEntries(template)] as const)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  ]);
 }
 
 /**
- * Each field as `id:componentId`, order-independent — what the field can hold.
- * `componentId` is the compiled form of the schema's `type`.
- */
-function fieldShapes(fields: FormConfiguration['allFields']): string[] {
-  return (fields ?? []).map((field) => `${field.id}:${field.componentId}`).sort();
-}
-
-function isSubset(prev: readonly string[], next: readonly string[]): boolean {
-  const superset = new Set(next);
-  return prev.every((entry) => superset.has(entry));
-}
-
-/**
- * Whether `next` is the SAME form having GROWN — the structural distinction
- * between an appended field and a form swap.
+ * How `next` relates to the form mounted as `prev` — the structural distinction
+ * the store reset hangs on.
  *
- * Growth requires ALL of: the same owner (`instanceId`), the same form id, and
- * every previous field — top-level and per-repeatable template alike — still
- * present with its `componentId` intact. Appending a field, or a whole new
- * repeatable, satisfies it; dropping a field, retyping one, renaming the form
- * or handing it to another owner does not. The asymmetry is the point: growth
- * orphans no stored value, everything else can, and the campaign's bug class
- * (#10/#12 — a step transition leaking the previous step's values) lives
- * entirely on the "everything else" side.
+ * `'growth'` — the same owner (`instanceId`), the same form id, and every
+ * previous field — top-level and per-repeatable template alike — still present
+ * with its `componentId` intact. Appending a field, or a whole new repeatable,
+ * is growth: it orphans no stored value.
+ *
+ * `'retype'` — growth's conditions except that one or more RETAINED field ids
+ * changed componentId: the same form correcting a torn streamed `type` in
+ * place (see {@link ConfigShape}). Only the retyped fields' values are
+ * orphaned; the effect below drops exactly those and spares every sibling. A
+ * retype may ride the same chunk as growth — appended ids alongside a
+ * completed type — and stays `'retype'`.
+ *
+ * `'swap'` — everything else: a field dropped, a different owner, a different
+ * form id. The asymmetry is the point: the campaign's bug class (#10/#12 — a
+ * step transition leaking the previous step's values) lives entirely on the
+ * swap side, and a swap ALWAYS resets. A different `instanceId` wins over any
+ * shape similarity: two steps handed structurally identical forms are two
+ * forms.
  */
-function isShapeGrowth(prev: ConfigShape, next: ConfigShape): boolean {
-  if (prev.instanceId !== next.instanceId || prev.formId !== next.formId) return false;
-  if (!isSubset(prev.fields, next.fields)) return false;
-  const nextRepeatables = new Map(next.repeatables);
-  return prev.repeatables.every(([id, templateFields]) => {
-    const grown = nextRepeatables.get(id);
-    return grown !== undefined && isSubset(templateFields, grown);
-  });
+type ShapeTransition = 'growth' | 'retype' | 'swap';
+
+function classifyShapeChange(prev: ConfigShape, next: ConfigShape): ShapeTransition {
+  if (prev.instanceId !== next.instanceId || prev.formId !== next.formId) return 'swap';
+
+  let retyped = false;
+  for (const [fieldId, componentId] of prev.fields) {
+    const nextComponent = next.fields.get(fieldId);
+    if (nextComponent === undefined) return 'swap';
+    if (nextComponent !== componentId) retyped = true;
+  }
+  for (const [repeatableId, template] of prev.repeatables) {
+    const grown = next.repeatables.get(repeatableId);
+    if (grown === undefined) return 'swap';
+    for (const [fieldId, componentId] of template) {
+      const nextComponent = grown.get(fieldId);
+      if (nextComponent === undefined) return 'swap';
+      if (nextComponent !== componentId) retyped = true;
+    }
+  }
+  return retyped ? 'retype' : 'growth';
+}
+
+/**
+ * Every store key held FOR a field whose componentId changed between two shapes
+ * of the same form: the retyped top-level ids (`fieldIds`, also the exclusion
+ * list that lets them re-seed as newcomers), plus — via `storeKeys` — the LIVE
+ * composite keys of retyped repeatable-template fields, resolved against the
+ * store's actual keys because row keys are runtime state the shape cannot know.
+ */
+function collectRetypedFields(
+  prev: ConfigShape,
+  next: ConfigShape,
+  liveValueKeys: readonly string[]
+): { fieldIds: string[]; storeKeys: string[] } {
+  const fieldIds: string[] = [];
+  for (const [fieldId, componentId] of prev.fields) {
+    const nextComponent = next.fields.get(fieldId);
+    if (nextComponent !== undefined && nextComponent !== componentId) {
+      fieldIds.push(fieldId);
+    }
+  }
+
+  const templateFields = new Map<string, Set<string>>();
+  for (const [repeatableId, template] of prev.repeatables) {
+    const grown = next.repeatables.get(repeatableId);
+    if (grown === undefined) continue;
+    for (const [fieldId, componentId] of template) {
+      const nextComponent = grown.get(fieldId);
+      if (nextComponent !== undefined && nextComponent !== componentId) {
+        const fields = templateFields.get(repeatableId) ?? new Set<string>();
+        fields.add(fieldId);
+        templateFields.set(repeatableId, fields);
+      }
+    }
+  }
+
+  const storeKeys = [...fieldIds];
+  if (templateFields.size > 0) {
+    for (const key of liveValueKeys) {
+      const parsed = parseCompositeKey(key);
+      if (parsed && templateFields.get(parsed.repeatableId)?.has(parsed.fieldId)) {
+        storeKeys.push(key);
+      }
+    }
+  }
+  return { fieldIds, storeKeys };
 }
 
 export function FormProvider({
@@ -309,10 +401,11 @@ export function FormProvider({
   const configSignature = useMemo(() => buildConfigSignature(configShape), [configShape]);
 
   // Identity of the MOUNTED form: the signature as of the last genuine swap.
-  // GROWTH keeps it — an appended field is the same form, and everything scoped
-  // to "this form" (in-flight validation, a pending submit, per-field debounce
-  // timers keyed on `formInstanceKey`) must survive the chunk that appended it.
-  // A swap replaces it.
+  // GROWTH and RETYPE keep it — an appended field, like a torn type completing
+  // in place, is the same form, and everything scoped to "this form" (in-flight
+  // validation, a pending submit, per-field debounce timers keyed on
+  // `formInstanceKey`) must survive the chunk that carried it. A swap replaces
+  // it.
   //
   // Derived DURING RENDER (React's adjust-state-during-render pattern, which
   // re-renders before committing) rather than in an effect: the same render
@@ -326,9 +419,11 @@ export function FormProvider({
   }));
   let formIdentity = identityState.identity;
   if (identityState.signature !== configSignature) {
-    formIdentity = isShapeGrowth(identityState.shape, configShape)
-      ? identityState.identity
-      : configSignature;
+    // Growth AND retype are the same form continuing; only a swap replaces it.
+    formIdentity =
+      classifyShapeChange(identityState.shape, configShape) === 'swap'
+        ? configSignature
+        : identityState.identity;
     setIdentityState({ shape: configShape, signature: configSignature, identity: formIdentity });
   }
 
@@ -414,11 +509,13 @@ export function FormProvider({
       return;
     }
 
-    // GROWTH — the signature moved but the identity did not: the same form
-    // gained fields (a streaming schema being progressively mounted). Register
-    // the newcomers incrementally; NEVER reset. Every key the store already
-    // holds is the user's — a keystroke landing between two chunks included —
-    // and only ids absent from the last committed shape may be seeded.
+    // GROWTH / RETYPE — the signature moved but the identity did not: the same
+    // form gained fields, or corrected a torn streamed `type` in place (a
+    // streaming schema being progressively mounted). Register the newcomers —
+    // and re-register the retyped fields — incrementally; NEVER reset. Every
+    // key the store already holds is the user's — a keystroke landing between
+    // two chunks included — and only ids absent from the last committed shape,
+    // or retyped since it, may be seeded.
     //
     // A field's `default` may also arrive one chunk AFTER the field's core
     // (id/type/props): the field is then already mounted and the default's
@@ -471,21 +568,56 @@ export function FormProvider({
       } = initializeRepeatableState(defaultValues, repeatableConfigs, defaultRepeatableOrder);
       store.getState()._setDefaultValues(grownDefaults);
 
-      const prevFieldIds = new Set(prevShape.fieldIds);
-      const prevRepeatableIds = new Set(prevShape.repeatables.map(([id]) => id));
-
       const state = store.getState();
       const values = { ...state.values };
+      const errors = { ...state.errors };
+      const validationStates = { ...state.validationStates };
+      const touched = { ...state.touched };
       const order = { ...state._repeatableOrder };
       const nextKeys = { ...state._repeatableNextKey };
       let seeded = false;
 
+      // RETYPE — drop exactly the retyped fields' state, nothing else. Their
+      // held values were typed into (or seeded for) the WRONG control, so the
+      // completed componentId orphans them the way a swap would — but only
+      // them: every sibling keeps its keystrokes, which is the whole point of
+      // not resetting. Errors, validation state and touched go with the value:
+      // the field is a fresh registration of a new control. The value-key
+      // deletion is deliberately NOT bracketed by `isResettingRef` — the host's
+      // mirror must learn via `onFieldsRemove` that the stale value is gone.
+      const retyped = signatureMoved
+        ? collectRetypedFields(prevShape, configShape, Object.keys(state.values))
+        : { fieldIds: [], storeKeys: [] };
+      let retypeCleared = false;
+      for (const key of retyped.storeKeys) {
+        if (
+          hasOwn(values, key) ||
+          hasOwn(errors, key) ||
+          hasOwn(validationStates, key) ||
+          hasOwn(touched, key)
+        ) {
+          retypeCleared = true;
+          delete values[key];
+          delete errors[key];
+          delete validationStates[key];
+          delete touched[key];
+        }
+      }
+
+      // Retyped ids are excluded from the committed shape below so they seed
+      // again as newcomers — from the NEW compile's defaults, which the fresh
+      // `_setDefaultValues` baseline above already carries for the dirty flag.
+      const prevFieldIds = new Set(prevShape.fields.keys());
+      for (const fieldId of retyped.fieldIds) prevFieldIds.delete(fieldId);
+      const prevRepeatableIds = new Set(prevShape.repeatables.keys());
+
       // Seed defaults for the plain fields that APPEARED — and for the fields
       // whose DEFAULT appeared only now. `hasOwn` guards the live store even
       // for a brand-new id: nothing that already holds a value is ever
-      // overwritten, and a touched field is the user's even while empty.
+      // overwritten, and a touched field is the user's even while empty (the
+      // local `touched` copy: a just-retyped field is untouched by construction).
       for (const field of formConfig.allFields) {
-        if (hasOwn(values, field.id) || getOwn(state.touched, field.id)) continue;
+        if (hasOwn(values, field.id) || getOwn(touched, field.id)) continue;
         if (!hasOwn(grownDefaults, field.id)) continue;
         // A field the committed baseline already covered keeps its state: only
         // a newcomer (id absent from the last committed shape) or a newly
@@ -522,8 +654,25 @@ export function FormProvider({
         seeded = true;
       }
 
-      if (seeded) {
-        store.setState({ values, _repeatableOrder: order, _repeatableNextKey: nextKeys });
+      if (seeded || retypeCleared) {
+        // The error/validation/touched tables only join the write when a
+        // retype actually cleared something — a pure growth pass must not
+        // replace their references (and wake their subscribers) for nothing.
+        store.setState(
+          retypeCleared
+            ? {
+                values,
+                errors,
+                validationStates,
+                touched,
+                _repeatableOrder: order,
+                _repeatableNextKey: nextKeys,
+              }
+            : { values, _repeatableOrder: order, _repeatableNextKey: nextKeys }
+        );
+        // A cleared error may have been the last thing wedging the global
+        // isValid; recompute it from the surviving tables.
+        if (retypeCleared) store.getState()._updateIsValid();
       }
     }
   }, [
