@@ -139,7 +139,9 @@ describe('the workflow store abandons or lands in-flight work on the step it was
         <Harness />
       </WorkflowProvider>
     );
-    if (!store || !actions) throw new Error('provider never mounted');
+    expect(store).toBeDefined();
+    expect(actions).toBeDefined();
+    if (!store || !actions) return; // unreachable after the assertions; satisfies TS narrowing
     const capturedActions = actions;
 
     // The work begins ON alpha, capturing its step at start — through the
