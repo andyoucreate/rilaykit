@@ -253,3 +253,54 @@ describe('manifest() — "How to show UI" guidance follows the registered show_*
     expect(output).not.toContain('show_flow');
   });
 });
+
+describe('manifest() advertises only what the adapters can emit (R2-3)', () => {
+  // The model must never be told about a tool it cannot call. manifest() and the
+  // anthropic tools() adapter must AGREE on every tool: a tool the adapter drops
+  // must be absent from the manifest, and a tool the adapter emits must be present.
+  function manifestNames(catalog: Parameters<typeof manifest>[0]): string[] {
+    return manifest(catalog)
+      .split('\n')
+      .flatMap((line) => {
+        const match = line.match(/^- \*\*([a-zA-Z0-9_-]+)\*\*/);
+        return match ? [match[1]] : [];
+      });
+  }
+
+  it('agrees with anthropic tools() across the full schema/name matrix', () => {
+    const catalog = ril
+      .create()
+      .tool('valid_object', { description: 'ok', inputSchema: z.object({ from: z.string() }) })
+      .tool('string_root', { description: 'non-object root', inputSchema: z.string() })
+      .tool('union_root', {
+        description: 'union root',
+        inputSchema: z.union([z.object({ a: z.string() }), z.object({ b: z.number() })]),
+      })
+      .tool('has spaces', { description: 'bad name', inputSchema: z.object({ a: z.string() }) })
+      .tool('a'.repeat(65), {
+        description: 'name too long',
+        inputSchema: z.object({ a: z.string() }),
+      });
+
+    const advertised = manifestNames(catalog);
+    const emittable = anthropicTools(catalog).map((t) => t.name);
+
+    // The one valid tool is in BOTH; every dropped-by-adapter tool is absent from BOTH.
+    expect(emittable).toEqual(['valid_object']);
+    for (const dropped of ['string_root', 'union_root', 'has spaces', 'a'.repeat(65)]) {
+      expect(emittable).not.toContain(dropped);
+      expect(advertised).not.toContain(dropped);
+    }
+    expect(advertised).toContain('valid_object');
+  });
+
+  it('keeps a boundary-valid name (exactly 64 chars, with - and _)', () => {
+    const name = `t-_${'x'.repeat(61)}`; // 64 chars, hyphen + underscore
+    expect(name.length).toBe(64);
+    const catalog = ril
+      .create()
+      .tool(name, { description: 'ok', inputSchema: z.object({ a: z.string() }) });
+    expect(anthropicTools(catalog).map((t) => t.name)).toEqual([name]);
+    expect(manifestNames(catalog)).toContain(name);
+  });
+});

@@ -57,20 +57,44 @@ function projectToJsonSchema(
 }
 
 /**
- * A tool is callable by the model only if the adapters can emit a provider
- * definition for it: its inputSchema projects to JSON Schema via the
- * `~standard.jsonSchema` extension, or the entry supplies a manual
- * `inputJsonSchema` (the escape hatch the adapters honor for non-zod
- * vendors). Advertising anything else invites tool calls that cannot be
- * dispatched — the manifest must stay symmetric with the adapters.
+ * The tool-name constraint shared by the mainstream providers: the Anthropic
+ * Messages API and OpenAI/AI SDK function tools all require
+ * `^[a-zA-Z0-9_-]{1,64}$`. A name outside it is rejected by the provider (for
+ * Anthropic, a 400 for the WHOLE request), so it is a universal emittability
+ * gate, not an Anthropic-specific one — the manifest and every adapter share
+ * it so they cannot disagree about which tools are callable.
  */
-function isCallableTool(entry: {
+export const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/** The root JSON Schema an adapter would emit for a tool, or null if none. */
+function emittableToolSchema(entry: {
+  readonly inputSchema?: StandardSchemaV1<unknown, unknown>;
+  readonly inputJsonSchema?: Record<string, unknown>;
+}): Record<string, unknown> | null {
+  if (entry.inputSchema === undefined) return null;
+  if (entry.inputJsonSchema !== undefined) return entry.inputJsonSchema;
+  const projection = projectToJsonSchema(entry.inputSchema);
+  return projection ? (projection.projected as Record<string, unknown>) : null;
+}
+
+/**
+ * A tool is emittable — advertisable to the model AND emittable by the adapters
+ * — only if a provider can actually accept its definition. The single source of
+ * truth both `manifest()` and the adapters consult so they cannot drift apart
+ * (a skip class added here applies everywhere at once). Emittable iff: it has an
+ * inputSchema, its name matches the shared provider pattern, and the schema an
+ * adapter would emit (projected via the vendor-neutral `~standard.jsonSchema`
+ * extension, or a manual `inputJsonSchema`) has a top-level `type: "object"` —
+ * the root shape every provider requires. Never throws.
+ */
+export function isEmittableTool(entry: {
+  readonly name: string;
   readonly inputSchema?: StandardSchemaV1<unknown, unknown>;
   readonly inputJsonSchema?: Record<string, unknown>;
 }): boolean {
-  if (entry.inputSchema === undefined) return false;
-  if (entry.inputJsonSchema !== undefined) return true;
-  return projectToJsonSchema(entry.inputSchema) !== null;
+  if (!TOOL_NAME_PATTERN.test(entry.name)) return false;
+  const root = emittableToolSchema(entry);
+  return root !== null && (root as { readonly type?: unknown }).type === 'object';
 }
 
 /**
@@ -151,7 +175,7 @@ export function manifest<C>(catalog: RilayInstance<C>): string {
     lines.push('');
   }
 
-  const tools = catalog.getAllTools().filter(isCallableTool);
+  const tools = catalog.getAllTools().filter(isEmittableTool);
   if (tools.length > 0) {
     lines.push('## Available tools');
     lines.push('');

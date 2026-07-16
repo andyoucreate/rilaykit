@@ -1,6 +1,7 @@
 import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
 import { z } from 'zod';
+import { TOOL_NAME_PATTERN } from '../manifest/manifest';
 import type { Part } from '../types/part';
 
 const logger = getLogger('agent:anthropic');
@@ -70,13 +71,6 @@ function toJsonSchema(entry: {
 }
 
 /**
- * The Messages API's constraint on a tool's `name`
- * (https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools):
- * a name outside this pattern 400s the WHOLE request, not just the one tool.
- */
-const ANTHROPIC_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
-
-/**
  * Native `z.toJSONSchema()` — no custom converter (spec §13). Non-zod Standard
  * Schemas supply `inputJsonSchema` manually on the catalog entry. A tool we
  * cannot convert is SKIPPED and logged, never thrown: one unconvertible tool
@@ -98,7 +92,11 @@ export function tools<C>(catalog: RilayInstance<C>): AnthropicToolDefinition[] {
   const definitions: AnthropicToolDefinition[] = [];
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;
-    if (!ANTHROPIC_TOOL_NAME_PATTERN.test(tool.name)) {
+    // `TOOL_NAME_PATTERN` is shared with the manifest (and every adapter) so the
+    // model is never advertised a tool an adapter would drop. The manifest gates
+    // on the same rules via `isEmittableTool`; the agreement is pinned by a
+    // manifest↔adapter test so the two cannot drift apart.
+    if (!TOOL_NAME_PATTERN.test(tool.name)) {
       logger.warn(
         `Skipping tool "${tool.name}": name does not match the Anthropic tool-name pattern ^[a-zA-Z0-9_-]{1,64}$`
       );
