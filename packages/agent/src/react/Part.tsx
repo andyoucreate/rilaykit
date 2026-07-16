@@ -4,6 +4,8 @@ import { useCatalogOrNull } from '@rilaykit/core/react';
 import { isToolPart, type Part as PartType, type PartState } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 import { ShowComponent } from './fallbacks/ShowComponent';
+import { ShowFlow } from './fallbacks/ShowFlow';
+import { ShowForm } from './fallbacks/ShowForm';
 
 type AnyCatalog = RilayInstance<Record<string, unknown>>;
 
@@ -17,9 +19,12 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
  * `constructor` would otherwise resolve to an inherited `Object.prototype`
  * member. This exact class of bug escaped seven times in P1/P2.
  *
- * A built-in may return null: `show_component` renders nothing while the part is
- * still `streaming` — its `input` is then a deep-partial parse, and validating a
- * half-arrived tree would flash misleading error views for every unfinished node.
+ * A built-in may return null: every premium tool renders nothing while the part
+ * is still `streaming` — its `input` is then a deep-partial parse, and
+ * compiling/validating a half-arrived schema or tree would flash misleading
+ * error views for every unfinished node. For `show_form` this is a FOR-NOW
+ * decision: Task 12 introduces progressive mounting for it. Flows render at
+ * `ready` ONLY by spec — a deliberate scope cut, not a deferral.
  */
 const BUILT_IN_TOOLS: Record<
   string,
@@ -27,6 +32,14 @@ const BUILT_IN_TOOLS: Record<
 > = {
   show_component: (input, state) =>
     state === 'streaming' ? null : <ShowComponent node={(input as { node?: unknown }).node} />,
+  show_form: (input, state, resolve) =>
+    state === 'streaming' ? null : (
+      <ShowForm schema={(input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+    ),
+  show_flow: (input, state, resolve) =>
+    state === 'streaming' ? null : (
+      <ShowFlow schema={(input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />
+    ),
 };
 
 export interface PartProps {
