@@ -259,6 +259,11 @@ function buildConfigSignature(shape: ConfigShape): string {
  * retype may ride the same chunk as growth — appended ids alongside a
  * completed type — and stays `'retype'`.
  *
+ * `'rename'` — the ONE continuation a differing field-id set may still be: a
+ * torn field id completing mid-stream (see {@link detectTornIdCompletion}).
+ * The field's state carries from the torn id to the completed one; siblings
+ * are untouched.
+ *
  * `'swap'` — everything else: a field dropped, a different owner, a different
  * form id. The asymmetry is the point: the campaign's bug class (#10/#12 — a
  * step transition leaking the previous step's values) lives entirely on the
@@ -266,7 +271,78 @@ function buildConfigSignature(shape: ConfigShape): string {
  * shape similarity: two steps handed structurally identical forms are two
  * forms.
  */
-type ShapeTransition = 'growth' | 'retype' | 'swap';
+type ShapeTransition = 'growth' | 'retype' | 'rename' | 'swap';
+
+/**
+ * The single field-id-set change that is NOT a swap: a torn field id
+ * completing mid-stream. When the model emits `type` before `id`, a chunk
+ * boundary can tear the id string itself — the field mounts under `"na"` and
+ * the next chunk completes it to `"name"`. The id SET then differs between the
+ * two compiles, which reads as a swap and would reset the whole store over two
+ * characters of one id. Within one streaming emission, a field id that is a
+ * strict PREFIX of the one id that replaced it is the SAME field's id
+ * completing, not a new field.
+ *
+ * The constraints are deliberately airtight, because a mis-merge would carry
+ * one real field's value into a DIFFERENT real field: same owner and form id,
+ * the same field COUNT (a rename adds nothing and drops nothing), EXACTLY one
+ * id differing in each direction, the previous id a non-empty strict prefix of
+ * the new one, the same componentId on both sides of it, every retained
+ * field's componentId untouched (a simultaneous retype falls back to the swap
+ * reset), and the repeatable shapes byte-identical. A form that legitimately
+ * holds both `na` and `name` can never trip this: with both present, no
+ * transition has `na` missing while the counts match — dropping `na` changes
+ * the count, and appending `name` is growth.
+ */
+function detectTornIdCompletion(
+  prev: ConfigShape,
+  next: ConfigShape
+): { from: string; to: string } | null {
+  if (prev.instanceId !== next.instanceId || prev.formId !== next.formId) return null;
+  if (prev.fields.size !== next.fields.size) return null;
+
+  let from: string | null = null;
+  for (const [fieldId, componentId] of prev.fields) {
+    const nextComponent = next.fields.get(fieldId);
+    if (nextComponent === undefined) {
+      if (from !== null) return null;
+      from = fieldId;
+    } else if (nextComponent !== componentId) {
+      return null;
+    }
+  }
+  if (from === null || from.length === 0) return null;
+
+  let to: string | null = null;
+  for (const fieldId of next.fields.keys()) {
+    if (!prev.fields.has(fieldId)) {
+      if (to !== null) return null;
+      to = fieldId;
+    }
+  }
+  // `from !== to` holds by construction: `from` is absent from `next`, `to` is
+  // absent from `prev` — so `startsWith` alone makes the prefix strict.
+  if (to === null || !to.startsWith(from)) return null;
+  if (prev.fields.get(from) !== next.fields.get(to)) return null;
+
+  if (prev.repeatables.size !== next.repeatables.size) return null;
+  for (const [repeatableId, template] of prev.repeatables) {
+    const nextTemplate = next.repeatables.get(repeatableId);
+    if (nextTemplate === undefined || nextTemplate.size !== template.size) return null;
+    for (const [fieldId, componentId] of template) {
+      if (nextTemplate.get(fieldId) !== componentId) return null;
+    }
+  }
+  return { from, to };
+}
+
+/** Carry one per-field table entry from a torn field id to its completed id. */
+function carryTableEntry<T>(table: Record<string, T>, from: string, to: string): boolean {
+  if (!hasOwn(table, from)) return false;
+  defineOwn(table as Record<string, unknown>, to, getOwn(table, from));
+  delete table[from];
+  return true;
+}
 
 function classifyShapeChange(prev: ConfigShape, next: ConfigShape): ShapeTransition {
   if (prev.instanceId !== next.instanceId || prev.formId !== next.formId) return 'swap';
@@ -274,7 +350,9 @@ function classifyShapeChange(prev: ConfigShape, next: ConfigShape): ShapeTransit
   let retyped = false;
   for (const [fieldId, componentId] of prev.fields) {
     const nextComponent = next.fields.get(fieldId);
-    if (nextComponent === undefined) return 'swap';
+    if (nextComponent === undefined) {
+      return detectTornIdCompletion(prev, next) !== null ? 'rename' : 'swap';
+    }
     if (nextComponent !== componentId) retyped = true;
   }
   for (const [repeatableId, template] of prev.repeatables) {
@@ -491,7 +569,8 @@ export function FormProvider({
   }));
   let formIdentity = identityState.identity;
   if (identityState.signature !== configSignature) {
-    // Growth AND retype are the same form continuing; only a swap replaces it.
+    // Growth, retype AND a torn-id rename are the same form continuing; only
+    // a swap replaces it.
     formIdentity =
       classifyShapeChange(identityState.shape, configShape) === 'swap'
         ? configSignature
@@ -655,6 +734,14 @@ export function FormProvider({
       prevConfigSignatureRef.current = configSignature;
       prevShapeRef.current = configShape;
 
+      // RENAME — the identity survived a changed field-id set, which the
+      // classifier only ever allows for a torn field id completing (see
+      // `detectTornIdCompletion` — recomputed here from the same committed
+      // shape pair the render-phase classification used, so the two cannot
+      // disagree). The field's whole state carries from the torn id to the
+      // completed one further down.
+      const rename = signatureMoved ? detectTornIdCompletion(prevShape, configShape) : null;
+
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
       // The grown templates replace the previous ones wholesale: an EXISTING
@@ -688,9 +775,14 @@ export function FormProvider({
       // move IN VALUE. An entry whose default DID move is left as the fresh
       // clone: it is exactly the upgrade the seeding pass below installs.
       for (const key of Object.keys(grownDefaults)) {
-        if (!hasOwn(defaultsBaseline, key) || !hasOwn(currentState.values, key)) continue;
-        const held = getOwn(currentState.values, key);
-        if (held !== getOwn(defaultsBaseline, key)) continue;
+        // Under a rename, the completed id's baseline and live value still
+        // live under the TORN id — the carry below runs after this rewrite.
+        const sourceKey = rename !== null && key === rename.to ? rename.from : key;
+        if (!hasOwn(defaultsBaseline, sourceKey) || !hasOwn(currentState.values, sourceKey)) {
+          continue;
+        }
+        const held = getOwn(currentState.values, sourceKey);
+        if (held !== getOwn(defaultsBaseline, sourceKey)) continue;
         if (plainDataEquals(held, getOwn(grownDefaults, key))) {
           defineOwn(grownDefaults, key, held);
         }
@@ -735,6 +827,24 @@ export function FormProvider({
         // user typed into the wrong control was dropped with the value, so the
         // interaction record goes with it — exactly as `touched` does.
         userEditedFieldsRef.current.delete(key);
+      }
+
+      // RENAME — carry the field's whole per-field state from the torn id to
+      // the completed one: value, errors, validation state, touched and the
+      // interaction record all belong to the SAME field, two characters of
+      // whose id just finished streaming. The value's key change is
+      // deliberately NOT bracketed by `isResettingRef`: the host's mirror must
+      // learn via `onFieldsRemove` that the torn key is gone, and via
+      // `onFieldChange` where its value went.
+      let renamed = false;
+      if (rename !== null) {
+        renamed = carryTableEntry(values, rename.from, rename.to) || renamed;
+        renamed = carryTableEntry(errors, rename.from, rename.to) || renamed;
+        renamed = carryTableEntry(validationStates, rename.from, rename.to) || renamed;
+        renamed = carryTableEntry(touched, rename.from, rename.to) || renamed;
+        if (userEditedFieldsRef.current.delete(rename.from)) {
+          userEditedFieldsRef.current.add(rename.to);
+        }
       }
 
       // Retyped ids are excluded from the committed shape below so they seed
@@ -806,16 +916,20 @@ export function FormProvider({
         seeded = true;
       }
 
-      if (seeded || retypeCleared) {
+      // A rename moved entries across the per-field tables exactly as a retype
+      // clears them: both must join the write below.
+      const tablesMoved = retypeCleared || renamed;
+      if (seeded || tablesMoved) {
         // The error/validation/touched tables only join the write when a
-        // retype actually cleared something — a pure growth pass must not
-        // replace their references (and wake their subscribers) for nothing.
+        // retype actually cleared something (or a rename carried it) — a pure
+        // growth pass must not replace their references (and wake their
+        // subscribers) for nothing.
         // Bracketed so the values subscription attributes this write to the
         // provider: a seeded default is nobody's interaction.
         isApplyingConfigRef.current = true;
         try {
           store.setState(
-            retypeCleared
+            tablesMoved
               ? {
                   values,
                   errors,
@@ -831,7 +945,7 @@ export function FormProvider({
         }
         // A cleared error may have been the last thing wedging the global
         // isValid; recompute it from the surviving tables.
-        if (retypeCleared) store.getState()._updateIsValid();
+        if (tablesMoved) store.getState()._updateIsValid();
       }
     }
   }, [
