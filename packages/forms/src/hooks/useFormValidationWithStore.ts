@@ -179,15 +179,28 @@ export function useFormValidationWithStore({
   // then gone from allFields. Writing its verdict under the old key would create
   // a ghost the clearing loops (which iterate the LIVE allFields) can never
   // reach, wedging isValid with no visible error. Mirrors the fieldConfig lookup.
-  const fieldExistsLive = useCallback((fieldId: string): boolean => {
-    if (formConfigRef.current.allFields.some((field) => field.id === fieldId)) return true;
-    const parsed = parseCompositeKey(fieldId);
-    if (parsed && formConfigRef.current.repeatableFields) {
-      const repeatableConfig = getOwn(formConfigRef.current.repeatableFields, parsed.repeatableId);
-      return repeatableConfig?.allFields.some((field) => field.id === parsed.fieldId) ?? false;
-    }
-    return false;
-  }, []);
+  const fieldExistsLive = useCallback(
+    (fieldId: string): boolean => {
+      if (formConfigRef.current.allFields.some((field) => field.id === fieldId)) return true;
+      const parsed = parseCompositeKey(fieldId);
+      if (parsed && formConfigRef.current.repeatableFields) {
+        const repeatableConfig = getOwn(
+          formConfigRef.current.repeatableFields,
+          parsed.repeatableId
+        );
+        const templateExists =
+          repeatableConfig?.allFields.some((field) => field.id === parsed.fieldId) ?? false;
+        if (!templateExists) return false;
+        // The ROW must still be live too: a row removed while its validation was
+        // in flight leaves the template but drops the itemKey from _repeatableOrder.
+        // Writing the late verdict under `items[k0].sku` would ghost-wedge isValid.
+        const liveOrder = getOwn(store.getState()._repeatableOrder, parsed.repeatableId);
+        return liveOrder?.includes(parsed.itemKey) ?? false;
+      }
+      return false;
+    },
+    [store]
+  );
 
   // Optimized field validation with stable dependencies
   const validateField = useCallback(
