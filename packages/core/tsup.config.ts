@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   // Entry points
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/react/index.ts'],
   
   // Output formats for maximum compatibility
   format: ['esm', 'cjs'],
