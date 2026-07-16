@@ -36,6 +36,10 @@ const catalog = ril
     propsSchema: z.object({ label: z.string() }),
     renderer: ({ props }) => <span>{props.label}</span>,
   })
+  .component('ghost', {
+    description: 'Registered as a schema-only entry — no renderer attached',
+    propsSchema: z.object({}),
+  })
   .use(uiTools());
 
 /** Builds a chain of `length` nodes: `length - 1` nested stacks around a badge leaf. */
@@ -74,6 +78,49 @@ describe('show_component built-in renderer', () => {
     expect(stack?.textContent).toBe('AB');
   });
 
+  it('renders a 5-LEVEL heterogeneous tree with the exact nesting — every level receives its own validated props and its rendered children', () => {
+    showComponent({
+      type: 'stack',
+      props: { gap: 1 },
+      children: [
+        {
+          type: 'stack',
+          props: { gap: 2 },
+          children: [
+            {
+              type: 'stack',
+              props: { gap: 3 },
+              children: [
+                {
+                  type: 'stack',
+                  props: { gap: 4 },
+                  children: [{ type: 'badge', props: { label: 'level-5-leaf' } }],
+                },
+                { type: 'badge', props: { label: 'level-4-sibling' } },
+              ],
+            },
+          ],
+        },
+        { type: 'badge', props: { label: 'level-2-sibling' } },
+      ],
+    });
+    // The exact DOM chain: each stack is the DIRECT child of the one above it —
+    // children are handed to the parent renderer already rendered, at every depth.
+    const level5 = document.querySelector(
+      '[data-gap="1"] > [data-gap="2"] > [data-gap="3"] > [data-gap="4"]'
+    );
+    expect(level5).not.toBeNull();
+    expect(level5?.textContent).toBe('level-5-leaf');
+    // Siblings at intermediate depths land in THEIR level, not the leaf's.
+    expect(document.querySelector('[data-gap="3"]')?.textContent).toBe(
+      'level-5-leaflevel-4-sibling'
+    );
+    expect(document.querySelector('[data-gap="1"]')?.textContent).toBe(
+      'level-5-leaflevel-4-sibling' + 'level-2-sibling'
+    );
+    expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
+  });
+
   it('ISOLATES a failing node — its siblings still render', () => {
     showComponent({
       type: 'stack',
@@ -106,6 +153,29 @@ describe('show_component built-in renderer', () => {
     showComponent({ type: 'badge', props: { label: 'now-ready' } }, 'ready');
     expect(screen.getByText('now-ready')).toBeInTheDocument();
   });
+
+  it('reports a component that EXISTS in the catalog but has no renderer attached — a schema-only entry is not renderable', () => {
+    showComponent({
+      type: 'stack',
+      props: { gap: 2 },
+      children: [
+        { type: 'ghost', props: {} },
+        { type: 'badge', props: { label: 'survivor' } },
+      ],
+    });
+    expect(screen.getByText('No renderer attached for component "ghost"')).toBeInTheDocument();
+    // The failure is LOCAL: the sibling still renders.
+    expect(screen.getByText('survivor')).toBeInTheDocument();
+  });
+
+  it.each(['__proto__', 'constructor', 'toString'])(
+    'treats a %s component type as UNKNOWN — the catalog lookup never resolves an inherited Object member',
+    (type) => {
+      showComponent({ type, props: {} });
+      expect(screen.getByText(`Unknown component "${type}"`)).toBeInTheDocument();
+      expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+    }
+  );
 
   it('reports a malformed node instead of crashing', () => {
     showComponent({ nope: true });

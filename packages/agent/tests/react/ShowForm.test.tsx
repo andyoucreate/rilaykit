@@ -119,6 +119,36 @@ describe('show_form built-in renderer (HITL)', () => {
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 
+  it('a cancel AFTER a resolved submit does not double-resolve — the answer stays the submitted one', async () => {
+    const onResolve = vi.fn();
+    showForm(schema, onResolve);
+    await userEvent.type(screen.getByLabelText('Name'), 'Karl');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+    await waitFor(() => expect(onResolve).toHaveBeenCalledTimes(1));
+
+    // The chrome is still mounted (the part is still `ready`) — a stray cancel
+    // click after the answer left must be swallowed, not become a second answer.
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await flushSubmissions();
+
+    expect(onResolve).toHaveBeenCalledExactlyOnceWith('c1', {
+      status: 'submitted',
+      values: { name: 'Karl' },
+    });
+  });
+
+  it('a cancel RACING an in-flight submit yields exactly one answer', async () => {
+    const onResolve = vi.fn();
+    showForm(schema, onResolve);
+    await userEvent.type(screen.getByLabelText('Name'), 'Karl');
+    // Click submit, then cancel BEFORE the async submit chain (validation →
+    // onSubmit) settles. Whichever lands first wins; the loser is a no-op.
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await flushSubmissions();
+    expect(onResolve).toHaveBeenCalledTimes(1);
+  });
+
   it('mounts progressively while the part is streaming, with submit LOCKED until the input is provably complete', () => {
     // No rawInput accompanies the deep-partial input here, so there is no
     // completeness signal: the complete-looking field mounts (progressive

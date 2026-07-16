@@ -498,7 +498,12 @@ export function FormProvider({
       // Install rows for the repeatables that APPEARED (min-padding included).
       // Existing repeatables keep their live rows untouched — a template that
       // grew a field simply renders the new field empty on the rows the user
-      // already has.
+      // already has. That holds even when the grown template's `defaultValue`
+      // covers the new field: a LATE repeatable-template default never
+      // re-seeds existing rows, because this loop skips every repeatable the
+      // previous shape already had. Documented family — the structural price
+      // of the never-touch-live-rows rule; rows added AFTER the growth pad
+      // from the current template and do receive the new defaults.
       for (const repeatableId of Object.keys(repeatableConfigs)) {
         if (prevRepeatableIds.has(repeatableId) || hasOwn(order, repeatableId)) continue;
         const rowKeys = getOwn(grownOrder, repeatableId);

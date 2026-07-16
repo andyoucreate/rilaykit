@@ -44,6 +44,16 @@ describe('<Part>', () => {
     expect(screen.getByText('Search hotels')).toBeInTheDocument();
   });
 
+  it.each(['toString', 'constructor', '__proto__'])(
+    'a tool named %s falls back to the DefaultTool marker — the built-in lookup never resolves an inherited Object member',
+    (name) => {
+      mount(<Part part={{ type: 'tool', toolCallId: 'c9', name, state: 'ready', input: {} }} />);
+      const marker = document.querySelector('[data-part="tool"]');
+      expect(marker).not.toBeNull();
+      expect(marker?.getAttribute('data-tool-name')).toBe(name);
+    }
+  );
+
   it('prefers a consumer fallback over the built-in one', () => {
     const Fallback = ({ part }: { part: Part }) => <em>custom:{part.type}</em>;
     mount(<Part part={{ type: 'tool', toolCallId: 'c3', name: 'nope', state: 'ready', input: {} }} fallback={Fallback} />);

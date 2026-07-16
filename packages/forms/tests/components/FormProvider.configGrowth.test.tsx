@@ -137,6 +137,72 @@ describe('FormProvider registers appended fields incrementally — growth is not
     expect(screen.getByTestId('input-a')).toHaveValue('typed');
   });
 
+  it('an EXISTING repeatable whose template GAINS a field mid-growth keeps its live rows — the new field renders empty on them, even when the template declares a default for it', async () => {
+    const config = createRil();
+
+    const repeatableWith = (templateFieldIds: string[], defaultValue: Record<string, unknown>) => ({
+      version: 1 as const,
+      id: 'f',
+      rows: [
+        {
+          kind: 'repeatable' as const,
+          repeatable: {
+            id: 'lines',
+            min: 1,
+            rows: [
+              {
+                kind: 'fields' as const,
+                fields: templateFieldIds.map((id) => ({ id, type: 'input' })),
+              },
+            ],
+            defaultValue,
+          },
+        },
+      ],
+    });
+
+    const v1 = compileForm(repeatableWith(['label'], { label: 'seed-label' }), config);
+    // The next chunk grows the TEMPLATE itself: it gains `qty`, and the
+    // per-item defaults now cover it too.
+    const v2 = compileForm(
+      repeatableWith(['label', 'qty'], { label: 'seed-label', qty: 'seed-qty' }),
+      config
+    );
+
+    function Host() {
+      const [compiled, setCompiled] = useState(v1);
+      return (
+        <>
+          <button type="button" data-testid="grow" onClick={() => setCompiled(v2)}>
+            grow
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+
+    fireEvent.change(screen.getByTestId('input-lines[k0].label'), {
+      target: { value: 'typed-line' },
+    });
+
+    fireEvent.click(screen.getByTestId('grow'));
+
+    // The grown template reaches the existing row: `qty` renders on it.
+    await waitFor(() =>
+      expect(screen.getByTestId('input-lines[k0].qty')).toBeInTheDocument()
+    );
+    // The user's row survived the template growth untouched...
+    expect(screen.getByTestId('input-lines[k0].label')).toHaveValue('typed-line');
+    // ...and the late template default does NOT re-seed an existing row: live
+    // rows are never touched (the documented price of the never-reset rule),
+    // so the new field renders EMPTY, not 'seed-qty'.
+    expect(screen.getByTestId('input-lines[k0].qty')).toHaveValue('');
+  });
+
   it('applies a `default` that arrives AFTER its field mounted — same shape, no signature change', async () => {
     const config = createRil();
 
