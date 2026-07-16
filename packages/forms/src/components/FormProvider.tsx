@@ -15,7 +15,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { EffectEngine } from '../effects/effect-engine';
+import { EffectEngine, effectsMapEquals } from '../effects/effect-engine';
 import { type UseFormConditionsReturn, useFormConditions } from '../hooks';
 import { useFormSubmissionWithStore } from '../hooks/useFormSubmissionWithStore';
 import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore';
@@ -581,6 +581,24 @@ export function FormProvider({
   );
   const configSignature = useMemo(() => buildConfigSignature(configShape), [configShape]);
 
+  // CONTENT identity for the effects index. Every streamed chunk is a fresh
+  // compile and therefore a fresh `effectsMap` OBJECT even when not a single
+  // effect changed — keying the engine's lifetime on the object identity made
+  // every growth chunk tear the engine down, re-run initial effects over the
+  // user's typed answers and abort in-flight async effects. Keep the previous
+  // reference while keys + per-effect handler references are unchanged (the
+  // "work that outlives a render must key on content, not identity" class).
+  // Render-phase ref adjustment, same convergence argument as `identityState`
+  // above: idempotent, and a discarded render only re-runs the comparison.
+  const stableEffectsMapRef = useRef(formConfig.effectsMap);
+  if (
+    stableEffectsMapRef.current !== formConfig.effectsMap &&
+    !effectsMapEquals(stableEffectsMapRef.current, formConfig.effectsMap)
+  ) {
+    stableEffectsMapRef.current = formConfig.effectsMap;
+  }
+  const stableEffectsMap = stableEffectsMapRef.current;
+
   // Identity of the MOUNTED form: the signature as of the last genuine swap.
   // GROWTH and RETYPE keep it — an appended field, like a torn type completing
   // in place, is the same form, and everything scoped to "this form" (in-flight
@@ -1006,11 +1024,18 @@ export function FormProvider({
   // landed in the NEW step's values and were submitted as the new step's data.
   //
   // Both deps are load-bearing and neither implies the other: `formIdentity`
-  // catches a swap that reuses one config object, `effectsMap` catches effects
-  // that change under an identical shape (a re-emitted schema — the signature
-  // deliberately ignores everything that orphans no value, and effects are not
-  // in it). Growth rides the `effectsMap` half: a grown schema is a fresh
-  // compile, so its effectsMap is a fresh object whenever effects exist at all.
+  // catches a swap that reuses one config object, `stableEffectsMap` catches
+  // effects that change under an identical shape (a re-emitted schema — the
+  // signature deliberately ignores everything that orphans no value, and
+  // effects are not in it). Growth deliberately rides NEITHER half:
+  // `stableEffectsMap` is the CONTENT identity of the effects index (see its
+  // declaration above), so a growth chunk whose effects did not change keeps
+  // the running engine — its in-flight async effects and, above all, the
+  // one-shot nature of `runInitialEffects`, which re-fired against the user's
+  // already-typed answers on every rebuild. When a rebuild IS genuine (new or
+  // re-curried effects mid-stream), `runInitialEffects` runs with the store
+  // already holding user answers: the engine's initial-run guard (see
+  // `isUserOwnedField`) is what keeps those re-fires off user-owned fields.
   //
   // `formIdentity` is deliberately a dependency the BODY does not read: it
   // exists to make this effect tear the engine down and rebuild it on a swap. The
@@ -1021,13 +1046,19 @@ export function FormProvider({
     effectEngineRef.current?.stop();
     effectEngineRef.current = null;
 
-    if (formConfig.effectsMap && Object.keys(formConfig.effectsMap).length > 0) {
+    if (stableEffectsMap && Object.keys(stableEffectsMap).length > 0) {
       const engine = new EffectEngine({
-        effectsMap: formConfig.effectsMap,
+        effectsMap: stableEffectsMap,
         store,
         revalidateField: (fieldId) => {
           void validateFieldRef.current?.(fieldId);
         },
+        // The provider's interaction record — every field whose value changed
+        // outside the provider's own writes since the last swap. Backs the
+        // engine's initial-run guard beyond `touched` (which only a blur
+        // sets): an answer typed under a still-streaming schema must survive
+        // the rebuild the next chunk causes.
+        isUserOwnedField: (fieldId) => userEditedFieldsRef.current.has(fieldId),
       });
       engine.start();
       engine.runInitialEffects();
@@ -1038,7 +1069,7 @@ export function FormProvider({
       effectEngineRef.current?.stop();
       effectEngineRef.current = null;
     };
-  }, [formIdentity, formConfig.effectsMap, store]);
+  }, [formIdentity, stableEffectsMap, store]);
 
   // Stable refs for callbacks
   const onFieldChangeRef = useRef(onFieldChange);
