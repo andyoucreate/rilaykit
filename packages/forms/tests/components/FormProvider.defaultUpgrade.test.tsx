@@ -413,6 +413,63 @@ describe('FormProvider upgrades an untouched torn streamed default when it compl
     expect(state?.values.tags).toBe(state?._defaultValues.tags);
   });
 
+  it('NEVER rewrites under the cursor: a user edit landing back on EXACTLY the torn prefix blocks the upgrade', async () => {
+    const config = createRil();
+
+    // A STRING default torn as "al": for primitives, identity IS value, so the
+    // baseline-identity precondition alone cannot see the user's edit.
+    const torn = compileForm(
+      {
+        version: 1,
+        id: 'prefs-form',
+        fields: [{ id: 'name', type: 'text', props: {}, default: 'al' }],
+      },
+      config,
+      { lenient: true }
+    );
+    const completed = compileForm(
+      {
+        version: 1,
+        id: 'prefs-form',
+        fields: [{ id: 'name', type: 'text', props: {}, default: 'alpha' }],
+      },
+      config
+    );
+
+    function Host() {
+      const [compiled, setCompiled] = useState(torn);
+      return (
+        <>
+          <button type="button" data-testid="complete" onClick={() => setCompiled(completed)}>
+            complete
+          </button>
+          <Form formConfig={compiled.formConfig} defaultValues={compiled.defaultValues}>
+            <FormBody />
+          </Form>
+        </>
+      );
+    }
+
+    render(<Host />);
+    expect(screen.getByTestId('input-name')).toHaveValue('al');
+
+    // The user types past the torn prefix, then deletes back to EXACTLY it —
+    // no blur, so `touched` never records the interaction.
+    fireEvent.change(screen.getByTestId('input-name'), { target: { value: 'alx' } });
+    fireEvent.change(screen.getByTestId('input-name'), { target: { value: 'al' } });
+
+    // The default completes mid-edit: the text under the cursor is the
+    // user's — it must NOT be rewritten to "alpha".
+    fireEvent.click(screen.getByTestId('complete'));
+
+    await waitFor(() => expect(screen.getByTestId('input-name')).toHaveValue('al'));
+    // Give any wrongly scheduled rewrite a beat to land before re-asserting.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('input-name')).toHaveValue('al');
+  });
+
   it('a workflow host echoing a user-edited value back through `defaultValues` never rewrites the baseline', async () => {
     const config = createRil();
 

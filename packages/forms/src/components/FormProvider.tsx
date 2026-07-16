@@ -381,7 +381,12 @@ function plainDataEquals(a: unknown, b: unknown): boolean {
  * host echoing captured values back through `defaultValues` echoes either that
  * same identity or the user's own object, neither of which differs from what
  * is already held), the field must be untouched (a blur is the user's even
- * over an unchanged value), and the new default must differ from the baseline
+ * over an unchanged value), the user must never have EDITED it (`userEdited` —
+ * the provider's record of every value write that was not its own; identity
+ * alone cannot see an edit that lands back on the exact torn prefix, because a
+ * primitive's identity IS its value: type "alx", delete back to "al", and the
+ * value is indistinguishable from the pristine baseline while the user's
+ * cursor is in the field), and the new default must differ from the baseline
  * IN VALUE (see `plainDataEquals` — a recompile of the same emission must not
  * fire). Used by both the detection pass and the seeding pass so the two can
  * never disagree.
@@ -391,9 +396,11 @@ function isUpgradableDefault(
   nextDefault: unknown,
   defaultsBaseline: Record<string, unknown>,
   values: Record<string, unknown>,
-  touched: Record<string, boolean>
+  touched: Record<string, boolean>,
+  userEdited: ReadonlySet<string>
 ): boolean {
   if (getOwn(touched, fieldId)) return false;
+  if (userEdited.has(fieldId)) return false;
   if (!hasOwn(defaultsBaseline, fieldId) || !hasOwn(values, fieldId)) return false;
   const baselineDefault = getOwn(defaultsBaseline, fieldId);
   if (getOwn(values, fieldId) !== baselineDefault) return false;
@@ -504,6 +511,24 @@ export function FormProvider({
   // reliably covers exactly the reset's own notification.
   const isResettingRef = useRef(false);
 
+  // Brackets the growth/retype pass's own store write, exactly as
+  // `isResettingRef` brackets the swap reset, so the values subscription can
+  // tell the provider seeding a default from the user (or an effect) writing a
+  // value. Separate flags because their consumers differ: this one must NOT
+  // suppress `onFieldsRemove` — a retype deleting a stale key is something the
+  // host's mirror must learn about.
+  const isApplyingConfigRef = useRef(false);
+
+  // Every field id whose VALUE changed outside the provider's own writes since
+  // the mounted form last swapped — a keystroke, a programmatic set, an
+  // effect's write. This is the interaction record `isUpgradableDefault` needs
+  // beyond `touched` (which only a blur sets) and beyond baseline identity
+  // (which cannot see a primitive edited back onto its own value): once the
+  // user has interacted with a field, a late-completing streamed default must
+  // never rewrite the text under their cursor, even when the current value
+  // coincidentally equals the torn prefix it recovered as.
+  const userEditedFieldsRef = useRef(new Set<string>());
+
   // Reset when the mounted form is swapped — reinitialize repeatable configs and
   // min items.
   //
@@ -539,6 +564,10 @@ export function FormProvider({
       prevIdentityRef.current = formIdentity;
       prevConfigSignatureRef.current = configSignature;
       prevShapeRef.current = configShape;
+
+      // A swap mounts a DIFFERENT form: nothing the user did to the previous
+      // one is an interaction with this one.
+      userEditedFieldsRef.current = new Set();
 
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
@@ -617,7 +646,8 @@ export function FormProvider({
         getOwn(defaultValues, field.id),
         defaultsBaseline,
         currentState.values,
-        currentState.touched
+        currentState.touched,
+        userEditedFieldsRef.current
       );
     });
     if (signatureMoved || hasLateDefault) {
@@ -701,6 +731,10 @@ export function FormProvider({
           delete validationStates[key];
           delete touched[key];
         }
+        // A retyped field is a fresh registration of a NEW control: what the
+        // user typed into the wrong control was dropped with the value, so the
+        // interaction record goes with it — exactly as `touched` does.
+        userEditedFieldsRef.current.delete(key);
       }
 
       // Retyped ids are excluded from the committed shape below so they seed
@@ -728,7 +762,8 @@ export function FormProvider({
               getOwn(grownDefaults, field.id),
               defaultsBaseline,
               values,
-              touched
+              touched,
+              userEditedFieldsRef.current
             )
           ) {
             continue;
@@ -775,18 +810,25 @@ export function FormProvider({
         // The error/validation/touched tables only join the write when a
         // retype actually cleared something — a pure growth pass must not
         // replace their references (and wake their subscribers) for nothing.
-        store.setState(
-          retypeCleared
-            ? {
-                values,
-                errors,
-                validationStates,
-                touched,
-                _repeatableOrder: order,
-                _repeatableNextKey: nextKeys,
-              }
-            : { values, _repeatableOrder: order, _repeatableNextKey: nextKeys }
-        );
+        // Bracketed so the values subscription attributes this write to the
+        // provider: a seeded default is nobody's interaction.
+        isApplyingConfigRef.current = true;
+        try {
+          store.setState(
+            retypeCleared
+              ? {
+                  values,
+                  errors,
+                  validationStates,
+                  touched,
+                  _repeatableOrder: order,
+                  _repeatableNextKey: nextKeys,
+                }
+              : { values, _repeatableOrder: order, _repeatableNextKey: nextKeys }
+          );
+        } finally {
+          isApplyingConfigRef.current = false;
+        }
         // A cleared error may have been the last thing wedging the global
         // isValid; recompute it from the surviving tables.
         if (retypeCleared) store.getState()._updateIsValid();
@@ -881,8 +923,17 @@ export function FormProvider({
     const unsubscribe = store.subscribe(
       (state) => state.values,
       (values, prevValues) => {
+        // Anything not bracketed as the provider's own write (the swap reset,
+        // the growth/retype seeding) is an interaction with the field — a
+        // keystroke, a programmatic set, an effect's write — and permanently
+        // disqualifies it from late-default upgrading. Zustand notifies
+        // synchronously inside `set`, so the brackets are exact.
+        const isProviderWrite = isResettingRef.current || isApplyingConfigRef.current;
         for (const fieldId of Object.keys(values)) {
           if (values[fieldId] !== prevValues[fieldId]) {
+            if (!isProviderWrite) {
+              userEditedFieldsRef.current.add(fieldId);
+            }
             onFieldChangeRef.current?.(fieldId, values[fieldId], values as Record<string, unknown>);
           }
         }
