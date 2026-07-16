@@ -1,10 +1,25 @@
 import React, { useCallback } from 'react';
-import { ConfigurationError, type RilayInstance } from '@rilaykit/core';
+import { ConfigurationError, getOwn, type RilayInstance } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
 import { isToolPart, type Part as PartType } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
+import { ShowComponent } from './fallbacks/ShowComponent';
 
 type AnyCatalog = RilayInstance<Record<string, unknown>>;
+
+/**
+ * Renderers the agent layer ships out of the box, keyed by tool name. Used only
+ * when the catalog itself has no renderer registered for that tool — a
+ * consumer's `.renderers({ tools: { show_component: ... } })` always wins.
+ *
+ * Looked up with `getOwn`, never `BUILT_IN_TOOLS[name]` or `name in
+ * BUILT_IN_TOOLS` directly: a tool literally named `toString` or
+ * `constructor` would otherwise resolve to an inherited `Object.prototype`
+ * member. This exact class of bug escaped seven times in P1/P2.
+ */
+const BUILT_IN_TOOLS: Record<string, (input: unknown, resolve: (output: unknown) => void) => React.ReactElement> = {
+  show_component: (input) => <ShowComponent node={(input as { node?: unknown }).node} />,
+};
 
 export interface PartProps {
   readonly part: PartType;
@@ -42,6 +57,8 @@ export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps
     const entry = resolved.getTool(part.name);
     const Renderer = entry?.renderer;
     if (!Renderer) {
+      const builtIn = getOwn(BUILT_IN_TOOLS, part.name);
+      if (builtIn) return builtIn(part.input, resolve);
       return Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
     }
     return (
