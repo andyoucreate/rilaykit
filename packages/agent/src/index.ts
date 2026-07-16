@@ -11,3 +11,9 @@ export {
 export { uiTools } from './tools/ui-tools';
 export { componentNodeSchema } from './tools/component-node-schema';
 export type { ComponentNode } from './types/component-node';
+export {
+  toEmissionResult,
+  validateNodeProps,
+  type EmissionIssue,
+  type EmissionResult,
+} from './errors/emission-error';

@@ -2,3 +2,4 @@ export { Catalog, useCatalog, useCatalogEntry, type CatalogProps } from '@rilayk
 export { Part, type PartProps } from './Part';
 export { Parts, type PartsProps } from './Parts';
 export { DefaultTool, humanizeToolName } from './fallbacks/DefaultTool';
+export { EmissionErrorView } from './fallbacks/EmissionErrorView';
