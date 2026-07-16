@@ -12,6 +12,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js"
+    },
+    "./ai-sdk": {
+      "types": "./dist/ai-sdk/index.d.ts",
+      "import": "./dist/ai-sdk/index.mjs",
+      "require": "./dist/ai-sdk/index.js"
+    },
+    "./anthropic": {
+      "types": "./dist/anthropic/index.d.ts",
+      "import": "./dist/anthropic/index.mjs",
+      "require": "./dist/anthropic/index.js"
     }
   },
   "files": ["dist"],
@@ -40,6 +55,7 @@
     "url": "https://github.com/andyoucreate/rilaykit/issues"
   },
   "dependencies": {
+    "@rilaykit/agent": "workspace:*",
     "@rilaykit/core": "workspace:*",
     "@rilaykit/forms": "workspace:*",
     "@rilaykit/workflow": "workspace:*"

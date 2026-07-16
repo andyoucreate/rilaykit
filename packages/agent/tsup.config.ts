@@ -6,5 +6,16 @@ export default defineConfig({
   dts: true,
   clean: true,
   splitting: false,
-  external: ['react', 'react-dom', 'ai', '@anthropic-ai/sdk'],
+  // @rilaykit/* workspace deps stay external (mirrors core/forms/workflow's own
+  // tsup configs): bundling @rilaykit/forms here pulled its React components —
+  // and therefore runtime `react` — into this package's isomorphic main entry.
+  external: [
+    'react',
+    'react-dom',
+    'ai',
+    '@anthropic-ai/sdk',
+    '@rilaykit/core',
+    '@rilaykit/forms',
+    '@rilaykit/workflow',
+  ],
 });

@@ -309,6 +309,9 @@ importers:
 
   packages/rilaykit:
     dependencies:
+      '@rilaykit/agent':
+        specifier: workspace:*
+        version: link:../agent
       '@rilaykit/core':
         specifier: workspace:*
         version: link:../core

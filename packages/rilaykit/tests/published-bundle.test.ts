@@ -44,7 +44,27 @@ const PUBLISHED_PACKAGES: PublishedPackage[] = [
   { name: '@rilaykit/core', dir: 'core', minExports: 40 },
   { name: '@rilaykit/forms', dir: 'forms', minExports: 40 },
   { name: '@rilaykit/workflow', dir: 'workflow', minExports: 30 },
+  { name: '@rilaykit/agent', dir: 'agent', minExports: 5 },
   { name: 'rilaykit', dir: 'rilaykit', minExports: 150 },
+];
+
+/**
+ * A package's non-main entry point, e.g. `@rilaykit/agent/react`. Same shape as
+ * `PublishedPackage` (so it can reuse `entries`/`inspectPublishedBundles`) plus
+ * the subpath segment under `dist/`.
+ */
+interface PublishedSubpath extends PublishedPackage {
+  /** Directory under `dist/`, e.g. `'react'` for `dist/react/index.js`. */
+  readonly subpath: string;
+}
+
+const PUBLISHED_SUBPATHS: PublishedSubpath[] = [
+  { name: '@rilaykit/agent/react', dir: 'agent', subpath: 'react', minExports: 5 },
+  { name: '@rilaykit/agent/ai-sdk', dir: 'agent', subpath: 'ai-sdk', minExports: 1 },
+  { name: '@rilaykit/agent/anthropic', dir: 'agent', subpath: 'anthropic', minExports: 1 },
+  { name: 'rilaykit/react', dir: 'rilaykit', subpath: 'react', minExports: 5 },
+  { name: 'rilaykit/ai-sdk', dir: 'rilaykit', subpath: 'ai-sdk', minExports: 1 },
+  { name: 'rilaykit/anthropic', dir: 'rilaykit', subpath: 'anthropic', minExports: 1 },
 ];
 
 function packageDir(pkg: PublishedPackage): string {
@@ -58,8 +78,9 @@ function readManifest(pkg: PublishedPackage): Record<string, unknown> {
   >;
 }
 
-function entries(pkg: PublishedPackage): { cjs: string; esm: string } {
-  const dist = join(packageDir(pkg), 'dist');
+/** `subpath` selects a non-main entry, e.g. `entries(pkg, 'react')` → `dist/react/index.js`. */
+function entries(pkg: PublishedPackage, subpath?: string): { cjs: string; esm: string } {
+  const dist = subpath ? join(packageDir(pkg), 'dist', subpath) : join(packageDir(pkg), 'dist');
   return { cjs: join(dist, 'index.js'), esm: join(dist, 'index.mjs') };
 }
 
@@ -67,6 +88,13 @@ const isBuilt = PUBLISHED_PACKAGES.every((pkg) => {
   const { cjs, esm } = entries(pkg);
   return existsSync(cjs) && existsSync(esm);
 });
+
+const subpathsBuilt = PUBLISHED_SUBPATHS.every((sub) => {
+  const { cjs, esm } = entries(sub, sub.subpath);
+  return existsSync(cjs) && existsSync(esm);
+});
+
+const allBuilt = isBuilt && subpathsBuilt;
 
 interface BundleReport {
   cjsExports: string[];
@@ -76,10 +104,11 @@ interface BundleReport {
 /**
  * Loads one package's two bundles in a real node process and reports what they
  * expose. `require()` and `import()` run against the emitted files with node's
- * own resolution — no bundler, no alias, no transform.
+ * own resolution — no bundler, no alias, no transform. `subpath` selects a
+ * non-main entry (see `entries`).
  */
-function inspectPublishedBundles(pkg: PublishedPackage): BundleReport {
-  const { cjs, esm } = entries(pkg);
+function inspectPublishedBundles(pkg: PublishedPackage, subpath?: string): BundleReport {
+  const { cjs, esm } = entries(pkg, subpath);
   const probe = `
     (async () => {
       const cjsModule = require(${JSON.stringify(cjs)});
@@ -191,6 +220,29 @@ function inspectSchemaError(): SchemaErrorReport {
   return JSON.parse(stdout) as SchemaErrorReport;
 }
 
+/**
+ * Mirrors `packages/core/tests/isomorphic-entry.test.ts`'s technique: an
+ * isomorphic main entry must never load runtime React into a fresh process's
+ * module graph, since server code (`lib/catalog.ts`-style blueprints, RSC)
+ * imports it directly. A module-scope `createContext` there crashes a Server
+ * Component. `require.cache` is inspected from INSIDE the child process — this
+ * has to run isolated from every other `require()` in this file, which is why
+ * it is its own `execFileSync` call rather than reusing `inspectPublishedBundles`.
+ */
+function requireDoesNotPullReact(entryPath: string): boolean {
+  const script = `
+    require(${JSON.stringify(entryPath)});
+    const pulled = Object.keys(require.cache).some((p) => /node_modules[\\\\/]react[\\\\/]/.test(p));
+    process.exit(pulled ? 1 : 0);
+  `;
+  try {
+    execFileSync(process.execPath, ['-e', script], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe.skipIf(!isBuilt)('every published bundle loads in a real node process', () => {
   for (const pkg of PUBLISHED_PACKAGES) {
     it(`${pkg.name}: require()s the CJS bundle and import()s the ESM bundle with an identical surface`, () => {
@@ -243,6 +295,44 @@ describe.skipIf(!isBuilt)('every published bundle loads in a real node process',
     expect(report.identityMatchesForms).toBe(true);
     expect(report.identityMatchesAllInOne).toBe(true);
   });
+
+  it('@rilaykit/agent: the main entry does not pull React into the module graph', () => {
+    // uiTools, manifest, parsePartialJson, and the emission-error helpers are
+    // PURE SCHEMAS meant to be imported by server code (see the module docstring
+    // on `packages/agent/src/tools/ui-tools.ts`). React components live behind
+    // `@rilaykit/agent/react` instead — this is what keeps the split real rather
+    // than a documentation-only promise.
+    const agent = PUBLISHED_PACKAGES.find((pkg) => pkg.name === '@rilaykit/agent');
+    if (!agent) throw new Error('@rilaykit/agent is missing from PUBLISHED_PACKAGES');
+    expect(requireDoesNotPullReact(entries(agent).cjs)).toBe(true);
+  });
+
+  // NOTE: `rilaykit`'s own main entry is NOT guarded the same way here. Unlike
+  // `@rilaykit/core` and (as of this file) `@rilaykit/agent`, `@rilaykit/forms`
+  // and `@rilaykit/workflow` were never split into an isomorphic main + a
+  // `/react` subpath — `Form`, `Flow`, and the rest of their compound
+  // components live in those packages' single main entry, which `rilaykit`
+  // re-exports wholesale. `rilaykit`'s main entry has therefore always pulled
+  // React (verified: it does, before and after this file's changes) and fixing
+  // that is a forms/workflow restructuring outside this guard's scope. `Parts`
+  // and `Catalog` staying OUT of `rilaykit`'s named exports (see
+  // `tests/agent-surface.test.ts`) is the isomorphism guarantee this task adds;
+  // it does not retroactively make the whole barrel React-free.
+});
+
+describe.skipIf(!allBuilt)('every published subpath entry loads in a real node process', () => {
+  for (const sub of PUBLISHED_SUBPATHS) {
+    it(`${sub.name}: require()s the CJS bundle and import()s the ESM bundle with an identical surface`, () => {
+      const report = inspectPublishedBundles(sub, sub.subpath);
+
+      // Same collapsed-barrel guard as the main entries: an empty or
+      // near-empty object means the subpath silently lost its exports.
+      expect(report.cjsExports.length).toBeGreaterThan(sub.minExports);
+
+      // CJS and ESM are two emits of the SAME barrel.
+      expect(report.cjsExports).toEqual(report.esmExports);
+    });
+  }
 });
 
 /**
@@ -302,7 +392,7 @@ describe('every published package ships its license text', () => {
   }
 });
 
-describe.skipIf(isBuilt)('published-bundle checks', () => {
+describe.skipIf(allBuilt)('published-bundle checks', () => {
   it.skip(`skipped — a package's dist/ is absent. These checks read the emitted
     bundles, so they need a build: run \`pnpm build\` (or \`pnpm test:ci\`, which builds
     first — this is how CI always runs them).`, () => {});

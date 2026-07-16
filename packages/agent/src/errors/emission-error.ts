@@ -1,4 +1,4 @@
-import { SchemaValidationError } from '@rilaykit/forms';
+import type { SchemaValidationError } from '@rilaykit/forms';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 export interface EmissionIssue {
@@ -52,12 +52,26 @@ function safeMessage(error: unknown): string {
   }
 }
 
+/**
+ * Structural check against `SchemaValidationError`, not `instanceof` — this module
+ * is imported by `lib/catalog.ts`-style server blueprints and must never pull a
+ * runtime value from `@rilaykit/forms` (forms' main entry bundles its React
+ * components). `code` is the class's own discriminant (`SchemaValidationError`'s
+ * `readonly code = 'SCHEMA_VALIDATION_ERROR' as const`), so this narrows exactly
+ * as reliably as `instanceof` without importing the class.
+ */
+function isSchemaValidationError(error: unknown): error is SchemaValidationError {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as unknown as { readonly code?: unknown; readonly issues?: unknown };
+  return candidate.code === 'SCHEMA_VALIDATION_ERROR' && Array.isArray(candidate.issues);
+}
+
 /** Never throws. An emission failure is data the model retries from, not an exception. */
 export function toEmissionResult(
   error: unknown,
   expectedKeys: readonly string[] = []
 ): EmissionResult {
-  if (error instanceof SchemaValidationError) {
+  if (isSchemaValidationError(error)) {
     return {
       error: safeMessage(error),
       issues: error.issues.map((issue) => ({

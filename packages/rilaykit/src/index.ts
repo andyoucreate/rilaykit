@@ -105,6 +105,18 @@ export {
 } from '@rilaykit/workflow';
 
 // =============================================================================
+// @rilaykit/agent — isomorphic surface only (Part types/guards, uiTools,
+// manifest, parsePartialJson, ComponentNode, emission errors). No collisions
+// with core/forms/workflow today; verified against the built dist.
+//
+// React components (Catalog, Part, Parts, fallbacks) live behind `rilaykit/react`
+// — NOT re-exported here. `lib/catalog.ts`-style blueprints import `uiTools`
+// from this main entry on the server; pulling React into it would crash any
+// RSC importing it. See `tests/agent-surface.test.ts`.
+// =============================================================================
+export * from '@rilaykit/agent';
+
+// =============================================================================
 // Enhanced ril — overrides @rilaykit/core's ril with .form() and .flow()
 // =============================================================================
 export { ril, type RilayKit } from './create-ril';
