@@ -67,6 +67,7 @@ export function useWorkflowSubmission({
   clearPersistedStateRef.current = clearPersistedState;
 
   // Submit workflow
+  // biome-ignore lint/correctness/useExhaustiveDependencies: workflowCompletedRef is a ref written for its side effect, not an input that should recreate the callback
   const submitWorkflow = useCallback(async () => {
     setSubmitting(true);
 

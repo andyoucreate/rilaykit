@@ -1,3 +1,4 @@
+import { type MonitoringEvent, RemoteAdapter } from '@rilaykit/core';
 /**
  * Round-4 Bug 7 — RemoteAdapter concurrent drain must not produce a
  * false-FAILURE. When an early network batch fails but a later batch (covering
@@ -6,7 +7,6 @@
  * sent twice.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type MonitoringEvent, RemoteAdapter } from '@rilaykit/core';
 
 const ENDPOINT = 'https://monitor.example.com/ingest';
 
@@ -69,8 +69,7 @@ describe('RemoteAdapter concurrent drain (Bug 7)', () => {
 
     // No event delivered more than once.
     const sentIds = fetchMock.mock.calls
-      .map((call) => JSON.parse((call[1] as RequestInit).body as string).events)
-      .flat()
+      .flatMap((call) => JSON.parse((call[1] as RequestInit).body as string).events)
       .map((e: MonitoringEvent) => e.id);
     expect(sentIds.filter((id) => id === 'evt-B')).toHaveLength(1);
     expect(sentIds.filter((id) => id === 'evt-C')).toHaveLength(1);

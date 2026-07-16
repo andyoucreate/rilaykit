@@ -114,7 +114,6 @@ interface Seam {
   readonly goToXray: () => Promise<void>;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: a built flow config, whatever its catalog
 function renderSeam(workflowConfig: any): Seam {
   let store: FormStore | null = null;
   render(

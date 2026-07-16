@@ -10,7 +10,7 @@ function createRil() {
   return ril.create().component('input', { name: 'Text Input', renderer: MockInput });
 }
 
-function buildFlow(config: ReturnType<typeof createRil>, analytics: Record<string, unknown>) {
+function buildFlow(config: ReturnType<typeof createRil>) {
   return flow
     .create(config, 'skip-flow', 'Skip Flow')
     .addStep({
@@ -56,7 +56,7 @@ describe('skip transition failure must not leak the skip-suppression signal', ()
     const config = createRil();
     const onStepComplete = vi.fn();
     const onStepStart = vi.fn();
-    const workflowConfig = buildFlow(config, { onStepComplete, onStepStart });
+    const workflowConfig = buildFlow(config);
 
     // onStepChange throws exactly once (fails the skip's transition), then succeeds.
     let thrown = false;
@@ -101,7 +101,7 @@ describe('skip transition failure must not leak the skip-suppression signal', ()
     const config = createRil();
     const onStepComplete = vi.fn();
     const onStepStart = vi.fn();
-    const workflowConfig = buildFlow(config, { onStepComplete, onStepStart });
+    const workflowConfig = buildFlow(config);
 
     render(
       <WorkflowProvider

@@ -71,6 +71,7 @@ export function useWorkflowAnalytics({
   // Fire onWorkflowAbandon on unmount IFF the workflow was started but never
   // completed. Runs exactly once (empty deps) so it only reacts to a real
   // unmount, reading current values through refs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refs only; unmount-only cleanup
   useEffect(() => {
     return () => {
       const analytics = configRef.current.analytics;
@@ -89,7 +90,6 @@ export function useWorkflowAnalytics({
         );
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs only; unmount-only cleanup
   }, []);
 
   // Get global monitor for enhanced tracking

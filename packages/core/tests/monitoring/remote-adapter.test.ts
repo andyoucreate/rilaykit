@@ -6,8 +6,8 @@
  * 5xx, and rethrow of the last error).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigurationError, type MonitoringEvent, RemoteAdapter } from '@rilaykit/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ENDPOINT = 'https://monitor.example.com/ingest';
 

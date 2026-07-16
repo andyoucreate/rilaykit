@@ -259,6 +259,7 @@ export function usePersistence({
   /**
    * Auto-persistence effect
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: workflowCompletedRef is a ref read for its current value, not an input that should retrigger the effect
   useEffect(() => {
     if (!optionsRef.current.autoPersist) return;
 

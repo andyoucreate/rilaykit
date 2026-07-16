@@ -8,14 +8,10 @@
  * spies.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DevelopmentAdapter, type MonitoringEvent } from '@rilaykit/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-function perfEvent(
-  id: string,
-  type: MonitoringEvent['type'],
-  duration: number
-): MonitoringEvent {
+function perfEvent(id: string, type: MonitoringEvent['type'], duration: number): MonitoringEvent {
   return {
     id,
     type,
