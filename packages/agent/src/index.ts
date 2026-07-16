@@ -16,4 +16,5 @@ export {
   validateNodeProps,
   type EmissionIssue,
   type EmissionResult,
+  type NodePropsValidation,
 } from './errors/emission-error';

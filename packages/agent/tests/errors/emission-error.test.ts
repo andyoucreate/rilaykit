@@ -84,13 +84,24 @@ describe('toEmissionResult', () => {
 describe('validateNodeProps', () => {
   const propsSchema = z.object({ label: z.string() });
 
-  it('returns null for valid props', () => {
-    expect(validateNodeProps(propsSchema, { label: 'Name' })).toBeNull();
+  it('returns the parsed value for valid props', () => {
+    expect(validateNodeProps(propsSchema, { label: 'Name' })).toEqual({
+      ok: true,
+      value: { label: 'Name' },
+    });
+  });
+
+  it('returns the PARSED value, not the raw input — zod strip mode drops excess keys', () => {
+    expect(
+      validateNodeProps(propsSchema, { label: 'Name', dangerouslySetInnerHTML: { __html: '<img onerror=x>' } })
+    ).toEqual({ ok: true, value: { label: 'Name' } });
   });
 
   it('names the offending path and the keys the model should have emitted', () => {
-    const result = validateNodeProps(propsSchema, { labl: 'Name' });
-    expect(result?.expectedKeys).toEqual(['label']);
-    expect(result?.issues[0]?.path).toBe('label');
+    const validation = validateNodeProps(propsSchema, { labl: 'Name' });
+    expect(validation.ok).toBe(false);
+    if (validation.ok) return;
+    expect(validation.result.expectedKeys).toEqual(['label']);
+    expect(validation.result.issues[0]?.path).toBe('label');
   });
 });

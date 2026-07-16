@@ -77,23 +77,39 @@ function expectedKeysOf(schema: StandardSchemaV1): string[] {
   return shape ? Object.keys(shape) : [];
 }
 
-/** Returns null when the props are valid; an EmissionResult when they are not. */
-export function validateNodeProps(schema: StandardSchemaV1, props: unknown): EmissionResult | null {
+/**
+ * Discriminated outcome of `validateNodeProps`. On success it carries the
+ * schema's PARSED value — the renderer must receive that, never the raw props:
+ * zod strip mode silently drops excess keys (`dangerouslySetInnerHTML`, ...)
+ * only in the parsed output, not in the input it was handed.
+ */
+export type NodePropsValidation =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly result: EmissionResult };
+
+/** Returns the parsed value when the props are valid; an EmissionResult when they are not. */
+export function validateNodeProps(schema: StandardSchemaV1, props: unknown): NodePropsValidation {
   const result = schema['~standard'].validate(props);
   if (result instanceof Promise) {
     return {
-      error: 'propsSchema must validate synchronously to render an agent emission',
-      issues: [],
-      expectedKeys: expectedKeysOf(schema),
+      ok: false,
+      result: {
+        error: 'propsSchema must validate synchronously to render an agent emission',
+        issues: [],
+        expectedKeys: expectedKeysOf(schema),
+      },
     };
   }
-  if (!result.issues) return null;
+  if (!result.issues) return { ok: true, value: result.value };
   return {
-    error: 'Invalid props',
-    issues: result.issues.map((issue) => ({
-      path: pathToString(issue.path),
-      message: issue.message,
-    })),
-    expectedKeys: expectedKeysOf(schema),
+    ok: false,
+    result: {
+      error: 'Invalid props',
+      issues: result.issues.map((issue) => ({
+        path: pathToString(issue.path),
+        message: issue.message,
+      })),
+      expectedKeys: expectedKeysOf(schema),
+    },
   };
 }

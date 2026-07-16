@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { ConfigurationError, getOwn, type RilayInstance } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
-import { isToolPart, type Part as PartType } from '../types/part';
+import { isToolPart, type Part as PartType, type PartState } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 import { ShowComponent } from './fallbacks/ShowComponent';
 
@@ -16,9 +16,17 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
  * BUILT_IN_TOOLS` directly: a tool literally named `toString` or
  * `constructor` would otherwise resolve to an inherited `Object.prototype`
  * member. This exact class of bug escaped seven times in P1/P2.
+ *
+ * A built-in may return null: `show_component` renders nothing while the part is
+ * still `streaming` — its `input` is then a deep-partial parse, and validating a
+ * half-arrived tree would flash misleading error views for every unfinished node.
  */
-const BUILT_IN_TOOLS: Record<string, (input: unknown, resolve: (output: unknown) => void) => React.ReactElement> = {
-  show_component: (input) => <ShowComponent node={(input as { node?: unknown }).node} />,
+const BUILT_IN_TOOLS: Record<
+  string,
+  (input: unknown, state: PartState, resolve: (output: unknown) => void) => React.ReactElement | null
+> = {
+  show_component: (input, state) =>
+    state === 'streaming' ? null : <ShowComponent node={(input as { node?: unknown }).node} />,
 };
 
 export interface PartProps {
@@ -58,7 +66,7 @@ export function Part({ part, onResolve, catalog, fallback: Fallback }: PartProps
     const Renderer = entry?.renderer;
     if (!Renderer) {
       const builtIn = getOwn(BUILT_IN_TOOLS, part.name);
-      if (builtIn) return builtIn(part.input, resolve);
+      if (builtIn) return builtIn(part.input, part.state, resolve);
       return Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
     }
     return (

@@ -1,13 +1,31 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { ril } from '@rilaykit/core';
 import { Catalog } from '@rilaykit/core/react';
+import { MAX_NODE_DEPTH } from '../../src/react/fallbacks/ShowComponent';
 import { Part } from '../../src/react/Part';
 import { uiTools } from '../../src/tools/ui-tools';
 
+let probedProps: Record<string, unknown> | null = null;
+
 const catalog = ril
   .create()
+  .component('probe', {
+    description: 'Records the props its renderer receives',
+    propsSchema: z.object({ label: z.string() }),
+    renderer: ({ props }) => {
+      probedProps = props;
+      return <span>{String(props.label)}</span>;
+    },
+  })
+  .component('bomb', {
+    description: 'A renderer that throws',
+    propsSchema: z.object({}),
+    renderer: () => {
+      throw new Error('renderer exploded');
+    },
+  })
   .component('stack', {
     description: 'Vertical stack',
     propsSchema: z.object({ gap: z.number() }),
@@ -20,10 +38,19 @@ const catalog = ril
   })
   .use(uiTools());
 
-function showComponent(node: unknown) {
+/** Builds a chain of `length` nodes: `length - 1` nested stacks around a badge leaf. */
+function deepTree(length: number): unknown {
+  let node: unknown = { type: 'badge', props: { label: 'leaf' } };
+  for (let index = 1; index < length; index += 1) {
+    node = { type: 'stack', props: { gap: 1 }, children: [node] };
+  }
+  return node;
+}
+
+function showComponent(node: unknown, state: 'streaming' | 'ready' = 'ready') {
   return render(
     <Catalog value={catalog}>
-      <Part part={{ type: 'tool', toolCallId: 'c1', name: 'show_component', state: 'ready', input: { node } }} />
+      <Part part={{ type: 'tool', toolCallId: 'c1', name: 'show_component', state, input: { node } }} />
     </Catalog>
   );
 }
@@ -70,8 +97,76 @@ describe('show_component built-in renderer', () => {
     expect(screen.getByText(/buton/)).toBeInTheDocument();
   });
 
+  it('renders NOTHING while the part is streaming — partial input must not produce error views', () => {
+    const { container } = showComponent({ type: 'stack', props: { gap: 8 }, children: undefined }, 'streaming');
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders the tree once the same part reaches ready', () => {
+    showComponent({ type: 'badge', props: { label: 'now-ready' } }, 'ready');
+    expect(screen.getByText('now-ready')).toBeInTheDocument();
+  });
+
   it('reports a malformed node instead of crashing', () => {
     showComponent({ nope: true });
     expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+  });
+
+  it('caps recursion — a 10,000-deep tree yields an error view, not a stack overflow', () => {
+    showComponent(deepTree(10_000));
+    expect(screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)).toBeInTheDocument();
+  });
+
+  it('renders a tree exactly at the depth cap', () => {
+    showComponent(deepTree(MAX_NODE_DEPTH));
+    expect(screen.getByText('leaf')).toBeInTheDocument();
+    expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
+  });
+
+  it('errors one past the depth cap, and the SIBLING of the too-deep subtree still renders', () => {
+    showComponent({
+      type: 'stack',
+      props: { gap: 0 },
+      children: [deepTree(MAX_NODE_DEPTH), { type: 'badge', props: { label: 'survivor' } }],
+    });
+    expect(screen.getByText('survivor')).toBeInTheDocument();
+    expect(screen.getByText(`Component tree too deep: the maximum depth is ${MAX_NODE_DEPTH}`)).toBeInTheDocument();
+    expect(screen.queryByText('leaf')).not.toBeInTheDocument();
+  });
+
+  it('hands the renderer the PARSED props — an excess hostile key is stripped', () => {
+    probedProps = null;
+    showComponent({
+      type: 'probe',
+      props: { label: 'safe', dangerouslySetInnerHTML: { __html: '<img onerror=x>' } },
+    });
+    expect(screen.getByText('safe')).toBeInTheDocument();
+    expect(probedProps).toEqual({ label: 'safe' });
+  });
+
+  it('CONTAINS a throwing renderer — its sibling still renders, nothing propagates', () => {
+    // React logs boundary-caught errors to console.error in dev; scoped test plumbing.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      showComponent({
+        type: 'stack',
+        props: { gap: 4 },
+        children: [
+          { type: 'bomb', props: {} },
+          { type: 'badge', props: { label: 'still-here' } },
+        ],
+      });
+      expect(screen.getByText('still-here')).toBeInTheDocument();
+      expect(screen.getByText('renderer exploded')).toBeInTheDocument();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('reports non-array children instead of crashing', () => {
+    showComponent({ type: 'stack', props: { gap: 8 }, children: 'nope' });
+    expect(
+      screen.getByText('Invalid "children" on component "stack": expected an array of component nodes, got string')
+    ).toBeInTheDocument();
   });
 });

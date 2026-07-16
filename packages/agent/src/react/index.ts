@@ -3,4 +3,4 @@ export { Part, type PartProps } from './Part';
 export { Parts, type PartsProps } from './Parts';
 export { DefaultTool, humanizeToolName } from './fallbacks/DefaultTool';
 export { EmissionErrorView } from './fallbacks/EmissionErrorView';
-export { ShowComponent } from './fallbacks/ShowComponent';
+export { MAX_NODE_DEPTH, ShowComponent } from './fallbacks/ShowComponent';

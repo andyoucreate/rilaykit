@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 /**
  * Recursive via z.lazy — `z.toJSONSchema()` emits a `$ref`/`$defs` cycle that both
- * Anthropic and the AI SDK accept. Depth is bounded at render time, not here.
+ * Anthropic and the AI SDK accept. Depth is bounded at render time by
+ * `MAX_NODE_DEPTH` (see react/fallbacks/ShowComponent.tsx), not here.
  */
 export const componentNodeSchema: z.ZodType<{
   type: string;
