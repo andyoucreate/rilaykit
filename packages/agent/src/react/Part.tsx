@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { ConfigurationError, getOwn, type RilayInstance } from '@rilaykit/core';
 import { useCatalogOrNull } from '@rilaykit/core/react';
+import { parsePartialJson } from '../streaming/parse-partial-json';
 import { isToolPart, type Part as PartType, type ToolPart } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
 import { ShowComponent } from './fallbacks/ShowComponent';
@@ -19,14 +20,19 @@ type AnyCatalog = RilayInstance<Record<string, unknown>>;
  * `constructor` would otherwise resolve to an inherited `Object.prototype`
  * member. This exact class of bug escaped seven times in P1/P2.
  *
- * A built-in may return null: every premium tool renders nothing while the part
- * is still `streaming` — its `input` is then a deep-partial parse, and
- * compiling/validating a half-arrived schema or tree would flash misleading
- * error views for every unfinished node. For `show_form` this is a FOR-NOW
- * decision: Task 12 introduces progressive mounting for it. Flows render at
- * `ready` ONLY by spec — a deliberate scope cut, not a deferral.
+ * A built-in may return null: `show_component` and `show_flow` render nothing
+ * while the part is still `streaming` — their `input` is then a deep-partial
+ * parse, and compiling/validating a half-arrived tree would flash misleading
+ * error views for every unfinished node. Flows render at `ready` ONLY by spec —
+ * a deliberate scope cut, not a deferral.
  *
- * The interactive built-ins (`show_form`, `show_flow`) mount at `ready` ONLY:
+ * `show_form` streams PROGRESSIVELY instead: fields mount as their definitions
+ * complete (lenient compilation), the user can start typing immediately, and
+ * both answers stay LOCKED until the emitted JSON is provably complete —
+ * `rawInput` parses as complete JSON, or the part reaches `ready`. Without a
+ * `rawInput` there is no completeness signal, so the lock holds until `ready`.
+ *
+ * The interactive built-ins (`show_form`, `show_flow`) answer at `ready` ONLY:
  * at `done`/`error` they render the bare `DefaultTool` marker (its
  * `data-tool-name`/`data-tool-state` hooks carry the styling), because a
  * rehydrated conversation must not re-arm an already-answered tool call —
@@ -39,7 +45,21 @@ const BUILT_IN_TOOLS: Record<
   show_component: ({ input, state }) =>
     state === 'streaming' ? null : <ShowComponent node={(input as { node?: unknown }).node} />,
   show_form: (part, resolve) => {
-    if (part.state === 'streaming') return null;
+    if (part.state === 'streaming') {
+      // The adapter normally hands a deep-partial `input`; when only the raw
+      // JSON text has arrived, recover what it holds so far. Both carriers are
+      // checked — `input` wins when present, `rawInput` alone still mounts.
+      const parsed =
+        typeof part.rawInput === 'string' ? parsePartialJson(part.rawInput) : undefined;
+      const input = part.input ?? parsed?.value;
+      return (
+        <ShowForm
+          schema={(input as { schema?: unknown } | undefined)?.schema}
+          resolve={resolve}
+          pending={parsed?.complete !== true}
+        />
+      );
+    }
     if (part.state !== 'ready') return <DefaultTool part={part} />;
     return (
       <ShowForm schema={(part.input as { schema?: unknown } | undefined)?.schema} resolve={resolve} />

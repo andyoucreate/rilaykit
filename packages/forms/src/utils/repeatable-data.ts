@@ -22,8 +22,12 @@ const COMPOSITE_KEY_REGEX = /^([^[\]]+)\[([^\]]+)\]\.(.+)$/;
  * EVERY write in this file that is keyed by an author-chosen id — a field id, a
  * template field id, a repeatable id — must go through this helper. Plain `=`
  * and `Object.assign` both use [[Set]] semantics and launder the fix away.
+ *
+ * Exported for the other writers of the same tables: FormProvider's progressive
+ * growth path seeds store values/order/next-keys under author-chosen ids and is
+ * bound by the exact same discipline.
  */
-function defineOwn(table: Record<string, unknown>, key: string, value: unknown): void {
+export function defineOwn(table: Record<string, unknown>, key: string, value: unknown): void {
   Object.defineProperty(table, key, {
     value,
     writable: true,

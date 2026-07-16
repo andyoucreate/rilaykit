@@ -208,6 +208,21 @@ export interface CompileFormOptions {
    * agent-authored schemas, not a cost paid by hand-written ones.
    */
   readonly validateProps?: boolean;
+  /**
+   * Streaming tolerance: compile the COMPILABLE SUBSET of a partial schema
+   * instead of raising. A field whose definition is incomplete this render —
+   * missing `id`, missing or unknown `type`, non-object props, or (with
+   * `validateProps`) props that do not pass the component's propsSchema yet —
+   * is SKIPPED, never reported: the next chunk may complete it. A field whose
+   * core definition is complete mounts immediately; an invalid or half-arrived
+   * `validation` / `effects` / `conditions` block is stripped from it rather
+   * than unmounting the field. `compileForm` never throws in lenient mode.
+   *
+   * Off by default — strict compilation (throw on any defect) is the contract
+   * for settled schemas; lenient exists ONLY for `state === 'streaming'`
+   * emissions being progressively mounted.
+   */
+  readonly lenient?: boolean;
 }
 
 /**

@@ -4,7 +4,7 @@ import type {
   SubmitOptions,
   ValidationResult,
 } from '@rilaykit/core';
-import { ConfigurationError, hasOwn } from '@rilaykit/core';
+import { ConfigurationError, getOwn, hasOwn } from '@rilaykit/core';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { EffectEngine } from '../effects/effect-engine';
@@ -14,7 +14,7 @@ import { useFormValidationWithStore } from '../hooks/useFormValidationWithStore'
 import { useIsomorphicLayoutEffect } from '../hooks/useIsomorphicLayoutEffect';
 import { FormStoreContext, createFormStore } from '../stores';
 import { holdsOnlyConditionalRequiredError } from '../utils/conditional-required';
-import { initializeRepeatableState } from '../utils/repeatable-data';
+import { defineOwn, initializeRepeatableState, parseCompositeKey } from '../utils/repeatable-data';
 
 // =================================================================
 // FORM CONFIG CONTEXT
@@ -30,7 +30,9 @@ export interface FormConfigContextValue {
    * Opaque identity of the form CURRENTLY mounted. Treat the value as
    * meaningless and only ever compare it for equality: it changes exactly when
    * this provider swaps forms — a workflow step transition, or a schema
-   * re-emitted with a new shape — and never on an ordinary re-render.
+   * re-emitted with a new shape — and never on an ordinary re-render. A schema
+   * that merely GREW (fields appended, nothing dropped or retyped — a streaming
+   * emission being progressively mounted) is the SAME form and keeps it.
    *
    * Anything below the provider that holds STEP-SCOPED work must key on it.
    * `formConfig` cannot stand in: two workflow steps may be handed the SAME
@@ -154,7 +156,8 @@ export interface FormProviderProps {
  * input on each one. Only the shape of what can be STORED is compared — each
  * field's id AND type, and the repeatable ids with their own fields — so a
  * re-emitted identical schema (new objects, same shape) does not reset, while a
- * schema that adds, drops or RETYPES a field does. Presentation-only churn
+ * schema that drops or RETYPES a field does — a schema that only APPENDS fields
+ * is growth, not a swap; see below. Presentation-only churn
  * (labels, props, row layout) is intentionally invisible here: it orphans no
  * value.
  *
@@ -163,14 +166,45 @@ export interface FormProviderProps {
  * to `{id:'x', type:'number'}` under a stable form id orphans the stored string
  * exactly as removing the field would — and the host's evolved contract says
  * number.
+ *
+ * A signature CHANGE is however not yet a swap. GROWTH — the same owner, the
+ * same form id, and every previous field still present with its type intact —
+ * is the same form gaining fields (a schema being progressively emitted by a
+ * streaming agent), and it orphans no value: the appended fields register
+ * incrementally and the store is NOT reset. Anything else a signature change
+ * can mean — a field dropped, a field retyped, a different `instanceId`, a
+ * different form id — IS a swap and still resets; see `isShapeGrowth`.
  */
-function buildConfigSignature(formConfig: FormConfiguration, instanceId?: string): string {
-  const fields = fieldShapes(formConfig.allFields);
-  const repeatables = Object.entries(formConfig.repeatableFields ?? {})
-    .map(([id, config]) => [id, fieldShapes(config.allFields)] as const)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+interface ConfigShape {
+  readonly instanceId: string | null;
+  readonly formId: string;
+  /** Each top-level field as `id:componentId`, order-independent. */
+  readonly fields: readonly string[];
+  /**
+   * Top-level field ids alone. NOT part of the signature (redundant with
+   * `fields`) — the growth path diffs on ids to seed exactly the fields that
+   * APPEARED, and `id:componentId` strings cannot be split back apart (an id
+   * may itself contain `:`).
+   */
+  readonly fieldIds: readonly string[];
+  /** Repeatable ids with their own template field shapes, id-sorted. */
+  readonly repeatables: readonly (readonly [string, readonly string[]])[];
+}
 
-  return JSON.stringify([instanceId ?? null, formConfig.id, fields, repeatables]);
+function buildConfigShape(formConfig: FormConfiguration, instanceId?: string): ConfigShape {
+  return {
+    instanceId: instanceId ?? null,
+    formId: formConfig.id,
+    fields: fieldShapes(formConfig.allFields),
+    fieldIds: (formConfig.allFields ?? []).map((field) => field.id),
+    repeatables: Object.entries(formConfig.repeatableFields ?? {})
+      .map(([id, config]) => [id, fieldShapes(config.allFields)] as const)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  };
+}
+
+function buildConfigSignature(shape: ConfigShape): string {
+  return JSON.stringify([shape.instanceId, shape.formId, shape.fields, shape.repeatables]);
 }
 
 /**
@@ -179,6 +213,34 @@ function buildConfigSignature(formConfig: FormConfiguration, instanceId?: string
  */
 function fieldShapes(fields: FormConfiguration['allFields']): string[] {
   return (fields ?? []).map((field) => `${field.id}:${field.componentId}`).sort();
+}
+
+function isSubset(prev: readonly string[], next: readonly string[]): boolean {
+  const superset = new Set(next);
+  return prev.every((entry) => superset.has(entry));
+}
+
+/**
+ * Whether `next` is the SAME form having GROWN — the structural distinction
+ * between an appended field and a form swap.
+ *
+ * Growth requires ALL of: the same owner (`instanceId`), the same form id, and
+ * every previous field — top-level and per-repeatable template alike — still
+ * present with its `componentId` intact. Appending a field, or a whole new
+ * repeatable, satisfies it; dropping a field, retyping one, renaming the form
+ * or handing it to another owner does not. The asymmetry is the point: growth
+ * orphans no stored value, everything else can, and the campaign's bug class
+ * (#10/#12 — a step transition leaking the previous step's values) lives
+ * entirely on the "everything else" side.
+ */
+function isShapeGrowth(prev: ConfigShape, next: ConfigShape): boolean {
+  if (prev.instanceId !== next.instanceId || prev.formId !== next.formId) return false;
+  if (!isSubset(prev.fields, next.fields)) return false;
+  const nextRepeatables = new Map(next.repeatables);
+  return prev.repeatables.every(([id, templateFields]) => {
+    const grown = nextRepeatables.get(id);
+    return grown !== undefined && isSubset(templateFields, grown);
+  });
 }
 
 export function FormProvider({
@@ -240,11 +302,41 @@ export function FormProvider({
   // to change the form id. Two steps may reuse one form, and then a transition
   // changed nothing here — the previous step's values stayed mounted, and the
   // workflow wrote them into the new step's slice on submit.
-  const configSignature = useMemo(
-    () => buildConfigSignature(formConfig, instanceId),
+  const configShape = useMemo(
+    () => buildConfigShape(formConfig, instanceId),
     [formConfig, instanceId]
   );
+  const configSignature = useMemo(() => buildConfigSignature(configShape), [configShape]);
+
+  // Identity of the MOUNTED form: the signature as of the last genuine swap.
+  // GROWTH keeps it — an appended field is the same form, and everything scoped
+  // to "this form" (in-flight validation, a pending submit, per-field debounce
+  // timers keyed on `formInstanceKey`) must survive the chunk that appended it.
+  // A swap replaces it.
+  //
+  // Derived DURING RENDER (React's adjust-state-during-render pattern, which
+  // re-renders before committing) rather than in an effect: the same render
+  // that carries a swapped config must already hand children the new identity,
+  // or a child keyed on `formInstanceKey` would render one frame against the
+  // previous form's identity.
+  const [identityState, setIdentityState] = useState(() => ({
+    shape: configShape,
+    signature: configSignature,
+    identity: configSignature,
+  }));
+  let formIdentity = identityState.identity;
+  if (identityState.signature !== configSignature) {
+    formIdentity = isShapeGrowth(identityState.shape, configShape)
+      ? identityState.identity
+      : configSignature;
+    setIdentityState({ shape: configShape, signature: configSignature, identity: formIdentity });
+  }
+
   const prevConfigSignatureRef = useRef(configSignature);
+  const prevIdentityRef = useRef(formIdentity);
+  // The shape as of the LAST COMMITTED reset-or-growth pass — the growth path
+  // diffs against it to seed exactly what appeared since.
+  const prevShapeRef = useRef(configShape);
 
   // Brackets the form-id reset so the values subscription can tell a wholesale
   // form swap (every previous key disappears at once) from a genuine user
@@ -283,8 +375,10 @@ export function FormProvider({
   // submit. All four now key on `configSignature` — the one value here that
   // knows a swap happened.
   useIsomorphicLayoutEffect(() => {
-    if (prevConfigSignatureRef.current !== configSignature) {
+    if (prevIdentityRef.current !== formIdentity) {
+      prevIdentityRef.current = formIdentity;
       prevConfigSignatureRef.current = configSignature;
+      prevShapeRef.current = configShape;
 
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
@@ -317,8 +411,88 @@ export function FormProvider({
       } finally {
         isResettingRef.current = false;
       }
+      return;
     }
-  }, [configSignature, formConfig.repeatableFields, store, defaultValues, defaultRepeatableOrder]);
+
+    // GROWTH — the signature moved but the identity did not: the same form
+    // gained fields (a streaming schema being progressively mounted). Register
+    // the newcomers incrementally; NEVER reset. Every key the store already
+    // holds is the user's — a keystroke landing between two chunks included —
+    // and only ids absent from the last committed shape may be seeded.
+    if (prevConfigSignatureRef.current !== configSignature) {
+      const prevShape = prevShapeRef.current;
+      prevConfigSignatureRef.current = configSignature;
+      prevShapeRef.current = configShape;
+
+      const repeatableConfigs = formConfig.repeatableFields ?? {};
+
+      // The grown templates replace the previous ones wholesale: an EXISTING
+      // repeatable's template may itself have grown a field, and appends after
+      // this chunk must pad rows from the current template.
+      store.setState({ _repeatableConfigs: repeatableConfigs });
+
+      // Baseline of the GROWN shape — the source seeded from, and the new
+      // dirty-flag reference (`value !== _defaultValues[fieldId]`), which must
+      // know the appended fields' defaults.
+      const {
+        values: grownDefaults,
+        order: grownOrder,
+        nextKeys: grownNextKeys,
+      } = initializeRepeatableState(defaultValues, repeatableConfigs, defaultRepeatableOrder);
+      store.getState()._setDefaultValues(grownDefaults);
+
+      const prevFieldIds = new Set(prevShape.fieldIds);
+      const prevRepeatableIds = new Set(prevShape.repeatables.map(([id]) => id));
+
+      const state = store.getState();
+      const values = { ...state.values };
+      const order = { ...state._repeatableOrder };
+      const nextKeys = { ...state._repeatableNextKey };
+      let seeded = false;
+
+      // Seed defaults for the plain fields that APPEARED. `hasOwn` guards the
+      // live store even for a brand-new id: nothing that already holds a value
+      // is ever overwritten.
+      for (const field of formConfig.allFields) {
+        if (prevFieldIds.has(field.id) || hasOwn(values, field.id)) continue;
+        if (hasOwn(grownDefaults, field.id)) {
+          defineOwn(values, field.id, getOwn(grownDefaults, field.id));
+          seeded = true;
+        }
+      }
+
+      // Install rows for the repeatables that APPEARED (min-padding included).
+      // Existing repeatables keep their live rows untouched — a template that
+      // grew a field simply renders the new field empty on the rows the user
+      // already has.
+      for (const repeatableId of Object.keys(repeatableConfigs)) {
+        if (prevRepeatableIds.has(repeatableId) || hasOwn(order, repeatableId)) continue;
+        const rowKeys = getOwn(grownOrder, repeatableId);
+        if (rowKeys === undefined) continue;
+        defineOwn(order as Record<string, unknown>, repeatableId, rowKeys);
+        defineOwn(nextKeys as Record<string, unknown>, repeatableId, getOwn(grownNextKeys, repeatableId));
+        for (const [key, value] of Object.entries(grownDefaults)) {
+          if (parseCompositeKey(key)?.repeatableId === repeatableId && !hasOwn(values, key)) {
+            defineOwn(values, key, value);
+          }
+        }
+        seeded = true;
+      }
+
+      if (seeded) {
+        store.setState({ values, _repeatableOrder: order, _repeatableNextKey: nextKeys });
+      }
+    }
+  }, [
+    configSignature,
+    formIdentity,
+    configShape,
+    formConfig.repeatableFields,
+    formConfig.allFields,
+    store,
+    defaultValues,
+    defaultRepeatableOrder,
+  ]);
 
   // The effect engine is STEP-SCOPED STATE, even though it looks like plumbing:
   // it owns a live subscription to the store and the abort handles of the
@@ -335,13 +509,14 @@ export function FormProvider({
   // step stayed subscribed with its in-flight effects un-aborted: their writes
   // landed in the NEW step's values and were submitted as the new step's data.
   //
-  // Both deps are load-bearing and neither implies the other: `configSignature`
+  // Both deps are load-bearing and neither implies the other: `formIdentity`
   // catches a swap that reuses one config object, `effectsMap` catches effects
   // that change under an identical shape (a re-emitted schema — the signature
   // deliberately ignores everything that orphans no value, and effects are not
-  // in it).
+  // in it). Growth rides the `effectsMap` half: a grown schema is a fresh
+  // compile, so its effectsMap is a fresh object whenever effects exist at all.
   //
-  // `configSignature` is deliberately a dependency the BODY does not read: it
+  // `formIdentity` is deliberately a dependency the BODY does not read: it
   // exists to make this effect tear the engine down and rebuild it on a swap. The
   // rule below reasons about what a body READS; here the engine's LIFETIME is the
   // point, not its inputs.
@@ -367,7 +542,7 @@ export function FormProvider({
       effectEngineRef.current?.stop();
       effectEngineRef.current = null;
     };
-  }, [configSignature, formConfig.effectsMap, store]);
+  }, [formIdentity, formConfig.effectsMap, store]);
 
   // Stable refs for callbacks
   const onFieldChangeRef = useRef(onFieldChange);
@@ -575,8 +750,10 @@ export function FormProvider({
     store,
     // A validation run in flight is state OF the form that started it. The store
     // is reset on a swap but is the same object throughout, so nothing keyed on
-    // it notices; `configSignature` is what a swap changes.
-    instanceKey: configSignature,
+    // it notices; `formIdentity` is what a swap changes — and what growth
+    // deliberately does NOT change, so a run in flight survives the chunk that
+    // appended a field to the same form.
+    instanceKey: formIdentity,
   });
   // Expose the latest validator to the effect engine (see validateFieldRef).
   validateFieldRef.current = validateField;
@@ -588,7 +765,7 @@ export function FormProvider({
     validateForm,
     defaultSubmitOptions: formConfig.submitOptions,
     // A submit in flight is work started ON this form; a swap abandons it.
-    instanceKey: configSignature,
+    instanceKey: formIdentity,
   });
 
   // Memoize form config context
@@ -599,9 +776,9 @@ export function FormProvider({
       validateField,
       validateForm,
       submit,
-      formInstanceKey: configSignature,
+      formInstanceKey: formIdentity,
     }),
-    [formConfig, conditionsHelpers, validateField, validateForm, submit, configSignature]
+    [formConfig, conditionsHelpers, validateField, validateForm, submit, formIdentity]
   );
 
   return (

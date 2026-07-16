@@ -119,9 +119,14 @@ describe('show_form built-in renderer (HITL)', () => {
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 
-  it('renders NOTHING while the part is streaming — progressive mounting is deferred to Task 12', () => {
-    const { container } = showForm(schema, undefined, 'streaming');
-    expect(container).toBeEmptyDOMElement();
+  it('mounts progressively while the part is streaming, with submit LOCKED until the input is provably complete', () => {
+    // No rawInput accompanies the deep-partial input here, so there is no
+    // completeness signal: the complete-looking field mounts (progressive
+    // mounting, Task 12), but no answer may leave until the part is `ready`.
+    showForm(schema, undefined, 'streaming');
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
   });
 
   it.each(['done', 'error'] as const)(

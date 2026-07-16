@@ -13,6 +13,7 @@ import {
   type PropsValidationResult,
   type RilayInstance,
   type StandardSchema,
+  type SubmitOptions,
   ValidationError,
   clonePlainData,
   email as emailValidator,
@@ -36,6 +37,7 @@ import type {
   FormSchema,
   FormSchemaField,
   FormSchemaFieldRow,
+  FormSchemaRepeatable,
   FormSchemaRepeatableRow,
   FormSchemaResult,
   FormSchemaRow,
@@ -128,17 +130,35 @@ export function compileForm<C extends Record<string, any>>(
 ): FormSchemaResult<C> {
   const registry = options?.bindings;
 
-  // 1. Validate schema structure
-  validateSchema(schema, config, registry);
+  // 1. Validate schema structure. Lenient mode inverts the contract: instead of
+  //    validating the whole schema and raising, the SAME per-field validators
+  //    (validateField, validateRepeatable, validateValidationDescriptors —
+  //    never a second compile path) decide which declarations are complete, and
+  //    everything else is filtered out of a compilable subset. The subset then
+  //    rides the ONE assembly path below, so lenient cannot drift from strict.
+  let compilable: FormSchema;
+  if (options?.lenient) {
+    compilable = toCompilableSubset(schema, config, registry, options?.validateProps === true);
+  } else {
+    validateSchema(schema, config, registry);
+    compilable = schema;
+  }
 
   // 2. Normalize: flat fields → rows
-  const rows = normalizeToRows(schema);
+  const rows = normalizeToRows(compilable);
 
   // 2b. Opt-in: check every field's props against its component's propsSchema.
   //     Walks the ORIGINAL schema, not the normalized rows, so issue paths point
   //     at the caller's own declaration. Validation ONLY — the schema's output is
   //     deliberately discarded; see validateFieldProps.
-  if (options?.validateProps) validateFieldProps(schema, config);
+  //
+  //     In lenient mode this pass never runs: a field whose props are still
+  //     streaming is temporarily invalid, and raising would fail the WHOLE
+  //     partial schema for a defect the next chunk may fix. toCompilableSubset
+  //     already applied the same propsSchema check PER FIELD and skipped the
+  //     violators, so the subset reaching this point is props-clean. Only a
+  //     complete schema (strict mode, at `ready`) gets the raising variant.
+  if (options?.validateProps && !options.lenient) validateFieldProps(compilable, config);
 
   // 3-4. Assemble and build via the form builder.
   //
@@ -153,13 +173,13 @@ export function compileForm<C extends Record<string, any>>(
   //  is reached.
   let formConfig: FormConfiguration<C>;
   try {
-    formConfig = assembleForm<C>(schema, rows, config, registry);
+    formConfig = assembleForm<C>(compilable, rows, config, registry);
   } catch (error) {
     if (error instanceof ValidationError) {
-      throw new SchemaValidationError(builderErrorToIssues(error, schema));
+      throw new SchemaValidationError(builderErrorToIssues(error, compilable));
     }
     if (error instanceof ConfigurationError) {
-      throw new SchemaValidationError(configurationErrorToIssues(error, schema));
+      throw new SchemaValidationError(configurationErrorToIssues(error, compilable));
     }
     throw error;
   }
@@ -168,7 +188,7 @@ export function compileForm<C extends Record<string, any>>(
   //    schema-level defaultValues block (the explicit override wins).
   return {
     formConfig,
-    defaultValues: mergeDefaultValues(schema, rows),
+    defaultValues: mergeDefaultValues(compilable, rows),
   };
 }
 
@@ -881,6 +901,286 @@ export function validateConditionConfig(
       severity: 'error',
     });
   }
+}
+
+// =================================================================
+// LENIENT SUBSET (streaming)
+// =================================================================
+
+/** True for a plain (non-array) object — the only shape schema blocks accept. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Runs the SHARED per-field validator over a candidate declaration and answers
+ * whether any error-severity issue was reported. This is the single rule set
+ * both modes use: strict collects the issues and raises, lenient asks this and
+ * skips or strips — never a second opinion on what a valid field is.
+ */
+function hasFieldErrors<C extends Record<string, any>>(
+  field: {
+    id?: string;
+    type?: string;
+    validation?: FieldSchemaValidation;
+    effects?: FieldSchemaEffect[];
+    conditions?: ConditionalBehavior;
+  },
+  config: RilayInstance<C>,
+  registry: Bindings | undefined
+): boolean {
+  const issues: SchemaIssue[] = [];
+  validateField(field, 'field', config, registry, issues);
+  return issues.some((issue) => issue.severity === 'error');
+}
+
+/**
+ * The lenient verdict for ONE field declaration: the field to compile, or
+ * `null` to skip it this render.
+ *
+ * The CORE definition (id, type, props) gates mounting: while any of it is
+ * incomplete or invalid the field is skipped — the next chunk may complete it.
+ * Once the core is complete the field MOUNTS, and an invalid or half-arrived
+ * `validation` / `effects` / `conditions` block is STRIPPED instead of failing
+ * the field: dropping an already-mounted field would shrink the form's shape,
+ * read as a form swap downstream, and reset what the user already typed — the
+ * exact bug class progressive mounting exists to prevent.
+ */
+function lenientField<C extends Record<string, any>>(
+  entry: unknown,
+  config: RilayInstance<C>,
+  registry: Bindings | undefined,
+  checkProps: boolean
+): FormSchemaField | null {
+  if (!isPlainRecord(entry)) return null;
+  const candidate = entry as Partial<FormSchemaField>;
+
+  const { id, type } = candidate;
+  if (typeof id !== 'string' || typeof type !== 'string') return null;
+  if (hasFieldErrors({ id, type }, config, registry)) return null;
+  if (candidate.props !== undefined && !isPlainRecord(candidate.props)) return null;
+  if (checkProps && !config.validateProps(type, candidate.props ?? {}).success) return null;
+
+  const kept: {
+    id: string;
+    type: string;
+    props?: Record<string, unknown>;
+    default?: unknown;
+    validation?: FieldSchemaValidation;
+    conditions?: ConditionalBehavior;
+    effects?: FieldSchemaEffect[];
+  } = { id, type };
+
+  if (candidate.props !== undefined) kept.props = candidate.props;
+  if (candidate.default !== undefined) kept.default = candidate.default;
+  if (
+    candidate.validation !== undefined &&
+    !hasFieldErrors({ id, type, validation: candidate.validation }, config, registry)
+  ) {
+    kept.validation = candidate.validation;
+  }
+  if (
+    candidate.effects !== undefined &&
+    !hasFieldErrors({ id, type, effects: candidate.effects }, config, registry)
+  ) {
+    kept.effects = candidate.effects;
+  }
+  if (
+    candidate.conditions !== undefined &&
+    isPlainRecord(candidate.conditions) &&
+    !hasFieldErrors({ id, type, conditions: candidate.conditions }, config, registry)
+  ) {
+    kept.conditions = candidate.conditions;
+  }
+
+  return kept;
+}
+
+/**
+ * The lenient verdict for one repeatable row: the row to compile, or `null` to
+ * skip it this render.
+ *
+ * Template fields are filtered with the SAME per-field rule as top-level fields
+ * (an incomplete template field is skipped, not fatal), and the survivors are
+ * gated by the shared `validateRepeatable` — min/max sanity and the rest —
+ * before the row is admitted. A repeatable with no complete template field yet
+ * is skipped whole: it has nothing to mount.
+ *
+ * The id-namespace bookkeeping mirrors the builder's `validate()` rules, which
+ * lenient must satisfy UP FRONT because the builder raises and lenient never
+ * does: template ids are unique within their repeatable, may not shadow a
+ * top-level id — except the template may reuse its OWN repeatable's id — and
+ * bracketed ids are rejected (`addRepeatable` throws on them at call time).
+ */
+function lenientRepeatable<C extends Record<string, any>>(
+  row: Record<string, unknown>,
+  config: RilayInstance<C>,
+  registry: Bindings | undefined,
+  checkProps: boolean,
+  seenTopLevel: Set<string>,
+  seenTemplates: Set<string>
+): FormSchemaRepeatableRow | null {
+  const rep = row.repeatable;
+  if (!isPlainRecord(rep)) return null;
+  const candidate = rep as Partial<FormSchemaRepeatable>;
+
+  const id = candidate.id;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  if (id.includes('[') || id.includes(']')) return null;
+  if (seenTopLevel.has(id)) return null;
+
+  const templateIds = new Set<string>();
+  const templateRows: FormSchemaFieldRow[] = [];
+  if (Array.isArray(candidate.rows)) {
+    for (const rowEntry of candidate.rows) {
+      if (!isPlainRecord(rowEntry)) continue;
+      const rawFields = rowEntry.fields;
+      if (!Array.isArray(rawFields)) continue;
+      const fields: FormSchemaField[] = [];
+      for (const entry of rawFields) {
+        const field = lenientField(entry, config, registry, checkProps);
+        if (!field) continue;
+        if (templateIds.has(field.id)) continue;
+        if (seenTopLevel.has(field.id) && field.id !== id) continue;
+        templateIds.add(field.id);
+        fields.push(field);
+      }
+      if (fields.length > 0) templateRows.push({ kind: 'fields', fields });
+    }
+  }
+  if (templateRows.length === 0) return null;
+
+  const filtered: {
+    id: string;
+    rows: FormSchemaFieldRow[];
+    min?: number;
+    max?: number;
+    defaultValue?: Record<string, unknown>;
+    validation?: FieldSchemaValidation;
+  } = { id, rows: templateRows };
+
+  if (typeof candidate.min === 'number') filtered.min = candidate.min;
+  if (typeof candidate.max === 'number') filtered.max = candidate.max;
+  if (isPlainRecord(candidate.defaultValue)) filtered.defaultValue = candidate.defaultValue;
+
+  const validation = candidate.validation;
+  if (isPlainRecord(validation)) {
+    const rules = (validation as FieldSchemaValidation).rules;
+    const issues: SchemaIssue[] = [];
+    if (rules !== undefined) validateValidationDescriptors(rules, 'rules', registry, issues);
+    if (!issues.some((issue) => issue.severity === 'error')) {
+      filtered.validation = validation as FieldSchemaValidation;
+    }
+  }
+
+  const gate: FormSchemaRepeatableRow = { kind: 'repeatable', repeatable: filtered };
+  const issues: SchemaIssue[] = [];
+  validateRepeatable(gate, 'row', config, registry, issues);
+  if (issues.some((issue) => issue.severity === 'error')) return null;
+
+  seenTopLevel.add(id);
+  for (const templateId of templateIds) seenTemplates.add(templateId);
+  return gate;
+}
+
+/**
+ * Reduces a PARTIAL schema — mid-stream, deep-partial, possibly not even an
+ * object yet — to the subset the strict pipeline can compile without raising.
+ *
+ * Every judgement is delegated to the shared validators (`validateField`,
+ * `validateRepeatable`, `validateValidationDescriptors`); this walker only
+ * decides what to do with a verdict: skip an incomplete field, strip a
+ * half-arrived block, drop a duplicate. Structure-level tolerances that strict
+ * mode reports as errors are resolved here instead: a missing or empty `fields`
+ * compiles to an empty form, a schema carrying both `fields` and `rows` keeps
+ * `fields`, a missing `id` is left for the builder to auto-generate, an invalid
+ * `version` is dropped.
+ *
+ * Duplicate ids are resolved FIRST-WINS: the builder raises on them, lenient
+ * never does, and the first complete declaration is the one already mounted.
+ */
+function toCompilableSubset<C extends Record<string, any>>(
+  schema: FormSchema,
+  config: RilayInstance<C>,
+  registry: Bindings | undefined,
+  checkProps: boolean
+): FormSchema {
+  const root: Record<string, unknown> = isPlainRecord(schema) ? schema : {};
+
+  const subset: {
+    id?: string;
+    version?: 1;
+    defaultValues?: Record<string, unknown>;
+    fields?: FormSchemaField[];
+    rows?: FormSchemaRow[];
+    validation?: FormSchemaValidationConfig;
+    submitOptions?: SubmitOptions;
+  } = {};
+
+  if (typeof root.id === 'string' && root.id.length > 0) subset.id = root.id;
+  if (root.version === 1) subset.version = 1;
+  if (isPlainRecord(root.defaultValues)) subset.defaultValues = root.defaultValues;
+  if (isPlainRecord(root.submitOptions)) subset.submitOptions = root.submitOptions as SubmitOptions;
+
+  if (isPlainRecord(root.validation)) {
+    const validation = root.validation as FormSchemaValidationConfig;
+    const issues: SchemaIssue[] = [];
+    if (validation.rules !== undefined) {
+      validateValidationDescriptors(validation.rules, 'validation.rules', registry, issues);
+    }
+    if (!issues.some((issue) => issue.severity === 'error')) subset.validation = validation;
+  }
+
+  // One namespace for top-level field ids and repeatable ids; template ids may
+  // not shadow it (see lenientRepeatable).
+  const seenTopLevel = new Set<string>();
+  const seenTemplates = new Set<string>();
+
+  const keepField = (entry: unknown): FormSchemaField | null => {
+    const field = lenientField(entry, config, registry, checkProps);
+    if (!field || seenTopLevel.has(field.id) || seenTemplates.has(field.id)) return null;
+    seenTopLevel.add(field.id);
+    return field;
+  };
+
+  if (Array.isArray(root.fields)) {
+    subset.fields = root.fields
+      .map(keepField)
+      .filter((field): field is FormSchemaField => field !== null);
+  } else if (Array.isArray(root.rows)) {
+    const rows: FormSchemaRow[] = [];
+    for (const entry of root.rows) {
+      if (!isPlainRecord(entry)) continue;
+      if (entry.kind === 'repeatable') {
+        const repeatable = lenientRepeatable(
+          entry,
+          config,
+          registry,
+          checkProps,
+          seenTopLevel,
+          seenTemplates
+        );
+        if (repeatable) rows.push(repeatable);
+        continue;
+      }
+      if (!Array.isArray(entry.fields)) continue;
+      const fields = entry.fields
+        .map(keepField)
+        .filter((field): field is FormSchemaField => field !== null);
+      if (fields.length === 0) continue;
+      rows.push({
+        kind: 'fields',
+        fields,
+        ...(typeof entry.id === 'string' ? { id: entry.id } : {}),
+        ...(typeof entry.maxColumns === 'number' ? { maxColumns: entry.maxColumns } : {}),
+      });
+    }
+    subset.rows = rows;
+  }
+
+  // The builder auto-generates a missing id; this is the same honest boundary
+  // cast the untrusted-JSON caller performs to enter compileForm at all.
+  return subset as FormSchema;
 }
 
 // =================================================================
