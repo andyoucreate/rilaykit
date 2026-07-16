@@ -69,6 +69,7 @@ function PrefillOnArrival({ formId }: { formId: string }) {
 function ObserveOnArrival({ formId, seen }: { formId: string; seen: string[] }) {
   const store = useFormStoreApi();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: formId is a lifetime trigger, not an input — it fires this effect on the form swap being observed, matching the FormProvider precedent
   useEffect(() => {
     seen.push(JSON.stringify(store.getState().values));
   }, [formId, store]);
