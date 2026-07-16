@@ -239,3 +239,39 @@ describe('ai-sdk tools()', () => {
     expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
   });
 });
+
+describe('ai-sdk tools() emits only provider-callable tools (symmetric with manifest + anthropic)', () => {
+  // R3: R2-3 made manifest() and the anthropic adapter agree on tool emittability
+  // (name pattern + object root + projectable), but the ai-sdk adapter still passed
+  // every named tool through. A tool the manifest omits but streamText() receives
+  // 400s the whole request (OpenAI/AI SDK require the same ^[a-zA-Z0-9_-]{1,64}$ and
+  // an object-typed parameter schema). All three surfaces must agree.
+  it('drops a tool whose name violates the shared provider pattern', () => {
+    const catalog = ril
+      .create()
+      .tool('valid_tool', { description: 'ok', inputSchema: z.object({ a: z.string() }) })
+      .tool('has spaces', { description: 'bad name', inputSchema: z.object({ a: z.string() }) })
+      .tool('a'.repeat(65), { description: 'too long', inputSchema: z.object({ a: z.string() }) });
+    expect(Object.keys(tools(catalog))).toEqual(['valid_tool']);
+  });
+
+  it('drops a tool whose schema root is not an object', () => {
+    const catalog = ril
+      .create()
+      .tool('valid_tool', { description: 'ok', inputSchema: z.object({ a: z.string() }) })
+      .tool('scalar_root', { description: 'non-object', inputSchema: z.string() })
+      .tool('union_root', {
+        description: 'union root',
+        inputSchema: z.union([z.object({ a: z.string() }), z.object({ b: z.number() })]),
+      });
+    expect(Object.keys(tools(catalog))).toEqual(['valid_tool']);
+  });
+
+  it('keeps a valid object-schema tool with a boundary-valid name', () => {
+    const name = `t-_${'x'.repeat(61)}`; // exactly 64 chars, with - and _
+    const catalog = ril
+      .create()
+      .tool(name, { description: 'ok', inputSchema: z.object({ a: z.string() }) });
+    expect(Object.keys(tools(catalog))).toEqual([name]);
+  });
+});

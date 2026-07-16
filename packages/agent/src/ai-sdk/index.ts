@@ -1,6 +1,10 @@
+import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { isEmittableTool } from '../manifest/manifest';
 import type { Part, PartState } from '../types/part';
+
+const logger = getLogger('agent:ai-sdk');
 
 const STATE_MAP: ReadonlyMap<string, PartState> = new Map([
   ['input-streaming', 'streaming'],
@@ -115,6 +119,16 @@ export function tools<C>(catalog: RilayInstance<C>): Record<string, AiSdkToolDef
   const generated = new Map<string, AiSdkToolDefinition>();
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;
+    // The same emittability rule the manifest and the anthropic adapter enforce,
+    // so all three agree: a tool the manifest omits is never handed to streamText,
+    // where an invalid name or non-object schema would 400 the whole request.
+    // Skip-and-log — one bad tool must not sink the tool set.
+    if (!isEmittableTool(tool)) {
+      logger.warn(
+        `Skipping tool "${tool.name}": not emittable — the name must match ^[a-zA-Z0-9_-]{1,64}$ and the input schema must be a top-level object`
+      );
+      continue;
+    }
     generated.set(tool.name, { description: tool.description, inputSchema: tool.inputSchema });
   }
   return Object.fromEntries(generated);
