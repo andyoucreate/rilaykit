@@ -46,11 +46,12 @@ export function toParts(message: unknown): Part[] {
 }
 
 function toJsonSchema(entry: { inputSchema?: unknown; inputJsonSchema?: Record<string, unknown> }): Record<string, unknown> | null {
-  if (entry.inputJsonSchema) return entry.inputJsonSchema;
   try {
     return z.toJSONSchema(entry.inputSchema as z.ZodType) as Record<string, unknown>;
   } catch {
-    return null;
+    // inputJsonSchema is a fallback for non-zod Standard Schema vendors, per the design spec —
+    // a host wanting a custom projection registers a non-zod schema.
+    return entry.inputJsonSchema ?? null;
   }
 }
 

@@ -62,6 +62,17 @@ describe('anthropic tools()', () => {
     expect(tools(catalog).map((t) => t.name)).toEqual(['search_flights']);
   });
 
+  it('prefers the native zod conversion over a manual inputJsonSchema when both are present', () => {
+    const both = ril.create().tool('search_hotels', {
+      description: 'Search hotels',
+      inputSchema: z.object({ city: z.string().describe('IATA code') }),
+      inputJsonSchema: { type: 'object', properties: { city: { type: 'string' } } },
+    });
+    expect(tools(both)[0].input_schema).toMatchObject({
+      properties: { city: { type: 'string', description: 'IATA code' } },
+    });
+  });
+
   it('falls back to a manual inputJsonSchema for a non-zod Standard Schema', () => {
     const manual = ril.create().tool('custom', {
       description: 'Custom',
