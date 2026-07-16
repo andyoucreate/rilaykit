@@ -12,6 +12,7 @@ export { uiTools } from './tools/ui-tools';
 export { manifest } from './manifest/manifest';
 export { componentNodeSchema } from './tools/component-node-schema';
 export type { ComponentNode } from './types/component-node';
+export { parsePartialJson, type PartialJsonResult } from './streaming/parse-partial-json';
 export {
   toEmissionResult,
   validateNodeProps,
