@@ -9,6 +9,7 @@ export {
   type ToolPart,
 } from './types/part';
 export { uiTools } from './tools/ui-tools';
+export { manifest } from './manifest/manifest';
 export { componentNodeSchema } from './tools/component-node-schema';
 export type { ComponentNode } from './types/component-node';
 export {
