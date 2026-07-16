@@ -34,6 +34,48 @@ interface JsonSchemaExtension {
 }
 
 /**
+ * Projects a Standard Schema to JSON Schema through the vendor-neutral
+ * `~standard.jsonSchema.output` extension. Returns the projected value in a
+ * wrapper so callers can distinguish "not projectable" (`null`) from a
+ * projection that happens to be falsy. Never throws: an absent schema, a
+ * vendor without the extension, a malformed schema missing `~standard`, or a
+ * throwing converter (zod's `z.custom()` / `z.date()` are unrepresentable in
+ * JSON Schema) all degrade to `null`.
+ */
+function projectToJsonSchema(
+  schema: StandardSchemaV1 | undefined
+): { readonly projected: unknown } | null {
+  if (!schema) return null;
+
+  const standard = schema['~standard'] as unknown as JsonSchemaExtension | undefined;
+  const extension = standard?.jsonSchema;
+  if (!extension) return null;
+
+  try {
+    return { projected: extension.output({ target: 'draft-2020-12' }) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A tool is callable by the model only if the adapters can emit a provider
+ * definition for it: its inputSchema projects to JSON Schema via the
+ * `~standard.jsonSchema` extension, or the entry supplies a manual
+ * `inputJsonSchema` (the escape hatch the adapters honor for non-zod
+ * vendors). Advertising anything else invites tool calls that cannot be
+ * dispatched — the manifest must stay symmetric with the adapters.
+ */
+function isCallableTool(entry: {
+  readonly inputSchema?: StandardSchemaV1<unknown, unknown>;
+  readonly inputJsonSchema?: Record<string, unknown>;
+}): boolean {
+  if (entry.inputSchema === undefined) return false;
+  if (entry.inputJsonSchema !== undefined) return true;
+  return projectToJsonSchema(entry.inputSchema) !== null;
+}
+
+/**
  * Reads a component's propsSchema through the Standard Schema JSON-Schema
  * extension (`~standard.jsonSchema.output`) rather than a specific vendor's
  * internals. This was a deliberate choice over reading zod's `.shape` /
@@ -55,18 +97,9 @@ interface JsonSchemaExtension {
  * its own description, just without a prop list.
  */
 function describeProps(schema: StandardSchemaV1 | undefined): PropDescription[] {
-  if (!schema) return [];
-
-  const standard = schema['~standard'] as unknown as JsonSchemaExtension | undefined;
-  const extension = standard?.jsonSchema;
-  if (!extension) return [];
-
-  let jsonSchema: ObjectJsonSchema;
-  try {
-    jsonSchema = extension.output({ target: 'draft-2020-12' }) as ObjectJsonSchema;
-  } catch {
-    return [];
-  }
+  const projection = projectToJsonSchema(schema);
+  if (!projection) return [];
+  const jsonSchema = projection.projected as ObjectJsonSchema;
 
   const properties = jsonSchema.properties;
   if (!properties) return [];
@@ -115,7 +148,7 @@ export function manifest(catalog: AnyCatalog): string {
     lines.push('');
   }
 
-  const tools = catalog.getAllTools().filter((tool) => tool.inputSchema !== undefined);
+  const tools = catalog.getAllTools().filter(isCallableTool);
   if (tools.length > 0) {
     lines.push('## Available tools');
     lines.push('');
@@ -125,12 +158,25 @@ export function manifest(catalog: AnyCatalog): string {
     lines.push('');
   }
 
-  lines.push('## How to show UI');
-  lines.push('');
-  lines.push('- Use `show_form` to collect structured input from the user in one screen.');
-  lines.push('- Use `show_flow` when the input is long enough to warrant multiple steps.');
-  lines.push('- Use `show_component` to display information — not to collect input.');
-  lines.push('- Component `props` must match the props listed above exactly.');
+  // Each guidance line is emitted only when its tool is actually registered —
+  // telling the model to call show_form in a catalog that never registered it
+  // guarantees an undispatchable tool call.
+  const uiGuidance: string[] = [];
+  if (catalog.getTool('show_form')) {
+    uiGuidance.push('- Use `show_form` to collect structured input from the user in one screen.');
+  }
+  if (catalog.getTool('show_flow')) {
+    uiGuidance.push('- Use `show_flow` when the input is long enough to warrant multiple steps.');
+  }
+  if (catalog.getTool('show_component')) {
+    uiGuidance.push('- Use `show_component` to display information — not to collect input.');
+    uiGuidance.push('- Component `props` must match the props listed above exactly.');
+  }
+  if (uiGuidance.length > 0) {
+    lines.push('## How to show UI');
+    lines.push('');
+    lines.push(...uiGuidance);
+  }
 
   return lines.join('\n');
 }

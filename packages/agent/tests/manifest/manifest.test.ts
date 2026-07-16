@@ -2,6 +2,7 @@ import { ril } from '@rilaykit/core';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { tools as anthropicTools } from '../../src/anthropic';
 import { manifest } from '../../src/manifest/manifest';
 import { uiTools } from '../../src/tools/ui-tools';
 
@@ -127,6 +128,64 @@ describe('manifest() — never-throws degrade paths', () => {
     expect(output).not.toContain('- **bare_tool** —');
   });
 
+  // RED before the fix: manifest() advertised every tool that carried an
+  // inputSchema, while the anthropic adapter DROPS tools whose schema cannot
+  // convert to JSON Schema. The model was told about tools it could never
+  // call. These tests pin the symmetry: a tool appears in the manifest if and
+  // only if the adapters can emit a definition for it.
+  describe('advertises a tool only when it is actually callable (manifest ↔ adapter symmetry)', () => {
+    it('omits a tool whose inputSchema is not JSON-projectable and has no inputJsonSchema — absent from manifest() AND anthropic tools()', () => {
+      const catalog = ril
+        .create()
+        .tool('search_flights', {
+          description: 'Search flights',
+          inputSchema: z.object({ from: z.string() }),
+        })
+        .tool('t_custom', {
+          description: 'z.custom() cannot be represented in JSON Schema',
+          inputSchema: z.custom(() => true),
+        });
+
+      const output = manifest(catalog);
+      expect(output).toContain('- **search_flights** — Search flights');
+      expect(output).not.toContain('t_custom');
+      expect(anthropicTools(catalog).map((tool) => tool.name)).toEqual(['search_flights']);
+    });
+
+    it('omits a z.date() tool (another unrepresentable zod type) from the manifest', () => {
+      const catalog = ril.create().tool('t_date', {
+        description: 'Takes a date',
+        inputSchema: z.object({ when: z.date() }),
+      });
+      expect(manifest(catalog)).not.toContain('t_date');
+      expect(anthropicTools(catalog)).toEqual([]);
+    });
+
+    it('lists an unprojectable tool that supplies a manual inputJsonSchema — present in manifest() AND anthropic tools()', () => {
+      const catalog = ril.create().tool('t_custom', {
+        description: 'Unprojectable schema with a manual JSON Schema escape hatch',
+        inputSchema: z.custom(() => true),
+        inputJsonSchema: { type: 'object', properties: { q: { type: 'string' } } },
+      });
+
+      expect(manifest(catalog)).toContain(
+        '- **t_custom** — Unprojectable schema with a manual JSON Schema escape hatch'
+      );
+      expect(anthropicTools(catalog).map((tool) => tool.name)).toEqual(['t_custom']);
+    });
+
+    it('omits a non-zod Standard Schema without the jsonSchema extension and without inputJsonSchema', () => {
+      const catalog = ril.create().tool('vendor_tool', {
+        description: 'Non-zod vendor, no extension, no escape hatch',
+        inputSchema: {
+          '~standard': { version: 1, vendor: 'x', validate: (v: unknown) => ({ value: v }) },
+        } as never,
+      } as never);
+      expect(manifest(catalog)).not.toContain('vendor_tool');
+      expect(anthropicTools(catalog)).toEqual([]);
+    });
+  });
+
   // Already-correct behavior (pin, not a bugfix): the try/catch around
   // `~standard.jsonSchema.output(...)` already degrades a throwing converter
   // to description-only instead of propagating.
@@ -155,5 +214,42 @@ describe('manifest() — never-throws degrade paths', () => {
 
     expect(output).toContain('- **meter** — A throwing-converter component');
     expect(output).not.toMatch(/^\s{4}- /m);
+  });
+});
+
+// RED before the fix: the "How to show UI" block was appended unconditionally,
+// telling the model to call show_form/show_flow/show_component even when the
+// catalog never registered them. Guidance must follow the registered tools.
+describe('manifest() — "How to show UI" guidance follows the registered show_* tools', () => {
+  it('omits the section entirely for a catalog without uiTools()', () => {
+    const catalog = ril.create().tool('search_flights', {
+      description: 'Search flights',
+      inputSchema: z.object({ from: z.string() }),
+    });
+    const output = manifest(catalog);
+    expect(output).not.toContain('How to show UI');
+    expect(output).not.toContain('show_form');
+    expect(output).not.toContain('show_flow');
+    expect(output).not.toContain('show_component');
+  });
+
+  it('mentions all three show_* tools when uiTools() is registered', () => {
+    const output = manifest(ril.create().use(uiTools()));
+    expect(output).toContain('## How to show UI');
+    expect(output).toContain('Use `show_form`');
+    expect(output).toContain('Use `show_flow`');
+    expect(output).toContain('Use `show_component`');
+  });
+
+  it('mentions only the registered subset when a single show_* tool exists', () => {
+    const catalog = ril.create().tool('show_component', {
+      description: 'Show a component from the catalog.',
+      inputSchema: z.object({ node: z.unknown() }),
+    });
+    const output = manifest(catalog);
+    expect(output).toContain('## How to show UI');
+    expect(output).toContain('Use `show_component`');
+    expect(output).not.toContain('show_form');
+    expect(output).not.toContain('show_flow');
   });
 });
