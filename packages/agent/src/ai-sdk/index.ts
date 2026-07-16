@@ -37,6 +37,7 @@ export function toParts(message: unknown): Part[] {
 
   const result: Part[] = [];
   for (const part of parts) {
+    if (typeof part !== 'object' || part === null) continue;
     if (part.type === 'text' && typeof part.text === 'string') {
       result.push({ type: 'text', text: part.text, state: part.state === 'streaming' ? 'streaming' : 'done' });
       continue;

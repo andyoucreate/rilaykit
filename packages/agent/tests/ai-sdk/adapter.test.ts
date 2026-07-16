@@ -43,6 +43,12 @@ describe('ai-sdk toParts()', () => {
   it('handles a message with no parts', () => {
     expect(toParts({})).toEqual([]);
   });
+
+  it('skips null and undefined slots in the parts array rather than throwing', () => {
+    expect(toParts({ parts: [null, undefined, { type: 'text', text: 'ok' }] })).toEqual([
+      { type: 'text', text: 'ok', state: 'done' },
+    ]);
+  });
 });
 
 describe('ai-sdk tools()', () => {
