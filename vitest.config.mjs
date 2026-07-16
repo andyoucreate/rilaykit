@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
+      '@rilaykit/core/react': path.resolve(__dirname, 'packages/core/src/react/index.ts'),
       '@rilaykit/core': path.resolve(__dirname, 'packages/core/src/index.ts'),
       '@rilaykit/forms': path.resolve(__dirname, 'packages/forms/src/index.ts'),
       '@rilaykit/workflow': path.resolve(__dirname, 'packages/workflow/src/index.ts'),
