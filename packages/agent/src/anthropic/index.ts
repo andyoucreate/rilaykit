@@ -71,10 +71,22 @@ function toJsonSchema(entry: {
 }
 
 /**
+ * The Messages API's constraint on a tool's `name`
+ * (https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools):
+ * a name outside this pattern 400s the WHOLE request, not just the one tool.
+ */
+const ANTHROPIC_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/**
  * Native `z.toJSONSchema()` — no custom converter (spec §13). Non-zod Standard
  * Schemas supply `inputJsonSchema` manually on the catalog entry. A tool we
  * cannot convert is SKIPPED and logged, never thrown: one unconvertible tool
  * must not take down the whole tool list.
+ *
+ * The same skip-and-log contract covers definitions the Messages API would
+ * reject with a 400 for the entire request: a `name` outside
+ * `^[a-zA-Z0-9_-]{1,64}$`, or a converted `input_schema` whose root is not
+ * `type: "object"` (the API requires a top-level JSON Schema object).
  *
  * A tool registered without `inputSchema` is renderer-only (spec §4) — it is
  * excluded from generated definitions, same as the ai-sdk adapter.
@@ -83,10 +95,22 @@ export function tools(catalog: AnyCatalog): AnthropicToolDefinition[] {
   const definitions: AnthropicToolDefinition[] = [];
   for (const tool of catalog.getAllTools()) {
     if (!tool.inputSchema) continue;
+    if (!ANTHROPIC_TOOL_NAME_PATTERN.test(tool.name)) {
+      logger.warn(
+        `Skipping tool "${tool.name}": name does not match the Anthropic tool-name pattern ^[a-zA-Z0-9_-]{1,64}$`
+      );
+      continue;
+    }
     const input_schema = toJsonSchema(tool);
     if (!input_schema) {
       logger.warn(
         `Skipping tool "${tool.name}": inputSchema is not zod and no inputJsonSchema was provided`
+      );
+      continue;
+    }
+    if (input_schema.type !== 'object') {
+      logger.warn(
+        `Skipping tool "${tool.name}": converted input_schema has type "${String(input_schema.type)}" — the Messages API requires a top-level "object" schema`
       );
       continue;
     }
