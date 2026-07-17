@@ -1,16 +1,19 @@
 import { cn } from '@/lib/utils';
 import {
+  Bot,
+  Calculator,
+  Database,
   FileText,
   GitBranch,
   Home,
   Layers,
   List,
   Repeat,
+  ScrollText,
   Server,
   ShieldCheck,
   Sparkles,
   ToggleLeft,
-  Workflow,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -46,6 +49,11 @@ const NAV_SECTIONS: NavSection[] = [
         icon: <Repeat className="size-4" />,
       },
       {
+        title: 'Global-watch Fan-out',
+        href: '/forms/invoice-fanout',
+        icon: <Calculator className="size-4" />,
+      },
+      {
         title: 'Cross-field Validation',
         href: '/forms/cross-validation',
         icon: <ShieldCheck className="size-4" />,
@@ -70,6 +78,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/workflows/conditional',
         icon: <GitBranch className="size-4" />,
       },
+      {
+        title: 'Special Values',
+        href: '/workflows/special-values',
+        icon: <Database className="size-4" />,
+      },
+    ],
+  },
+  {
+    label: 'Agent',
+    items: [
+      { title: 'Agent UI', href: '/agent/assistant', icon: <Bot className="size-4" /> },
+      { title: 'Manifest', href: '/agent/manifest', icon: <ScrollText className="size-4" /> },
     ],
   },
 ];

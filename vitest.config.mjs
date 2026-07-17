@@ -19,6 +19,9 @@ export default defineConfig({
       'rilaykit/ai-sdk': path.resolve(__dirname, 'packages/rilaykit/src/ai-sdk/index.ts'),
       'rilaykit/anthropic': path.resolve(__dirname, 'packages/rilaykit/src/anthropic/index.ts'),
       rilaykit: path.resolve(__dirname, 'packages/rilaykit/src/index.ts'),
+      // Playground `@/` path alias, so a playground page render test resolves its
+      // own `@/components|lib` imports. Only playground tests use `@/`.
+      '@/': `${path.resolve(__dirname, 'apps/playground/src')}/`,
       react: path.resolve(__dirname, 'packages/forms/node_modules/react'),
       'react-dom': path.resolve(__dirname, 'packages/forms/node_modules/react-dom'),
     },
@@ -30,6 +33,9 @@ export default defineConfig({
     include: [
       'packages/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
       'tests/e2e/**/*.e2e.test.{ts,tsx}',
+      // Playground demo pages carry a little testable logic (the simulated-agent
+      // transcript reducer); its unit tests run in the same `vitest run` as the rest.
+      'apps/playground/src/**/*.{test,spec}.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**'],
     typecheck: {
