@@ -1,3 +1,5 @@
+'use client';
+
 // =============================================================================
 // @rilaykit/agent/react — Catalog, Part, Parts, and the built-in fallbacks.
 // Kept behind `rilaykit/react` so the main entry stays isomorphic — mirrors

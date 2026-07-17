@@ -465,6 +465,56 @@ describe('every published exports map resolves ESM and CJS types distinctly', ()
   }
 });
 
+/**
+ * Next.js App Router (RSC) treats every module as a Server Component unless it
+ * carries a top-of-file `"use client"` directive. A client entry (hooks/context)
+ * without it fails `next build` when imported into a server component; an
+ * isomorphic entry WITH it becomes client-only and loses its server usability.
+ * tsup strips a source `"use client"` through its rollup treeshake pass — so this
+ * pins BOTH that the directive survives the build on client entries AND that it
+ * never contaminates the isomorphic ones. Reads the emitted .mjs (Next consumes
+ * the `import` condition).
+ */
+describe.skipIf(!allBuilt)('"use client" is on every client entry and no isomorphic entry', () => {
+  const pkg = (dir: string): PublishedPackage => ({ name: dir, dir, minExports: 0 });
+
+  /** RSC client boundaries — must declare "use client". */
+  const CLIENT_ENTRIES: ReadonlyArray<readonly [label: string, dir: string, subpath?: string]> = [
+    ['@rilaykit/core/react', 'core', 'react'],
+    ['@rilaykit/forms', 'forms'],
+    ['@rilaykit/workflow', 'workflow'],
+    ['@rilaykit/agent/react', 'agent', 'react'],
+    ['rilaykit', 'rilaykit'],
+    ['rilaykit/react', 'rilaykit', 'react'],
+  ];
+
+  /** Server-usable entries — importing these into a Server Component must stay legal. */
+  const ISOMORPHIC_ENTRIES: ReadonlyArray<readonly [label: string, dir: string, subpath?: string]> =
+    [
+      ['@rilaykit/core', 'core'],
+      ['@rilaykit/agent', 'agent'],
+      ['@rilaykit/agent/ai-sdk', 'agent', 'ai-sdk'],
+      ['@rilaykit/agent/anthropic', 'agent', 'anthropic'],
+      ['rilaykit/ai-sdk', 'rilaykit', 'ai-sdk'],
+      ['rilaykit/anthropic', 'rilaykit', 'anthropic'],
+    ];
+
+  const declaresUseClient = (esmPath: string): boolean =>
+    /^["']use client["']/.test(readFileSync(esmPath, 'utf8').trimStart());
+
+  for (const [label, dir, subpath] of CLIENT_ENTRIES) {
+    it(`${label}: the emitted bundle starts with "use client"`, () => {
+      expect(declaresUseClient(entries(pkg(dir), subpath).esm)).toBe(true);
+    });
+  }
+
+  for (const [label, dir, subpath] of ISOMORPHIC_ENTRIES) {
+    it(`${label}: the emitted bundle does NOT declare "use client" (stays server-usable)`, () => {
+      expect(declaresUseClient(entries(pkg(dir), subpath).esm)).toBe(false);
+    });
+  }
+});
+
 describe.skipIf(allBuilt)('published-bundle checks', () => {
   it.skip(`skipped — a package's dist/ is absent. These checks read the emitted
     bundles, so they need a build: run \`pnpm build\` (or \`pnpm test:ci\`, which builds

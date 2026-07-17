@@ -1,3 +1,5 @@
+'use client';
+
 export { Form } from './components/Form';
 export type { FormProps } from './components/Form';
 export { FormBody } from './components/FormBody';

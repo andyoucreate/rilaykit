@@ -30,9 +30,11 @@ export default defineConfig({
   // Bundle internal modules for proper resolution
   bundle: true,
   
-  // Tree-shake unused code
-  treeshake: true,
-  
+  // NO rollup `treeshake` pass: it strips a leading `'use client'` directive from
+  // the client entry (`src/react/index.ts`), which Next.js App Router needs as an
+  // RSC boundary. esbuild still tree-shakes via `bundle: true`; the extra pass is
+  // not worth dropping the directive (the main entry stays isomorphic regardless).
+
   // No source maps for production (smaller files)
   sourcemap: false,
   

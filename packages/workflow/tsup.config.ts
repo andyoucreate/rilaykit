@@ -30,9 +30,10 @@ export default defineConfig({
   // Bundle internal dependencies
   bundle: true,
   
-  // Tree-shake unused code
-  treeshake: true,
-  
+  // NO rollup `treeshake` pass: it strips the leading `'use client'` directive
+  // from this client entry (`src/index.ts`), which Next.js App Router needs as an
+  // RSC boundary. esbuild still tree-shakes via `bundle: true`.
+
   // No source maps for production
   sourcemap: false,
   

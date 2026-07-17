@@ -1,3 +1,5 @@
+'use client';
+
 // Core workflow builder
 export { flow, resolveWorkflowConfig } from './builders/flow';
 export type { StepDefinition } from './builders/flow';
