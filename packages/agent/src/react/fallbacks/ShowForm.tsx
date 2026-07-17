@@ -9,7 +9,7 @@ import {
   SchemaValidationError,
   compileForm,
 } from '@rilaykit/forms';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';
 
@@ -119,6 +119,23 @@ export function ShowForm({ schema, resolve, pending = false }: ShowFormProps) {
       throw error;
     }
   }, [schema, catalog, pending]);
+
+  // The retry channel (spec §8): a TERMINAL invalid emission must reach the
+  // model as a tool result, not just the DOM — without it the call never
+  // settles and the conversation wedges (an errored form has no buttons).
+  // `compiled.error` is null while pending (lenient compilation never raises),
+  // so a streaming/partial emission — transiently invalid by construction —
+  // never delivers. One-shot via its OWN latch, deliberately NOT `settled`:
+  // the error latch guards double-DELIVERY on re-renders of the same bad
+  // input, while a corrected re-emission on the same call must still recover
+  // in place and let the eventual submit resolve `{ status: 'submitted' }`.
+  const errorDelivered = useRef(false);
+  const emissionError = compiled.error;
+  useEffect(() => {
+    if (pending || !emissionError || settled.current || errorDelivered.current) return;
+    errorDelivered.current = true;
+    resolve({ status: 'error', ...emissionError });
+  }, [pending, emissionError, resolve]);
 
   if (compiled.error) return <EmissionErrorView result={compiled.error} />;
   if (!compiled.result) return null;

@@ -76,14 +76,22 @@ const BUILT_IN_TOOLS: Record<
   string,
   (part: ToolPart, resolve: (output: unknown) => void) => React.ReactElement | null
 > = {
-  show_component: ({ input, state }) =>
+  show_component: ({ input, state }, resolve) =>
     state === 'streaming' ? null : (
       // `?.` — an adapter can hand `input: null` (output-error with no input,
       // a torn emission); ShowComponent degrades `node: undefined` to a
       // structured EmissionErrorView, so the null must reach it instead of
       // throwing here, INSIDE the dispatcher, where it would collapse the
       // whole <Parts> list (spec §8: never a render crash).
-      <ShowComponent node={(input as { node?: unknown } | null | undefined)?.node} />
+      //
+      // `resolve` is armed at `ready` ONLY: display-only success never
+      // resolves, but an emission ERROR at `ready` must deliver its
+      // EmissionResult as a tool result so the model can retry (spec §8). At
+      // `done`/`error` the call is already settled (rehydration) — no re-fire.
+      <ShowComponent
+        node={(input as { node?: unknown } | null | undefined)?.node}
+        resolve={state === 'ready' ? resolve : undefined}
+      />
     ),
   show_form: (part, resolve) => {
     if (part.state === 'streaming') {

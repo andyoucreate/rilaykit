@@ -9,7 +9,7 @@ import {
   WorkflowProvider,
   compileFlow,
 } from '@rilaykit/workflow';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';
 
@@ -82,6 +82,21 @@ export function ShowFlow({ schema, resolve }: ShowFlowProps) {
       throw error;
     }
   }, [schema, catalog]);
+
+  // The retry channel (spec §8): <Part> mounts ShowFlow at `ready` ONLY, so an
+  // invalid emission here is TERMINAL and must reach the model as a tool
+  // result — `{ status: 'error', ...EmissionResult }` — or the call never
+  // settles. One-shot via its OWN latch, deliberately NOT `settled`: the error
+  // latch guards double-DELIVERY on re-renders of the same bad input, while a
+  // corrected re-emission on the same call must still recover in place and let
+  // the eventual completion resolve `{ status: 'submitted' }`.
+  const errorDelivered = useRef(false);
+  const emissionError = compiled.error;
+  useEffect(() => {
+    if (!emissionError || settled.current || errorDelivered.current) return;
+    errorDelivered.current = true;
+    resolve({ status: 'error', ...emissionError });
+  }, [emissionError, resolve]);
 
   if (compiled.error) return <EmissionErrorView result={compiled.error} />;
 
