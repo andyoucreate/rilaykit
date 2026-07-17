@@ -581,7 +581,6 @@ function buildDifferentialFlow(gate: Promise<void>, includeAlpha: boolean) {
           validate: gatedSchema(gate),
           // Alpha's user leaves a DEBOUNCED run pending as well as an in-flight
           // one: the two leak by different routes and only one of them is stale.
-          validateOnChange: true,
           debounceMs: 500,
         },
       }),

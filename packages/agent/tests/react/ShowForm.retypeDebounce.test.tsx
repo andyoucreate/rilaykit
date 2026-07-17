@@ -41,24 +41,29 @@ const catalog = ril
 
 const validation = {
   rules: [{ type: 'minLength', params: { min: 5 }, message: 'Too short' }],
-  validateOnChange: true,
   debounceMs: 200,
 };
+// Form-level: validate from the first keystroke (debounced) so the retype-race
+// path these tests pin is actually exercised without a blur.
+const formValidation = { mode: 'onChange' as const };
 const TORN = {
   schema: {
     id: 'bio-form',
+    validation: formValidation,
     fields: [{ id: 'bio', props: { label: 'Bio' }, validation, type: 'text' }],
   },
 };
 const FULL = {
   schema: {
     id: 'bio-form',
+    validation: formValidation,
     fields: [{ id: 'bio', props: { label: 'Bio' }, validation, type: 'textarea' }],
   },
 };
 const GROWN = {
   schema: {
     id: 'bio-form',
+    validation: formValidation,
     fields: [
       { id: 'bio', props: { label: 'Bio' }, validation, type: 'text' },
       { id: 'extra', props: { label: 'Extra' }, type: 'text' },

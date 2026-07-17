@@ -14,13 +14,13 @@ const crossValidationForm = r
       id: 'password',
       type: 'text',
       props: { label: 'Password', placeholder: 'Enter password' },
-      validation: { validate: [required(), minLength(8)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(8)] },
     },
     {
       id: 'confirmPassword',
       type: 'text',
       props: { label: 'Confirm Password', placeholder: 'Re-enter password' },
-      validation: { validate: [required()], validateOnBlur: true },
+      validation: { validate: [required()] },
     }
   )
   .add(
@@ -28,13 +28,13 @@ const crossValidationForm = r
       id: 'startDate',
       type: 'date',
       props: { label: 'Start Date' },
-      validation: { validate: [required()], validateOnBlur: true },
+      validation: { validate: [required()] },
     },
     {
       id: 'endDate',
       type: 'date',
       props: { label: 'End Date' },
-      validation: { validate: [required()], validateOnBlur: true },
+      validation: { validate: [required()] },
     }
   )
   .add(
@@ -69,7 +69,6 @@ const crossValidationForm = r
       }
       return true;
     }, 'Passwords must match, end date must be after start date, and at least one contact method is required.'),
-    validateOnSubmit: true,
   })
   .build();
 

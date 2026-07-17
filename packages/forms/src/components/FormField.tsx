@@ -9,6 +9,7 @@ import {
   useFieldValue,
 } from '../stores';
 import { parseCompositeKey } from '../utils/repeatable-data';
+import { shouldValidateOnEvent } from '../utils/validation-timing';
 import { useForm } from './FormProvider';
 
 export interface FormFieldProps {
@@ -31,6 +32,12 @@ export const FormField = React.memo(function FormField({
 }: FormFieldProps) {
   // Get form config (stable reference)
   const { formConfig, validateField, conditionsHelpers, formInstanceKey } = useForm();
+
+  // Two-phase validation timing (RHF model), resolved once from the form config.
+  // Default `mode` is `onTouched` (validate on first blur, then live) — RilayKit's
+  // established default; RHF's own default is `onSubmit`, but we preserve behavior.
+  const mode = formConfig.validation?.mode ?? 'onTouched';
+  const reValidateMode = formConfig.validation?.reValidateMode ?? 'onChange';
 
   // Granular selectors - only re-render when THIS field changes
   const value = useFieldValue(fieldId);
@@ -130,8 +137,12 @@ export const FormField = React.memo(function FormField({
     async (newValue: unknown) => {
       setValue(newValue);
 
-      // Validate on change if configured OR if the field is already touched.
-      const shouldValidate = fieldConfig.validation?.validateOnChange || fieldState.touched;
+      const shouldValidate = shouldValidateOnEvent('change', {
+        mode,
+        reValidateMode,
+        hasErrored: fieldState.errors.length > 0,
+        touched: fieldState.touched,
+      });
       if (!shouldValidate) return;
 
       // Debounce change-triggered validation when configured (blur/submit always
@@ -154,8 +165,10 @@ export const FormField = React.memo(function FormField({
       fieldId,
       setValue,
       validateField,
-      fieldConfig.validation?.validateOnChange,
+      mode,
+      reValidateMode,
       fieldConfig.validation?.debounceMs,
+      fieldState.errors.length,
       fieldState.touched,
     ]
   );
@@ -166,15 +179,23 @@ export const FormField = React.memo(function FormField({
       setTouched();
     }
 
-    if (fieldConfig.validation?.validateOnBlur !== false) {
+    const shouldValidate = shouldValidateOnEvent('blur', {
+      mode,
+      reValidateMode,
+      hasErrored: fieldState.errors.length > 0,
+      touched: fieldState.touched,
+    });
+    if (shouldValidate) {
       await validateField(fieldId);
     }
   }, [
     fieldId,
+    mode,
+    reValidateMode,
+    fieldState.errors.length,
     fieldState.touched,
     setTouched,
     validateField,
-    fieldConfig.validation?.validateOnBlur,
   ]);
 
   // Memoize merged props

@@ -39,9 +39,7 @@ const log = getLogger('forms:builder');
  *   type: 'text',
  *   props: { placeholder: 'Enter your name' },
  *   validation: {
- *     validators: [required(), minLength(2)],
- *     validateOnChange: true,
- *     validateOnBlur: true
+ *     validate: [required(), minLength(2)],
  *   }
  * };
  * ```
@@ -201,10 +199,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     if (component.validation || fieldConfig.validation) {
       combinedValidation = {
         // Merge validation settings, field settings take precedence
-        validateOnChange:
-          fieldConfig.validation?.validateOnChange ?? component.validation?.validateOnChange,
-        validateOnBlur:
-          fieldConfig.validation?.validateOnBlur ?? component.validation?.validateOnBlur,
         debounceMs: fieldConfig.validation?.debounceMs ?? component.validation?.debounceMs,
 
         // Combine validation rules: merge component and field validation
@@ -616,7 +610,6 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    *       return createSuccessResult();
    *     }
    *   ],
-   *   validateOnSubmit: true
    * });
    * ```
    */
@@ -680,8 +673,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * @example
    * ```typescript
    * builder.addFieldValidation('email', {
-   *   validators: [required(), email()],
-   *   validateOnBlur: true
+   *   validate: [required(), email()],
    * });
    * ```
    */

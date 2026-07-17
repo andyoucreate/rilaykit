@@ -32,9 +32,7 @@ describe('AgentAssistantPage — real HITL loop', () => {
 
     // The resolve loop advanced the transcript: the scripted follow-up appears,
     // greeting the submitted name.
-    await waitFor(() =>
-      expect(screen.getByText(/your account is ready/i)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/your account is ready/i)).toBeInTheDocument());
     expect(screen.getByText(/Thanks, Neo/)).toBeInTheDocument();
   });
 });

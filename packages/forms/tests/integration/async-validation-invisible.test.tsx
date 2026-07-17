@@ -59,7 +59,7 @@ function buildForm(): FormConfiguration {
       id: 'b',
       type: 'text',
       props: { label: 'B' },
-      validation: { validate: slowInvalidSchema, validateOnChange: true },
+      validation: { validate: slowInvalidSchema },
       conditions: { visible: when('a').equals('show') },
     })
     .build();

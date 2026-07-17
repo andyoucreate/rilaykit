@@ -36,7 +36,7 @@ beforeEach(() => {
       renderer: () => React.createElement('input'),
       defaultProps: { label: '' },
       validation: {
-        validateOnChange: true,
+        debounceMs: 100,
         validate: email(),
       },
     })
@@ -943,23 +943,21 @@ describe('fromSchema — hardcore integration', () => {
       const field = result.formConfig.allFields[0];
 
       expect(field.validation).toBeDefined();
-      // Component has validateOnChange: true
-      expect(field.validation.validateOnChange).toBe(true);
       // Should have combined validators: component email + field required
       expect(Array.isArray(field.validation.validate)).toBe(true);
       expect(field.validation.validate).toHaveLength(2);
     });
 
-    it('field validation overrides component validateOnChange', () => {
+    it('field validation overrides component debounceMs', () => {
       const schema: FormSchema = {
         id: 'form',
         fields: [
           {
             id: 'emailField',
-            type: 'email', // has validateOnChange: true
+            type: 'email', // has debounceMs: 100
             validation: {
               rules: 'required',
-              validateOnChange: false, // override
+              debounceMs: 500, // override
             },
           },
         ],
@@ -969,7 +967,7 @@ describe('fromSchema — hardcore integration', () => {
       const field = result.formConfig.allFields[0];
 
       // Field-level takes precedence over component-level
-      expect(field.validation.validateOnChange).toBe(false);
+      expect(field.validation.debounceMs).toBe(500);
     });
 
     it('field with no validation on a component that has validation', () => {
@@ -981,10 +979,10 @@ describe('fromSchema — hardcore integration', () => {
       const result = fromSchema(schema, rilConfig);
       const field = result.formConfig.allFields[0];
 
-      // Component has email validator — it should be present
+      // Component has email validator + debounceMs — both should thread through
       expect(field.validation).toBeDefined();
       expect(field.validation.validate).toBeDefined();
-      expect(field.validation.validateOnChange).toBe(true);
+      expect(field.validation.debounceMs).toBe(100);
     });
   });
 
@@ -1082,7 +1080,7 @@ describe('fromSchema — hardcore integration', () => {
               rows: [{ fields: [{ id: 'name', type: 'text' }] }],
               validation: {
                 rules: 'required',
-                validateOnChange: true,
+                debounceMs: 250,
               },
             },
           },
@@ -1094,7 +1092,7 @@ describe('fromSchema — hardcore integration', () => {
 
       expect(rep.validation).toBeDefined();
       expect(rep.validation.validate).toBeDefined();
-      expect(rep.validation.validateOnChange).toBe(true);
+      expect(rep.validation.debounceMs).toBe(250);
     });
 
     it('repeatable with multiple template rows', () => {
@@ -1366,14 +1364,14 @@ describe('fromSchema — hardcore integration', () => {
   });
 
   describe('validation options without rules', () => {
-    it('passes through validateOnChange without rules', () => {
+    it('validation block without rules leaves validate undefined', () => {
       const schema: FormSchema = {
         id: 'form',
         fields: [
           {
             id: 'name',
             type: 'text',
-            validation: { validateOnChange: true },
+            validation: { debounceMs: 150 },
           },
         ],
       };
@@ -1382,7 +1380,7 @@ describe('fromSchema — hardcore integration', () => {
       const field = result.formConfig.allFields[0];
 
       expect(field.validation).toBeDefined();
-      expect(field.validation.validateOnChange).toBe(true);
+      expect(field.validation.debounceMs).toBe(150);
       expect(field.validation.validate).toBeUndefined();
     });
 
@@ -1449,7 +1447,7 @@ describe('fromSchema — hardcore integration', () => {
                 id: 'email',
                 type: 'email',
                 props: { label: 'Email' },
-                validation: { rules: ['required', 'email'], validateOnBlur: true },
+                validation: { rules: ['required', 'email'] },
               },
             ],
           },
@@ -1466,7 +1464,6 @@ describe('fromSchema — hardcore integration', () => {
                     { type: 'minLength', params: { min: 8 } },
                     { type: 'passwordStrength' },
                   ],
-                  validateOnChange: true,
                   debounceMs: 300,
                 },
               },
@@ -1543,7 +1540,6 @@ describe('fromSchema — hardcore integration', () => {
 
       // Password field has combined validators
       const passwordField = allFields.find((f) => f.id === 'password');
-      expect(passwordField.validation.validateOnChange).toBe(true);
       expect(passwordField.validation.debounceMs).toBe(300);
       expect(Array.isArray(passwordField.validation.validate)).toBe(true);
 
@@ -1674,9 +1670,9 @@ describe('resolveFieldValidation — edge cases', () => {
   });
 
   it('no rules produces undefined validate', () => {
-    const config = resolveFieldValidation({ validateOnChange: true });
+    const config = resolveFieldValidation({ debounceMs: 200 });
     expect(config.validate).toBeUndefined();
-    expect(config.validateOnChange).toBe(true);
+    expect(config.debounceMs).toBe(200);
   });
 
   it('single rule as array produces array with one element', () => {
@@ -1690,14 +1686,11 @@ describe('resolveFieldValidation — edge cases', () => {
   it('undefined options are passed through', () => {
     const config = resolveFieldValidation({
       rules: 'required',
-      validateOnChange: undefined,
-      validateOnBlur: undefined,
       debounceMs: undefined,
     });
 
-    expect(config.validateOnChange).toBeUndefined();
-    expect(config.validateOnBlur).toBeUndefined();
     expect(config.debounceMs).toBeUndefined();
+    expect(config.validate).toBeDefined();
   });
 });
 

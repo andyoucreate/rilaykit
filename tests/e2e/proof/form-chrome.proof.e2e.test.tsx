@@ -24,7 +24,6 @@ describe('PROOF form chrome hardening', () => {
       props: {},
       validation: {
         validate: [required('Email is required'), z.string().email('Invalid email')],
-        validateOnBlur: true,
       },
     });
     render(

@@ -3,7 +3,9 @@ import type {
   FieldEffectContext,
   FieldValidationConfig,
   FormConfiguration,
+  FormReValidateMode,
   FormValidationConfig,
+  FormValidationMode,
   StandardSchema,
   SubmitOptions,
 } from '@rilaykit/core';
@@ -119,8 +121,7 @@ export interface FormSchemaRepeatable {
 export interface FieldSchemaValidation {
   /** One or more validation descriptors */
   readonly rules?: ValidationDescriptor | ValidationDescriptor[];
-  readonly validateOnChange?: boolean;
-  readonly validateOnBlur?: boolean;
+  /** Per-field async cost control (blur/submit always validate immediately). */
   readonly debounceMs?: number;
 }
 
@@ -151,7 +152,10 @@ export interface ValidationDescriptorObject {
  */
 export interface FormSchemaValidationConfig {
   readonly rules?: ValidationDescriptor | ValidationDescriptor[];
-  readonly validateOnSubmit?: boolean;
+  /** When each field FIRST validates (RHF `mode`). Default `'onTouched'`. */
+  readonly mode?: FormValidationMode;
+  /** When a field RE-validates after erroring (RHF `reValidateMode`). Default `'onChange'`. */
+  readonly reValidateMode?: FormReValidateMode;
   readonly validateOnStepChange?: boolean;
 }
 

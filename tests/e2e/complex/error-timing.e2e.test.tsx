@@ -1,4 +1,4 @@
-import type { ComponentRenderContext } from '@rilaykit/core';
+import type { ComponentRenderContext, FormValidationMode } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { combine, custom, minLength, required, ril, when } from 'rilaykit';
@@ -15,13 +15,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // and `field.isValidating` into the DOM. Store reads only ever corroborate
 // a DOM assertion — they never stand in for one.
 //
-// The contract this file pins, read off the source before it was written:
-//   * FormField.handleBlur  (FormField.tsx:164)
+// The contract this file pins, expressed against the RHF-style two-phase timing
+// model (form-level `mode` + `reValidateMode`, resolved by shouldValidateOnEvent):
+//   * FormField.handleBlur
 //       - always marks touched
-//       - validates unless `validateOnBlur === false` (blur validates BY
-//         DEFAULT; the flag is opt-OUT, not opt-in)
-//   * FormField.handleChange (FormField.tsx:129)
-//       - validates iff `validateOnChange || fieldState.touched`
+//       - validates per shouldValidateOnEvent('blur', …): under the default
+//         `mode: 'onTouched'`, blur is what FIRST validates a field
+//   * FormField.handleChange
+//       - validates per shouldValidateOnEvent('change', …): gated on the
+//         `touched` flag under `onTouched`, immediate under `onChange` / `all`
 //       - `debounceMs` defers ONLY the change path
 //   * validateField (useFormValidationWithStore.ts:154)
 //       - writes 'validating' before awaiting, then the verdict
@@ -215,21 +217,26 @@ beforeEach(() => {
 // =====================================================================
 describe('Error timing: nothing shows before the user does anything', () => {
   function buildPristineForm() {
-    return form
-      .create(rilConfig, 'pristine')
-      .add({
-        id: 'email',
-        type: 'text',
-        props: { label: 'Email' },
-        validation: { validate: required('Email is required'), validateOnChange: true },
-      })
-      .add({
-        id: 'name',
-        type: 'text',
-        props: { label: 'Name' },
-        validation: { validate: combine(required(), minLength(3)) },
-      })
-      .build();
+    return (
+      form
+        .create(rilConfig, 'pristine')
+        .add({
+          id: 'email',
+          type: 'text',
+          props: { label: 'Email' },
+          validation: { validate: required('Email is required') },
+        })
+        .add({
+          id: 'name',
+          type: 'text',
+          props: { label: 'Name' },
+          validation: { validate: combine(required(), minLength(3)) },
+        })
+        // Validate from the first keystroke — the sibling test types without ever
+        // blurring and still expects a live verdict.
+        .setValidation({ mode: 'onChange' })
+        .build()
+    );
   }
 
   it('shows NO error on a pristine required field at mount', async () => {
@@ -240,7 +247,7 @@ describe('Error timing: nothing shows before the user does anything', () => {
       </FormProvider>
     );
 
-    // Even validateOnChange fields must stay silent: nothing has changed yet.
+    // Even under mode: 'onChange', fields stay silent: nothing has changed yet.
     noErrors('email');
     noErrors('name');
     expect(screen.getByTestId('touched-email')).toHaveTextContent('pristine');
@@ -272,30 +279,28 @@ describe('Error timing: nothing shows before the user does anything', () => {
 });
 
 // =====================================================================
-// 2. validateOnBlur
+// 2. mode: onTouched / onSubmit (blur timing)
 // =====================================================================
 describe('Error timing: blur', () => {
-  function buildBlurForm(validateOnBlur?: boolean) {
-    return form
-      .create(rilConfig, `blur-${String(validateOnBlur)}`)
-      .add({
-        id: 'code',
-        type: 'text',
-        props: { label: 'Code' },
-        validation: { validate: minLength(4, 'Too short'), validateOnBlur },
-      })
-      .build();
+  function buildBlurForm(mode?: FormValidationMode) {
+    const builder = form.create(rilConfig, `blur-${String(mode)}`).add({
+      id: 'code',
+      type: 'text',
+      props: { label: 'Code' },
+      validation: { validate: minLength(4, 'Too short') },
+    });
+    return (mode ? builder.setValidation({ mode }) : builder).build();
   }
 
-  it('validateOnBlur: true — no error while typing, error appears on blur', async () => {
+  it('mode onTouched — no error while typing, error appears on blur', async () => {
     render(
-      <FormProvider formConfig={buildBlurForm(true)} defaultValues={{ code: '' }}>
+      <FormProvider formConfig={buildBlurForm('onTouched')} defaultValues={{ code: '' }}>
         <FormBody />
       </FormProvider>
     );
     const input = screen.getByTestId('input-code');
 
-    // Typing an invalid value: untouched + no validateOnChange -> silence.
+    // Typing an invalid value: untouched under onTouched -> silence.
     fireEvent.change(input, { target: { value: 'a' } });
     fireEvent.change(input, { target: { value: 'ab' } });
     await act(async () => {
@@ -314,7 +319,7 @@ describe('Error timing: blur', () => {
     });
   });
 
-  it('blur validates BY DEFAULT when validateOnBlur is unspecified (opt-out flag)', async () => {
+  it('onTouched is the DEFAULT — blur validates without configuring any mode', async () => {
     render(
       <FormProvider formConfig={buildBlurForm(undefined)} defaultValues={{ code: '' }}>
         <FormBody />
@@ -332,9 +337,9 @@ describe('Error timing: blur', () => {
     );
   });
 
-  it('validateOnBlur: false — blur marks touched but paints NO error', async () => {
+  it('mode onSubmit — blur marks touched but paints NO error', async () => {
     render(
-      <FormProvider formConfig={buildBlurForm(false)} defaultValues={{ code: '' }}>
+      <FormProvider formConfig={buildBlurForm('onSubmit')} defaultValues={{ code: '' }}>
         <FormBody />
       </FormProvider>
     );
@@ -348,9 +353,9 @@ describe('Error timing: blur', () => {
     noErrors('code');
   });
 
-  it('once touched, subsequent keystrokes DO validate live (touched implies onChange)', async () => {
+  it('once touched, subsequent keystrokes DO validate live (onTouched: blur then live)', async () => {
     render(
-      <FormProvider formConfig={buildBlurForm(true)} defaultValues={{ code: '' }}>
+      <FormProvider formConfig={buildBlurForm('onTouched')} defaultValues={{ code: '' }}>
         <FormBody />
       </FormProvider>
     );
@@ -361,8 +366,8 @@ describe('Error timing: blur', () => {
     });
     await waitFor(() => expect(screen.getByTestId('ui-errors-code')).toBeInTheDocument());
 
-    // Typing a VALID value now clears without another blur — contract:
-    // FormField.tsx:134 `validateOnChange || fieldState.touched`.
+    // Typing a VALID value now clears without another blur — contract: once the
+    // field has errored, `reValidateMode: 'onChange'` (default) governs live.
     await act(async () => {
       fireEvent.change(input, { target: { value: 'abcd' } });
     });
@@ -379,7 +384,7 @@ describe('Error timing: blur', () => {
 });
 
 // =====================================================================
-// 3. validateOnChange
+// 3. mode: onChange (live)
 // =====================================================================
 describe('Error timing: change', () => {
   function buildChangeForm() {
@@ -389,8 +394,9 @@ describe('Error timing: change', () => {
         id: 'nickname',
         type: 'text',
         props: { label: 'Nickname' },
-        validation: { validate: minLength(3, 'At least 3 chars'), validateOnChange: true },
+        validation: { validate: minLength(3, 'At least 3 chars') },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
   }
 
@@ -450,22 +456,26 @@ describe('Error timing: debounceMs', () => {
   const DEBOUNCE = 60;
 
   function buildDebouncedForm(spy?: (v: unknown) => void) {
-    return form
-      .create(rilConfig, 'debounced')
-      .add({
-        id: 'slug',
-        type: 'text',
-        props: { label: 'Slug' },
-        validation: {
-          validate: custom<string>((v) => {
-            spy?.(v);
-            return typeof v === 'string' && v.length >= 4;
-          }, 'Slug too short'),
-          validateOnChange: true,
-          debounceMs: DEBOUNCE,
-        },
-      })
-      .build();
+    return (
+      form
+        .create(rilConfig, 'debounced')
+        .add({
+          id: 'slug',
+          type: 'text',
+          props: { label: 'Slug' },
+          validation: {
+            validate: custom<string>((v) => {
+              spy?.(v);
+              return typeof v === 'string' && v.length >= 4;
+            }, 'Slug too short'),
+            debounceMs: DEBOUNCE,
+          },
+        })
+        // `all`: change validates (deferred by debounceMs) AND blur validates
+        // immediately — the blur path is what the third test pins as un-debounced.
+        .setValidation({ mode: 'all' })
+        .build()
+    );
   }
 
   it('does NOT paint immediately on keystroke, and DOES once the debounce settles', async () => {
@@ -718,26 +728,22 @@ describe('Error timing: touched semantics', () => {
 // 6. ERROR CLEARS ON FIX (after a failed submit)
 // =====================================================================
 describe('Error timing: clearing a submit-committed error', () => {
-  function buildFixForm(opts: { validateOnChange?: boolean }) {
+  function buildFixForm() {
     return form
-      .create(rilConfig, `fix-${String(opts.validateOnChange)}`)
+      .create(rilConfig, 'fix-form')
       .add({
         id: 'city',
         type: 'text',
         props: { label: 'City' },
-        validation: { validate: required('City is required'), ...opts },
+        validation: { validate: required('City is required') },
       })
       .build();
   }
 
-  it('validateOnChange field: typing a valid value clears the error without re-submitting', async () => {
+  it('a submit-errored field clears the error live as the user types the fix (reValidateMode onChange)', async () => {
     const onSubmit = vi.fn();
     render(
-      <FormProvider
-        formConfig={buildFixForm({ validateOnChange: true })}
-        defaultValues={{ city: '' }}
-        onSubmit={onSubmit}
-      >
+      <FormProvider formConfig={buildFixForm()} defaultValues={{ city: '' }} onSubmit={onSubmit}>
         <FormBody />
         <SubmitCapture />
         <Probe />
@@ -758,14 +764,14 @@ describe('Error timing: clearing a submit-committed error', () => {
     });
   });
 
-  it('a submit-errored field WITHOUT validateOnChange clears its error as the user types the fix', async () => {
+  it('a submit-errored field under the DEFAULT mode clears its error as the user types the fix', async () => {
     // Once a field's error has been shown it must track the fix live: the submit
-    // marked it touched, and `handleChange` validates when `validateOnChange ||
-    // touched` (FormField.tsx:134). Without that the field stays FROZEN at its
-    // submit verdict — the user types a perfectly valid value and the error sits
-    // there until they blur or submit again.
+    // committed the error, and from there `reValidateMode: 'onChange'` (the
+    // default) re-validates on every keystroke. Without that the field stays
+    // FROZEN at its submit verdict — the user types a perfectly valid value and
+    // the error sits there until they blur or submit again.
     render(
-      <FormProvider formConfig={buildFixForm({})} defaultValues={{ city: '' }}>
+      <FormProvider formConfig={buildFixForm()} defaultValues={{ city: '' }}>
         <FormBody />
         <SubmitCapture />
       </FormProvider>
@@ -799,10 +805,11 @@ describe('Error timing: per-row isolation in a repeatable', () => {
             id: 'sku',
             type: 'text',
             props: { label: 'SKU' },
-            validation: { validate: required('SKU is required'), validateOnChange: true },
+            validation: { validate: required('SKU is required') },
           })
           .defaultValue({ sku: '' })
       )
+      .setValidation({ mode: 'onChange' })
       .build();
   }
 
@@ -937,9 +944,10 @@ describe('Error timing: a field that becomes hidden', () => {
         id: 'reason',
         type: 'text',
         props: { label: 'Reason' },
-        validation: { validate: minLength(5, 'Reason too short'), validateOnChange: true },
+        validation: { validate: minLength(5, 'Reason too short') },
         conditions: { visible: when('show').equals(true) },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
   }
 
@@ -1032,9 +1040,10 @@ describe('Error timing: a field that becomes hidden', () => {
         id: 'detail',
         type: 'text',
         props: { label: 'Detail' },
-        validation: { validate: schema, validateOnChange: true },
+        validation: { validate: schema },
         conditions: { visible: when('show').equals(true) },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
 
     render(
@@ -1081,8 +1090,9 @@ describe('Error timing: async verdicts', () => {
         id: 'handle',
         type: 'text',
         props: { label: 'Handle' },
-        validation: { validate: schema as never, validateOnChange: true },
+        validation: { validate: schema as never },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
   }
 
@@ -1234,9 +1244,9 @@ describe('Error timing: several failing rules on one field', () => {
             custom<string>((v) => /[0-9]/.test(String(v)), 'Must contain a digit'),
             custom<string>((v) => /[A-Z]/.test(String(v)), 'Must contain an uppercase letter')
           ),
-          validateOnChange: true,
         },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
 
     render(
@@ -1282,9 +1292,9 @@ describe('Error timing: several failing rules on one field', () => {
         props: { label: 'Code' },
         validation: {
           validate: [required('Code is required'), minLength(3, 'Code too short')],
-          validateOnChange: true,
         },
       })
+      .setValidation({ mode: 'onChange' })
       .build();
 
     render(

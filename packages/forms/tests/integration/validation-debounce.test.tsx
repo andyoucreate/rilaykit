@@ -46,7 +46,7 @@ function buildForm(): FormConfiguration {
       id: 'f',
       type: 'text',
       props: { label: 'F' },
-      validation: { validate: spySchema, validateOnChange: true, debounceMs: 300 },
+      validation: { validate: spySchema, debounceMs: 300 },
     })
     .build();
 }

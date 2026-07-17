@@ -24,13 +24,13 @@ const accountTypeForm = r
         { label: 'Enterprise', value: 'enterprise' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'fullName',
     type: 'text',
     props: { label: 'Full Name' },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .build();
 
@@ -40,7 +40,7 @@ const companyDetailsForm = r
     id: 'companyName',
     type: 'text',
     props: { label: 'Company Name' },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'companySize',
@@ -54,7 +54,7 @@ const companyDetailsForm = r
         { label: '200+', value: '200+' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({ id: 'website', type: 'text', props: { label: 'Website', placeholder: 'https://...' } })
   .build();
@@ -65,7 +65,7 @@ const enterpriseForm = r
     id: 'contractId',
     type: 'text',
     props: { label: 'Contract ID', description: 'Your enterprise contract identifier' },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'ssoProvider',
@@ -79,13 +79,13 @@ const enterpriseForm = r
         { label: 'Custom SAML', value: 'saml' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'adminEmail',
     type: 'email',
     props: { label: 'Admin Email' },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .build();
 

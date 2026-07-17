@@ -138,14 +138,10 @@ describe('Standard Schema Integration Tests', () => {
     it('should handle validation timing options', () => {
       const config: FieldValidationConfig = {
         validate: required(),
-        validateOnChange: true,
-        validateOnBlur: false,
         debounceMs: 300,
       };
 
       expect(hasUnifiedValidation(config)).toBe(true);
-      expect(config.validateOnChange).toBe(true);
-      expect(config.validateOnBlur).toBe(false);
       expect(config.debounceMs).toBe(300);
     });
 

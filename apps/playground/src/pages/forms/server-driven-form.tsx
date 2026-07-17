@@ -38,7 +38,6 @@ const onboardingSchema: FormSchema = {
           props: { label: 'Email', placeholder: 'john@example.com' },
           validation: {
             rules: ['required', 'email'],
-            validateOnBlur: true,
           },
         },
       ],

@@ -34,7 +34,7 @@ const SCHEMA_JSON = `{
           {
             "id": "email",
             "type": "text",
-            "validation": { "rules": ["required", "email"], "validateOnBlur": true }
+            "validation": { "rules": ["required", "email"] }
           },
           { "id": "company", "type": "text", "default": "Acme" }
         ]

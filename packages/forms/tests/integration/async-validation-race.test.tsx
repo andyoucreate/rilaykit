@@ -58,8 +58,9 @@ function buildForm(): FormConfiguration {
       id: 'f',
       type: 'text',
       props: { label: 'F' },
-      validation: { validate: raceSchema, validateOnChange: true },
+      validation: { validate: raceSchema },
     })
+    .setValidation({ mode: 'onChange' })
     .build();
 }
 

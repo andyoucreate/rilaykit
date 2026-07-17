@@ -54,15 +54,17 @@ describe('an in-flight async validation racing a mid-stream retype does not stam
         }),
       },
     };
-    const validation = { rules: [{ type: 'slow' }], validateOnChange: true };
+    const validation = { rules: [{ type: 'slow' }] };
     const tornChunk: FormSchema = {
       version: 1,
       id: 'f',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'bio', type: 'text', props: {}, validation }],
     };
     const completedChunk: FormSchema = {
       version: 1,
       id: 'f',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'bio', type: 'textarea', props: {}, validation }],
     };
     const torn = compileForm(tornChunk, config, { lenient: true, bindings });

@@ -278,7 +278,6 @@ describe('FormField', () => {
           props: { label: 'Email' },
           validation: {
             validate: mockFailingSchema,
-            validateOnBlur: true,
           },
         })
         .build();
@@ -356,7 +355,6 @@ describe('FormField', () => {
           props: { label: 'Email' },
           validation: {
             validators: [mockValidator],
-            validateOnChange: true,
           },
         })
         .build();
@@ -402,7 +400,6 @@ describe('FormField', () => {
           props: { label: 'First Name' },
           validation: {
             validate: pendingSchema,
-            validateOnBlur: true,
           },
         })
         .build();
