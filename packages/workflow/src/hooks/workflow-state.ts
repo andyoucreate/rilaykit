@@ -19,7 +19,27 @@ export interface WorkflowState {
   repeatableOrders?: Record<string, Record<string, string[]>>;
   visitedSteps: Set<string>;
   passedSteps: Set<string>;
+  /**
+   * Steps the user explicitly SKIPPED. The structural mirror of
+   * {@link passedSteps}, disjoint from it: a skipped step that is later passed
+   * leaves this set. The completion boundary reads it to keep skipped steps'
+   * (unanswered) slices out of the payload.
+   */
+  skippedSteps: Set<string>;
   isSubmitting: boolean;
   isTransitioning: boolean;
   isInitializing: boolean;
+}
+
+/**
+ * The lifecycle channel handed to `onComplete(data, meta)` alongside the
+ * completion payload. Each array is the corresponding `workflowState` Set
+ * rendered in insertion order (`[...set]`), so the host reads WHICH steps were
+ * visited / skipped / passed without inferring it from the payload's shape —
+ * the payload itself carries answers only.
+ */
+export interface WorkflowCompletionMeta {
+  visitedSteps: string[];
+  skippedSteps: string[];
+  passedSteps: string[];
 }

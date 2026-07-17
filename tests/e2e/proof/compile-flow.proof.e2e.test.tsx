@@ -136,10 +136,13 @@ describe('PROOF compileFlow — server JSON → live validated multi-step flow',
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-    expect(onComplete).toHaveBeenCalledWith({
-      account: { email: 'ada@acme.com', company: 'Acme' },
-      billing: { billingEmail: 'ada@acme.com', vat: 'FR42' },
-    });
+    expect(onComplete).toHaveBeenCalledWith(
+      {
+        account: { email: 'ada@acme.com', company: 'Acme' },
+        billing: { billingEmail: 'ada@acme.com', vat: 'FR42' },
+      },
+      expect.objectContaining({ skippedSteps: [] })
+    );
   });
 
   /** Drives the JSON flow to the billing step with the given account email. */

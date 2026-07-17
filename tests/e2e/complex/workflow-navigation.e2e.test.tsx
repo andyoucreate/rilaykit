@@ -579,12 +579,17 @@ describe('COMPLEX — workflow navigation: back / next / skip / jump', () => {
 
     const payload = onComplete.mock.calls[0][0];
     expect(payload.prefs).toEqual({ newsletter: 'weekly' });
-    // The skipped last step is PRESENT (it was visited, so its slice was
-    // materialised) but EMPTY — no invented answer for the question skipped.
-    expect(payload.confirm).toEqual({});
+    // The skipped last step is ABSENT: the payload is a pure projection of
+    // answers, and a skip is "no answer" — one encoding, shared with a step
+    // that was never visible. It no longer ships a seeded {}.
+    expect(payload.confirm).toBeUndefined();
     // billing was never visible on the free plan -> absent entirely.
     expect(payload.billing).toBeUndefined();
     expect(screen.getByTestId('passed').textContent).not.toContain('confirm');
+
+    // The lifecycle travels on the second `onComplete` arg, not the payload.
+    const meta = onComplete.mock.calls[0][1];
+    expect(meta.skippedSteps).toContain('confirm');
   });
 
   /**

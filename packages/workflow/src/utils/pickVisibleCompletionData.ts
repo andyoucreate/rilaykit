@@ -40,11 +40,18 @@ function isSlice(value: unknown): value is Record<string, unknown> {
  * the config (an orphan a recompile left behind) has no conditions to consult
  * and passes through untouched, exactly as {@link structureWorkflowData}
  * treats it.
+ *
+ * A SKIPPED step is dropped on the SAME terms as a hidden one — the payload is
+ * a pure projection of answers, and a skip is "no answer" just as invisibility
+ * is. `skippedStepIds` is the store's persistent skipped set at the boundary;
+ * a step it names is deleted before its visibility is even consulted (a skipped
+ * step is by definition one the user bypassed without answering).
  */
 export function pickVisibleCompletionData(
   allData: Record<string, unknown>,
   steps: ReadonlyArray<StepConfig>,
-  stepData: Record<string, unknown>
+  stepData: Record<string, unknown>,
+  skippedStepIds: ReadonlySet<string> = new Set()
 ): Record<string, unknown> {
   const conditionData = combineWorkflowDataForConditions(allData, stepData);
 
@@ -55,6 +62,14 @@ export function pickVisibleCompletionData(
 
   for (const step of steps) {
     if (!picked.has(step.id)) continue;
+
+    // A skipped step ships no slice — one encoding of "no answer", shared with
+    // the hidden case below.
+    if (skippedStepIds.has(step.id)) {
+      picked.delete(step.id);
+      changed = true;
+      continue;
+    }
 
     if (
       step.conditions?.visible &&

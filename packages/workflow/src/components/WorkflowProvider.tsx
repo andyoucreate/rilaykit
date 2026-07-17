@@ -28,6 +28,7 @@ import {
 } from '../hooks';
 import { usePersistence } from '../hooks/usePersistence';
 import type { UseWorkflowConditionsReturn } from '../hooks/useWorkflowConditions';
+import type { WorkflowCompletionMeta } from '../hooks/workflow-state';
 import type { WorkflowPersistenceAdapter } from '../persistence/types';
 import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
 import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
@@ -59,6 +60,7 @@ export interface WorkflowContextValue {
     stepData: Record<string, unknown>;
     visitedSteps: Set<string>;
     passedSteps: Set<string>;
+    skippedSteps: Set<string>;
     isSubmitting: boolean;
     isTransitioning: boolean;
     isInitializing: boolean;
@@ -110,7 +112,17 @@ export interface WorkflowProviderProps {
   defaultValues?: Record<string, unknown>;
   defaultStep?: string; // ID of the step to start on
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
-  onWorkflowComplete?: (data: Record<string, unknown>) => void | Promise<void>;
+  /**
+   * Fires once the workflow completes. The second `meta` argument
+   * ({@link WorkflowCompletionMeta}) carries the lifecycle channel — visited /
+   * skipped / passed steps — and is additive: existing `onComplete(data)`
+   * callers keep working unchanged. `data` is a pure projection of the user's
+   * answers (skipped and never-visible steps are absent).
+   */
+  onWorkflowComplete?: (
+    data: Record<string, unknown>,
+    meta: WorkflowCompletionMeta
+  ) => void | Promise<void>;
   className?: string;
 }
 
@@ -281,6 +293,7 @@ export function WorkflowProvider({
       repeatableOrders: state._repeatableOrders,
       visitedSteps: state.visitedSteps,
       passedSteps: state.passedSteps,
+      skippedSteps: state.skippedSteps,
       isSubmitting: state.isSubmitting,
       isTransitioning: state.isTransitioning,
       isInitializing: state.isInitializing,
@@ -297,6 +310,7 @@ export function WorkflowProvider({
         repeatableOrders: state._repeatableOrders,
         visitedSteps: state.visitedSteps,
         passedSteps: state.passedSteps,
+        skippedSteps: state.skippedSteps,
         isSubmitting: state.isSubmitting,
         isTransitioning: state.isTransitioning,
         isInitializing: state.isInitializing,
@@ -370,6 +384,25 @@ export function WorkflowProvider({
     (stepId: string) => store.getState()._markStepPassed(stepId),
     [store]
   );
+
+  const markStepSkipped = useCallback(
+    (stepId: string) => store.getState()._markStepSkipped(stepId),
+    [store]
+  );
+
+  // Live reader for the three lifecycle Sets — same rationale as `getAllData`:
+  // the submission boundary runs inside a single submit tick (a terminal skip
+  // marks the step skipped and completes without a React commit between), so
+  // the completion payload's skipped-step filter and the `meta` channel must
+  // read the store as it is right now, not the render snapshot.
+  const getLifecycleSets = useCallback(() => {
+    const state = store.getState();
+    return {
+      visitedSteps: state.visitedSteps,
+      passedSteps: state.passedSteps,
+      skippedSteps: state.skippedSteps,
+    };
+  }, [store]);
 
   const resetWorkflow = useCallback(() => store.getState()._reset(), [store]);
 
@@ -464,6 +497,7 @@ export function WorkflowProvider({
               allData: mergedAllData,
               visitedSteps: new Set(persistedData.visitedSteps),
               passedSteps: new Set(persistedData.passedSteps || []),
+              skippedSteps: new Set(persistedData.skippedSteps || []),
               // Only when the snapshot carries one: a snapshot written before
               // the order was persisted must fall back to reconstruction from
               // the flat keys, not restore an empty order (which resolves to no
@@ -644,6 +678,7 @@ export function WorkflowProvider({
     setTransitioning,
     markStepVisited,
     markStepPassed,
+    markStepSkipped,
     // The StepDataHelper's mutators are host-authored writes: they go through
     // the write boundary, never the raw store action.
     setStepData: writeStepSlice,
@@ -727,6 +762,7 @@ export function WorkflowProvider({
     getAllData,
     getStepData,
     getRepeatableOrders,
+    getLifecycleSets,
     analyticsStartTime,
     workflowCompletedRef,
     clearPersistedState: persistenceInfo.clearPersistedData,

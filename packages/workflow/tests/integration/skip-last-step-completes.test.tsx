@@ -77,7 +77,12 @@ describe('skipping the LAST visible step completes the workflow', () => {
     fireEvent.click(screen.getByTestId('skip'));
 
     await waitFor(() => expect(onWorkflowComplete).toHaveBeenCalledTimes(1));
-    expect(onWorkflowComplete).toHaveBeenCalledWith({ details: { name: 'Ada' }, extras: {} });
+    // The skipped last step is ABSENT from the payload (answers only); the
+    // lifecycle travels on the second `meta` arg instead.
+    expect(onWorkflowComplete).toHaveBeenCalledWith(
+      { details: { name: 'Ada' } },
+      expect.objectContaining({ skippedSteps: ['extras'] })
+    );
 
     // A skip stays a skip for analytics: the skipped step is reported skipped,
     // never completed.

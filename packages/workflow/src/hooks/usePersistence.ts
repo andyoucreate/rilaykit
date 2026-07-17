@@ -229,6 +229,7 @@ export function usePersistence({
           repeatableOrders: data.repeatableOrders,
           visitedSteps: new Set(data.visitedSteps),
           passedSteps: new Set(data.passedSteps || []),
+          skippedSteps: new Set(data.skippedSteps || []),
           isSubmitting: false,
           isTransitioning: false,
           isInitializing: false,

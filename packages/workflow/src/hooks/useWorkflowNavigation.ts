@@ -24,6 +24,7 @@ export interface UseWorkflowNavigationProps {
   setTransitioning: (isTransitioning: boolean) => void;
   markStepVisited: (stepIndex: number, stepId: string) => void;
   markStepPassed: (stepId: string) => void;
+  markStepSkipped: (stepId: string) => void;
   setStepData: (data: Record<string, any>, stepId: string) => void;
   /**
    * Live accessor for the latest `allData`. The `workflowState` prop is a
@@ -66,6 +67,7 @@ export function useWorkflowNavigation({
   setTransitioning,
   markStepVisited,
   markStepPassed,
+  markStepSkipped,
   setStepData,
   getAllData,
   getRepeatableOrders,
@@ -376,6 +378,16 @@ export function useWorkflowNavigation({
       workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
     }
 
+    // The skip is now committed — past the skippability guard and the
+    // re-entrancy latch, and the analytics signal has fired. Record it in the
+    // persistent skipped set so the completion payload drops this step's
+    // (unanswered) slice and `meta.skippedSteps` carries its id. Marked HERE,
+    // not only on the forward transition, so a TERMINAL skip (which completes
+    // via the submission hook without navigating) is dropped too. Navigating
+    // back onto this step and passing it clears the mark (`_markStepPassed`),
+    // so a skip-then-return-and-fill ships the step's answers.
+    markStepSkipped(currentStep.id);
+
     // A skip is NOT a completion: it explicitly bypasses validation, so it must
     // not run onAfterValidation, must not mark the step passed, and must not
     // emit onStepComplete. Signal the analytics hook to suppress completion for
@@ -413,6 +425,7 @@ export function useWorkflowNavigation({
     workflowState.currentStepIndex,
     findNextVisibleStep,
     goToStep,
+    markStepSkipped,
     pendingSkipRef,
   ]);
 

@@ -3,16 +3,44 @@ import type { WorkflowConfig, WorkflowContext } from '@rilaykit/core';
 import { useCallback, useRef } from 'react';
 import { pickVisibleCompletionData } from '../utils/pickVisibleCompletionData';
 import { structureWorkflowData } from '../utils/structureWorkflowData';
-import type { WorkflowState } from './workflow-state';
+import type { WorkflowCompletionMeta, WorkflowState } from './workflow-state';
 
 const log = getLogger('workflow:submission');
+
+/**
+ * The three lifecycle Sets read live at the submission boundary — see
+ * {@link UseWorkflowSubmissionProps.getLifecycleSets}.
+ */
+type LifecycleSets = Pick<WorkflowState, 'visitedSteps' | 'skippedSteps' | 'passedSteps'>;
+
+/**
+ * Render each lifecycle Set as an insertion-ordered array — the pure `meta`
+ * projection handed to `onComplete(data, meta)`. Colocated with the boundary
+ * that produces it; a Set's iteration order IS insertion order, so `[...set]`
+ * is the whole derivation.
+ */
+function buildCompletionMeta(lifecycle: LifecycleSets): WorkflowCompletionMeta {
+  return {
+    visitedSteps: [...lifecycle.visitedSteps],
+    skippedSteps: [...lifecycle.skippedSteps],
+    passedSteps: [...lifecycle.passedSteps],
+  };
+}
 
 export interface UseWorkflowSubmissionProps {
   workflowConfig: WorkflowConfig;
   workflowState: WorkflowState;
   workflowContext: WorkflowContext;
   setSubmitting: (isSubmitting: boolean) => void;
-  onWorkflowComplete?: (data: Record<string, any>) => void | Promise<void>;
+  /**
+   * Completion callback. The second `meta` argument carries the lifecycle
+   * channel ({@link WorkflowCompletionMeta}); it is additive, so existing
+   * `onComplete(data)` callers keep working unchanged.
+   */
+  onWorkflowComplete?: (
+    data: Record<string, any>,
+    meta: WorkflowCompletionMeta
+  ) => void | Promise<void>;
   /**
    * Live accessor for the latest `allData`. The `workflowState` prop is a
    * render-time snapshot: on the FINAL step, `handleSubmit` writes the step
@@ -36,6 +64,15 @@ export interface UseWorkflowSubmissionProps {
    * and only this can put the rows in the order the user arranged them.
    */
   getRepeatableOrders?: () => Record<string, Record<string, string[]>>;
+  /**
+   * Live accessor for the three lifecycle Sets — same rationale as
+   * {@link getAllData}. The `skippedSteps` set gates the completion payload
+   * (skipped steps ship no slice), and all three become the ordered `meta`
+   * arrays. Read LIVE because a TERMINAL skip marks the step skipped
+   * synchronously and then completes in the same tick, before any React commit
+   * refreshes the render snapshot.
+   */
+  getLifecycleSets?: () => LifecycleSets;
   analyticsStartTime: React.MutableRefObject<number>;
   /**
    * Shared flag flipped once the workflow completes so the abandon cleanup in
@@ -66,6 +103,7 @@ export function useWorkflowSubmission({
   getAllData,
   getStepData,
   getRepeatableOrders,
+  getLifecycleSets,
   analyticsStartTime,
   workflowCompletedRef,
   clearPersistedState,
@@ -94,22 +132,39 @@ export function useWorkflowSubmission({
     // button now yields the same nested arrays as one finished through the
     // form's own submit.
     //
-    // Before structuring, CURRENTLY-HIDDEN steps and fields are dropped: the
-    // seeded defaults of a step the user never reached (and the values of
-    // fields whose question stands retracted) live in the store on purpose,
-    // but shipping them to the host would hand it answers the user never gave,
-    // byte-identical to real ones. Validation already treats the invisible as
-    // nonexistent; the payload boundary agrees here.
+    // Before structuring, CURRENTLY-HIDDEN and SKIPPED steps are dropped: the
+    // seeded defaults of a step the user never reached (or skipped), and the
+    // values of fields whose question stands retracted, live in the store on
+    // purpose — but shipping them to the host would hand it answers the user
+    // never gave, byte-identical to real ones. The payload is a PURE PROJECTION
+    // of answers: "skipped", "never visible" and "never existed" all collapse
+    // to one honest encoding — absence. Validation already treats the invisible
+    // as nonexistent; the payload boundary agrees, and adds the skipped here.
+    const lifecycle = getLifecycleSets?.() ?? {
+      visitedSteps: new Set<string>(),
+      passedSteps: new Set<string>(),
+      skippedSteps: new Set<string>(),
+    };
     const completionData = structureWorkflowData(
-      pickVisibleCompletionData(getAllData(), workflowConfig.steps, getStepData?.() ?? {}),
+      pickVisibleCompletionData(
+        getAllData(),
+        workflowConfig.steps,
+        getStepData?.() ?? {},
+        lifecycle.skippedSteps
+      ),
       workflowConfig.steps,
       getRepeatableOrders?.()
     );
 
+    // The lifecycle travels on its OWN channel — the ordered mirror of the
+    // store's Sets — so the host reads which steps were visited / skipped /
+    // passed without inferring it from the payload shape.
+    const completionMeta = buildCompletionMeta(lifecycle);
+
     try {
       // Call onWorkflowComplete callback if provided
       if (onWorkflowCompleteRef.current) {
-        await onWorkflowCompleteRef.current(completionData);
+        await onWorkflowCompleteRef.current(completionData, completionMeta);
       }
 
       // Track workflow completion analytics
@@ -143,6 +198,7 @@ export function useWorkflowSubmission({
     getAllData,
     getStepData,
     getRepeatableOrders,
+    getLifecycleSets,
     workflowConfig.steps,
     workflowConfig.analytics,
     workflowConfig.id,

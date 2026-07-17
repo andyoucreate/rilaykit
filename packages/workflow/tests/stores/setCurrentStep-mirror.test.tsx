@@ -193,6 +193,7 @@ describe('the store enforces its mirror-ownership invariant with NO exempt actio
     setInitializing: null,
     markStepVisited: null,
     markStepPassed: null,
+    markStepSkipped: null,
     reset: (actions) => actions.reset(),
     loadPersistedState: (actions) => actions.loadPersistedState({ currentStepIndex: 1 }),
   };
@@ -366,6 +367,7 @@ describe('the mirror is a VIEW of the current step slice, after EVERY public act
       setInitializing: (a) => a.setInitializing(false),
       markStepVisited: (a) => a.markStepVisited('items'),
       markStepPassed: (a) => a.markStepPassed('items'),
+      markStepSkipped: (a) => a.markStepSkipped('items'),
       reset: (a) => a.reset(),
       loadPersistedState: (a) =>
         a.loadPersistedState({

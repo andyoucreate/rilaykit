@@ -79,7 +79,10 @@ describe('<Flow of> + <Flow.Body>', () => {
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalledTimes(1);
     });
-    expect(onComplete).toHaveBeenCalledWith({ personal: { email: 'ada@lovelace.dev' } });
+    expect(onComplete).toHaveBeenCalledWith(
+      { personal: { email: 'ada@lovelace.dev' } },
+      expect.objectContaining({ visitedSteps: [], skippedSteps: [], passedSteps: [] })
+    );
   });
 });
 

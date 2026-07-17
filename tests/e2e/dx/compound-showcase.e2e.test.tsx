@@ -321,10 +321,14 @@ describe('RilayKit 0.2 compound showcase', () => {
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalledTimes(1);
     });
-    expect(onComplete).toHaveBeenCalledWith({
-      shipping: { address: '221B Baker Street' },
-      gift: { note: 'Happy birthday' },
-      review: { fullName: 'Sherlock Holmes' },
-    });
+    expect(onComplete).toHaveBeenCalledWith(
+      {
+        shipping: { address: '221B Baker Street' },
+        gift: { note: 'Happy birthday' },
+        review: { fullName: 'Sherlock Holmes' },
+      },
+      // The flow completed with nothing skipped, so the payload drops nothing.
+      expect.objectContaining({ skippedSteps: [] })
+    );
   });
 });
