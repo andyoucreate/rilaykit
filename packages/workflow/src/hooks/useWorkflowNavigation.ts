@@ -395,8 +395,15 @@ export function useWorkflowNavigation({
     const didTransition = await goToStep(nextStepIndex);
     if (!didTransition) {
       pendingSkipRef.current = null;
-      skipInFlightRef.current = null;
     }
+    // Release the latch once the transition has settled, either way. It exists
+    // to gate a second SYNCHRONOUS call, which arrives before this await
+    // resolves — so clearing it here preserves that guarantee. Holding it past
+    // the transition made the step un-skippable for the rest of the mount:
+    // navigate BACK onto a step you had skipped and the Skip button — still
+    // rendered enabled, since `canSkipCurrentStep` knows nothing about this
+    // latch — accepted the click and silently did nothing.
+    skipInFlightRef.current = null;
     return didTransition;
   }, [
     canSkipCurrentStep,
