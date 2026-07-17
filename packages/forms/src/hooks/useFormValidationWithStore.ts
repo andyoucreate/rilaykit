@@ -251,15 +251,16 @@ export function useFormValidationWithStore({
         // stale result overwrite the current one.
         if (isStale()) return result;
 
-        // The field's id was renamed/removed, or its component was retyped, while
-        // we awaited (a torn streamed id/type completed). Its verdict would land
-        // under a key no live field owns (rename → an unreachable ghost that
-        // wedges isValid), or onto a freshly re-registered control the user never
-        // touched (retype → a phantom error). Drop it and clear any stale key.
+        // The field's id was renamed/removed (incl. a repeatable row dropped),
+        // or its component was retyped, while we awaited (a torn streamed id/type
+        // completed, or a row removed mid-submit). Its verdict applies to no live
+        // field: it must neither show (the store is cleared) NOR count against the
+        // form. Return SUCCESS — a nonexistent field is not invalid — matching the
+        // invisible-field arm below, so validateForm does not block submit on it.
         if (!fieldExistsLive(fieldId) || wasRetyped()) {
           state._setErrors(fieldId, []);
           state._setValidationState(fieldId, 'valid');
-          return result;
+          return createSuccessResult();
         }
 
         // The field may have become invisible while we awaited (a condition on
@@ -316,7 +317,7 @@ export function useFormValidationWithStore({
         if (!fieldExistsLive(fieldId) || wasRetyped()) {
           state._setErrors(fieldId, []);
           state._setValidationState(fieldId, 'valid');
-          return errorResult;
+          return createSuccessResult();
         }
         // Field became invisible while we awaited — do not write errors on it.
         if (!isFieldVisibleLive(fieldId)) {
