@@ -30,6 +30,13 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    // Heavy multi-step e2e (emission → fill → validate → derive → conditional →
+    // repeatable → reload) run well under a second in isolation, but their
+    // `waitFor`s can exceed the 5s default when the full suite runs them under
+    // CPU/memory contention — a load-induced flake, not a hang. A generous
+    // budget absorbs the contention; a genuine hang still fails (at 15s).
+    testTimeout: 15000,
+    hookTimeout: 15000,
     include: [
       'packages/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
       'tests/e2e/**/*.e2e.test.{ts,tsx}',
