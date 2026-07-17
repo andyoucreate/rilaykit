@@ -1,6 +1,10 @@
 import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+// `ai` is a TYPE-ONLY import (erased by tsup, so the bundle stays runtime-free of
+// the SDK) and an OPTIONAL peer: a consumer of `rilaykit/ai-sdk` already installs
+// `ai`. It lets the emitted tool definitions satisfy the SDK's `ToolSet` with no
+// consumer-side cast — see AiSdkToolDefinition.
+import type { Tool } from 'ai';
 import { isEmittableTool } from '../manifest/manifest';
 import type { Part, PartState } from '../types/part';
 
@@ -89,15 +93,19 @@ export function toParts(message: unknown): Part[] {
 }
 
 /**
- * One generated AI SDK tool definition: the exact subset of the AI SDK's
- * `Tool` shape this adapter emits. `inputSchema` stays the Standard Schema
- * the host registered — the AI SDK's `FlexibleSchema` accepts Standard
- * Schemas directly (its `StandardSchema` member), so the whole record is
- * assignable to a `ToolSet` without this package importing `ai`.
+ * One generated AI SDK tool definition: the exact subset of the AI SDK's `Tool`
+ * shape this adapter emits (no `execute` — native HITL). `inputSchema` is typed
+ * as the SDK's own `Tool['inputSchema']` (`FlexibleSchema`), NOT the raw
+ * `StandardSchemaV1` the host registered: a Standard Schema is NOT structurally a
+ * member of `FlexibleSchema` (verified against ai@5 — its union is zod v4/v3, the
+ * SDK's `Schema`, and `LazySchema`), so typing it raw made the whole record
+ * non-assignable to `ToolSet` and forced consumers to cast `tools(catalog) as
+ * ToolSet`. The single honest cast now lives in `tools()`, where the SDK's runtime
+ * is known to convert a registered (zod) Standard Schema.
  */
 export interface AiSdkToolDefinition {
   readonly description?: string;
-  readonly inputSchema: StandardSchemaV1<unknown, unknown>;
+  readonly inputSchema: Tool['inputSchema'];
 }
 
 /**
@@ -129,7 +137,14 @@ export function tools<C>(catalog: RilayInstance<C>): Record<string, AiSdkToolDef
       );
       continue;
     }
-    generated.set(tool.name, { description: tool.description, inputSchema: tool.inputSchema });
+    // The one honest cast: `tool.inputSchema` is a `StandardSchemaV1`, which is
+    // not a structural member of the SDK's `FlexibleSchema`, but the SDK's runtime
+    // converts a registered (zod) Standard Schema at the call site (verified with a
+    // real generateText + mock model). Casting here means consumers do NOT cast.
+    generated.set(tool.name, {
+      description: tool.description,
+      inputSchema: tool.inputSchema as Tool['inputSchema'],
+    });
   }
   return Object.fromEntries(generated);
 }

@@ -3,7 +3,7 @@ import { tools as aiSdkTools } from '@rilaykit/agent/ai-sdk';
 import { tools as anthropicTools } from '@rilaykit/agent/anthropic';
 import { Catalog, Part, Parts } from '@rilaykit/agent/react';
 import { ril } from '@rilaykit/core';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { Tool, ToolSet } from 'ai';
 import { describe, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
 import type { Part as PartType } from '../../src/types/part';
@@ -72,40 +72,23 @@ describe('DX-1: React entry points accept any built catalog', () => {
 });
 
 /**
- * DX-2: `tools()` must return something `streamText({ tools })` accepts.
- * StandInTool/StandInToolSet mirror the AI SDK's `Tool`/`ToolSet` shape
- * (verified against the published d.ts of ai@5.0.214 and ai@7.0.29):
- * `Tool = { description?: string; inputSchema: FlexibleSchema; execute?; ... }`
- * where FlexibleSchema's standard-schema member is
- * `StandardSchemaV1<unknown, T> & { '~standard': Props & { jsonSchema?: ... } }`.
- * The agent package must not import `ai` itself, so the assertion runs
- * against this structural stand-in.
+ * DX-2: `tools()` must be accepted by `streamText({ tools })` with NO cast. The
+ * adapter now types `inputSchema` as the SDK's own `Tool['inputSchema']` and
+ * type-only-imports `ai` (an optional peer), so this asserts against the REAL
+ * `ToolSet`/`Tool` from `ai` rather than a hand-written stand-in.
  */
-type StandInStandardSchema<T = unknown> = StandardSchemaV1<unknown, T> & {
-  readonly '~standard': StandardSchemaV1.Props<unknown, T> & {
-    readonly jsonSchema?: unknown;
-  };
-};
-
-interface StandInTool {
-  readonly description?: string;
-  readonly inputSchema: StandInStandardSchema;
-  readonly execute?: (input: unknown, options: unknown) => unknown;
-}
-
-type StandInToolSet = Record<string, StandInTool>;
-
-describe('DX-2: ai-sdk tools() return type is a usable ToolSet', () => {
-  it('is assignable to a structural ToolSet stand-in', () => {
-    expectTypeOf(aiSdkTools(typedCatalog)).toMatchTypeOf<StandInToolSet>();
+describe('DX-2: ai-sdk tools() return type is the real AI SDK ToolSet', () => {
+  it('is assignable to the SDK ToolSet with no cast', () => {
+    // The bare assignment is the assertion: it would fail typecheck if the return
+    // were not assignable to the real ToolSet (it was, before Tool['inputSchema']).
+    const toolset: ToolSet = aiSdkTools(typedCatalog);
+    expectTypeOf(toolset).toMatchTypeOf<ToolSet>();
   });
 
   it('does not erase the tool definitions to unknown', () => {
     const definitions = aiSdkTools(typedCatalog);
     expectTypeOf(definitions.get_weather).not.toBeUnknown();
-    expectTypeOf(definitions.get_weather.inputSchema).toMatchTypeOf<
-      StandardSchemaV1<unknown, unknown>
-    >();
+    expectTypeOf(definitions.get_weather.inputSchema).toEqualTypeOf<Tool['inputSchema']>();
     expectTypeOf(definitions.get_weather.description).toEqualTypeOf<string | undefined>();
   });
 });

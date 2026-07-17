@@ -67,7 +67,8 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "ai": ">=5.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -78,13 +79,19 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "ai": "^5.0.0"
   },
   "typesVersions": {
     "*": {
       "react": ["./dist/react/index.d.ts"],
       "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
       "anthropic": ["./dist/anthropic/index.d.ts"]
+    }
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
     }
   }
 }

@@ -81,16 +81,23 @@
     "@rilaykit/workflow": "workspace:*"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "ai": ">=5.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17"
+    "@types/react": "^19.2.17",
+    "ai": "^5.0.0"
   },
   "typesVersions": {
     "*": {
       "react": ["./dist/react/index.d.ts"],
       "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
       "anthropic": ["./dist/anthropic/index.d.ts"]
+    }
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
     }
   }
 }
