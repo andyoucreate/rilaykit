@@ -40,7 +40,7 @@ interface JsonSchemaExtension {
  * throwing converter (zod's `z.custom()` / `z.date()` are unrepresentable in
  * JSON Schema) all degrade to `null`.
  */
-function projectToJsonSchema(
+export function projectToJsonSchema(
   schema: StandardSchemaV1 | undefined
 ): { readonly projected: unknown } | null {
   if (!schema) return null;

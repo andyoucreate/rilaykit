@@ -1,7 +1,8 @@
 import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { z } from 'zod';
-import { TOOL_NAME_PATTERN } from '../manifest/manifest';
+import { TOOL_NAME_PATTERN, projectToJsonSchema } from '../manifest/manifest';
 import type { Part } from '../types/part';
 
 const logger = getLogger('agent:anthropic');
@@ -66,14 +67,23 @@ export function toParts(message: unknown): Part[] {
 }
 
 function toJsonSchema(entry: {
-  inputSchema?: unknown;
+  inputSchema?: StandardSchemaV1<unknown, unknown>;
   inputJsonSchema?: Record<string, unknown>;
 }): Record<string, unknown> | null {
   try {
     return z.toJSONSchema(entry.inputSchema as z.ZodType) as Record<string, unknown>;
   } catch {
-    // inputJsonSchema is a fallback for non-zod Standard Schema vendors, per the design spec —
-    // a host wanting a custom projection registers a non-zod schema.
+    // Not zod. Try the SAME vendor-neutral `~standard.jsonSchema` projection the
+    // manifest uses to gate emittability. Without this, a vendor that exposes the
+    // extension but isn't zod (e.g. ArkType) is advertised by manifest() yet
+    // dropped here — telling the model to call a tool absent from the tool array,
+    // the exact manifest↔adapter drift the emittability contract forbids.
+    const projection = projectToJsonSchema(entry.inputSchema);
+    if (projection && typeof projection.projected === 'object' && projection.projected !== null) {
+      return projection.projected as Record<string, unknown>;
+    }
+    // Last resort: a manually-supplied JSON schema, for a vendor without the
+    // extension (e.g. valibot). A host wanting a custom projection registers one.
     return entry.inputJsonSchema ?? null;
   }
 }
