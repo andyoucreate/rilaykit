@@ -61,7 +61,7 @@ export interface UseRepeatableFieldReturn {
  */
 export function useRepeatableField(repeatableId: string): UseRepeatableFieldReturn {
   const store = useFormStore();
-  const { formConfig } = useForm();
+  const { formConfig, validateFormLevel } = useForm();
   const orderedKeys = useRepeatableKeys(repeatableId);
 
   // Get the repeatable config from the form config
@@ -131,26 +131,34 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
     return orderedKeys.length > min;
   }, [repeatableConfig, orderedKeys.length]);
 
-  // Stable actions
+  // Stable actions. A structural edit (add / remove / reorder rows) changes the
+  // data a cross-field rule sums over, so it re-runs form-level validation — a
+  // "totals must equal 100%" banner clears the instant the user fixes it by
+  // DELETING a row, not only on the next field event. `validateFormLevel`
+  // early-returns when the form declares no form-level rule, so this is a no-op
+  // for the common case.
   const append = useCallback(
     (defaultValue?: Record<string, unknown>) => {
       store.getState()._appendRepeatableItem(repeatableId, defaultValue);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   const remove = useCallback(
     (key: string) => {
       store.getState()._removeRepeatableItem(repeatableId, key);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   const move = useCallback(
     (fromIndex: number, toIndex: number) => {
       store.getState()._moveRepeatableItem(repeatableId, fromIndex, toIndex);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   return {
