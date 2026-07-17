@@ -9,24 +9,44 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     },
     "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.mjs",
-      "require": "./dist/react/index.js"
+      "import": {
+        "types": "./dist/react/index.d.mts",
+        "default": "./dist/react/index.mjs"
+      },
+      "require": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      }
     },
     "./ai-sdk": {
-      "types": "./dist/ai-sdk/index.d.ts",
-      "import": "./dist/ai-sdk/index.mjs",
-      "require": "./dist/ai-sdk/index.js"
+      "import": {
+        "types": "./dist/ai-sdk/index.d.mts",
+        "default": "./dist/ai-sdk/index.mjs"
+      },
+      "require": {
+        "types": "./dist/ai-sdk/index.d.ts",
+        "default": "./dist/ai-sdk/index.js"
+      }
     },
     "./anthropic": {
-      "types": "./dist/anthropic/index.d.ts",
-      "import": "./dist/anthropic/index.mjs",
-      "require": "./dist/anthropic/index.js"
+      "import": {
+        "types": "./dist/anthropic/index.d.mts",
+        "default": "./dist/anthropic/index.mjs"
+      },
+      "require": {
+        "types": "./dist/anthropic/index.d.ts",
+        "default": "./dist/anthropic/index.js"
+      }
     }
   },
   "files": ["dist"],
@@ -65,5 +85,12 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.17"
+  },
+  "typesVersions": {
+    "*": {
+      "react": ["./dist/react/index.d.ts"],
+      "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
+      "anthropic": ["./dist/anthropic/index.d.ts"]
+    }
   }
 }

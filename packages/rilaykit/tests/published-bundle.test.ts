@@ -414,6 +414,57 @@ describe('every published package ships its license text', () => {
   }
 });
 
+/**
+ * The exports MAP is as published as the bundle, and its type resolution is
+ * invisible to every source-aliased test in this repo. Two defects hid here
+ * until `@arethetypeswrong/cli` was run against the packed tarballs:
+ *
+ *  - A single top-level `types` sibling to `import`/`require` resolves the CJS
+ *    `.d.ts` under the ESM `import` condition too — attw's "Masquerading as CJS"
+ *    for every `nodenext` ESM consumer. Each condition must carry its OWN types:
+ *    `import` → `.d.mts`, `require` → `.d.ts`.
+ *  - A subpath export with no `typesVersions` fallback resolves to NO types at
+ *    all under `moduleResolution: node` (node10) — attw's 💀 for every subpath.
+ *
+ * These are structural manifest checks (no build needed), so they always run and
+ * pin the fix without carrying attw itself as a test-time dependency.
+ */
+describe('every published exports map resolves ESM and CJS types distinctly', () => {
+  interface ExportCondition {
+    readonly types?: string;
+    readonly import?: { readonly types?: string; readonly default?: string };
+    readonly require?: { readonly types?: string; readonly default?: string };
+  }
+
+  function exportsMap(pkg: PublishedPackage): Record<string, ExportCondition> {
+    return (readManifest(pkg).exports ?? {}) as Record<string, ExportCondition>;
+  }
+
+  for (const pkg of PUBLISHED_PACKAGES) {
+    it(`${pkg.name}: every export condition carries per-condition types (no Masquerading-as-CJS)`, () => {
+      for (const [sub, cond] of Object.entries(exportsMap(pkg))) {
+        // A top-level `types` is the exact shape that masquerades; it must be
+        // gone, replaced by per-condition types.
+        expect({ sub, topLevelTypes: cond.types }).toEqual({ sub, topLevelTypes: undefined });
+        expect(cond.import?.types).toMatch(/\.d\.mts$/);
+        expect(cond.import?.default).toMatch(/\.mjs$/);
+        expect(cond.require?.types).toMatch(/\.d\.ts$/);
+        expect(cond.require?.default).toMatch(/\.js$/);
+      }
+    });
+  }
+
+  for (const sub of PUBLISHED_SUBPATHS) {
+    it(`${sub.name}: declares a typesVersions fallback so node10 resolves the subpath's types`, () => {
+      const typesVersions = (readManifest(sub).typesVersions ?? {}) as Record<
+        string,
+        Record<string, readonly string[]>
+      >;
+      expect(typesVersions['*']?.[sub.subpath]?.[0]).toMatch(/\.d\.ts$/);
+    });
+  }
+});
+
 describe.skipIf(allBuilt)('published-bundle checks', () => {
   it.skip(`skipped — a package's dist/ is absent. These checks read the emitted
     bundles, so they need a build: run \`pnpm build\` (or \`pnpm test:ci\`, which builds
