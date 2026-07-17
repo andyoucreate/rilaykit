@@ -9,6 +9,7 @@ import {
   type FormConfiguration,
   type FormValidationConfig,
   InvalidSchemaError,
+  MaxDepthExceededError,
   NotFoundError,
   type PropsValidationResult,
   type RilayInstance,
@@ -835,18 +836,43 @@ function validateConditions(
 }
 
 /**
+ * The deepest composite `conditions` nesting a serialized condition tree may
+ * carry. The tree comes from untrusted (model-authored or corrupted) JSON, and
+ * this walker recurses per level; without a bound a pathologically deep tree
+ * throws a raw `RangeError` off the stack, escaping the SchemaValidationError
+ * contract and crashing the ShowForm/ShowFlow render. Mirrors the agent
+ * renderer's own `MAX_NODE_DEPTH`; real and/or trees are a handful deep.
+ */
+const MAX_CONDITION_DEPTH = 64;
+
+/**
  * Recursively validates a serialized condition tree.
  *
  * The single walker for every `ConditionConfig` in a schema — field-level
  * (forms) and step-level (workflow) alike — so both surfaces enforce the same
  * rules: operator whitelist, leaf `field`, and the `matches`-string
  * serialization constraint.
+ *
+ * `depth` is internal — the recursion threads it to enforce `MAX_CONDITION_DEPTH`.
+ * The optional default keeps the public 3-arg call signature intact.
  */
 export function validateConditionConfig(
   condition: ConditionConfig,
   path: string,
-  issues: SchemaIssue[]
+  issues: SchemaIssue[],
+  depth = 0
 ): void {
+  // Untrusted input recurses here per composite level: stop before the stack
+  // does, reporting it as a normal schema error rather than a raw RangeError.
+  if (depth >= MAX_CONDITION_DEPTH) {
+    issues.push({
+      path,
+      message: `Condition tree is too deeply nested (maximum depth is ${MAX_CONDITION_DEPTH})`,
+      severity: 'error',
+    });
+    return;
+  }
+
   // Guard every node, not just the root: the recursion walks untrusted children,
   // so a null child in a composite tree must be reported here rather than
   // escaping as a raw TypeError off the first property read below.
@@ -880,7 +906,12 @@ export function validateConditionConfig(
   // Composite condition (has sub-conditions)
   if (condition.conditions && condition.conditions.length > 0) {
     for (let i = 0; i < condition.conditions.length; i++) {
-      validateConditionConfig(condition.conditions[i], `${path}.conditions[${i}]`, issues);
+      validateConditionConfig(
+        condition.conditions[i],
+        `${path}.conditions[${i}]`,
+        issues,
+        depth + 1
+      );
     }
     return;
   }
@@ -1375,14 +1406,28 @@ function mergeDefaultValues(
   // AND with the caller's own parsed JSON — mutating one compile's nested
   // default corrupts the others and the input. clonePlainData is cycle-safe and
   // passes functions and Standard Schema objects through by identity.
-  if (inlineDefaults.size === 0) {
-    return schema.defaultValues === undefined ? undefined : clonePlainData(schema.defaultValues);
-  }
+  //
+  // `defaultValues` is untrusted (model-authored, or a corrupted persisted
+  // value): a pathologically deep payload makes clonePlainData throw a bounded
+  // MaxDepthExceededError. Convert it here so compileForm keeps its contract of
+  // only ever throwing SchemaValidationError — never a raw stack overflow.
+  try {
+    if (inlineDefaults.size === 0) {
+      return schema.defaultValues === undefined ? undefined : clonePlainData(schema.defaultValues);
+    }
 
-  return clonePlainData({
-    ...Object.fromEntries(inlineDefaults),
-    ...(schema.defaultValues ?? {}),
-  });
+    return clonePlainData({
+      ...Object.fromEntries(inlineDefaults),
+      ...(schema.defaultValues ?? {}),
+    });
+  } catch (error) {
+    if (error instanceof MaxDepthExceededError) {
+      throw new SchemaValidationError([
+        { path: 'defaultValues', message: error.message, severity: 'error' },
+      ]);
+    }
+    throw error;
+  }
 }
 
 /**

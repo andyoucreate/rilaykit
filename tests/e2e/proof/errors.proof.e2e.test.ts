@@ -33,6 +33,7 @@ const ALLOWED_RILAY_SUBCLASSES = new Set([
   'NotFoundError',
   'InvalidSchemaError',
   'ConfigurationError',
+  'MaxDepthExceededError',
 ]);
 
 /**

@@ -3,7 +3,8 @@ export type RilayErrorCode =
   | 'DUPLICATE'
   | 'NOT_FOUND'
   | 'INVALID_SCHEMA'
-  | 'CONFIGURATION';
+  | 'CONFIGURATION'
+  | 'MAX_DEPTH';
 
 export class RilayError extends Error {
   constructor(
@@ -48,5 +49,23 @@ export class ConfigurationError extends RilayError {
   constructor(message: string, meta?: Record<string, unknown>) {
     super(message, 'CONFIGURATION', meta);
     this.name = 'ConfigurationError';
+  }
+}
+
+/**
+ * Thrown when a recursive walk over untrusted (model-authored or corrupted)
+ * data would exceed a safe nesting depth. A bounded, typed error instead of the
+ * raw `RangeError: Maximum call stack size exceeded` that unbounded recursion
+ * would otherwise throw — so a caller processing untrusted input can convert it
+ * into its own domain error (e.g. a SchemaValidationError issue) rather than
+ * crash.
+ */
+export class MaxDepthExceededError extends RilayError {
+  constructor(
+    public readonly maxDepth: number,
+    meta?: Record<string, unknown>
+  ) {
+    super(`Maximum nesting depth of ${maxDepth} exceeded`, 'MAX_DEPTH', meta);
+    this.name = 'MaxDepthExceededError';
   }
 }

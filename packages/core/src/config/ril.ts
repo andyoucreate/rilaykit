@@ -1,5 +1,11 @@
 import type React from 'react';
-import { ConfigurationError, DuplicateError, NotFoundError, ValidationError } from '../errors';
+import {
+  ConfigurationError,
+  DuplicateError,
+  MaxDepthExceededError,
+  NotFoundError,
+  ValidationError,
+} from '../errors';
 import type {
   ComponentEntry,
   ComponentRenderContext,
@@ -43,15 +49,31 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * A `seen` map guards against cyclic plain input (e.g. `meta.self = meta`):
  * each source object/array maps to its clone, so a cycle is reproduced in the
  * output instead of recursing until the stack overflows.
+ *
+ * `seen` only catches CYCLES; a deeply nested ACYCLIC payload (every node a
+ * distinct object) still recurses per level. The input can be untrusted
+ * (model-authored `defaultValues`, a corrupted persisted value), so `depth` is
+ * bounded by `MAX_CLONE_DEPTH` and a `MaxDepthExceededError` is thrown before
+ * the native stack overflows — an untrusted-input boundary converts it into a
+ * domain error rather than crashing.
  */
-export function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
+const MAX_CLONE_DEPTH = 512;
+
+export function clonePlainData<T>(
+  value: T,
+  seen: WeakMap<object, unknown> = new WeakMap(),
+  depth = 0
+): T {
+  if (depth >= MAX_CLONE_DEPTH) {
+    throw new MaxDepthExceededError(MAX_CLONE_DEPTH);
+  }
   if (Array.isArray(value)) {
     const existing = seen.get(value);
     if (existing !== undefined) return existing as T;
     const clonedArray: unknown[] = [];
     seen.set(value, clonedArray);
     for (const item of value) {
-      clonedArray.push(clonePlainData(item, seen));
+      clonedArray.push(clonePlainData(item, seen, depth + 1));
     }
     return clonedArray as T;
   }
@@ -70,7 +92,7 @@ export function clonePlainData<T>(value: T, seen: WeakMap<object, unknown> = new
       // prototype and DROPS the key — a clone must reproduce every own key it
       // was given, `__proto__` included.
       Object.defineProperty(cloned, key, {
-        value: clonePlainData(item, seen),
+        value: clonePlainData(item, seen, depth + 1),
         writable: true,
         enumerable: true,
         configurable: true,
