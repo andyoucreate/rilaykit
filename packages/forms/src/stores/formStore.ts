@@ -518,7 +518,11 @@ export function useFieldState(fieldId: string): FieldState {
     errors,
     validationState,
     touched,
-    dirty: value !== defaultValue,
+    // `!Object.is`, not `!==`: a field defaulting to NaN would otherwise report
+    // `dirty` forever (NaN !== NaN), misfiring an unsaved-changes guard on a
+    // pristine form. Object.is(NaN, NaN) is true; the only other difference,
+    // -0 vs 0, is a more-correct dirty signal, not a regression.
+    dirty: !Object.is(value, defaultValue),
   };
 }
 
