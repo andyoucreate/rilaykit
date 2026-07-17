@@ -15,6 +15,7 @@ import type {
   WorkflowPersistenceAdapter,
 } from '../persistence/types';
 import { WorkflowPersistenceError } from '../persistence/types';
+import { serializePersistedData } from '../persistence/serialization';
 import { debounce, generateStorageKey, workflowStateToPersisted } from '../persistence/utils';
 import type { WorkflowState } from './workflow-state';
 
@@ -189,13 +190,18 @@ export function usePersistence({
       // Check for changes in significant fields
       return (
         currentState.currentStepIndex !== lastSavedState.currentStepIndex ||
-        JSON.stringify(currentState.allData) !== JSON.stringify(lastSavedState.allData) ||
-        JSON.stringify(currentState.stepData) !== JSON.stringify(lastSavedState.stepData) ||
+        // Same serializer the adapter persists with, so change-detection agrees
+        // with what is stored — and a Date/NaN edit is not conflated with a
+        // string/null one the way a bare JSON.stringify would.
+        serializePersistedData(currentState.allData) !==
+          serializePersistedData(lastSavedState.allData) ||
+        serializePersistedData(currentState.stepData) !==
+          serializePersistedData(lastSavedState.stepData) ||
         // A reorder rewrites the order and NOTHING else, so without this a
         // moved row is never auto-saved — the very change the order mirror
         // exists to capture would be the one change persistence ignores.
-        JSON.stringify(currentState.repeatableOrders) !==
-          JSON.stringify(lastSavedState.repeatableOrders) ||
+        serializePersistedData(currentState.repeatableOrders) !==
+          serializePersistedData(lastSavedState.repeatableOrders) ||
         currentState.visitedSteps.size !== lastSavedState.visitedSteps.size ||
         !Array.from(currentState.visitedSteps).every((step) =>
           lastSavedState.visitedSteps.has(step)

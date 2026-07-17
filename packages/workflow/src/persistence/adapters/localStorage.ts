@@ -17,6 +17,7 @@ import type {
   WorkflowPersistenceAdapter,
 } from '../types';
 import { WorkflowPersistenceError } from '../types';
+import { deserializePersistedData, serializePersistedData } from '../serialization';
 
 /**
  * Internal storage format with metadata
@@ -81,7 +82,7 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
         expiresAt: this.maxAge ? Date.now() + this.maxAge : undefined,
       };
 
-      const serialized = JSON.stringify(storageEntry);
+      const serialized = serializePersistedData(storageEntry);
       const finalData = this.compress ? this.compressData(serialized) : serialized;
 
       localStorage.setItem(storageKey, finalData);
@@ -100,7 +101,7 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
               expiresAt: this.maxAge ? Date.now() + this.maxAge : undefined,
             };
 
-            const serialized = JSON.stringify(storageEntry);
+            const serialized = serializePersistedData(storageEntry);
             const finalData = this.compress ? this.compressData(serialized) : serialized;
 
             localStorage.setItem(storageKey, finalData);
@@ -142,7 +143,7 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
       }
 
       const decompressedData = this.compress ? this.decompressData(rawData) : rawData;
-      const storageEntry: StorageEntry = JSON.parse(decompressedData);
+      const storageEntry = deserializePersistedData(decompressedData) as StorageEntry;
 
       // Check if data has expired
       if (storageEntry.expiresAt && Date.now() > storageEntry.expiresAt) {
@@ -216,7 +217,7 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
 
       // Check if data is expired
       const decompressedData = this.compress ? this.decompressData(rawData) : rawData;
-      const storageEntry: StorageEntry = JSON.parse(decompressedData);
+      const storageEntry = deserializePersistedData(decompressedData) as StorageEntry;
 
       if (storageEntry.expiresAt && Date.now() > storageEntry.expiresAt) {
         await this.remove(key);
@@ -368,7 +369,7 @@ export class LocalStorageAdapter implements WorkflowPersistenceAdapter {
           const rawData = localStorage.getItem(key);
           if (rawData) {
             const decompressedData = this.compress ? this.decompressData(rawData) : rawData;
-            const storageEntry: StorageEntry = JSON.parse(decompressedData);
+            const storageEntry = deserializePersistedData(decompressedData) as StorageEntry;
 
             if (storageEntry.expiresAt && Date.now() > storageEntry.expiresAt) {
               keysToRemove.push(key);
