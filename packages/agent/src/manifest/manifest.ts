@@ -67,7 +67,7 @@ export function projectToJsonSchema(
 export const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** The root JSON Schema an adapter would emit for a tool, or null if none. */
-function emittableToolSchema(entry: {
+export function emittableToolSchema(entry: {
   readonly inputSchema?: StandardSchemaV1<unknown, unknown>;
   readonly inputJsonSchema?: Record<string, unknown>;
 }): Record<string, unknown> | null {

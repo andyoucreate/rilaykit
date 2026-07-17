@@ -1,11 +1,13 @@
 import { getLogger } from '@rilaykit/core';
 import type { RilayInstance } from '@rilaykit/core';
-// `ai` is a TYPE-ONLY import (erased by tsup, so the bundle stays runtime-free of
-// the SDK) and an OPTIONAL peer: a consumer of `rilaykit/ai-sdk` already installs
-// `ai`. It lets the emitted tool definitions satisfy the SDK's `ToolSet` with no
-// consumer-side cast — see AiSdkToolDefinition.
-import type { Tool } from 'ai';
-import { isEmittableTool } from '../manifest/manifest';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+// `ai` is an OPTIONAL peer that a consumer of `rilaykit/ai-sdk` already installs —
+// this subpath exists to feed the SDK, so importing it here is expected. `jsonSchema`
+// is a RUNTIME import (the emitted tools wrap their projected JSON Schema with it, so
+// ANY Standard Schema vendor — not just zod — reaches the provider and is validated);
+// `Tool` is type-only. tsup externalizes `ai`, so it is never bundled.
+import { type Tool, jsonSchema } from 'ai';
+import { emittableToolSchema, isEmittableTool } from '../manifest/manifest';
 import type { Part, PartState } from '../types/part';
 
 const logger = getLogger('agent:ai-sdk');
@@ -94,24 +96,49 @@ export function toParts(message: unknown): Part[] {
 
 /**
  * One generated AI SDK tool definition: the exact subset of the AI SDK's `Tool`
- * shape this adapter emits (no `execute` — native HITL). `inputSchema` is typed
- * as the SDK's own `Tool['inputSchema']` (`FlexibleSchema`), NOT the raw
- * `StandardSchemaV1` the host registered: a Standard Schema is NOT structurally a
- * member of `FlexibleSchema` (verified against ai@5 — its union is zod v4/v3, the
- * SDK's `Schema`, and `LazySchema`), so typing it raw made the whole record
- * non-assignable to `ToolSet` and forced consumers to cast `tools(catalog) as
- * ToolSet`. The single honest cast now lives in `tools()`, where the SDK's runtime
- * is known to convert a registered (zod) Standard Schema.
+ * shape this adapter emits (no `execute` — native HITL). `inputSchema` is the SDK's
+ * own `Tool['inputSchema']` (`FlexibleSchema`); a tool's `StandardSchemaV1` is NOT
+ * structurally a member of it (verified against ai@5 — its union is zod v4/v3, the
+ * SDK's `Schema`, and `LazySchema`), so `tools()` wraps every schema with the SDK's
+ * `jsonSchema()`, which returns a `Schema` that IS a member. No consumer cast, and
+ * no honest cast inside — the record is assignable to `ToolSet` as built.
  */
 export interface AiSdkToolDefinition {
   readonly description?: string;
   readonly inputSchema: Tool['inputSchema'];
 }
 
+/** The AI SDK validator shape (`@ai-sdk/provider-utils` `ValidationResult`). */
+type SdkValidation<T> = { success: true; value: T } | { success: false; error: Error };
+
+/**
+ * Adapt a Standard Schema's `~standard.validate` to the SDK's `jsonSchema({validate})`
+ * contract, preserving async: the SDK converts the emitted JSON Schema for the
+ * provider, and this makes the SAME schema validate the model's tool input through
+ * its own vendor (zod, valibot, ArkType…) instead of the SDK's zod-only path.
+ */
+function standardValidate(
+  schema: StandardSchemaV1
+): (value: unknown) => SdkValidation<unknown> | Promise<SdkValidation<unknown>> {
+  const toSdk = (result: StandardSchemaV1.Result<unknown>): SdkValidation<unknown> =>
+    result.issues
+      ? { success: false, error: new TypeError(result.issues.map((i) => i.message).join('; ')) }
+      : { success: true, value: result.value };
+  return (value: unknown) => {
+    const result = schema['~standard'].validate(value);
+    return result instanceof Promise ? result.then(toSdk) : toSdk(result);
+  };
+}
+
 /**
  * Emits UI tools WITHOUT `execute`: the SDK's native HITL pattern — the stream stays
  * pending, the client renders from `input`, and `addToolResult` resumes the agent.
- * zod schemas pass through untouched; the SDK converts them itself.
+ *
+ * Every emitted schema is wrapped with the SDK's `jsonSchema(projectedRoot, {validate})`
+ * so ANY Standard Schema vendor works, not just zod: the projected root (the exact
+ * JSON Schema the manifest advertises) reaches the provider, and the schema's own
+ * `~standard.validate` validates the model's tool input. Passing the raw Standard
+ * Schema instead left a non-zod tool advertised-but-non-functional (or dropped).
  *
  * A tool registered without `inputSchema` is renderer-only (spec §4) — it renders a
  * host-executed tool and is excluded from generated definitions.
@@ -137,13 +164,13 @@ export function tools<C>(catalog: RilayInstance<C>): Record<string, AiSdkToolDef
       );
       continue;
     }
-    // The one honest cast: `tool.inputSchema` is a `StandardSchemaV1`, which is
-    // not a structural member of the SDK's `FlexibleSchema`, but the SDK's runtime
-    // converts a registered (zod) Standard Schema at the call site (verified with a
-    // real generateText + mock model). Casting here means consumers do NOT cast.
+    // `isEmittableTool` already proved a non-null object-typed projection exists, so
+    // this is the SAME root the manifest advertises — the model sees exactly what the
+    // provider receives (no manifest↔adapter drift).
+    const root = emittableToolSchema(tool) as Parameters<typeof jsonSchema>[0];
     generated.set(tool.name, {
       description: tool.description,
-      inputSchema: tool.inputSchema as Tool['inputSchema'],
+      inputSchema: jsonSchema(root, { validate: standardValidate(tool.inputSchema) }),
     });
   }
   return Object.fromEntries(generated);

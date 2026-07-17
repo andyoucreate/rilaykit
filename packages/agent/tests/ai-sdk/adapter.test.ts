@@ -214,10 +214,15 @@ describe('ai-sdk tools()', () => {
     expect((generated.show_form as { execute?: unknown }).execute).toBeUndefined();
   });
 
-  it('passes zod schemas through untouched', () => {
-    expect((generated.search_flights as { inputSchema: unknown }).inputSchema).toBe(
-      catalog.getTool('search_flights')?.inputSchema
-    );
+  it("wraps a zod schema in the SDK's jsonSchema carrying the projected root", () => {
+    const def = generated.search_flights as {
+      inputSchema: { jsonSchema?: unknown; validate?: unknown };
+    };
+    expect(def.inputSchema.jsonSchema).toMatchObject({
+      type: 'object',
+      properties: { from: { type: 'string' } },
+    });
+    expect(def.inputSchema.validate).toBeTypeOf('function');
   });
 
   it("EXCLUDES renderer-only tools — a tool without inputSchema is not the agent's to call", () => {
