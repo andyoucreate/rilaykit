@@ -126,8 +126,11 @@ export function useWorkflowNavigation({
       },
 
       setNextStepField: (fieldId: string, value: any) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < workflowConfig.steps.length) {
+        // The NEXT VISIBLE step — not the next declared one. A conditionally
+        // hidden step between here and the destination must not swallow the
+        // prefill (the user never sees it).
+        const nextStepIndex = findNextVisibleStepRef.current(workflowState.currentStepIndex);
+        if (nextStepIndex !== null) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
           const existingData = getAllData()[nextStepId] || {};
           const mergedData = { ...existingData, [fieldId]: value };
@@ -136,8 +139,8 @@ export function useWorkflowNavigation({
       },
 
       setNextStepFields: (fields: Record<string, any>) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < workflowConfig.steps.length) {
+        const nextStepIndex = findNextVisibleStepRef.current(workflowState.currentStepIndex);
+        if (nextStepIndex !== null) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
           // Only get existing data for the next step, don't propagate current step data
           const existingData = getAllData()[nextStepId] || {};
@@ -275,6 +278,14 @@ export function useWorkflowNavigation({
     },
     [workflowConfig.steps.length, isStepVisibleLive]
   );
+
+  // A render-updated mirror so `createStepDataHelper` (defined ABOVE this, to
+  // keep the helper next to the other data helpers) can resolve the next VISIBLE
+  // step without taking `findNextVisibleStep` — declared later — as a dependency,
+  // which would be a temporal-dead-zone reference in that earlier callback's dep
+  // array. The helper reads `.current` only at call time, long after this runs.
+  const findNextVisibleStepRef = useRef(findNextVisibleStep);
+  findNextVisibleStepRef.current = findNextVisibleStep;
 
   // Helper function to find the previous visible step
   const findPreviousVisibleStep = useCallback(
