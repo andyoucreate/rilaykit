@@ -1,9 +1,14 @@
 import type { EmissionResult } from '../../errors/emission-error';
 
-/** Bare structural markup — data-* hooks for styling, no styles of our own. */
+/**
+ * Bare structural markup — data-* hooks for styling, no styles of our own.
+ * `role="alert"` (an implicit assertive live region) announces the emission
+ * error to assistive tech: it typically replaces a form the user is filling, so
+ * a screen-reader user must be told WHY it vanished, not just shown it visually.
+ */
 export function EmissionErrorView({ result }: { readonly result: EmissionResult }) {
   return (
-    <div data-agent-error="emission">
+    <div data-agent-error="emission" role="alert">
       <p data-agent-error-message>{result.error}</p>
       {/* The TOP-LEVEL expectedKeys, not just the per-issue ones: for an
           unknown component this is the real catalog id list — the exact
