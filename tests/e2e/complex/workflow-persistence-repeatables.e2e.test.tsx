@@ -114,9 +114,9 @@ function buildFlow({ persist }: { persist?: LocalStorageAdapter } = {}) {
       id: 'profile',
       title: 'Profile',
       formConfig: profileForm,
-      // Prefill the NEXT config step (team) from this step's data. `team` may be
-      // hidden (plan === free), so this deliberately writes into a possibly
-      // hidden slice — exercising the prefill × hidden-step-filter interaction.
+      // Prefill the NEXT VISIBLE step from this step's data. `team` may be hidden
+      // (plan === free); setNextStepFields then skips it and prefills the next
+      // step the user will actually see — exercising visible-step targeting.
       onAfterValidation: (values, helper) => {
         helper.setNextStepFields({ teamName: `Team of ${values.name}` });
       },
@@ -702,18 +702,20 @@ describe('COMPLEX — workflow persistence × repeatables × conditional × pref
   // GROUP E — cross-step prefill × hidden-step filter
   // --------------------------------------------------------------------------
 
-  it('E1: prefill writes into a hidden step slice yet is excluded from completion', async () => {
+  it('E1: prefill targets the next VISIBLE step, skipping the hidden one', async () => {
     const onComplete = vi.fn();
     renderFlow(buildFlow(), { onComplete });
 
     await selectPlanAndName('Ghost', 'free');
-    await clickNext(); // profile -> notes; after-handler wrote team.teamName (hidden)
+    await clickNext(); // profile -> (team + enterprise hidden) -> notes
     await waitFor(() => expect(screen.getByTestId('cur-id')).toHaveTextContent('notes'));
 
-    // The prefill DID land in the internal store slice for the hidden team step
-    expect(allData().team?.teamName).toBe('Team of Ghost');
+    // The prefill lands on the next VISIBLE step (notes), NOT the hidden team —
+    // the user never reaches team, so writing there would strand the value.
+    expect(allData().team?.teamName).toBeUndefined();
+    expect(allData().notes?.teamName).toBe('Team of Ghost');
 
-    // ...but completing excludes it
+    // Completing still excludes the hidden team step from the payload.
     setField('input-comment', 'c');
     await clickNext();
     await waitFor(() => expect(screen.getByTestId('cur-id')).toHaveTextContent('review'));
