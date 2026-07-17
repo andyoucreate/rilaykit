@@ -1,5 +1,6 @@
 import type {
   ConditionalBehavior,
+  FieldError,
   FormConfiguration,
   FormFieldConfig,
   ValidationResult,
@@ -18,6 +19,7 @@ import {
   CONDITIONAL_REQUIRED_CODE,
   holdsOnlyConditionalRequiredError,
 } from '../utils/conditional-required';
+import { routeFormIssuesToKeys } from '../utils/form-error-routing';
 import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
 // The condition resolution/evaluation these hooks used to define inline lives
 // in utils/submit-visibility.ts now, shared with the submit payload boundary:
@@ -32,6 +34,19 @@ import {
 // Helper function to create success result
 function createSuccessResult(): ValidationResult {
   return { isValid: true, errors: [] };
+}
+
+/**
+ * Every field id a form-level issue's `path` may legitimately name. A form
+ * schema's object path is dot-joined by `formatIssuePath` (`items.0.sku`),
+ * whereas a repeatable row's field id is a bracket composite key
+ * (`items[k0].sku`) — the two forms can never be equal, so a cross-field issue
+ * over a repeatable correctly falls to `__form__` rather than a row. Only the
+ * static field ids are collectable; consumed by `routeFormIssuesToKeys` to
+ * decide field-bucket vs. `__form__`.
+ */
+function collectKnownFieldIds(config: FormConfiguration): Set<string> {
+  return new Set(config.allFields.map((field) => field.id));
 }
 
 export interface UseFormValidationWithStoreProps {
@@ -333,6 +348,61 @@ export function useFormValidationWithStore({
     [store, isFieldVisibleLive, isFieldRequiredLive, fieldExistsLive]
   );
 
+  // Form-level (cross-field) validation, routed into the shared error map. Runs
+  // the configured form schema against the currently-VISIBLE values, then routes
+  // each issue by `path` (matched field id → that field's bucket; empty/unmatched
+  // → `__form__`) and writes the result via `_setFormLevelErrors` — the ONE place
+  // the store learns of cross-field errors. Returns the RAW (untagged) issues so
+  // `validateForm` can keep its returned `ValidationResult` unchanged. Shared by
+  // the submit path (below) and the live path (`validateFormLevel`) so routing
+  // and clearing can never diverge.
+  const evaluateFormLevel = useCallback(async (): Promise<FieldError[]> => {
+    const config = formConfigRef.current;
+    const state = store.getState();
+
+    if (!config.validation || !hasUnifiedValidation(config.validation)) {
+      // No form-level schema — there can be no form-level error to write or
+      // clear, so leave the map (and its subscribers) untouched.
+      return [];
+    }
+
+    const visibleFormData = Object.keys(state.values).reduce(
+      (acc, fieldId) => {
+        if (isFieldVisibleLive(fieldId)) {
+          acc[fieldId] = getOwn(state.values, fieldId);
+        }
+        return acc;
+      },
+      {} as Record<string, unknown>
+    );
+
+    const context = createValidationContext({
+      formId: config.id,
+      allFormData: visibleFormData,
+    });
+
+    let formErrors: FieldError[];
+    try {
+      const result = await validateFormWithUnifiedConfig(
+        config.validation,
+        visibleFormData,
+        context
+      );
+      formErrors = result.errors;
+    } catch (error) {
+      formErrors = [
+        {
+          message: error instanceof Error ? error.message : 'Form validation failed',
+          code: 'FORM_VALIDATION_ERROR',
+        },
+      ];
+    }
+
+    const knownFieldIds = collectKnownFieldIds(config);
+    store.getState()._setFormLevelErrors(routeFormIssuesToKeys(formErrors, knownFieldIds));
+    return formErrors;
+  }, [store, isFieldVisibleLive]);
+
   // Optimized form validation with stable dependencies
   const validateForm = useCallback(async (): Promise<ValidationResult> => {
     const state = store.getState();
@@ -424,59 +494,27 @@ export function useFormValidationWithStore({
     const hasRepeatableErrors = repeatableResults.some((result) => !result.isValid);
     hasFieldErrors = hasFieldErrors || hasRepeatableErrors;
 
-    // Form-level validation (if configured)
-    let formResult = createSuccessResult();
-    if (
-      formConfigRef.current.validation &&
-      hasUnifiedValidation(formConfigRef.current.validation)
-    ) {
-      const visibleFormData = Object.keys(state.values).reduce(
-        (acc, fieldId) => {
-          if (isFieldVisibleLive(fieldId)) {
-            acc[fieldId] = getOwn(state.values, fieldId);
-          }
-          return acc;
-        },
-        {} as Record<string, unknown>
-      );
-
-      const context = createValidationContext({
-        formId: formConfigRef.current.id,
-        allFormData: visibleFormData,
-      });
-
-      try {
-        // Run unified form validation (Standard Schema only)
-        formResult = await validateFormWithUnifiedConfig(
-          formConfigRef.current.validation,
-          visibleFormData,
-          context
-        );
-      } catch (error) {
-        formResult = {
-          isValid: false,
-          errors: [
-            {
-              message: error instanceof Error ? error.message : 'Form validation failed',
-              code: 'FORM_VALIDATION_ERROR',
-            },
-          ],
-        };
-      }
-    }
+    // Form-level (cross-field) validation — routed into the shared error map so
+    // it shows on fields and flips the stored `isValid`. The returned issues are
+    // the raw (untagged) ones, keeping this function's ValidationResult unchanged.
+    const formErrors = await evaluateFormLevel();
 
     return {
-      isValid: !hasFieldErrors && formResult.isValid,
+      isValid: !hasFieldErrors && formErrors.length === 0,
       errors: [
         ...fieldResults.flatMap((result) => result.errors),
         ...repeatableResults.flatMap((result) => result.errors),
-        ...formResult.errors,
+        ...formErrors,
       ],
     };
-  }, [store, validateField, isFieldVisibleLive, isFieldRequiredLive]);
+  }, [store, validateField, isFieldVisibleLive, isFieldRequiredLive, evaluateFormLevel]);
 
   return {
     validateField,
     validateForm,
+    // Live form-level (re)evaluation, gated by FormField on the same
+    // mode/reValidateMode schedule as field validation so a cross-field error
+    // appears and clears live.
+    validateFormLevel: evaluateFormLevel,
   };
 }

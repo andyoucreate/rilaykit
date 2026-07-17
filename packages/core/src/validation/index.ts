@@ -35,6 +35,9 @@ export type {
   ValidationResult,
 } from '../types';
 
+// Reserved keys/codes for the unified, path-keyed error map
+export { FORM_LEVEL_ERROR_CODE, FORM_LEVEL_ERROR_KEY } from './constants';
+
 // Essential validation utilities
 export {
   createErrorResult,

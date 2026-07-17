@@ -31,7 +31,8 @@ export const FormField = React.memo(function FormField({
   forceVisible = false,
 }: FormFieldProps) {
   // Get form config (stable reference)
-  const { formConfig, validateField, conditionsHelpers, formInstanceKey } = useForm();
+  const { formConfig, validateField, validateFormLevel, conditionsHelpers, formInstanceKey } =
+    useForm();
 
   // Two-phase validation timing (RHF model), resolved once from the form config.
   // Default `mode` is `onTouched` (validate on first blur, then live) — RilayKit's
@@ -147,6 +148,8 @@ export const FormField = React.memo(function FormField({
 
       // Debounce change-triggered validation when configured (blur/submit always
       // validate immediately, unaffected by this). Superseded runs are cancelled.
+      // Form-level (cross-field) re-evaluation rides the SAME debounce so it sees
+      // the settled value and clears/adds cross-field errors on the same cadence.
       const debounceMs = fieldConfig.validation?.debounceMs;
       if (debounceMs && debounceMs > 0) {
         if (debounceTimerRef.current !== null) {
@@ -154,17 +157,19 @@ export const FormField = React.memo(function FormField({
         }
         debounceTimerRef.current = setTimeout(() => {
           debounceTimerRef.current = null;
-          void validateField(fieldId, newValue);
+          void validateField(fieldId, newValue).then(() => validateFormLevel());
         }, debounceMs);
         return;
       }
 
       await validateField(fieldId, newValue);
+      await validateFormLevel();
     },
     [
       fieldId,
       setValue,
       validateField,
+      validateFormLevel,
       mode,
       reValidateMode,
       fieldConfig.validation?.debounceMs,
@@ -187,6 +192,7 @@ export const FormField = React.memo(function FormField({
     });
     if (shouldValidate) {
       await validateField(fieldId);
+      await validateFormLevel();
     }
   }, [
     fieldId,
@@ -196,6 +202,7 @@ export const FormField = React.memo(function FormField({
     fieldState.touched,
     setTouched,
     validateField,
+    validateFormLevel,
   ]);
 
   // Memoize merged props

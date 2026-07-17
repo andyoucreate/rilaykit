@@ -1,7 +1,7 @@
 'use client';
 
 import type { FieldConditions, FieldError, FieldState, ValidationState } from '@rilaykit/core';
-import { ConfigurationError, getOwn } from '@rilaykit/core';
+import { ConfigurationError, FORM_LEVEL_ERROR_KEY, getOwn } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { useStore } from 'zustand';
 import type { FormStore } from './formStore';
@@ -45,6 +45,21 @@ export function useFieldValue<T = unknown>(fieldId: string): T {
 export function useFieldErrors(fieldId: string): FieldError[] {
   const store = useFormStore();
   return useStore(store, (state) => getOwn(state.errors, fieldId) ?? EMPTY_FIELD_ERRORS);
+}
+
+/**
+ * Select the form-level (cross-field) errors — the reserved `__form__` bucket,
+ * holding form validation issues that target no specific field (a whole-form
+ * message, or a path matching no live field). Mirrors `useFieldErrors`; returns
+ * a stable empty array when there are none. Field-targeted cross-field issues
+ * are routed onto their fields and surface through `useFieldErrors(id)` instead.
+ */
+export function useFormErrors(): FieldError[] {
+  const store = useFormStore();
+  return useStore(
+    store,
+    (state) => getOwn(state.errors, FORM_LEVEL_ERROR_KEY) ?? EMPTY_FIELD_ERRORS
+  );
 }
 
 /**

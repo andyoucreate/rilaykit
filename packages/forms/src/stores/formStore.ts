@@ -5,7 +5,7 @@ import type {
   RepeatableFieldConfig,
   ValidationState,
 } from '@rilaykit/core';
-import { getOwn } from '@rilaykit/core';
+import { FORM_LEVEL_ERROR_CODE, FORM_LEVEL_ERROR_KEY, getOwn } from '@rilaykit/core';
 import { subscribeWithSelector } from 'zustand/middleware';
 // `zustand/vanilla`, NOT `zustand`: the main entry pulls React (its `create`/
 // `useStore` hooks), which would reintroduce React into this isomorphic module.
@@ -32,6 +32,18 @@ export interface FormStoreState extends FormState {
   _setValue: (fieldId: string, value: unknown) => void;
   _setTouched: (fieldId: string) => void;
   _setErrors: (fieldId: string, errors: FieldError[]) => void;
+  /**
+   * Reconcile the form-level (cross-field) errors into the shared error map in
+   * ONE update, then recompute `isValid`. For every field currently holding a
+   * form-level-tagged error, that error is stripped; then the newly-routed
+   * errors are appended to their target fields, and the reserved `__form__`
+   * bucket is replaced wholesale. A field's OWN (field-level) errors are never
+   * touched — only `FORM_LEVEL_ERROR_CODE`-tagged entries are added or removed.
+   *
+   * `routed` is the grouped map from `routeFormIssuesToKeys`: field-id keys plus
+   * an optional `__form__` entry. An empty map clears all form-level errors.
+   */
+  _setFormLevelErrors: (routed: Map<string, FieldError[]>) => void;
   _clearErrors: (fieldId: string) => void;
   _setValidationState: (fieldId: string, state: ValidationState) => void;
   _setSubmitting: (isSubmitting: boolean) => void;
@@ -154,6 +166,42 @@ export function createFormStore(initialValues: Record<string, unknown> = {}) {
         });
 
         // Update global isValid after setting errors
+        get()._updateIsValid();
+      },
+
+      _setFormLevelErrors: (routed) => {
+        set((state) => {
+          const newErrors: Record<string, FieldError[]> = {};
+
+          // Strip prior form-level-tagged errors from every field bucket,
+          // preserving each field's own (field-level) errors. The reserved
+          // `__form__` bucket holds ONLY form-level errors, so it is dropped
+          // here and rebuilt wholesale below.
+          for (const [key, errors] of Object.entries(state.errors)) {
+            if (key === FORM_LEVEL_ERROR_KEY) continue;
+            // Preserve the array reference (and thus each field's granular
+            // re-render) when the field carries no form-level error to strip.
+            newErrors[key] = errors.some((error) => error.code === FORM_LEVEL_ERROR_CODE)
+              ? errors.filter((error) => error.code !== FORM_LEVEL_ERROR_CODE)
+              : errors;
+          }
+
+          // Append the newly-routed form-level errors to their target fields.
+          for (const [key, errors] of routed) {
+            if (key === FORM_LEVEL_ERROR_KEY) continue;
+            newErrors[key] = [...(newErrors[key] ?? []), ...errors];
+          }
+
+          // The `__form__` bucket is replaced wholesale (empty when no
+          // unmatched form-level errors remain).
+          newErrors[FORM_LEVEL_ERROR_KEY] = routed.get(FORM_LEVEL_ERROR_KEY) ?? [];
+
+          return { errors: newErrors };
+        });
+
+        // A newly-added or newly-cleared form-level error changes whether the
+        // form is valid — recompute from the reconciled map (which counts the
+        // `__form__` bucket like any other key).
         get()._updateIsValid();
       },
 
