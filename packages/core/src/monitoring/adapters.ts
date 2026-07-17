@@ -325,7 +325,14 @@ export class LocalStorageMonitoringAdapter implements MonitoringAdapter {
   }
 
   clearStoredEvents(): void {
-    localStorage.removeItem(this.storageKey);
+    // Same guard as send/getStoredEvents: localStorage can throw even when it
+    // exists (Safari private mode, disabled cookies) and is absent under SSR.
+    // Clearing a buffer must never crash the caller.
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.error('Failed to clear stored monitoring events:', error);
+    }
   }
 
   getEventCount(): number {
