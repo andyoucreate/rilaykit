@@ -1,7 +1,7 @@
 import { getLogger, getOwn, hasOwn } from '@rilaykit/core';
 import type { FieldEffect, FieldEffectContext } from '@rilaykit/core';
 import type { FormStore } from '../stores/formStore';
-import { parseCompositeKey } from '../utils/repeatable-data';
+import { buildCompositeKey, parseCompositeKey } from '../utils/repeatable-data';
 
 const log = getLogger('forms:effects');
 
@@ -20,6 +20,18 @@ interface CascadeChain {
   readonly visited: Set<string>;
   readonly depth: number;
   readonly initial: boolean;
+}
+
+/**
+ * When a repeatable-template effect fires for one row, its handler's writes must
+ * scope to THAT row: a target that is a template field (`slug`) becomes the
+ * composite key (`lines[k0].slug`), while a target outside the template (a global
+ * field, or a key the handler composed itself) is left untouched.
+ */
+interface RowScope {
+  readonly repeatableId: string;
+  readonly itemKey: string;
+  readonly templateFieldIds: Set<string>;
 }
 
 export interface EffectEngineOptions {
@@ -168,7 +180,8 @@ export class EffectEngine {
   runInitialEffects(): void {
     if (this.stopped) return;
 
-    const values = this.store.getState().values;
+    const state = this.store.getState();
+    const values = state.values;
 
     for (const fieldId of Object.keys(this.effectsMap)) {
       const value = values[fieldId];
@@ -178,6 +191,30 @@ export class EffectEngine {
           depth: 0,
           initial: true,
         });
+      }
+    }
+
+    // A repeatable template field's effect is keyed by its bare id above, whose
+    // value is undefined at the top level — so run it per LIVE ROW here, keyed by
+    // the row's composite key. executeEffectsForField's composite fallback then
+    // scopes each write to that row.
+    for (const [repeatableId, config] of Object.entries(state._repeatableConfigs)) {
+      const order = getOwn(state._repeatableOrder, repeatableId);
+      if (!order) continue;
+      for (const field of config.allFields) {
+        const templateEffects = getOwn(this.effectsMap, field.id);
+        if (!templateEffects || templateEffects.length === 0) continue;
+        for (const itemKey of order) {
+          const compositeKey = buildCompositeKey(repeatableId, itemKey, field.id);
+          const value = values[compositeKey];
+          if (value !== undefined) {
+            this.executeEffectsForField(compositeKey, value, {
+              visited: new Set(),
+              depth: 0,
+              initial: true,
+            });
+          }
+        }
       }
     }
   }
@@ -224,7 +261,28 @@ export class EffectEngine {
   ): void {
     // Own-property only: `fieldId` is a store key, so an unwatched field named
     // `constructor` would otherwise resolve an inherited method here.
-    const effects = getOwn(this.effectsMap, fieldId);
+    let effects = getOwn(this.effectsMap, fieldId);
+
+    // A repeatable field's runtime store key is a COMPOSITE key (`lines[k0].name`),
+    // but `indexEffects` keys the map by the bare template watch id (`name`). Fall
+    // back to the template effect and remember the row, so an effect declared on a
+    // repeatable template field fires per-row (each row derives independently).
+    let rowScope: RowScope | null = null;
+    if (!effects || effects.length === 0) {
+      const parsed = parseCompositeKey(fieldId);
+      if (parsed) {
+        const templateEffects = getOwn(this.effectsMap, parsed.fieldId);
+        const config = getOwn(this.store.getState()._repeatableConfigs, parsed.repeatableId);
+        if (templateEffects && templateEffects.length > 0 && config) {
+          effects = templateEffects;
+          rowScope = {
+            repeatableId: parsed.repeatableId,
+            itemKey: parsed.itemKey,
+            templateFieldIds: new Set(config.allFields.map((f) => f.id)),
+          };
+        }
+      }
+    }
     if (!effects || effects.length === 0) return;
 
     const chain: CascadeChain = incomingChain ?? { visited: new Set(), depth: 0, initial: false };
@@ -277,36 +335,46 @@ export class EffectEngine {
       }
     };
 
+    // For a row-scoped (repeatable-template) effect, a target that names a
+    // template field is written on THIS row's composite key; a global target (or
+    // a key the handler composed itself) passes through. For a plain effect
+    // (`rowScope === null`) every target is unchanged.
+    const scopeTarget = (targetFieldId: string): string =>
+      rowScope?.templateFieldIds.has(targetFieldId)
+        ? buildCompositeKey(rowScope.repeatableId, rowScope.itemKey, targetFieldId)
+        : targetFieldId;
+
     // Build context
     const context: FieldEffectContext = {
       setValue: (targetFieldId: string, value: unknown) => {
         if (abortController.signal.aborted || this.stopped) return;
+        const target = scopeTarget(targetFieldId);
         // INITIAL-run writes never land on a field the user owns: `touched`
         // (a blur — the same guard the provider's default-seeding uses) or the
         // host's interaction record (a keystroke that never blurred). Checked
         // at WRITE time, not schedule time, so an async initial effect racing
         // the user's typing loses to the keystroke it would have destroyed.
-        if (chain.initial && this.isTargetUserOwned(targetFieldId)) return;
+        if (chain.initial && this.isTargetUserOwned(target)) return;
         // A composite-key write requires its ROW to still be live: a late
         // async effect must not resurrect a removed repeatable row's key
         // (mirrors the validation-side row-liveness guard).
-        if (!this.isTargetRowLive(targetFieldId)) return;
-        propagate(() => this.store.getState()._setValue(targetFieldId, value));
+        if (!this.isTargetRowLive(target)) return;
+        propagate(() => this.store.getState()._setValue(target, value));
         // Re-validate the written field so a stale error (from a previous
         // invalid value) is cleared/refreshed and `isValid` reflects the new
         // value. Revalidation only mutates error/validation state — never
         // `values` — so it cannot re-trigger this value subscription (no loop).
-        this.revalidateField?.(targetFieldId);
+        this.revalidateField?.(target);
       },
       setProps: (targetFieldId: string, props: Record<string, unknown>) => {
         if (abortController.signal.aborted || this.stopped) return;
-        propagate(() => this.store.getState()._setFieldProps(targetFieldId, props));
+        propagate(() => this.store.getState()._setFieldProps(scopeTarget(targetFieldId), props));
       },
       getValues: () => {
         return this.store.getState().values as Record<string, unknown>;
       },
       getFieldValue: (targetFieldId: string) => {
-        return this.store.getState().values[targetFieldId];
+        return this.store.getState().values[scopeTarget(targetFieldId)];
       },
     };
 
