@@ -1059,6 +1059,15 @@ export function FormProvider({
         // sets): an answer typed under a still-streaming schema must survive
         // the rebuild the next chunk causes.
         isUserOwnedField: (fieldId) => userEditedFieldsRef.current.has(fieldId),
+        // The growth/retype/default-upgrade seeding bracket. The engine's own
+        // values subscription otherwise sees a seeded default as a USER-grade
+        // watched change and fires its effect over a user-owned target (the
+        // provider's subscription reads the same bracket at line ~1107 for the
+        // same attribution). Zustand notifies synchronously inside `set`, so
+        // whichever engine is subscribed when the seed lands — this one, or a
+        // predecessor one commit away from its passive rebuild — observes the
+        // bracket exactly.
+        isProviderWrite: () => isApplyingConfigRef.current,
       });
       engine.start();
       engine.runInitialEffects();

@@ -42,6 +42,20 @@ export interface EffectEngineOptions {
    * a watched change legitimately rewrites its derived targets.
    */
   readonly isUserOwnedField?: (fieldId: string) => boolean;
+  /**
+   * "The values change currently notifying is the HOST's own write" — the
+   * provider seeding a default (growth, retype, a torn default completing),
+   * not a user keystroke. FormProvider brackets those writes and passes the
+   * bracket here; Zustand notifies synchronously inside `set`, so the answer
+   * is exact at subscription time. A bracketed change starts its cascade
+   * `initial: true` — a seeded default is default-grade, exactly what
+   * {@link EffectEngine.runInitialEffects} produces — so the user-owned-target
+   * guard applies and the derived write cannot replace an answer the user
+   * typed into the TARGET field. Unbracketed changes (real keystrokes,
+   * programmatic sets) keep their user-grade cascade and legitimately rewrite
+   * their derived targets.
+   */
+  readonly isProviderWrite?: () => boolean;
 }
 
 /**
@@ -87,6 +101,7 @@ export class EffectEngine {
   private readonly store: FormStore;
   private readonly revalidateField?: (fieldId: string) => void;
   private readonly isUserOwnedField?: (fieldId: string) => boolean;
+  private readonly isProviderWrite?: () => boolean;
   private unsubscribe: (() => void) | null = null;
   private readonly abortControllers = new Map<string, AbortController>();
   // Chain of the cascade currently propagating through a setValue call, if any.
@@ -94,11 +109,18 @@ export class EffectEngine {
   private pendingChain: CascadeChain | null = null;
   private stopped = false;
 
-  constructor({ effectsMap, store, revalidateField, isUserOwnedField }: EffectEngineOptions) {
+  constructor({
+    effectsMap,
+    store,
+    revalidateField,
+    isUserOwnedField,
+    isProviderWrite,
+  }: EffectEngineOptions) {
     this.effectsMap = effectsMap;
     this.store = store;
     this.revalidateField = revalidateField;
     this.isUserOwnedField = isUserOwnedField;
+    this.isProviderWrite = isProviderWrite;
   }
 
   start(): void {
@@ -110,8 +132,16 @@ export class EffectEngine {
         if (this.stopped) return;
 
         // Inherit the cascade chain from the setValue that caused this change
-        // (null for user-initiated changes → a fresh cascade).
-        const incomingChain = this.pendingChain;
+        // (null for user-initiated changes → a fresh cascade). A change the
+        // HOST brackets as its own write (a seeded default) is default-grade:
+        // it starts an INITIAL cascade, so the user-owned-target guard applies
+        // exactly as it does for `runInitialEffects` — the seed still derives
+        // its untouched dependents, but never overwrites what the user typed.
+        const incomingChain =
+          this.pendingChain ??
+          (this.isProviderWrite?.() === true
+            ? { visited: new Set<string>(), depth: 0, initial: true }
+            : null);
 
         // Find which fields changed
         for (const fieldId of Object.keys(values)) {
