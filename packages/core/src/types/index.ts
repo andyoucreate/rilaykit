@@ -536,6 +536,14 @@ export interface FieldEffect {
   readonly watchFieldId: string;
   /** The handler to execute when the watched field changes */
   readonly handler: FieldEffectHandler;
+  /**
+   * Set by the form builder's effect indexer (never by `onChange`): the id of
+   * the repeatable this effect was declared IN, when it lives on a repeatable
+   * template field. It lets the effect engine fan the effect out per live row
+   * when its watched field is a GLOBAL field (a composite-key watch scopes
+   * itself; a global watch would otherwise fire once, un-scoped).
+   */
+  readonly declaringRepeatableId?: string;
 }
 
 /** Array of field effect declarations */

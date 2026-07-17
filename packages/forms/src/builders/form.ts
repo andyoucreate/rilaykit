@@ -931,8 +931,8 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     const effectsMap = new Map<string, FieldEffect[]>();
     indexEffects(allFields, effectsMap);
     if (repeatableFields) {
-      for (const config of Object.values(repeatableFields)) {
-        indexEffects(config.allFields, effectsMap);
+      for (const [repeatableId, config] of Object.entries(repeatableFields)) {
+        indexEffects(config.allFields, effectsMap, repeatableId);
       }
     }
 
@@ -1064,15 +1064,22 @@ export class form<C extends Record<string, any> = Record<string, never>> {
  * The single accumulator for both effect sources (top-level fields and
  * repeatable templates) so the two cannot drift.
  */
-function indexEffects(fields: readonly FormFieldConfig[], into: Map<string, FieldEffect[]>): void {
+function indexEffects(
+  fields: readonly FormFieldConfig[],
+  into: Map<string, FieldEffect[]>,
+  declaringRepeatableId?: string
+): void {
   for (const field of fields) {
     if (!field.effects) continue;
     for (const effect of field.effects) {
+      // Tag a repeatable-template effect with the repeatable it was declared in,
+      // so the engine can fan it out per row when it watches a GLOBAL field.
+      const indexed = declaringRepeatableId ? { ...effect, declaringRepeatableId } : effect;
       const existing = into.get(effect.watchFieldId);
       if (existing) {
-        existing.push(effect);
+        existing.push(indexed);
       } else {
-        into.set(effect.watchFieldId, [effect]);
+        into.set(effect.watchFieldId, [indexed]);
       }
     }
   }

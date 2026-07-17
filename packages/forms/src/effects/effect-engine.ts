@@ -267,7 +267,7 @@ export class EffectEngine {
     // but `indexEffects` keys the map by the bare template watch id (`name`). Fall
     // back to the template effect and remember the row, so an effect declared on a
     // repeatable template field fires per-row (each row derives independently).
-    let rowScope: RowScope | null = null;
+    let baseRowScope: RowScope | null = null;
     if (!effects || effects.length === 0) {
       const parsed = parseCompositeKey(fieldId);
       if (parsed) {
@@ -275,7 +275,7 @@ export class EffectEngine {
         const config = getOwn(this.store.getState()._repeatableConfigs, parsed.repeatableId);
         if (templateEffects && templateEffects.length > 0 && config) {
           effects = templateEffects;
-          rowScope = {
+          baseRowScope = {
             repeatableId: parsed.repeatableId,
             itemKey: parsed.itemKey,
             templateFieldIds: new Set(config.allFields.map((f) => f.id)),
@@ -336,19 +336,21 @@ export class EffectEngine {
     };
 
     // For a row-scoped (repeatable-template) effect, a target that names a
-    // template field is written on THIS row's composite key; a global target (or
-    // a key the handler composed itself) passes through. For a plain effect
-    // (`rowScope === null`) every target is unchanged.
-    const scopeTarget = (targetFieldId: string): string =>
-      rowScope?.templateFieldIds.has(targetFieldId)
-        ? buildCompositeKey(rowScope.repeatableId, rowScope.itemKey, targetFieldId)
+    // template field is written on THAT row's composite key; a global target (or
+    // a key the handler composed itself) passes through. For an unscoped effect
+    // (`scope === null`) every target is unchanged.
+    const scopeTarget = (scope: RowScope | null, targetFieldId: string): string =>
+      scope?.templateFieldIds.has(targetFieldId)
+        ? buildCompositeKey(scope.repeatableId, scope.itemKey, targetFieldId)
         : targetFieldId;
 
-    // Build context
-    const context: FieldEffectContext = {
+    // Build a handler context bound to one row scope (or null for a top-level
+    // effect). The abort controller, cascade `propagate`, and guards are shared
+    // across every scope of this same field change; only target-scoping differs.
+    const makeContext = (scope: RowScope | null): FieldEffectContext => ({
       setValue: (targetFieldId: string, value: unknown) => {
         if (abortController.signal.aborted || this.stopped) return;
-        const target = scopeTarget(targetFieldId);
+        const target = scopeTarget(scope, targetFieldId);
         // INITIAL-run writes never land on a field the user owns: `touched`
         // (a blur — the same guard the provider's default-seeding uses) or the
         // host's interaction record (a keystroke that never blurred). Checked
@@ -368,23 +370,54 @@ export class EffectEngine {
       },
       setProps: (targetFieldId: string, props: Record<string, unknown>) => {
         if (abortController.signal.aborted || this.stopped) return;
-        propagate(() => this.store.getState()._setFieldProps(scopeTarget(targetFieldId), props));
+        propagate(() =>
+          this.store.getState()._setFieldProps(scopeTarget(scope, targetFieldId), props)
+        );
       },
       getValues: () => {
         return this.store.getState().values as Record<string, unknown>;
       },
       getFieldValue: (targetFieldId: string) => {
-        return this.store.getState().values[scopeTarget(targetFieldId)];
+        return this.store.getState().values[scopeTarget(scope, targetFieldId)];
       },
-    };
+    });
+
+    // Resolve each effect to the row scope(s) it runs under. Reaching here via a
+    // composite key already fixed the row (`baseRowScope`) — every effect uses it.
+    // Reaching here via a bare/global key, a template effect tagged with its
+    // declaring repeatable must FAN OUT: a GLOBAL field it watches changed, so
+    // every live row re-derives under its own scope. An untagged effect is
+    // top-level and runs once, unscoped.
+    const units: { effect: FieldEffect; scope: RowScope | null }[] = [];
+    for (const effect of effects) {
+      if (baseRowScope) {
+        units.push({ effect, scope: baseRowScope });
+        continue;
+      }
+      const rid = effect.declaringRepeatableId;
+      if (rid) {
+        const state = this.store.getState();
+        const config = getOwn(state._repeatableConfigs, rid);
+        const order = getOwn(state._repeatableOrder, rid);
+        if (config && order) {
+          const templateFieldIds = new Set(config.allFields.map((f) => f.id));
+          for (const itemKey of order) {
+            units.push({ effect, scope: { repeatableId: rid, itemKey, templateFieldIds } });
+          }
+        }
+        // No live rows → nothing to derive; the effect simply does not run.
+        continue;
+      }
+      units.push({ effect, scope: null });
+    }
 
     const promises: Promise<void>[] = [];
 
-    for (const effect of effects) {
+    for (const { effect, scope } of units) {
       if (abortController.signal.aborted || this.stopped) break;
 
       try {
-        const result = effect.handler(newValue, context);
+        const result = effect.handler(newValue, makeContext(scope));
         if (result instanceof Promise) {
           promises.push(
             result.catch((error) => {
