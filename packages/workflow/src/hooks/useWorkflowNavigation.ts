@@ -45,6 +45,13 @@ export interface UseWorkflowNavigationProps {
    */
   pendingSkipRef: MutableRefObject<string | null>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
+  /**
+   * Routes an error through {@link useWorkflowAnalytics.trackError} so it reaches
+   * BOTH `analytics.onError` and the monitoring adapter. The guard for the
+   * optional analytics/monitor lives inside `trackError`, so navigation just
+   * calls it — no local `if (analytics?.onError)`.
+   */
+  trackError: (error: Error) => void;
 }
 
 export interface UseWorkflowNavigationReturn {
@@ -73,6 +80,7 @@ export function useWorkflowNavigation({
   getRepeatableOrders,
   pendingSkipRef,
   onStepChange,
+  trackError,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
   // Use ref to avoid recreating callbacks when onStepChange changes
   const onStepChangeRef = useRef(onStepChange);
@@ -244,9 +252,7 @@ export function useWorkflowNavigation({
         return true;
       } catch (error) {
         log.error('Step transition failed:', error);
-        if (workflowConfig.analytics?.onError) {
-          workflowConfig.analytics.onError(error as Error, workflowContext);
-        }
+        trackError(error as Error);
         return false;
       } finally {
         setTransitioning(false);
@@ -254,7 +260,7 @@ export function useWorkflowNavigation({
     },
     [
       workflowConfig.steps,
-      workflowConfig.analytics,
+      trackError,
       isStepVisibleLive,
       workflowState.currentStepIndex,
       getAllData,
@@ -320,9 +326,7 @@ export function useWorkflowNavigation({
         await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
         log.error('onAfterValidation failed:', error);
-        if (workflowConfig.analytics?.onError) {
-          workflowConfig.analytics.onError(error as Error, workflowContext);
-        }
+        trackError(error as Error);
         return false;
       }
     }
@@ -344,7 +348,7 @@ export function useWorkflowNavigation({
     createStepDataHelper,
     readStructuredSlice,
     workflowContext,
-    workflowConfig.analytics,
+    trackError,
     workflowState.currentStepIndex,
     findNextVisibleStep,
     goToStep,

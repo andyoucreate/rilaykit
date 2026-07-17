@@ -38,6 +38,12 @@ export interface UsePersistenceProps {
    * and any subsequent save would resurrect the finished workflow.
    */
   workflowCompletedRef?: MutableRefObject<boolean>;
+  /**
+   * Reports a persistence failure to the workflow's observability layer (via
+   * `trackError`), so a Sentry/Datadog integration sees save/load/remove errors.
+   * Optional: persistence still works without any analytics/monitor configured.
+   */
+  onPersistenceError?: (error: Error) => void;
 }
 
 /**
@@ -71,6 +77,7 @@ export function usePersistence({
   options = {},
   userId,
   workflowCompletedRef,
+  onPersistenceError,
 }: UsePersistenceProps): UsePersistenceReturn {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<WorkflowPersistenceError | null>(null);
@@ -103,19 +110,26 @@ export function usePersistence({
   /**
    * Handle persistence errors consistently
    */
-  const handleError = useCallback((error: Error, operation: string) => {
-    const persistenceError =
-      error instanceof WorkflowPersistenceError
-        ? error
-        : new WorkflowPersistenceError(
-            `${operation} failed: ${error.message}`,
-            'OPERATION_FAILED',
-            error
-          );
+  const handleError = useCallback(
+    (error: Error, operation: string) => {
+      const persistenceError =
+        error instanceof WorkflowPersistenceError
+          ? error
+          : new WorkflowPersistenceError(
+              `${operation} failed: ${error.message}`,
+              'OPERATION_FAILED',
+              error
+            );
 
-    setPersistenceError(persistenceError);
-    log.error('[WorkflowPersistence]', persistenceError);
-  }, []);
+      setPersistenceError(persistenceError);
+      log.error('[WorkflowPersistence]', persistenceError);
+
+      // Also surface the failure to the workflow's observability layer so a
+      // monitoring integration sees it — the state + log above stay for the UI.
+      onPersistenceError?.(persistenceError);
+    },
+    [onPersistenceError]
+  );
 
   /**
    * Save current workflow state

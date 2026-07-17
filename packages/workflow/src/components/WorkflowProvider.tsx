@@ -412,6 +412,19 @@ export function WorkflowProvider({
   // after clear-on-completion would resurrect the finished workflow).
   const workflowCompletedRef = useRef<boolean>(false);
 
+  // Mirror of `trackError` (produced later by useWorkflowAnalytics). Persistence
+  // is composed BEFORE analytics, so it cannot take `trackError` directly; its
+  // `handleError` runs on a real failure long after render, so reading the ref
+  // at call time is enough — the same ordering trick as `persistenceHookRef`.
+  const trackErrorRef = useRef<((error: Error) => void) | null>(null);
+
+  // Stable bridge handed to usePersistence: a save/load/remove failure routes
+  // through `trackError` so a Sentry/Datadog integration sees it. Stable across
+  // renders because it only reads the ref.
+  const onPersistenceError = useCallback((error: Error) => {
+    trackErrorRef.current?.(error);
+  }, []);
+
   // Initialize persistence unconditionally (Rules of Hooks)
   const hasPersistence = !!workflowConfig.persistence?.adapter;
 
@@ -422,6 +435,7 @@ export function WorkflowProvider({
     options: workflowConfig.persistence?.options,
     userId: workflowConfig.persistence?.userId,
     workflowCompletedRef,
+    onPersistenceError,
   });
 
   // Ref to avoid re-triggering effect when persistenceHook identity changes
@@ -651,13 +665,17 @@ export function WorkflowProvider({
   const pendingSkipRef = useRef<string | null>(null);
 
   // Initialize analytics tracking
-  const { analyticsStartTime } = useWorkflowAnalytics({
+  const { analyticsStartTime, trackError } = useWorkflowAnalytics({
     workflowConfig,
     workflowState,
     workflowContext,
     pendingSkipRef,
     workflowCompletedRef,
   });
+
+  // Publish `trackError` to the mirror so the persistence bridge (composed
+  // before analytics) can reach it once a failure fires.
+  trackErrorRef.current = trackError;
 
   // Initialize navigation
   const {
@@ -686,6 +704,7 @@ export function WorkflowProvider({
     getRepeatableOrders,
     pendingSkipRef,
     onStepChange: onStepChangeRef.current,
+    trackError,
   });
 
   // Ensure we start on the first visible step
@@ -766,6 +785,7 @@ export function WorkflowProvider({
     analyticsStartTime,
     workflowCompletedRef,
     clearPersistedState: persistenceInfo.clearPersistedData,
+    trackError,
   });
 
   // Create field value setter for form integration

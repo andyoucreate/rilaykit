@@ -86,6 +86,13 @@ export interface UseWorkflowSubmissionProps {
    * completed workflow's data. Absent when persistence is not configured.
    */
   clearPersistedState?: () => Promise<void>;
+  /**
+   * Routes an error through {@link useWorkflowAnalytics.trackError} so it reaches
+   * BOTH `analytics.onError` and the monitoring adapter. The guard for the
+   * optional analytics/monitor lives inside `trackError`, so submission just
+   * calls it — no local `if (analytics?.onError)`.
+   */
+  trackError: (error: Error) => void;
 }
 
 export interface UseWorkflowSubmissionReturn {
@@ -107,6 +114,7 @@ export function useWorkflowSubmission({
   analyticsStartTime,
   workflowCompletedRef,
   clearPersistedState,
+  trackError,
 }: UseWorkflowSubmissionProps): UseWorkflowSubmissionReturn {
   // Use ref to avoid recreating callbacks when onWorkflowComplete changes
   const onWorkflowCompleteRef = useRef(onWorkflowComplete);
@@ -187,9 +195,7 @@ export function useWorkflowSubmission({
       }
     } catch (error) {
       log.error('Workflow submission failed:', error);
-      if (workflowConfig.analytics?.onError) {
-        workflowConfig.analytics.onError(error as Error, workflowContext);
-      }
+      trackError(error as Error);
       throw error;
     } finally {
       setSubmitting(false);
@@ -202,7 +208,7 @@ export function useWorkflowSubmission({
     workflowConfig.steps,
     workflowConfig.analytics,
     workflowConfig.id,
-    workflowContext,
+    trackError,
     analyticsStartTime,
     setSubmitting,
   ]);
