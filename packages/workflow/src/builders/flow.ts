@@ -120,11 +120,6 @@ export interface StepDefinition {
    *
    *   // Access other steps
    *   const basics = step.workflow.get('basics');
-   *
-   *   // Navigation
-   *   if (step.data.skipPayment) {
-   *     step.next.skip();
-   *   }
    * }
    * ```
    */

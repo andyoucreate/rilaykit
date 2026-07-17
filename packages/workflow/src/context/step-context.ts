@@ -1,7 +1,4 @@
-import { getLogger } from '@rilaykit/core';
 import type { StepDataHelper, WorkflowContext } from '@rilaykit/core';
-
-const log = getLogger('workflow:step-context');
 
 // ============================================================================
 // TYPES
@@ -55,18 +52,14 @@ export interface StepContext {
      * Pinned by tests/e2e/proof/prefill-rerun.proof.e2e.test.tsx.
      */
     prefill(fields: Record<string, any>): void;
-    /** Skip the next step */
-    skip(): void;
   };
 
-  /** Access to workflow-level data and navigation */
+  /** Access to workflow-level data */
   readonly workflow: {
     /** Get data from a specific step by ID */
     get<T = any>(stepId: string): T;
     /** Get all workflow data across all steps */
     all<T = any>(): T;
-    /** Navigate to a specific step by ID */
-    goto(stepId: string): void;
   };
 
   /** Step metadata */
@@ -106,13 +99,6 @@ export function createStepContext(
       prefill: (fields: Record<string, any>) => {
         helper.setNextStepFields(fields);
       },
-      skip: () => {
-        // NOTE: Cannot be implemented with current architecture.
-        // The after() callback runs BEFORE navigation (in goNext()),
-        // so we cannot skip the next step from within this callback.
-        // To skip steps dynamically, use step conditions with `when()`.
-        log.warn('step.next.skip() is not supported. Use step conditions with when() instead.');
-      },
     },
 
     workflow: {
@@ -121,13 +107,6 @@ export function createStepContext(
       },
       all: <T = any>(): T => {
         return helper.getAllData() as T;
-      },
-      goto: (_stepId: string) => {
-        // NOTE: Cannot be implemented with current architecture.
-        // The after() callback runs BEFORE navigation (in goNext()),
-        // so we cannot redirect to a different step from within this callback.
-        // To conditionally show/hide steps, use step conditions with `when()`.
-        log.warn('step.workflow.goto() is not supported. Use step conditions with when() instead.');
       },
     },
 
