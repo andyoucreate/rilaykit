@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Flow } from 'rilaykit';
+import { Flow } from 'rilaykit/react';
 
 export function SkipButton({ className }: { className?: string }) {
   return (

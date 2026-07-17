@@ -4,14 +4,8 @@ import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import {
-  Form,
-  FormBody,
-  type FormSchema,
-  type SchemaRegistry,
-  fromSchema,
-  useFormStoreApi,
-} from 'rilaykit';
+import { type FormSchema, type SchemaRegistry, fromSchema } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 // ---------------------------------------------------------------------------
 // 1. JSON Schema — this would come from a backend API in production

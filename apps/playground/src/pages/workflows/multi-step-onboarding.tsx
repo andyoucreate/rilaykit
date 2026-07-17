@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import { Flow, LocalStorageAdapter, email, minLength, required } from 'rilaykit';
+import { LocalStorageAdapter, email, minLength, required } from 'rilaykit';
+import { Flow } from 'rilaykit/react';
 
 const personalInfoForm = r
   .form('personal-info')

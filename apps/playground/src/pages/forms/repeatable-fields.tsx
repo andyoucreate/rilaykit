@@ -4,7 +4,8 @@ import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import { Form, FormBody, email, required, useFormStoreApi } from 'rilaykit';
+import { email, required } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 const teamForm = r
   .form('team')

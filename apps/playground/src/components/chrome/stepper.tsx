@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Flow, useVisitedSteps } from 'rilaykit';
+import { Flow, useVisitedSteps } from 'rilaykit/react';
 
 export function Stepper({ className }: { className?: string }) {
   const visitedSteps = useVisitedSteps();

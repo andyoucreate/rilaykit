@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import { Flow, minLength, required, when } from 'rilaykit';
+import { minLength, required, when } from 'rilaykit';
+import { Flow } from 'rilaykit/react';
 
 const accountTypeForm = r
   .form('account-type')

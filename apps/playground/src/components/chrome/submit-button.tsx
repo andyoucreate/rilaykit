@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Form } from 'rilaykit';
+import { Form } from 'rilaykit/react';
 
 export function SubmitButton({ className }: { className?: string }) {
   return (
