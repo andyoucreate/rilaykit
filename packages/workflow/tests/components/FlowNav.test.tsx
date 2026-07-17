@@ -1,6 +1,7 @@
 import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, type WorkflowContextValue, flow, useFlow } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { Flow, type WorkflowContextValue, useFlow } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

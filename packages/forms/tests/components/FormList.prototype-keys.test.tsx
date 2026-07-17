@@ -1,5 +1,6 @@
 import { ril } from '@rilaykit/core';
-import { Form, FormList, compileForm } from '@rilaykit/forms';
+import { compileForm } from '@rilaykit/forms';
+import { Form, FormList } from '@rilaykit/forms/react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

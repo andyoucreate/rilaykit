@@ -5,7 +5,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormProvider } from '../../src/components/FormProvider';
-import { useFormStore } from '../../src/stores/formStore';
+import { useFormStore } from '../../src/stores';
 
 const MockText = ({ id, field }: ComponentRenderContext) => (
   <input

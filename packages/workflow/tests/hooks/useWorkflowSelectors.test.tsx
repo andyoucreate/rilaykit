@@ -14,7 +14,7 @@ import {
   useFlowSubmitting,
   useFlowTransitioning,
   useStepData,
-} from '../../src/stores/workflowStore';
+} from '../../src/stores';
 
 // Helper to create a wrapper with store context
 function createWrapper(options: CreateWorkflowStoreOptions = {}) {

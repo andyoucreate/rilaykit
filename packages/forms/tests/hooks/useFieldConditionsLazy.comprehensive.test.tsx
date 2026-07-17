@@ -6,7 +6,7 @@ import {
   useConditionEvaluator,
   useFieldConditionsLazy,
 } from '../../src/hooks/useFieldConditionsLazy';
-import { FormStoreContext, createFormStore } from '../../src/stores/formStore';
+import { FormStoreContext, createFormStore } from '../../src/stores';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);

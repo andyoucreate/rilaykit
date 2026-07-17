@@ -10,7 +10,7 @@
  * =============================================================================
  */
 import type { ComponentRenderContext } from '@rilaykit/core';
-import { Form } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ril } from 'rilaykit';
 import { beforeEach, describe, expect, it } from 'vitest';

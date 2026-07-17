@@ -10,7 +10,7 @@ import {
   useFlowTransitioning,
   usePassedSteps,
   useVisitedSteps,
-} from '../../src/stores/workflowStore';
+} from '../../src/stores';
 
 function createWrapper() {
   const store = createWorkflowStore();

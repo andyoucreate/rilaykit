@@ -3,8 +3,8 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src/react';
 import { MockInput } from '../_helpers/mock-components';
 
 function createRil() {

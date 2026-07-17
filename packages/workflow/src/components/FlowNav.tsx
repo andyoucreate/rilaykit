@@ -1,5 +1,5 @@
 import type { StepConfig } from '@rilaykit/core';
-import { useForm, useFormSubmitting } from '@rilaykit/forms';
+import { useForm, useFormSubmitting } from '@rilaykit/forms/react';
 import React, { useCallback, useMemo } from 'react';
 import { useFlow } from './WorkflowProvider';
 

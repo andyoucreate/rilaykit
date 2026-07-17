@@ -2,12 +2,12 @@ import { type ril, ril as rilFactory } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import type {
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,
 } from '../../src/persistence/types';
+import { WorkflowProvider, useFlow } from '../../src/react';
 import { MockInput } from '../_helpers/mock-components';
 
 /**

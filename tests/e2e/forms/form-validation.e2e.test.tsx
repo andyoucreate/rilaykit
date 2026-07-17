@@ -11,13 +11,14 @@ import {
   ril,
   when,
 } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useForm } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { FormBody, FormProvider, useForm } from '@rilaykit/forms/react';
 import {
   useFieldErrors,
   useFieldValidationState,
   useFormStoreApi,
   useFormValues,
-} from '@rilaykit/forms';
+} from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React, { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

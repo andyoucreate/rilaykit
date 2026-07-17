@@ -27,18 +27,19 @@
  * read is the authored shape. A new door added without a boundary fails here.
  */
 import { ril } from '@rilaykit/core';
-import { form, useRepeatableField } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
+import { flow } from '@rilaykit/workflow';
+import type { PersistedWorkflowData, WorkflowPersistenceAdapter } from '@rilaykit/workflow';
 import {
   FlowBody,
   WorkflowProvider,
-  flow,
   useFlow,
   useFlowActions,
   useFlowData,
   useStepData,
   useStepDataById,
-} from '@rilaykit/workflow';
-import type { PersistedWorkflowData, WorkflowPersistenceAdapter } from '@rilaykit/workflow';
+} from '@rilaykit/workflow/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

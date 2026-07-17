@@ -4,12 +4,8 @@ import { useMemo, useRef } from 'react';
 import {
   type ComponentRenderContext,
   type FieldEffectContext,
-  Flow,
   type FlowBindings,
   type FlowSchema,
-  FormBody,
-  FormField,
-  FormList,
   LocalStorageAdapter,
   type PartRenderContext,
   type ToolRenderContext,
@@ -19,7 +15,7 @@ import {
   uiTools,
 } from 'rilaykit';
 import { toParts, tools } from 'rilaykit/ai-sdk';
-import { Catalog, Parts, useCatalog } from 'rilaykit/react';
+import { Catalog, Flow, FormBody, FormField, FormList, Parts, useCatalog } from 'rilaykit/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 

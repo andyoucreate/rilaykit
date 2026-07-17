@@ -1,14 +1,12 @@
 import type { FormConfiguration } from '@rilaykit/core';
 import { useCatalog } from '@rilaykit/core/react';
 import {
-  FormBody,
-  FormProvider,
   type FormSchema,
   type FormSchemaResult,
-  FormSubmit,
   SchemaValidationError,
   compileForm,
 } from '@rilaykit/forms';
+import { FormBody, FormProvider, FormSubmit } from '@rilaykit/forms/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';

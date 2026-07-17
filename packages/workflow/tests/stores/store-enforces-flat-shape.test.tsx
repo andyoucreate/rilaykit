@@ -1,18 +1,19 @@
 import { ril } from '@rilaykit/core';
-import { form, useRepeatableField } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseFlowActionsResult, WorkflowStore } from '../../src';
+import { createWorkflowStore } from '../../src';
+import { flow } from '../../src/builders/flow';
 import {
   FlowBody,
   WorkflowProvider,
-  createWorkflowStore,
   useFlow,
   useFlowActions,
   useFlowStoreApi,
-} from '../../src';
-import { flow } from '../../src/builders/flow';
+} from '../../src/react';
 
 /**
  * THE FOURTH DOOR — found by enumerating, not by a bug report.

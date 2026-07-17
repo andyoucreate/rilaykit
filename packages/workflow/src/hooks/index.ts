@@ -16,6 +16,7 @@ export { useConditionEvaluation } from './useConditionEvaluation';
 export { useFlowSteps } from './useFlowSteps';
 export type { FlowStepsContext } from './useFlowSteps';
 export { usePersistence } from './usePersistence';
+export type { UsePersistenceProps } from './usePersistence';
 export { useStep } from './useStep';
 export type { StepContextValue } from './useStep';
 export { useStepMetadata } from './useStepMetadata';

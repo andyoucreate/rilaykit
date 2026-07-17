@@ -5,7 +5,10 @@
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // bundler so `@rilaykit/forms/react` (a package.json exports subpath)
+    // resolves — matches agent/rilaykit; the base config uses classic node.
+    "moduleResolution": "bundler"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.*", "**/*.spec.*"]

@@ -1,5 +1,6 @@
 import { type ComponentRenderContext, ril } from '@rilaykit/core';
-import { Form, FormField, form, useFieldValue } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form, FormField, useFieldValue } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 

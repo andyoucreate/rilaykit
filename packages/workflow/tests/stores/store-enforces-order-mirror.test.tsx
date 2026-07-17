@@ -1,11 +1,18 @@
 import { ril } from '@rilaykit/core';
-import { form, parseCompositeKey, useRepeatableField } from '@rilaykit/forms';
+import { form, parseCompositeKey } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseFlowActionsResult, WorkflowStore, WorkflowStoreState } from '../../src';
-import { FlowBody, WorkflowProvider, useFlow, useFlowActions, useFlowStoreApi } from '../../src';
 import { flow } from '../../src/builders/flow';
+import {
+  FlowBody,
+  WorkflowProvider,
+  useFlow,
+  useFlowActions,
+  useFlowStoreApi,
+} from '../../src/react';
 import { structureWorkflowData } from '../../src/utils/structureWorkflowData';
 
 /**

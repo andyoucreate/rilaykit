@@ -1,7 +1,8 @@
 import type { StepDataHelper } from '@rilaykit/core';
 import { when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, flow } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow/react';
 /**
  * PROOF — flow chrome hardening.
  * User-level scenarios the migrated e2e/unit suites do not pin down with the

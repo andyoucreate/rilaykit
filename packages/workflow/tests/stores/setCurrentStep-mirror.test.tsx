@@ -4,8 +4,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import type { UseFlowActionsResult, WorkflowStore } from '../../src';
-import { FlowBody, WorkflowProvider, useFlow, useFlowActions, useFlowStoreApi } from '../../src';
 import { flow } from '../../src/builders/flow';
+import {
+  FlowBody,
+  WorkflowProvider,
+  useFlow,
+  useFlowActions,
+  useFlowStoreApi,
+} from '../../src/react';
 
 /**
  * THE SIXTH DOOR — the SECOND invariant keyed off step identity.

@@ -1,14 +1,15 @@
 import { ril } from '@rilaykit/core';
-import { form, useRepeatableField } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
 import type {
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,
 } from '../../src/persistence/types';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src/react';
 
 /**
  * A user reorder must survive a RELOAD, not just an in-session step re-entry.

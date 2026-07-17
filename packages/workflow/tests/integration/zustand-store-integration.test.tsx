@@ -3,9 +3,9 @@ import { form } from '@rilaykit/forms';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBody } from '../../src';
 import { flow } from '../../src/builders/flow';
 import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider';
+import { FlowBody } from '../../src/react';
 import {
   useFlowData,
   useFlowStepIndex,

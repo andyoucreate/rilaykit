@@ -17,6 +17,21 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react/index.d.mts",
+        "default": "./dist/react/index.mjs"
+      },
+      "require": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "react": ["./dist/react/index.d.ts"]
     }
   },
   "files": ["dist"],

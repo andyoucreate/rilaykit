@@ -1,16 +1,12 @@
 import { ril } from '@rilaykit/core';
-import { form, useRepeatableField } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React, { useMemo, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  FlowBody,
-  WorkflowProvider,
-  createWorkflowStore,
-  useFlow,
-  useFlowActions,
-} from '../../src';
+import { createWorkflowStore } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { FlowBody, WorkflowProvider, useFlow, useFlowActions } from '../../src/react';
 
 /**
  * THE SEVENTH DOOR — the invariant was FROZEN AT MOUNT.

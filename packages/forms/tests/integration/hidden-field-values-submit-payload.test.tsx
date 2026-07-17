@@ -1,7 +1,7 @@
 import { type ComponentRenderContext, ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FormField, FormProvider } from '../../src';
+import { FormField, FormProvider } from '../../src/react';
 import { type FormSchema, compileForm } from '../../src/schema';
 
 /**

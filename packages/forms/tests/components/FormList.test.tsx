@@ -1,5 +1,6 @@
 import { NotFoundError, ril, when } from '@rilaykit/core';
-import { Form, FormBody, FormField, FormList, form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form, FormBody, FormField, FormList } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 

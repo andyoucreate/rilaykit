@@ -1,4 +1,4 @@
-import { FlowBack, FlowNext, FlowSkip } from '../../src';
+import { FlowBack, FlowNext, FlowSkip } from '../../src/react';
 
 /**
  * Shared flow nav buttons for workflow tests. The `testId` prop keeps the

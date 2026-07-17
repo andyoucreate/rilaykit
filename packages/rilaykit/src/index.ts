@@ -1,121 +1,64 @@
-'use client';
+// =============================================================================
+// rilaykit — ISOMORPHIC entry (safe in a React Server Component).
+//
+// Re-exports only the isomorphic surfaces of core / forms / workflow / agent.
+// React components and hooks (Form, Flow, WorkflowProvider, Catalog, Part, the
+// field/flow hooks…) live behind `rilaykit/react`, which carries the
+// `'use client'` boundary — mirroring each package's own main/react split.
+// =============================================================================
 
-// =============================================================================
-// @rilaykit/core — all exports
-// =============================================================================
+// @rilaykit/core — isomorphic surface
 export * from '@rilaykit/core';
 
-// =============================================================================
-// @rilaykit/forms — all exports (includes useConditionEvaluation)
-// =============================================================================
+// @rilaykit/forms — isomorphic surface (builders, vanilla store, utils, schema)
 export * from '@rilaykit/forms';
 
-// =============================================================================
-// @rilaykit/workflow — selective exports (avoid conflicts with forms)
-// Excluded: useConditionEvaluation, ConditionEvaluationResult (already in forms)
-// =============================================================================
-
-// Builder
-export { flow, resolveWorkflowConfig, type StepDefinition } from '@rilaykit/workflow';
-
-// Compound components
+// @rilaykit/workflow — isomorphic surface, selective to avoid conflicts with forms
 export {
-  Flow,
-  FlowBack,
-  FlowBody,
-  FlowNext,
-  FlowProgress,
-  FlowSkip,
-  useFlow,
-  type FlowNavContext,
-  type FlowNavProps,
-  type FlowProgressProps,
-  type WorkflowContextValue,
-} from '@rilaykit/workflow';
-
-// Schema layer (JSON flow definitions)
-export {
+  // Builder
+  flow,
+  resolveWorkflowConfig,
+  // Schema layer (JSON flow definitions)
   compileFlow,
   isFlowSchema,
   validateFlowSchema,
-  type AfterValidationHandler,
-  type AllowSkipPredicate,
-  type CompileFlowOptions,
-  type FlowBindings,
-  type FlowSchema,
-  type FlowSchemaResult,
-  type FlowSchemaStep,
-} from '@rilaykit/workflow';
-
-// Hooks (except useConditionEvaluation — already exported by forms)
-export {
-  useFlowSteps,
-  useStep,
-  type FlowStepsContext,
-  type StepContext,
-  type StepContextValue,
-  type StepMetadata,
-} from '@rilaykit/workflow';
-
-// Stores
-export {
-  useFlowActions,
-  useFlowData,
-  useFlowInitializing,
-  useFlowNavigationState,
-  useFlowStepIndex,
-  useFlowStore,
-  useFlowStoreApi,
-  useFlowSubmitState,
-  useFlowSubmitting,
-  useFlowTransitioning,
-  useIsStepPassed,
-  useIsStepVisited,
-  usePassedSteps,
-  useStepData,
-  useStepDataById,
-  useVisitedSteps,
-  type UseFlowActionsResult,
-  type WorkflowStore,
-  type WorkflowStoreState,
-} from '@rilaykit/workflow';
-
-// Persistence
-export {
+  // Persistence (adapters, utilities — the usePersistence hook is on /react)
+  LocalStorageAdapter,
+  WorkflowPersistenceError,
   debounce,
   generateStorageKey,
-  LocalStorageAdapter,
   mergePersistedState,
   persistedToWorkflowState,
-  usePersistence,
   validatePersistedData,
-  WorkflowPersistenceError,
   workflowStateToPersisted,
-  type LocalStorageAdapterConfig,
-  type PersistedWorkflowData,
-  type PersistenceOptions,
-  type UsePersistenceProps,
-  type UsePersistenceReturn,
-  type WorkflowPersistenceAdapter,
-} from '@rilaykit/workflow';
-
-// Utils
-export {
+  // Utils
   combineWorkflowDataForConditions,
   flattenObject,
   resolveAllowSkip,
 } from '@rilaykit/workflow';
+export type {
+  StepDefinition,
+  StepContext,
+  StepMetadata,
+  AfterValidationHandler,
+  AllowSkipPredicate,
+  CompileFlowOptions,
+  FlowBindings,
+  FlowSchema,
+  FlowSchemaResult,
+  FlowSchemaStep,
+  WorkflowStore,
+  WorkflowStoreState,
+  LocalStorageAdapterConfig,
+  PersistedWorkflowData,
+  PersistenceOptions,
+  UsePersistenceReturn,
+  WorkflowPersistenceAdapter,
+} from '@rilaykit/workflow';
 
-// =============================================================================
-// @rilaykit/agent — isomorphic surface only (Part types/guards, uiTools,
-// manifest, parsePartialJson, ComponentNode, emission errors). No collisions
-// with core/forms/workflow today; verified against the built dist.
-//
-// React components (Catalog, Part, Parts, fallbacks) live behind `rilaykit/react`
-// — NOT re-exported here. `lib/catalog.ts`-style blueprints import `uiTools`
-// from this main entry on the server; pulling React into it would crash any
-// RSC importing it. See `tests/agent-surface.test.ts`.
-// =============================================================================
+// @rilaykit/agent — isomorphic surface (Part types/guards, uiTools, manifest,
+// parsePartialJson, ComponentNode, emission errors). React components (Catalog,
+// Part, Parts) live behind `rilaykit/react`.
 export * from '@rilaykit/agent';
 
 // =============================================================================

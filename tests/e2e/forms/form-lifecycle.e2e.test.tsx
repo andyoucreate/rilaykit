@@ -1,6 +1,7 @@
 import { email, required } from '@rilaykit/core';
-import { FormBody, FormProvider, form } from '@rilaykit/forms';
-import { useFormStoreApi } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { FormBody, FormProvider } from '@rilaykit/forms/react';
+import { useFormStoreApi } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

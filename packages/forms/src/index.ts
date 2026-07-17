@@ -1,25 +1,20 @@
-'use client';
+// =============================================================================
+// @rilaykit/forms — ISOMORPHIC entry (safe in a React Server Component).
+// React components and hooks live behind `@rilaykit/forms/react`, which carries
+// the `'use client'` boundary. Nothing here imports React (verified: the store
+// hooks and their module-level `createContext` are in ./stores/formStoreContext).
+// =============================================================================
 
-export { Form } from './components/Form';
-export type { FormProps } from './components/Form';
-export { FormBody } from './components/FormBody';
-export type { FormBodyProps } from './components/FormBody';
-export { FormField } from './components/FormField';
-export type { FormFieldProps } from './components/FormField';
-export { FormSubmit } from './components/FormSubmit';
-export type { FormSubmitProps } from './components/FormSubmit';
-export { FormList } from './components/FormList';
-export type { FormListContext, FormListProps } from './components/FormList';
-export { FormProvider, useForm } from './components/FormProvider';
-export type { FormConfigContextValue, FormProviderProps } from './components/FormProvider';
-
+// Builders
 export { form as FormBuilder, form, resolveFormConfig } from './builders/form';
 export type { FieldConfig } from './builders/form';
 export { RepeatableBuilder } from './builders/repeatable-builder';
 
-export * from './stores';
-export * from './hooks';
-export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
+// Vanilla store factory (imported from the vanilla file, NOT the ./stores barrel,
+// which also re-exports the client-only hooks)
+export { createFormStore, type FormStore, type FormStoreState } from './stores/formStore';
+
+// Utilities
 export {
   structureFormValues,
   flattenRepeatableValues,
@@ -34,4 +29,6 @@ export {
   resolveFieldConditionalBehavior,
 } from './utils/submit-visibility';
 export type { VisibleSubmitValues } from './utils/submit-visibility';
+
+// Schema layer (JSON form definitions)
 export * from './schema';

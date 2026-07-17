@@ -21,7 +21,8 @@
 import { required } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import type { PersistedWorkflowData, WorkflowPersistenceAdapter } from '@rilaykit/workflow';
-import { FlowBody, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';

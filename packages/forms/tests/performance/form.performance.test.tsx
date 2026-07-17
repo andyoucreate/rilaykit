@@ -3,7 +3,7 @@ import { destroyGlobalMonitoring, initializeMonitoring, ril } from '@rilaykit/co
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FormProvider, useFormMonitoring } from '../../src';
+import { FormProvider, useFormMonitoring } from '../../src/react';
 
 interface TextInputProps {
   value?: unknown;

@@ -1,7 +1,7 @@
 import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow } from '../../src';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src/react';
 import { type FlowSchema, compileFlow } from '../../src/schema';
 import { MockInput } from '../_helpers/mock-components';
 import { NextButton } from '../_helpers/nav-buttons';

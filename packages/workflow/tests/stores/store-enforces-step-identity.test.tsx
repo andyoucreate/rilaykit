@@ -5,15 +5,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseFlowActionsResult, WorkflowStore, WorkflowStoreState } from '../../src';
+import { createWorkflowStore } from '../../src';
+import { flow } from '../../src/builders/flow';
 import {
   FlowBody,
   WorkflowProvider,
-  createWorkflowStore,
   useFlow,
   useFlowActions,
   useFlowStoreApi,
-} from '../../src';
-import { flow } from '../../src/builders/flow';
+} from '../../src/react';
 import { structureStepSlice, structureWorkflowData } from '../../src/utils/structureWorkflowData';
 
 /**

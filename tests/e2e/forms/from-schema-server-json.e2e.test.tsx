@@ -16,8 +16,9 @@
  */
 import { async as asyncValidator } from '@rilaykit/core';
 import type { FieldEffectContext } from '@rilaykit/core';
-import { Form, fromSchema } from '@rilaykit/forms';
+import { fromSchema } from '@rilaykit/forms';
 import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ril } from 'rilaykit';
 import { describe, expect, it, vi } from 'vitest';

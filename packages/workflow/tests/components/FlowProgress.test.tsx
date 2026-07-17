@@ -1,6 +1,7 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, FlowBody, FlowProgress, flow, useFlow } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { Flow, FlowBody, FlowProgress, useFlow } from '@rilaykit/workflow/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MockInput } from '../_helpers/mock-components';

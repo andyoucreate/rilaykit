@@ -42,10 +42,13 @@ interface PublishedPackage {
 
 const PUBLISHED_PACKAGES: PublishedPackage[] = [
   { name: '@rilaykit/core', dir: 'core', minExports: 40 },
-  { name: '@rilaykit/forms', dir: 'forms', minExports: 40 },
-  { name: '@rilaykit/workflow', dir: 'workflow', minExports: 30 },
+  // forms/workflow/rilaykit main entries are now ISOMORPHIC (their React
+  // components/hooks moved to the `/react` subpaths), so their barrels are
+  // smaller than before the split — the bounds track the isomorphic surface.
+  { name: '@rilaykit/forms', dir: 'forms', minExports: 20 },
+  { name: '@rilaykit/workflow', dir: 'workflow', minExports: 15 },
   { name: '@rilaykit/agent', dir: 'agent', minExports: 5 },
-  { name: 'rilaykit', dir: 'rilaykit', minExports: 150 },
+  { name: 'rilaykit', dir: 'rilaykit', minExports: 100 },
 ];
 
 /**
@@ -59,10 +62,12 @@ interface PublishedSubpath extends PublishedPackage {
 }
 
 const PUBLISHED_SUBPATHS: PublishedSubpath[] = [
+  { name: '@rilaykit/forms/react', dir: 'forms', subpath: 'react', minExports: 25 },
+  { name: '@rilaykit/workflow/react', dir: 'workflow', subpath: 'react', minExports: 20 },
   { name: '@rilaykit/agent/react', dir: 'agent', subpath: 'react', minExports: 5 },
   { name: '@rilaykit/agent/ai-sdk', dir: 'agent', subpath: 'ai-sdk', minExports: 1 },
   { name: '@rilaykit/agent/anthropic', dir: 'agent', subpath: 'anthropic', minExports: 1 },
-  { name: 'rilaykit/react', dir: 'rilaykit', subpath: 'react', minExports: 5 },
+  { name: 'rilaykit/react', dir: 'rilaykit', subpath: 'react', minExports: 25 },
   { name: 'rilaykit/ai-sdk', dir: 'rilaykit', subpath: 'ai-sdk', minExports: 1 },
   { name: 'rilaykit/anthropic', dir: 'rilaykit', subpath: 'anthropic', minExports: 1 },
 ];
@@ -329,17 +334,18 @@ describe.skipIf(!isBuilt)('every published bundle loads in a real node process',
     expect(requireDoesNotPull(entries(agent).cjs, FORMS_MODULE_PATH)).toBe(true);
   });
 
-  // NOTE: `rilaykit`'s own main entry is NOT guarded the same way here. Unlike
-  // `@rilaykit/core` and (as of this file) `@rilaykit/agent`, `@rilaykit/forms`
-  // and `@rilaykit/workflow` were never split into an isomorphic main + a
-  // `/react` subpath — `Form`, `Flow`, and the rest of their compound
-  // components live in those packages' single main entry, which `rilaykit`
-  // re-exports wholesale. `rilaykit`'s main entry has therefore always pulled
-  // React (verified: it does, before and after this file's changes) and fixing
-  // that is a forms/workflow restructuring outside this guard's scope. `Parts`
-  // and `Catalog` staying OUT of `rilaykit`'s named exports (see
-  // `tests/agent-surface.test.ts`) is the isomorphism guarantee this task adds;
-  // it does not retroactively make the whole barrel React-free.
+  // `@rilaykit/forms`, `@rilaykit/workflow`, and `rilaykit` main entries are now
+  // split into an isomorphic main + a `/react` subpath (like core and agent), so
+  // their main bundles must NOT pull runtime React into a fresh module graph — a
+  // module-scope `createContext` there would crash a Server Component that imports
+  // them. This is the load-bearing proof of the split, not a documentation promise.
+  for (const target of PUBLISHED_PACKAGES.filter((pkg) =>
+    ['forms', 'workflow', 'rilaykit'].includes(pkg.dir)
+  )) {
+    it(`${target.name}: the main entry does not pull React into the module graph`, () => {
+      expect(requireDoesNotPull(entries(target).cjs, REACT_MODULE_PATH)).toBe(true);
+    });
+  }
 });
 
 describe.skipIf(!allBuilt)('every published subpath entry loads in a real node process', () => {
@@ -481,10 +487,9 @@ describe.skipIf(!allBuilt)('"use client" is on every client entry and no isomorp
   /** RSC client boundaries — must declare "use client". */
   const CLIENT_ENTRIES: ReadonlyArray<readonly [label: string, dir: string, subpath?: string]> = [
     ['@rilaykit/core/react', 'core', 'react'],
-    ['@rilaykit/forms', 'forms'],
-    ['@rilaykit/workflow', 'workflow'],
+    ['@rilaykit/forms/react', 'forms', 'react'],
+    ['@rilaykit/workflow/react', 'workflow', 'react'],
     ['@rilaykit/agent/react', 'agent', 'react'],
-    ['rilaykit', 'rilaykit'],
     ['rilaykit/react', 'rilaykit', 'react'],
   ];
 
@@ -492,7 +497,12 @@ describe.skipIf(!allBuilt)('"use client" is on every client entry and no isomorp
   const ISOMORPHIC_ENTRIES: ReadonlyArray<readonly [label: string, dir: string, subpath?: string]> =
     [
       ['@rilaykit/core', 'core'],
+      // forms/workflow/rilaykit main entries are now isomorphic (React moved to
+      // their `/react` subpaths) — importing them into a Server Component is legal.
+      ['@rilaykit/forms', 'forms'],
+      ['@rilaykit/workflow', 'workflow'],
       ['@rilaykit/agent', 'agent'],
+      ['rilaykit', 'rilaykit'],
       ['@rilaykit/agent/ai-sdk', 'agent', 'ai-sdk'],
       ['@rilaykit/agent/anthropic', 'agent', 'anthropic'],
       ['rilaykit/ai-sdk', 'rilaykit', 'ai-sdk'],

@@ -1,11 +1,12 @@
 import { ril, when } from '@rilaykit/core';
-import { form, useForm, useFormStoreApi } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useForm, useFormStoreApi } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useCallback } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
 import { MockCheckbox, MockInput, MockSelect } from '../_helpers/mock-components';
 
 /**

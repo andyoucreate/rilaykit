@@ -23,8 +23,9 @@
  * are the user's. Both directions are pinned below so the trade is a decision
  * rather than an accident.
  */
-import { Flow, compileFlow } from '@rilaykit/workflow';
+import { compileFlow } from '@rilaykit/workflow';
 import type { FlowSchema, StepContext } from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createProofRil } from '../_setup/proof-fixtures';

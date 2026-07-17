@@ -1,5 +1,6 @@
 import { ril } from '@rilaykit/core';
-import { Form, FormBody, FormField, FormList, FormSubmit, form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form, FormBody, FormField, FormList, FormSubmit } from '@rilaykit/forms/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
@@ -31,10 +32,14 @@ describe('Form compound namespace', () => {
     expect(screen.getByTestId('a')).toBeInTheDocument();
   });
 
-  it('exports useForm and drops useFormConfigContext', async () => {
-    const mod = await import('@rilaykit/forms');
-    expect(typeof mod.useForm).toBe('function');
-    expect('useFormConfigContext' in mod).toBe(false);
+  it('exports useForm from the /react entry and drops useFormConfigContext', async () => {
+    // useForm is a client hook: it moved to the `/react` entry when the main
+    // entry became isomorphic (RSC-safe). The main entry no longer carries it.
+    const react = await import('@rilaykit/forms/react');
+    expect(typeof react.useForm).toBe('function');
+    expect('useFormConfigContext' in react).toBe(false);
+    const main = await import('@rilaykit/forms');
+    expect('useForm' in main).toBe(false);
   });
 
   it('no longer exports FormRow', async () => {

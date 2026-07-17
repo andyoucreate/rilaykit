@@ -1,6 +1,7 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { Flow, flow, useFlow, useFlowData, useStep } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { Flow, useFlow, useFlowData, useStep } from '@rilaykit/workflow/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

@@ -1,12 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  FormStoreContext,
-  createFormStore,
-  useFieldValue,
-  useFormValues,
-} from '../../src/stores/formStore';
+import { FormStoreContext, createFormStore, useFieldValue, useFormValues } from '../../src/stores';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);

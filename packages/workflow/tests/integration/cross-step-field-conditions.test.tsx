@@ -1,10 +1,11 @@
 import { ril, when } from '@rilaykit/core';
-import { form, useForm } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useForm } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src/react';
 import { type FlowSchema, compileFlow } from '../../src/schema';
 
 /**

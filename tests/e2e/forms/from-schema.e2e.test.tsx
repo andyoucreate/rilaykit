@@ -1,7 +1,8 @@
 // @ts-nocheck — generic constraints bypass for e2e flexibility
 import { custom, required } from '@rilaykit/core';
-import { FormBody, FormProvider, fromSchema } from '@rilaykit/forms';
+import { fromSchema } from '@rilaykit/forms';
 import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+import { FormBody, FormProvider } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

@@ -15,10 +15,11 @@
  * =============================================================================
  */
 import { async as asyncValidator, required } from '@rilaykit/core';
-import { useRepeatableField } from '@rilaykit/forms';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
-import { Flow, ril } from 'rilaykit';
+import { ril } from 'rilaykit';
+import { Flow } from 'rilaykit/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 

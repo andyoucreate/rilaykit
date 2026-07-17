@@ -2,9 +2,6 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import {
   type ComponentRenderContext,
-  Flow,
-  FlowBody,
-  Form,
   type FormConfiguration,
   type RilayKit,
   type WorkflowConfig,
@@ -14,6 +11,7 @@ import {
   resolveWorkflowConfig,
   ril,
 } from 'rilaykit';
+import { Flow, FlowBody, Form } from 'rilaykit/react';
 import { describe, expect, it } from 'vitest';
 
 const MockInput = ({ id, props, field }: ComponentRenderContext) =>
@@ -37,7 +35,7 @@ describe('rilaykit - all-in-one integration', () => {
     expect(required).toBeTypeOf('function');
   });
 
-  it('should re-export form components', () => {
+  it('should re-export form components from the /react entry', () => {
     expect(Form).toBeDefined();
   });
 
@@ -172,8 +170,10 @@ describe('rilaykit - all-in-one integration', () => {
     expect(workflow.description).toBe('Multi-step onboarding');
   });
 
-  it('exposes the useFlow* hook family and drops the old useWorkflow* names', async () => {
-    const mod: Record<string, unknown> = await import('rilaykit');
+  it('exposes the useFlow* hook family (on /react) and drops the old useWorkflow* names', async () => {
+    // The flow hooks are client hooks: they live on `rilaykit/react`, not on the
+    // isomorphic main entry.
+    const mod: Record<string, unknown> = await import('rilaykit/react');
 
     const newHookNames = [
       'useFlow',

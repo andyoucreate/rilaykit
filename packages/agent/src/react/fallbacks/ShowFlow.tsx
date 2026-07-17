@@ -1,14 +1,7 @@
 import { useCatalog } from '@rilaykit/core/react';
 import { SchemaValidationError } from '@rilaykit/forms';
-import {
-  FlowBack,
-  FlowBody,
-  FlowNext,
-  type FlowSchema,
-  type FlowSchemaResult,
-  WorkflowProvider,
-  compileFlow,
-} from '@rilaykit/workflow';
+import { type FlowSchema, type FlowSchemaResult, compileFlow } from '@rilaykit/workflow';
+import { FlowBack, FlowBody, FlowNext, WorkflowProvider } from '@rilaykit/workflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
 import { EmissionErrorView } from './EmissionErrorView';

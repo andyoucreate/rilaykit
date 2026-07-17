@@ -3,8 +3,8 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { WorkflowProvider, useFlow } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
 import { MockInput, MockSelect } from '../_helpers/mock-components';
 
 /**

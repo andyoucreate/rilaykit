@@ -1,7 +1,8 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import { FlowBody, LocalStorageAdapter, WorkflowProvider, flow, useFlow } from '@rilaykit/workflow';
-import { useFlowData } from '@rilaykit/workflow';
+import { LocalStorageAdapter, flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
+import { useFlowData } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

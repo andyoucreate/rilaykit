@@ -15,10 +15,12 @@
  * A regression anywhere in the class fails here, whether or not anyone knew the
  * site existed.
  */
-import { Form, compileForm, useFieldState, useFormActions } from '@rilaykit/forms';
+import { compileForm } from '@rilaykit/forms';
 import type { FormSchema } from '@rilaykit/forms';
-import { Flow, compileFlow, useStepMetadata } from '@rilaykit/workflow';
+import { Form, useFieldState, useFormActions } from '@rilaykit/forms/react';
+import { compileFlow } from '@rilaykit/workflow';
 import type { FlowSchema } from '@rilaykit/workflow';
+import { Flow, useStepMetadata } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createProofRil } from '../_setup/proof-fixtures';

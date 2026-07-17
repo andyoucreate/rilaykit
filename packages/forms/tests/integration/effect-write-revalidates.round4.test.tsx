@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormField } from '../../src/components/FormField';
 import { FormProvider, useForm } from '../../src/components/FormProvider';
-import { useFieldErrors, useFormValid } from '../../src/stores/formStore';
+import { useFieldErrors, useFormValid } from '../../src/stores';
 
 const MockText = ({ id, field }: ComponentRenderContext) => (
   <input

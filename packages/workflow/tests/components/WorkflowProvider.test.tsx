@@ -1,5 +1,6 @@
 import { ConfigurationError, ril } from '@rilaykit/core';
-import { form, useForm } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useForm } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

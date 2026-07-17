@@ -4,8 +4,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkflowStore } from '../../src';
-import { FlowBody, WorkflowProvider, useFlow, useFlowStoreApi } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { FlowBody, WorkflowProvider, useFlow, useFlowStoreApi } from '../../src/react';
 
 /**
  * FLOW-1 — a default that arrives WITH the recompile.

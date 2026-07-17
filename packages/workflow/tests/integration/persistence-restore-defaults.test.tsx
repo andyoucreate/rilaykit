@@ -2,11 +2,11 @@ import { ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { FlowBody, WorkflowProvider, useFlow } from '../../src';
 import type {
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,
 } from '../../src/persistence/types';
+import { FlowBody, WorkflowProvider, useFlow } from '../../src/react';
 import { compileFlow } from '../../src/schema';
 
 /**

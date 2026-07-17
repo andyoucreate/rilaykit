@@ -7,7 +7,8 @@ import {
   getLogger,
   getOwn,
 } from '@rilaykit/core';
-import { FormProvider, parseCompositeKey } from '@rilaykit/forms';
+import { parseCompositeKey } from '@rilaykit/forms';
+import { FormProvider } from '@rilaykit/forms/react';
 import type React from 'react';
 import {
   createContext,

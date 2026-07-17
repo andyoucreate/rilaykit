@@ -1,7 +1,9 @@
 import { required, ril, when } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useForm } from '@rilaykit/forms';
-import { useFormStoreApi, useFormValues, useRepeatableKeys } from '@rilaykit/forms';
-import { structureFormValues, useRepeatableField } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { structureFormValues } from '@rilaykit/forms';
+import { FormBody, FormProvider, useForm } from '@rilaykit/forms/react';
+import { useFormStoreApi, useFormValues, useRepeatableKeys } from '@rilaykit/forms/react';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

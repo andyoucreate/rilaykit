@@ -1,5 +1,5 @@
 import type { StepConfig } from '@rilaykit/core';
-import { FormBody } from '@rilaykit/forms';
+import { FormBody } from '@rilaykit/forms/react';
 import React from 'react';
 import { useFlow } from './WorkflowProvider';
 

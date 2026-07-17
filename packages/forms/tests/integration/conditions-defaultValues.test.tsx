@@ -2,7 +2,8 @@ import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FormField, FormProvider, form } from '../../src';
+import { form } from '../../src';
+import { FormField, FormProvider } from '../../src/react';
 
 describe('Form - Field Conditions with DefaultValues', () => {
   // Mock components

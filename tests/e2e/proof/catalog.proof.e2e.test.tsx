@@ -1,6 +1,7 @@
 import type { RilayPlugin } from '@rilaykit/core';
 import { ril } from '@rilaykit/core';
-import { Form, form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms/react';
 /**
  * PROOF — catalog end-to-end.
  * Rows of the P1 feature proof matrix not already proven by

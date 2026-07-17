@@ -1,5 +1,6 @@
 import { ril } from '@rilaykit/core';
-import { Form, FormSubmit, form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form, FormSubmit } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 

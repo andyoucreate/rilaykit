@@ -7,7 +7,9 @@ export default defineConfig({
     alias: {
       '@rilaykit/core/react': path.resolve(__dirname, 'packages/core/src/react/index.ts'),
       '@rilaykit/core': path.resolve(__dirname, 'packages/core/src/index.ts'),
+      '@rilaykit/forms/react': path.resolve(__dirname, 'packages/forms/src/react/index.ts'),
       '@rilaykit/forms': path.resolve(__dirname, 'packages/forms/src/index.ts'),
+      '@rilaykit/workflow/react': path.resolve(__dirname, 'packages/workflow/src/react/index.ts'),
       '@rilaykit/workflow': path.resolve(__dirname, 'packages/workflow/src/index.ts'),
       '@rilaykit/agent/react': path.resolve(__dirname, 'packages/agent/src/react/index.ts'),
       '@rilaykit/agent/ai-sdk': path.resolve(__dirname, 'packages/agent/src/ai-sdk/index.ts'),

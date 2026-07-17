@@ -7,7 +7,7 @@
  * =============================================================================
  */
 import { async as asyncValidator, required, when } from '@rilaykit/core';
-import { Form, useRepeatableField } from '@rilaykit/forms';
+import { Form, useRepeatableField } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ril } from 'rilaykit';
 import { describe, expect, it, vi } from 'vitest';

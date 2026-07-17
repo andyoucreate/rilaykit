@@ -19,16 +19,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type React from 'react';
 import {
   type ComponentRenderContext,
-  Flow,
-  Form,
   type PartRenderContext,
   type ToolRenderContext,
   required,
   ril,
-  useFlow,
-  useForm,
-  useStep,
 } from 'rilaykit';
+import { Flow, Form, useFlow, useForm, useStep } from 'rilaykit/react';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 

@@ -1,5 +1,5 @@
 import type { ComponentRenderContext, ValidationResult } from '@rilaykit/core';
-import { useForm } from '@rilaykit/forms';
+import { useForm } from '@rilaykit/forms/react';
 import {
   useFieldErrors,
   useFormDirty,
@@ -8,8 +8,8 @@ import {
   useFormValid,
   useFormValues,
   useRepeatableKeys,
-} from '@rilaykit/forms';
-import { useRepeatableField } from '@rilaykit/forms';
+} from '@rilaykit/forms/react';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import type React from 'react';
 import { useState } from 'react';
 

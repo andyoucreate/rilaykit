@@ -1,5 +1,6 @@
 import { required, when } from '@rilaykit/core';
-import { Form, form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms/react';
 /**
  * PROOF — form chrome hardening.
  * User-level scenarios the migrated e2e/unit suites do not pin down with the

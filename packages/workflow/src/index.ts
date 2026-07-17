@@ -1,4 +1,9 @@
-'use client';
+// =============================================================================
+// @rilaykit/workflow — ISOMORPHIC entry (safe in a React Server Component).
+// Compound components (Flow, WorkflowProvider…), the React hooks, and the store
+// selector/action hooks live behind `@rilaykit/workflow/react`, which carries
+// the `'use client'` boundary. Nothing here imports React.
+// =============================================================================
 
 // Core workflow builder
 export { flow, resolveWorkflowConfig } from './builders/flow';
@@ -8,31 +13,16 @@ export type { StepDefinition } from './builders/flow';
 export type { StepContext, StepMetadata } from './context/step-context';
 export { createStepContext } from './context/step-context';
 
-// Components
-export { Flow } from './components/Flow';
-export type { FlowProps } from './components/Flow';
-export { FlowBody } from './components/FlowBody';
-export type { FlowBodyProps } from './components/FlowBody';
-export { FlowBack, FlowNext, FlowSkip } from './components/FlowNav';
-export type { FlowNavContext, FlowNavProps } from './components/FlowNav';
-export { FlowProgress } from './components/FlowProgress';
-export type { FlowProgressProps } from './components/FlowProgress';
-export { useFlow, WorkflowProvider } from './components/WorkflowProvider';
-
 // Schema layer (JSON flow definitions)
 export * from './schema';
 
-// Hooks
-export * from './hooks';
+// Vanilla store factory + types (imported from the vanilla file, NOT the ./stores
+// barrel, which also re-exports the client-only hooks)
+export * from './stores/workflowStore';
 
-// Stores (Zustand)
-export * from './stores';
-
-// Persistence system
+// Persistence system (adapters, utilities, types — the React usePersistence hook
+// is on the /react entry)
 export * from './persistence';
-
-// Component types
-export type { WorkflowContextValue } from './components/WorkflowProvider';
 
 // Utility functions
 export { combineWorkflowDataForConditions, flattenObject } from './utils/dataFlattening';

@@ -1,5 +1,6 @@
 import { ril, when } from '@rilaykit/core';
-import { Form, FormBody, type VisibleRow, form, useFormRows } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { Form, FormBody, type VisibleRow, useFormRows } from '@rilaykit/forms/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

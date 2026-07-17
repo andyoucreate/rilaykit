@@ -1,8 +1,9 @@
 /**
  * @fileoverview Main exports for Rilay workflows persistence system
  *
- * This module provides a complete persistence solution for workflows,
- * including adapters, utilities, and React hooks.
+ * ISOMORPHIC: adapters, utilities, and types — safe in a server component. The
+ * React `usePersistence` hook (and its `UsePersistenceProps`) live in ../hooks,
+ * re-exported from the `/react` entry.
  */
 
 // Core types and interfaces
@@ -28,7 +29,3 @@ export {
   validatePersistedData,
   workflowStateToPersisted,
 } from './utils';
-
-// React hooks
-export { usePersistence } from '../hooks/usePersistence';
-export type { UsePersistenceProps } from '../hooks/usePersistence';

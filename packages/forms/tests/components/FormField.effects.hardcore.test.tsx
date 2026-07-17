@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormField } from '../../src/components/FormField';
 import { FormProvider } from '../../src/components/FormProvider';
-import { useFormValues } from '../../src/stores/formStore';
+import { useFormValues } from '../../src/stores';
 
 // =================================================================
 // MOCK COMPONENTS
