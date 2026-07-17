@@ -9,7 +9,15 @@ const logger = getLogger('agent:anthropic');
 export interface AnthropicToolDefinition {
   readonly name: string;
   readonly description?: string;
-  readonly input_schema: Record<string, unknown>;
+  /**
+   * A top-level JSON Schema object. The literal `type: 'object'` is what the
+   * Messages API's `Tool.input_schema` (`Anthropic.Tool.InputSchema`) requires —
+   * a bare `Record<string, unknown>` widens `.type` to `unknown` and makes the
+   * whole definition non-assignable to `Anthropic.Tool[]`, forcing consumers to
+   * cast at `messages.create({ tools })`. `tools()` only ever emits object-root
+   * schemas (it skips anything else), so the narrower type is honest.
+   */
+  readonly input_schema: { readonly type: 'object'; readonly [key: string]: unknown };
 }
 
 interface AnthropicBlock {
@@ -115,7 +123,14 @@ export function tools<C>(catalog: RilayInstance<C>): AnthropicToolDefinition[] {
       );
       continue;
     }
-    definitions.push({ name: tool.name, description: tool.description, input_schema });
+    // `type: 'object'` is re-stated as a literal: the guard above proved it at
+    // runtime, but TS cannot narrow the `Record<string, unknown>` from
+    // `toJsonSchema`, so the spread + literal reconstructs the honest shape.
+    definitions.push({
+      name: tool.name,
+      description: tool.description,
+      input_schema: { ...input_schema, type: 'object' },
+    });
   }
   return definitions;
 }
