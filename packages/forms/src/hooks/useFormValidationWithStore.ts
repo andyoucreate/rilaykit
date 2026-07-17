@@ -96,6 +96,10 @@ export function useFormValidationWithStore({
   // stale run then MATCHES, and it would overwrite a verdict that is genuinely
   // the new step's.
   const generationRef = useRef(0);
+  // Form-level analog of `validationSeqRef`: a single monotonic token so a
+  // superseded (or post-form-swap) form-level async verdict is dropped instead
+  // of painting `__form__` errors onto whatever form is now mounted.
+  const formLevelSeqRef = useRef(0);
   const instanceKeyRef = useRef(instanceKey);
   if (instanceKeyRef.current !== instanceKey) {
     instanceKeyRef.current = instanceKey;
@@ -366,6 +370,16 @@ export function useFormValidationWithStore({
       return [];
     }
 
+    // Claim generation + seq tokens BEFORE awaiting, mirroring validateField: a
+    // form-level verdict is stale if a newer form-level run superseded it, OR if
+    // the mounted form was swapped (a step change reuses the store, so a late
+    // cross-field verdict would otherwise paint `__form__` errors onto the step
+    // the user navigated TO).
+    const seq = formLevelSeqRef.current + 1;
+    formLevelSeqRef.current = seq;
+    const generation = generationRef.current;
+    const isStale = () => generationRef.current !== generation || formLevelSeqRef.current !== seq;
+
     const visibleFormData = Object.keys(state.values).reduce(
       (acc, fieldId) => {
         if (isFieldVisibleLive(fieldId)) {
@@ -397,6 +411,10 @@ export function useFormValidationWithStore({
         },
       ];
     }
+
+    // A newer form-level run started, or the form was swapped, while we awaited —
+    // do not let this stale verdict write onto the (possibly different) live form.
+    if (isStale()) return formErrors;
 
     const knownFieldIds = collectKnownFieldIds(config);
     store.getState()._setFormLevelErrors(routeFormIssuesToKeys(formErrors, knownFieldIds));
