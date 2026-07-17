@@ -5,9 +5,36 @@ import {
   evaluateCondition,
   getLogger,
 } from '@rilaykit/core';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 const log = getLogger('forms:conditions');
+
+/**
+ * Value-equality over two evaluated-condition maps: same field ids, and the
+ * same four booleans for each. Used to keep the result's REFERENCE stable across
+ * recomputes that changed nothing observable.
+ */
+function sameConditionResults(
+  a: Record<string, ConditionEvaluationResult>,
+  b: Record<string, ConditionEvaluationResult>
+): boolean {
+  const aKeys = Object.keys(a);
+  if (aKeys.length !== Object.keys(b).length) return false;
+  for (const key of aKeys) {
+    const x = a[key];
+    const y = b[key];
+    if (
+      !y ||
+      x.visible !== y.visible ||
+      x.disabled !== y.disabled ||
+      x.required !== y.required ||
+      x.readonly !== y.readonly
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export interface ConditionEvaluationResult {
   visible: boolean;
@@ -81,7 +108,7 @@ export function useMultipleConditionEvaluation(
   fieldsWithConditions: Record<string, ConditionalBehavior | undefined>,
   formData: Record<string, any> = {}
 ): Record<string, ConditionEvaluationResult> {
-  return useMemo(() => {
+  const computed = useMemo(() => {
     const results: Record<string, ConditionEvaluationResult> = {};
 
     for (const [fieldId, conditions] of Object.entries(fieldsWithConditions)) {
@@ -116,4 +143,17 @@ export function useMultipleConditionEvaluation(
 
     return results;
   }, [fieldsWithConditions, formData]);
+
+  // Stabilize identity across value-equal recomputes. The memo above recomputes
+  // on every `formData` change (i.e. every keystroke), but the EVALUATED
+  // conditions usually do not change. Returning a fresh object each time churns
+  // the form context's `conditionsHelpers` and re-renders EVERY field, defeating
+  // granular subscription isolation — the exact reason the no-conditions path
+  // uses frozen singletons. Keep the previous reference when nothing observable
+  // changed; the `!==` short-circuit skips the compare when the memo was cached.
+  const stableRef = useRef(computed);
+  if (stableRef.current !== computed && !sameConditionResults(stableRef.current, computed)) {
+    stableRef.current = computed;
+  }
+  return stableRef.current;
 }

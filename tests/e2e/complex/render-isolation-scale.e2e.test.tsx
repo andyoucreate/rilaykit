@@ -21,14 +21,16 @@
  *    selector output is Object.is-equal → no re-render.
  *  - FormField is React.memo with a stable `id` prop; FormBody re-rendering on
  *    a value change (useFormRows) cannot re-render an unrelated FormField.
- *  - Conditions: the sync effect (FormProvider.tsx:1253-1306) rewrites every
- *    CONDITIONAL field's `_fieldConditions[id]` with a FRESH object on any value
- *    change, WITHOUT diffing — so plain (condition-less) fields stay isolated,
- *    but condition-heavy forms fan out. This is measured explicitly below.
- *  - Repeatables: `useRepeatableField` (use-repeatable-field.ts:65) subscribes
- *    only to `_repeatableOrder` — a VALUE edit keeps `items` stable (row
- *    isolation), but an ADD/REMOVE rebuilds every row's scoped field config
- *    (new identity), re-rendering survivors. Also measured explicitly.
+ *  - Conditions: `useMultipleConditionEvaluation` now keeps its result reference
+ *    stable across value-equal recomputes (useConditionEvaluation.ts), so an
+ *    ordinary keystroke no longer churns the shared form context — unrelated
+ *    fields stay isolated even when a conditional field is present. A keystroke
+ *    that genuinely FLIPS a condition still propagates (the RESIDUAL below); a
+ *    bounded-to-dependents optimization for that is pinned as future work.
+ *  - Repeatables: `useRepeatableField` (use-repeatable-field.ts) caches each row
+ *    item by composite key, so a VALUE edit AND an ADD/REMOVE both keep every
+ *    surviving row's identity stable (a changed template discards the cache).
+ *    Both isolations are measured explicitly below.
  *
  * No StrictMode (matches every other suite here + vitest.setup.ts): render is
  * invoked once per commit, counts are deterministic. All assertions are DELTAS
@@ -239,35 +241,35 @@ describe('SCENARIO 2 — conditional field present: propagation on a controller 
   }
 
   // -------------------------------------------------------------------------
-  // GENUINE PERF BUG #1 — condition-context fan-out.
+  // CONDITION-CONTEXT FAN-OUT — churn FIXED, flip-propagation is the residual.
   //
-  // The presence of EVEN ONE conditional field collapses granular isolation for
-  // the WHOLE form: a keystroke in ANY field re-renders EVERY mounted field.
+  // Originally: the presence of even one conditional field collapsed granular
+  // isolation for the whole form — a keystroke in ANY field re-rendered EVERY
+  // field, because `useMultipleConditionEvaluation` returned a NEW object on
+  // every value change (even value-identical), churning the isFieldVisible/…
+  // helpers → conditionsHelpers → formConfigContextValue → the shared
+  // FormConfigContext every FormField reads via useForm().
   //
-  // Chain (all identities churn on every value change, no diff):
-  //   keystroke → formValues changes → conditionEvaluationValues recomputes
-  //   (FormProvider.tsx:1212, dep: formValues)
-  //   → useMultipleConditionEvaluation returns a NEW object even when every
-  //     evaluated result is value-identical (useConditionEvaluation.ts:84, memo
-  //     dep `formData`)
-  //   → the isFieldVisible/Disabled/Required/Readonly useCallbacks get new
-  //     identities → conditionsHelpers memo (FormProvider.tsx:1309) → new
-  //   → formConfigContextValue memo (FormProvider.tsx:1357) → new
-  //   → FormConfigContext.Provider value changes → EVERY FormField, which reads
-  //     the context via useForm() (FormField.tsx:34), re-renders once.
+  // FIX (useConditionEvaluation.ts): the evaluated-conditions result now keeps
+  // its reference across value-equal recomputes, so an ordinary keystroke no
+  // longer churns the context — the ISOLATES test above proves unrelated fields
+  // stay at 0.
   //
-  // Gating: only forms with hasConditionalFields === true are affected; a form
-  // with zero conditions keeps the frozen EMPTY_CONDITIONS/EMPTY_VALUES
-  // singletons (useFormConditions.ts:16-17), so its context stays stable — which
-  // is exactly why Scenarios 1/3/5/6/7 are clean.
-  //
-  // Measured, deterministic fan-out on a keystroke (verified): every plain field
-  // +1, the conditional field +2 (context render + its own _fieldConditions
-  // slice write from the sync effect, FormProvider.tsx:1273, a second commit).
-  // Identical when NO condition flips and when editing an UNRELATED field — so
-  // this is churn, not legitimate propagation.
+  // RESIDUAL (this test): a keystroke that genuinely FLIPS a condition produces a
+  // new (value-different) result, so the shared context still re-renders every
+  // field. That is propagation, not churn, and fires only on condition-flipping
+  // keystrokes — a bounded-to-dependents optimization is pinned below. The +2 on
+  // the conditional field is the context render plus its own _fieldConditions
+  // slice write from the sync effect (FormProvider.tsx:1273).
   // -------------------------------------------------------------------------
-  it('DOCUMENTS BUG — a keystroke re-renders every field once (conditional field present)', async () => {
+  it('RESIDUAL — a keystroke that actually FLIPS a condition still propagates to the form', async () => {
+    // After the churn fix, a keystroke that changes an EVALUATED condition (here
+    // `ctrl` flips `dep`'s required) legitimately produces a new conditions map,
+    // so the shared form context still re-renders every field. This is
+    // propagation (a condition really changed), not churn (which is now gone —
+    // see the ISOLATES test above), and it fires only on condition-flipping
+    // keystrokes, not on ordinary typing. A future optimization can bound it to
+    // the dependents (pinned below).
     render(
       <FormProvider formConfig={buildConditionalForm('s2a')}>
         <FormBody />
@@ -281,15 +283,13 @@ describe('SCENARIO 2 — conditional field present: propagation on a controller 
 
     expect(delta(base, 'ctrl')).toBe(1);
     expect(delta(base, 'dep')).toBe(2); // context fan-out + own conditions write
-    // The whole "unrelated" wall re-rendered — the fan-out is O(fields), NOT O(1).
     for (let i = 0; i < 40; i++) {
       expect(delta(base, `u${i}`)).toBe(1);
     }
-    // 42 fields → 43 renders for a single keystroke (dep counted twice).
     expect(totalDelta(base)).toBe(43);
   });
 
-  it('DOCUMENTS BUG — even editing an UNRELATED field fans out to all fields', async () => {
+  it('ISOLATES an unrelated keystroke even with a conditional field present (fixed)', async () => {
     render(
       <FormProvider formConfig={buildConditionalForm('s2b')}>
         <FormBody />
@@ -298,29 +298,33 @@ describe('SCENARIO 2 — conditional field present: propagation on a controller 
     await waitFor(() => expect(screen.getByTestId('u39')).toBeInTheDocument());
 
     const base = snapshot(renderCount);
-    // Editing u0 flips no condition and touches no dependent — yet everything moves.
+    // Editing u0 flips no condition and touches no dependent. The evaluated
+    // conditions are value-equal across this keystroke, so the stabilized
+    // `useMultipleConditionEvaluation` keeps its reference and the shared form
+    // context does NOT churn — only u0 re-renders.
     fireEvent.change(screen.getByTestId('u0'), { target: { value: 'zzz' } });
-    await waitFor(() => expect(delta(base, 'dep')).toBe(2));
+    await waitFor(() => expect(screen.getByTestId('u0')).toHaveValue('zzz'));
 
     expect(delta(base, 'u0')).toBe(1);
     for (let i = 1; i < 40; i++) {
-      expect(delta(base, `u${i}`)).toBe(1); // siblings fan out despite no dependency
+      expect(delta(base, `u${i}`)).toBe(0); // siblings stay pinned — no churn
     }
-    expect(delta(base, 'ctrl')).toBe(1);
-    expect(delta(base, 'dep')).toBe(2);
+    expect(delta(base, 'ctrl')).toBe(0);
+    expect(delta(base, 'dep')).toBe(0);
+    expect(totalDelta(base)).toBe(1); // O(1), independent of form size
   });
 
   it.fails(
-    'DESIRED ISOLATION (pinned, currently failing) — a keystroke must not re-render unrelated fields',
+    'FURTHER OPTIMIZATION (pinned) — a condition FLIP should re-render only the dependents, not the whole form',
     async () => {
-      // The contract the KYC team needs: a conditional field somewhere in the
-      // form must NOT cost every OTHER field a re-render on each keystroke.
-      // FIX (do NOT edit source from this test): make the evaluated-conditions
-      // result referentially stable across value-equal recomputes (memoize /
-      // structurally compare in useMultipleConditionEvaluation), OR stop routing
-      // condition-derived helpers through the same context object every FormField
-      // consumes (read them via a ref, or a separate rarely-changing context) so
-      // a conditions recompute no longer invalidates the shared form context.
+      // The churn on ordinary keystrokes is FIXED (value-equal condition
+      // recomputes now keep their reference — see the ISOLATES test). What
+      // remains: a keystroke that genuinely flips a condition still re-renders
+      // every field, because `conditionsHelpers` lives in the shared form
+      // context every FormField consumes. The next optimization is to bound this
+      // to the dependent fields — stop routing condition-derived helpers through
+      // the shared context (a ref, or a separate rarely-changing context / a
+      // per-field granular condition selector).
       render(
         <FormProvider formConfig={buildConditionalForm('s2c')}>
           <FormBody />
@@ -430,14 +434,12 @@ describe('SCENARIO 4 — repeatable rows: edit isolation + add/remove fan-out', 
     });
   });
 
-  it('CANDIDATE PERF BUG — adding a row re-renders EVERY existing row (O(rows) fan-out)', async () => {
-    // Measured, not assumed. `useRepeatableField` (use-repeatable-field.ts:77-119)
-    // rebuilds `items` from `orderedKeys`; on append, orderedKeys is a new array,
-    // so the memo recomputes and EVERY row's scoped field config gets a fresh
-    // object identity. FormListItem is React.memo({ item }) and FormField is
-    // React.memo({ id, config }) — both keyed on those identities — so all
-    // surviving rows re-render even though their data is untouched. For a KYC
-    // form with 200 beneficial owners, adding owner #201 re-renders all 200.
+  it('ISOLATES an append — adding a row does NOT re-render existing rows (fixed)', async () => {
+    // `useRepeatableField` now caches each row item by composite key, so a pure
+    // append preserves every surviving row's item + scoped-field identity;
+    // FormListItem (React.memo({ item })) and FormField (React.memo({ id,
+    // config })) skip them. For a KYC form with 200 beneficial owners, adding
+    // owner #201 re-renders only the new row — not all 200.
     const { config, defaultValues } = buildRepeatableForm('s4b', 8);
     render(
       <FormProvider formConfig={config} defaultValues={defaultValues}>
@@ -455,44 +457,10 @@ describe('SCENARIO 4 — repeatable rows: edit isolation + add/remove fan-out', 
     });
     await waitFor(() => expect(storeRef?.getState()._repeatableOrder.rows).toHaveLength(9));
 
-    // DOCUMENTS CURRENT BEHAVIOUR: existing rows fan out on append. If isolation
-    // is later fixed (memoize scoped configs by composite id / stable item
-    // identity), flip this to `toBe(0)` and delete the `.fails` pin below.
+    // Every surviving row stays pinned — the append is O(1) in existing rows.
     const existingFanOut = keysBefore.reduce((sum, k) => sum + delta(base, fieldId(k)), 0);
-    expect(existingFanOut).toBe(keysBefore.length); // all 8 survivors re-rendered
+    expect(existingFanOut).toBe(0);
   });
-
-  it.fails(
-    'DESIRED ISOLATION (pinned, currently failing) — adding a row must NOT re-render existing rows',
-    async () => {
-      // This is the contract the KYC team needs and the one the perf claim
-      // implies. It fails today because of the fan-out documented above. FIX:
-      // in `useRepeatableField`, memoize each row item by its composite key so a
-      // pure append preserves surviving rows' item + field-config identities
-      // (e.g. an itemsCache keyed by `key`, rebuilding only the appended row).
-      // Do NOT edit source from this test — this pin marks the target.
-      const { config, defaultValues } = buildRepeatableForm('s4c', 8);
-      render(
-        <FormProvider formConfig={config} defaultValues={defaultValues}>
-          <FormBody />
-          <StoreAccessor />
-        </FormProvider>
-      );
-      await waitFor(() => expect(storeRef?.getState()._repeatableOrder.rows).toHaveLength(8));
-      const keysBefore = [...storeRef!.getState()._repeatableOrder.rows];
-      const fieldId = (k: string) => `rows[${k}].name`;
-
-      const base = snapshot(renderCount);
-      act(() => {
-        storeRef!.getState()._appendRepeatableItem('rows');
-      });
-      await waitFor(() => expect(storeRef?.getState()._repeatableOrder.rows).toHaveLength(9));
-
-      for (const k of keysBefore) {
-        expect(delta(base, fieldId(k))).toBe(0);
-      }
-    }
-  );
 });
 
 // =============================================================================
