@@ -185,17 +185,20 @@ export function manifest<C>(catalog: RilayInstance<C>): string {
     lines.push('');
   }
 
-  // Each guidance line is emitted only when its tool is actually registered —
-  // telling the model to call show_form in a catalog that never registered it
-  // guarantees an undispatchable tool call.
+  // Each guidance line is emitted only when its tool is actually EMITTABLE —
+  // the same predicate the "Available tools" list and both adapters use. Gating
+  // on mere registration (`getTool`) would tell the model to call a show_* tool
+  // that is registered renderer-only (no inputSchema) and therefore never
+  // advertised or dispatchable — an undispatchable tool call.
+  const emittableNames = new Set(tools.map((tool) => tool.name));
   const uiGuidance: string[] = [];
-  if (catalog.getTool('show_form')) {
+  if (emittableNames.has('show_form')) {
     uiGuidance.push('- Use `show_form` to collect structured input from the user in one screen.');
   }
-  if (catalog.getTool('show_flow')) {
+  if (emittableNames.has('show_flow')) {
     uiGuidance.push('- Use `show_flow` when the input is long enough to warrant multiple steps.');
   }
-  if (catalog.getTool('show_component')) {
+  if (emittableNames.has('show_component')) {
     uiGuidance.push('- Use `show_component` to display information — not to collect input.');
     uiGuidance.push('- Component `props` must match the props listed above exactly.');
   }

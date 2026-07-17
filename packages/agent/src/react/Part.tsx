@@ -1,5 +1,5 @@
 import { ConfigurationError, type RilayInstance, getOwn } from '@rilaykit/core';
-import { useCatalogOrNull } from '@rilaykit/core/react';
+import { Catalog, useCatalogOrNull } from '@rilaykit/core/react';
 import type React from 'react';
 import { Fragment, useCallback } from 'react';
 import { parsePartialJson } from '../streaming/parse-partial-json';
@@ -177,10 +177,25 @@ export function Part<C>({ part, onResolve, catalog, fallback: Fallback }: PartPr
     [onResolve, part]
   );
 
+  let content: React.ReactNode;
   if (isToolPart(part)) {
     const entry = resolved.getTool(part.name);
     const Renderer = entry?.renderer;
-    if (!Renderer) {
+    if (Renderer) {
+      content = (
+        <Renderer
+          toolCallId={part.toolCallId}
+          name={part.name}
+          state={part.state}
+          input={part.input}
+          rawInput={part.rawInput}
+          output={part.output}
+          errorText={part.errorText}
+          resolve={resolve}
+          meta={entry.meta}
+        />
+      );
+    } else {
       const builtIn = getOwn(BUILT_IN_TOOLS, part.name);
       // Keyed by toolCallId: the interactive built-ins hold per-CALL state (a
       // ShowForm instance's `settled` ref is its one-answer-per-call latch, its
@@ -188,28 +203,24 @@ export function Part<C>({ part, onResolve, catalog, fallback: Fallback }: PartPr
       // way, but a STANDALONE <Part> re-rendered with a new toolCallId would
       // otherwise reuse the instance — and an already-settled latch would
       // swallow the new call's answer forever.
-      if (builtIn) return <Fragment key={part.toolCallId}>{builtIn(part, resolve)}</Fragment>;
-      return Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
+      if (builtIn) content = <Fragment key={part.toolCallId}>{builtIn(part, resolve)}</Fragment>;
+      else content = Fallback ? <Fallback part={part} /> : <DefaultTool part={part} />;
     }
-    return (
-      <Renderer
-        toolCallId={part.toolCallId}
-        name={part.name}
-        state={part.state}
-        input={part.input}
-        rawInput={part.rawInput}
-        output={part.output}
-        errorText={part.errorText}
-        resolve={resolve}
-        meta={entry.meta}
-      />
-    );
+  } else {
+    const entry = resolved.getPart(part.type);
+    const Renderer = entry?.renderer;
+    content = Renderer ? (
+      <Renderer part={part} meta={entry.meta} />
+    ) : Fallback ? (
+      <Fallback part={part} />
+    ) : null;
   }
 
-  const entry = resolved.getPart(part.type);
-  const Renderer = entry?.renderer;
-  if (!Renderer) {
-    return Fallback ? <Fallback part={part} /> : null;
-  }
-  return <Renderer part={part} meta={entry.meta} />;
+  // Provide the resolved catalog to the rendered subtree. `resolved` reaches
+  // dispatch (getTool/getPart) here, but the built-in renderers (ShowForm/
+  // ShowFlow/ShowComponent) and any custom renderer read useCatalog() from
+  // CONTEXT — so a consumer who passed `catalog` as a PROP instead of mounting a
+  // <Catalog> provider (both are documented) would otherwise crash every one of
+  // them. Re-providing the context value when it is the source is a no-op.
+  return <Catalog value={resolved as RilayInstance<Record<string, unknown>>}>{content}</Catalog>;
 }
