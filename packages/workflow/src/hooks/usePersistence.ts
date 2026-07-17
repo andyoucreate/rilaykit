@@ -8,6 +8,7 @@
 
 import { getLogger } from '@rilaykit/core';
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { serializePersistedData } from '../persistence/serialization';
 import type {
   PersistedWorkflowData,
   PersistenceOptions,
@@ -15,7 +16,6 @@ import type {
   WorkflowPersistenceAdapter,
 } from '../persistence/types';
 import { WorkflowPersistenceError } from '../persistence/types';
-import { serializePersistedData } from '../persistence/serialization';
 import { debounce, generateStorageKey, workflowStateToPersisted } from '../persistence/utils';
 import type { WorkflowState } from './workflow-state';
 

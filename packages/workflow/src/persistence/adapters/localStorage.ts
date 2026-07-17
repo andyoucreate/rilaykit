@@ -11,13 +11,13 @@
  * - Type-safe serialization/deserialization
  */
 
+import { deserializePersistedData, serializePersistedData } from '../serialization';
 import type {
   LocalStorageAdapterConfig,
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,
 } from '../types';
 import { WorkflowPersistenceError } from '../types';
-import { deserializePersistedData, serializePersistedData } from '../serialization';
 
 /**
  * Internal storage format with metadata

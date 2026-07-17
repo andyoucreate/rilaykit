@@ -38,7 +38,12 @@ describe('Round 42: LocalStorageAdapter preserves special scalar values across s
   it('NaN / Infinity / -Infinity / -0 survive (not null / 0)', async () => {
     await adapter.save(
       'k',
-      makeData({ nan: Number.NaN, inf: Number.POSITIVE_INFINITY, ninf: Number.NEGATIVE_INFINITY, nz: -0 })
+      makeData({
+        nan: Number.NaN,
+        inf: Number.POSITIVE_INFINITY,
+        ninf: Number.NEGATIVE_INFINITY,
+        nz: -0,
+      })
     );
     const step = (await adapter.load('k'))?.allData.step as Record<string, number>;
     expect(Number.isNaN(step.nan)).toBe(true);
@@ -54,7 +59,10 @@ describe('Round 42: LocalStorageAdapter preserves special scalar values across s
   });
 
   it('ordinary JSON-safe values are unchanged', async () => {
-    await adapter.save('k', makeData({ s: 'hi', n: 42, b: true, arr: [1, 2], nested: { x: null } }));
+    await adapter.save(
+      'k',
+      makeData({ s: 'hi', n: 42, b: true, arr: [1, 2], nested: { x: null } })
+    );
     const step = (await adapter.load('k'))?.allData.step;
     expect(step).toEqual({ s: 'hi', n: 42, b: true, arr: [1, 2], nested: { x: null } });
   });

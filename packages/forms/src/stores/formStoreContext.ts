@@ -1,11 +1,6 @@
 'use client';
 
-import type {
-  FieldConditions,
-  FieldError,
-  FieldState,
-  ValidationState,
-} from '@rilaykit/core';
+import type { FieldConditions, FieldError, FieldState, ValidationState } from '@rilaykit/core';
 import { ConfigurationError, getOwn } from '@rilaykit/core';
 import { createContext, useContext } from 'react';
 import { useStore } from 'zustand';
