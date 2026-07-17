@@ -25,7 +25,11 @@ export function isStandardSchema(value: any): value is StandardSchema {
   return (
     value !== null &&
     value !== undefined &&
-    typeof value === 'object' &&
+    // A Standard Schema carrier may be an object OR a callable — ArkType schemas
+    // are functions you call to validate. The spec only requires a `~standard`
+    // property, not an object carrier; gating on `object` alone silently rejects
+    // every ArkType schema, breaking field validation for that vendor entirely.
+    (typeof value === 'object' || typeof value === 'function') &&
     '~standard' in value &&
     value['~standard'] !== null &&
     typeof value['~standard'] === 'object' &&
