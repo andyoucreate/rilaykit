@@ -697,6 +697,20 @@ export function FormProvider({
       // one is an interaction with this one.
       userEditedFieldsRef.current = new Set();
 
+      // Stop the OUTGOING form's effect engine BEFORE `_reset` notifies. The
+      // engine's own teardown+rebuild is a PASSIVE effect (below), which React
+      // runs one commit LATER — after this layout reset has already fired its
+      // store notification. Left subscribed, the previous step's engine observes
+      // the new step's reset values as watched changes and fires its effects
+      // onto this step's freshly seeded targets, overwriting their defaults.
+      // Grading the reset as a provider write cannot help: the swap clears every
+      // ownership signal (`userEditedFields` above, `touched` in `_reset`), so
+      // the new step's targets are not user-owned and the engine's user-owned
+      // guard is a no-op. The passive effect below rebuilds the engine for THIS
+      // step and runs its initial effects against the post-reset values.
+      effectEngineRef.current?.stop();
+      effectEngineRef.current = null;
+
       const repeatableConfigs = formConfig.repeatableFields ?? {};
 
       // Install THIS form's repeatable configs (replacing the previous form's)
