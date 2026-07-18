@@ -109,7 +109,7 @@ export function AgentMultiTurnPage() {
     let followUp: Part[] = [];
 
     if (toolCallId === 'call_contact' && result.status === 'submitted') {
-      const name = String((result.values ?? {}).name ?? 'there');
+      const name = String(result.values?.name ?? 'there');
       followUp = [
         { type: 'text', text: `Great, thanks ${name}! Now pick a time and topic:`, state: 'done' },
         {
@@ -121,7 +121,7 @@ export function AgentMultiTurnPage() {
         },
       ];
     } else if (toolCallId === 'call_booking' && result.status === 'submitted') {
-      const when = (result.values ?? {}).when as { slot?: string } | undefined;
+      const when = result.values?.when as { slot?: string } | undefined;
       followUp = [
         {
           type: 'text',

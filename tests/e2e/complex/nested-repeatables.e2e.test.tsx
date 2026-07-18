@@ -44,7 +44,6 @@ import { createTestRilConfig } from '../_setup/test-ril-config';
 // =====================================================================
 
 // Store handle for direct/assertion access.
-// biome-ignore lint/suspicious/noExplicitAny: test store handle
 let storeRef: any;
 function StoreAccessor() {
   const store = useFormStoreApi();
@@ -54,7 +53,6 @@ function StoreAccessor() {
   return null;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: test config handle
 let rilConfig: ReturnType<typeof createTestRilConfig>;
 
 /** Single-level KYC form: companies[] with a company-level field. No inner owners repeatable — the framework offers none. */
@@ -108,7 +106,6 @@ function OwnersProbe() {
   );
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: test config/values passthrough
 function renderKyc(config: any, defaultValues: any, onSubmit?: any) {
   return render(
     <FormProvider formConfig={config} defaultValues={defaultValues} onSubmit={onSubmit}>
