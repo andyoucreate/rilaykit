@@ -47,9 +47,7 @@
       }
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "license": "MIT",
   "publishConfig": {
     "provenance": true
@@ -87,15 +85,9 @@
   },
   "typesVersions": {
     "*": {
-      "react": [
-        "./dist/react/index.d.ts"
-      ],
-      "ai-sdk": [
-        "./dist/ai-sdk/index.d.ts"
-      ],
-      "anthropic": [
-        "./dist/anthropic/index.d.ts"
-      ]
+      "react": ["./dist/react/index.d.ts"],
+      "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
+      "anthropic": ["./dist/anthropic/index.d.ts"]
     }
   },
   "peerDependenciesMeta": {

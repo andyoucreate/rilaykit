@@ -217,6 +217,10 @@ jobs:
         uses: changesets/action@v1
         with:
           publish: pnpm release
+          # `changeset version` rewrites package.json files in standard JSON
+          # style, which fails biome's formatter on the NEXT PR's lint step —
+          # re-format right after versioning so release commits stay lint-clean.
+          version: pnpm version-ci
           title: 'Release: New version'
           commit: 'release: version packages'
         env:
