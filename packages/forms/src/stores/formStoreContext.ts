@@ -243,7 +243,7 @@ export interface UseFormActionsResult {
   setTouched: (fieldId: string) => void;
   setErrors: (fieldId: string, errors: FieldError[]) => void;
   setSubmitting: (isSubmitting: boolean) => void;
-  reset: (values?: Record<string, unknown>) => void;
+  reset: (values?: Record<string, unknown>, repeatableOrder?: Record<string, string[]>) => void;
   setFieldConditions: (fieldId: string, conditions: FieldConditions) => void;
 }
 
@@ -260,7 +260,8 @@ export function useFormActions(): UseFormActionsResult {
     setErrors: (fieldId: string, errors: FieldError[]) =>
       store.getState()._setErrors(fieldId, errors),
     setSubmitting: (isSubmitting: boolean) => store.getState()._setSubmitting(isSubmitting),
-    reset: (values?: Record<string, unknown>) => store.getState()._reset(values),
+    reset: (values?: Record<string, unknown>, repeatableOrder?: Record<string, string[]>) =>
+      store.getState()._reset(values, repeatableOrder),
     setFieldConditions: (fieldId: string, conditions: FieldConditions) =>
       store.getState()._setFieldConditions(fieldId, conditions),
   };
