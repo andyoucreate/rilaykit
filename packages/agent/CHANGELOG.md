@@ -1,4 +1,4 @@
-# @rilaykit/core
+# @rilaykit/agent
 
 ## 0.2.0
 
@@ -29,55 +29,9 @@
   `BigInt` across save→load, and the unimplemented `step.next.skip()` /
   `step.workflow.goto()` were removed from the public `StepContext` type.
 
-## 0.1.6
-
 ### Patch Changes
 
-- [`f3fbad1`](https://github.com/andyoucreate/rilaykit/commit/f3fbad1d81bb574ee078a438ea85ce7fd19b00a5) Thanks [@reizam](https://github.com/reizam)! - fix(publish): resolve workspace:\* protocols in rilaykit package dependencies
-
-## 0.1.4
-
-### Patch Changes
-
-- Version patch bump for all packages
-
-## 0.1.3
-
-### Patch Changes
-
-- feat(forms): add submit options (force and skipInvalid)
-
-  Add `SubmitOptions` to control form submission behavior:
-
-  - `force`: bypass validation entirely and submit current values as-is
-  - `skipInvalid`: run validation but exclude invalid fields from submitted data
-
-  Options can be set at the builder level via `.setSubmitOptions()` as defaults,
-  or passed at submit-time via `submit({ force: true })` to override per call.
-
-## 0.1.2
-
-### Patch Changes
-
-- Fix className passthrough in Form component
-
-## 0.1.1
-
-### Patch Changes
-
-- Maintenance release
-
-  - Set 0.1.0 as first stable release baseline
-  - Deprecate all previous experimental versions
-  - Clean up release configuration
-
-## 0.1.0
-
-### First Stable Release
-
-- Zustand-based state management for forms and workflows
-- Fine-grained subscriptions and selector-based re-renders
-- Improved performance with better isolation of component re-renders
-- New hooks: `useFormStore`, `useWorkflowStore`
-- Condition dependency graph for efficient condition evaluation
-- Standard Schema validation support
+- Updated dependencies [[`a539aa7`](https://github.com/andyoucreate/rilaykit/commit/a539aa7172c76b01a8d33547fe4d3a030e18ec2a)]:
+  - @rilaykit/core@0.2.0
+  - @rilaykit/forms@0.2.0
+  - @rilaykit/workflow@0.2.0

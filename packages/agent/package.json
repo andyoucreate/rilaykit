@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/agent",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -47,7 +47,9 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "license": "MIT",
   "publishConfig": {
     "provenance": true
@@ -84,9 +86,15 @@
   },
   "typesVersions": {
     "*": {
-      "react": ["./dist/react/index.d.ts"],
-      "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
-      "anthropic": ["./dist/anthropic/index.d.ts"]
+      "react": [
+        "./dist/react/index.d.ts"
+      ],
+      "ai-sdk": [
+        "./dist/ai-sdk/index.d.ts"
+      ],
+      "anthropic": [
+        "./dist/anthropic/index.d.ts"
+      ]
     }
   },
   "peerDependenciesMeta": {

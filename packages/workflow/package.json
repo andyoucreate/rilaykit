@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/workflow",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "private": false,
   "description": "Workflow and multi-step form utilities for RilayKit",
   "main": "dist/index.js",
@@ -31,10 +31,14 @@
   },
   "typesVersions": {
     "*": {
-      "react": ["./dist/react/index.d.ts"]
+      "react": [
+        "./dist/react/index.d.ts"
+      ]
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "provenance": true
   },
@@ -49,7 +53,13 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "workflow", "multi-step", "forms", "typescript"],
+  "keywords": [
+    "react",
+    "workflow",
+    "multi-step",
+    "forms",
+    "typescript"
+  ],
   "author": "AND YOU CREATE <contact@andyoucreate.com>",
   "license": "MIT",
   "homepage": "https://rilay.dev",
