@@ -96,12 +96,19 @@ export function generateStorageKey(workflowId: string, userId?: string): string 
 }
 
 /**
- * A debounced function exposing a `cancel` to drop a pending invocation.
+ * A debounced function exposing `cancel` to drop a pending invocation and
+ * `flush` to run it immediately.
  */
 export interface DebouncedFunction<T extends (...args: any[]) => any> {
   (...args: Parameters<T>): void;
   /** Cancel any pending (scheduled-but-not-yet-fired) invocation. */
   cancel: () => void;
+  /**
+   * Run a pending invocation NOW with its latest args (and clear the timer);
+   * a no-op if nothing is pending. Used to persist the last edit on unmount so
+   * navigating away mid-debounce never loses the user's progress.
+   */
+  flush: () => void;
 }
 
 /**
@@ -117,15 +124,19 @@ export function debounce<T extends (...args: any[]) => any>(
   wait: number
 ): DebouncedFunction<T> {
   let timeout: NodeJS.Timeout | null = null;
+  let pendingArgs: Parameters<T> | null = null;
 
   const debounced = (...args: Parameters<T>) => {
+    pendingArgs = args;
     if (timeout) {
       clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
       timeout = null;
-      func(...args);
+      const args = pendingArgs;
+      pendingArgs = null;
+      if (args) func(...args);
     }, wait);
   };
 
@@ -134,6 +145,17 @@ export function debounce<T extends (...args: any[]) => any>(
       clearTimeout(timeout);
       timeout = null;
     }
+    pendingArgs = null;
+  };
+
+  debounced.flush = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    const args = pendingArgs;
+    pendingArgs = null;
+    if (args) func(...args);
   };
 
   return debounced;

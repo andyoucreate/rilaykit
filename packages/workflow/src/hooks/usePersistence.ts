@@ -86,6 +86,9 @@ export function usePersistence({
   // Refs for stable references
   const adapterRef = useRef(adapter);
   const optionsRef = useRef(options);
+  // Flipped false on unmount so a flushed save does not set React state on a
+  // torn-down hook.
+  const isMountedRef = useRef(true);
   const persistenceStateRef = useRef<{
     lastSavedState?: WorkflowState;
     hasPendingChanges: boolean;
@@ -137,7 +140,7 @@ export function usePersistence({
   const saveWorkflowState = useCallback(
     async (state: WorkflowState): Promise<void> => {
       clearError();
-      setIsPersisting(true);
+      if (isMountedRef.current) setIsPersisting(true);
 
       try {
         const persistedData = workflowStateToPersisted(
@@ -173,7 +176,7 @@ export function usePersistence({
         handleError(error as Error, 'Save');
         throw error;
       } finally {
-        setIsPersisting(false);
+        if (isMountedRef.current) setIsPersisting(false);
       }
     },
     [workflowId, storageKey, clearError, handleError, workflowCompletedRef]
@@ -329,6 +332,20 @@ export function usePersistence({
     // Trigger debounced save
     debouncedSave.current(workflowState);
   }, [workflowState, isPersisting, isLoadingPersisted, hasSignificantChanges]);
+
+  // On unmount, FLUSH any pending debounced save so the user's last edit is
+  // persisted even when they navigate away inside the debounce window — losing
+  // it would defeat the point of resumable workflow persistence. `isMountedRef`
+  // is cleared first so the flushed save writes to the adapter without touching
+  // React state on the torn-down hook. (Completion clears data on its own path,
+  // and saveWorkflowState still honours the workflowCompletedRef guard, so this
+  // never resurrects a finished workflow.)
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      debouncedSave.current.flush();
+    };
+  }, []);
 
   /**
    * Manual save operation
