@@ -1,5 +1,8 @@
 import {
   type ConditionalBehavior,
+  ConfigurationError,
+  type FieldConfigFor,
+  type FieldConfigOf,
   type FieldEffect,
   type FieldEffects,
   type FieldValidationConfig,
@@ -10,14 +13,19 @@ import {
   type FormRowEntry,
   type FormValidationConfig,
   IdGenerator,
+  NotFoundError,
   type RepeatableFieldConfig,
   type RilayInstance,
   type SubmitOptions,
+  ValidationError,
   deepClone,
   ensureUnique,
+  getLogger,
   type ril,
 } from '@rilaykit/core';
 import { RepeatableBuilder } from './repeatable-builder';
+
+const log = getLogger('forms:builder');
 
 /**
  * Configuration for a form field with type safety
@@ -38,19 +46,32 @@ import { RepeatableBuilder } from './repeatable-builder';
  * };
  * ```
  */
-export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
-  /** Unique identifier for the field. Auto-generated if not provided */
-  id?: string;
-  /** Component type from the registered components */
-  type: T;
-  /** Component-specific properties */
-  props?: Partial<C[T]>;
-  /** Validation configuration for this field */
-  validation?: FieldValidationConfig;
-  /** Conditional behavior configuration for this field */
-  conditions?: ConditionalBehavior;
-  /** Field effects configuration for reactive field-to-field behaviors */
-  effects?: FieldEffects;
+export type FieldConfig<C extends Record<string, any>, T extends keyof C> = FieldConfigOf<
+  C,
+  T & string
+>;
+
+/**
+ * Maps a tuple of component-type keys — one per `.add(...)` argument — to the
+ * field config each argument must satisfy, narrowing `props` PER ARGUMENT to
+ * the props of the component type THAT argument declares.
+ *
+ * `Ks` is inferred position-by-position from each argument's own `type` literal
+ * (reverse mapped-type inference: `FieldConfigOf<C, Ks[I]>` pins `type: Ks[I]`),
+ * so `props` is then checked against `Partial<C[Ks[I]]>` and nothing else.
+ *
+ * A single `T extends keyof C & string` shared across a variadic call instead
+ * widens `T` to the union of every type passed, and `Partial<C['a' | 'b']>`
+ * distributes to `Partial<C['a']> | Partial<C['b']>` — which happily accepts
+ * `a`'s props on a `b` field. That is the hole this closes.
+ *
+ * Note this cannot simply be `FieldConfigFor<C>`: `ril.create()` produces a
+ * catalog carrying a string index signature, which collapses `keyof C & string`
+ * to `string` and `Partial<C[string]>` to `Partial<never>`, rejecting every
+ * valid call. Inferring `Ks` from the argument's literal `type` sidesteps it.
+ */
+type FieldConfigTuple<C extends Record<string, any>, Ks extends readonly (keyof C & string)[]> = {
+  [I in keyof Ks]: FieldConfigOf<C, Ks[I]>;
 };
 
 /**
@@ -61,8 +82,8 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  *
  *   const rilConfig = ril
  *     .create()
- *     .addComponent('text', { name: 'Text', renderer: TextInput })
- *     .addComponent('email', { name: 'Email', renderer: EmailInput });
+ *     .component('text', { name: 'Text', renderer: TextInput })
+ *     .component('email', { name: 'Email', renderer: EmailInput });
  *
  *   const myForm = form
  *     .create(rilConfig, 'contact-form')
@@ -92,7 +113,7 @@ export type FieldConfig<C extends Record<string, any>, T extends keyof C> = {
  * - Array:    .add([fieldA, fieldB]) => explicit single row
  *
  * Output of .build(): FormConfiguration<C>
- * - id, rows, allFields, renderConfig (from ril), optional validation
+ * - id, rows, allFields, optional validation
  */
 export class form<C extends Record<string, any> = Record<string, never>> {
   /** The ril configuration instance containing component definitions */
@@ -159,7 +180,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * @template T - The component type
    * @param fieldConfig - The field configuration to convert
    * @returns A complete FormFieldConfig ready for use
-   * @throws Error if the specified component type is not registered
+   * @throws NotFoundError if the specified component type is not registered
    *
    * @internal
    */
@@ -169,7 +190,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     const component = this.config.getComponent(fieldConfig.type);
 
     if (!component) {
-      throw new Error(`No component found with type "${fieldConfig.type}"`);
+      throw new NotFoundError(`No component found with type "${fieldConfig.type}"`, {
+        key: `component:${fieldConfig.type}`,
+      });
     }
 
     // Combine component validation with field validation
@@ -206,7 +229,8 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     return {
       id: fieldConfig.id || this.idGenerator.next('field'),
-      componentId: component.id,
+      // Catalog entries are keyed by type
+      componentId: fieldConfig.type,
       props: { ...component.defaultProps, ...fieldConfig.props },
       validation: combinedValidation,
       conditions: fieldConfig.conditions,
@@ -229,7 +253,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   private createRow<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): FormFieldRow {
     if (fieldConfigs.length === 0) {
-      throw new Error('At least one field is required');
+      throw new ConfigurationError('At least one field is required');
     }
 
     const fields = fieldConfigs.map((config) => this.createFormField(config));
@@ -275,15 +299,21 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ], { spacing: 'loose', alignment: 'center' });
    * ```
    */
-  add<T extends keyof C & string>(...fields: FieldConfig<C, T>[]): this;
-  add<T extends keyof C & string>(fields: FieldConfig<C, T>[]): this;
-  add<T extends keyof C & string>(...args: FieldConfig<C, T>[] | [FieldConfig<C, T>[]]): this {
+  // `FieldConfigFor<C>`, not `FieldConfig<C, T>`: a single inferred `T` widens to
+  // the UNION of every type in a mixed call, which widens `props` to the union of
+  // every sibling's props — so `{ type: 'a', props: <b's props> }` type-checked.
+  // The distributed union narrows each argument independently to the config of
+  // the very type that argument declares, so a wrong-props-for-type pairing
+  // matches no member of the union.
+  add<const Fs extends readonly (keyof C & string)[]>(...fields: FieldConfigTuple<C, Fs>): this;
+  add<const Fs extends readonly (keyof C & string)[]>(fields: FieldConfigTuple<C, Fs>): this;
+  add(...args: FieldConfigFor<C>[] | [FieldConfigFor<C>[]]): this {
     // Check if first argument is an array (explicit array syntax)
-    const fieldConfigs: FieldConfig<C, T>[] =
-      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfig<C, T>[]);
+    const fieldConfigs: FieldConfigFor<C>[] =
+      args.length === 1 && Array.isArray(args[0]) ? args[0] : (args as FieldConfigFor<C>[]);
 
     if (fieldConfigs.length === 0) {
-      throw new Error('At least one field is required');
+      throw new ConfigurationError('At least one field is required');
     }
 
     const row = this.createRow(fieldConfigs);
@@ -312,8 +342,11 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ]);
    * ```
    */
-  addSeparateRows<T extends keyof C & string>(fieldConfigs: FieldConfig<C, T>[]): this {
-    for (const config of fieldConfigs) {
+  // Same per-argument narrowing as `.add` — see FieldConfigTuple.
+  addSeparateRows<const Fs extends readonly (keyof C & string)[]>(
+    fieldConfigs: FieldConfigTuple<C, Fs>
+  ): this {
+    for (const config of fieldConfigs as readonly FieldConfigFor<C>[]) {
       // Use array syntax to ensure we're using the correct overload
       this.add(config);
     }
@@ -349,8 +382,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   ): this {
     // Validate ID — brackets are reserved for composite keys
     if (id.includes('[') || id.includes(']')) {
-      throw new Error(
-        `Repeatable ID "${id}" cannot contain "[" or "]" (reserved for composite keys)`
+      throw new ConfigurationError(
+        `Repeatable ID "${id}" cannot contain "[" or "]" (reserved for composite keys)`,
+        { id }
       );
     }
 
@@ -359,7 +393,9 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     // Nesting check — repeatables cannot contain other repeatables
     if (configured._hasRepeatables()) {
-      throw new Error(`Nested repeatables are not supported (in repeatable "${id}")`);
+      throw new ConfigurationError(`Nested repeatables are not supported (in repeatable "${id}")`, {
+        id,
+      });
     }
 
     const repeatableConfig = configured._build(id);
@@ -408,10 +444,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   updateField(fieldId: string, updates: Partial<Omit<FormFieldConfig, 'id'>>): this {
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     Object.assign(field, {
       ...updates,
@@ -443,6 +476,19 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       }
     }
     return null;
+  }
+
+  /**
+   * Finds a field by ID or throws a `NotFoundError`.
+   *
+   * @internal
+   */
+  private findFieldOrThrow(fieldId: string): FormFieldConfig {
+    const field = this.findField(fieldId);
+    if (!field) {
+      throw new NotFoundError(`Field with ID "${fieldId}" not found`, { fieldId });
+    }
+    return field;
   }
 
   /**
@@ -641,13 +687,10 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    */
   /** @deprecated Use updateField with new validation.validate property instead */
   addFieldValidation(fieldId: string, validationConfig: any): this {
-    console.warn(
+    log.warn(
       'addFieldValidation is deprecated. Use updateField with validation.validate property instead.'
     );
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     // For legacy support, just update with new config (ignoring validators merge)
     const updatedValidation = {
@@ -678,10 +721,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
    * ```
    */
   addFieldConditions(fieldId: string, conditions: ConditionalBehavior): this {
-    const field = this.findField(fieldId);
-    if (!field) {
-      throw new Error(`Field with ID "${fieldId}" not found`);
-    }
+    const field = this.findFieldOrThrow(fieldId);
 
     const updatedConditions: ConditionalBehavior = {
       ...field.conditions,
@@ -711,6 +751,14 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   clone(newFormId?: string): form<C> {
     const cloned = new form<C>(this.config, newFormId || `${this.formId}-clone`);
     cloned.rows = deepClone(this.rows);
+    // Carry the id counter state so the clone keeps numbering after the highest
+    // existing id instead of colliding with already-cloned field/row ids.
+    cloned.idGenerator = this.idGenerator.clone();
+    // Preserve form-level validation and submit options. Deep-clone the plain
+    // data while keeping validator function identity (deepClone returns
+    // functions unchanged since they are not plain objects).
+    cloned.formValidation = this.formValidation ? deepClone(this.formValidation) : undefined;
+    cloned._submitOptions = this._submitOptions ? deepClone(this._submitOptions) : undefined;
     return cloned;
   }
 
@@ -729,21 +777,62 @@ export class form<C extends Record<string, any> = Record<string, never>> {
     );
     const repeatableTemplateFields = repeatableRows.flatMap((row) => row.repeatable.allFields);
 
-    // Check for duplicate field IDs (including across repeatables)
-    const allFieldIds = [
-      ...allFields.map((field) => field.id),
-      ...repeatableTemplateFields.map((field) => field.id),
-    ];
+    // Each repeatable's template fields are their OWN namespace: they submit
+    // under composite keys (`addresses[k0].name`), never as a bare top-level
+    // key, so two repeatables may each declare a `name` without colliding —
+    // `structureFormValues` keeps them apart. Folding every repeatable's
+    // templates into ONE flat set alongside the top-level fields rejected that
+    // mainstream shape (`addresses[].name` + `contacts[].name`).
+    //
+    // What must still hold, per repeatable: its own template ids are unique
+    // among themselves, and none of them shadows a top-level field id (a
+    // template field and a top-level field DO share the top-level namespace at
+    // scope-resolution time).
+    const topLevelFieldIds = allFields.map((field) => field.id);
     try {
-      ensureUnique(allFieldIds, 'field');
+      ensureUnique(topLevelFieldIds, 'field');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
 
-    // Check for duplicate repeatable IDs
+    // Scoped per repeatable, and reporting only what THIS repeatable is guilty
+    // of: its own duplicate template ids, plus any template id shadowing a
+    // top-level field. Re-running ensureUnique over the whole top-level list
+    // made one duplicate top-level id surface once per repeatable — N+2 copies
+    // of a single defect that the check above already reported.
+    const uniqueTopLevelIds = new Set(topLevelFieldIds);
+    for (const row of repeatableRows) {
+      const templateIds = row.repeatable.allFields.map((field) => field.id);
+      try {
+        ensureUnique(templateIds, 'field');
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
+
+      const shadowed = [...new Set(templateIds)].filter((id) => uniqueTopLevelIds.has(id));
+      if (shadowed.length > 0) {
+        errors.push(`Duplicate field IDs: ${shadowed.join(', ')}`);
+      }
+    }
+
+    // Top-level field ids and repeatable ids are ONE namespace, not two.
+    // `structureFormValues` writes `result[repeatableId] = items` and then copies
+    // every non-composite value into that same object, so a top-level field
+    // sharing a repeatable's id overwrites the entire array — the submitted
+    // payload silently loses it. Checking the two namespaces separately (as this
+    // did) lets that schema compile clean.
+    //
+    // Repeatable TEMPLATE fields are deliberately exempt: they submit under
+    // composite keys (`items[k0].name`), never as a top-level payload key, so a
+    // template field may legitimately reuse its own repeatable's id.
+    // Deduplicated first: this check owns the field-vs-repeatable collision
+    // only. A duplicate among the top-level ids themselves is already reported
+    // above, and feeding the raw list in here reported it a second time under a
+    // different wording.
     const repeatableIds = repeatableRows.map((row) => row.repeatable.id);
+    const payloadIds = [...uniqueTopLevelIds, ...repeatableIds];
     try {
-      ensureUnique(repeatableIds, 'repeatable');
+      ensureUnique(payloadIds, 'field or repeatable');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
@@ -820,7 +909,7 @@ export class form<C extends Record<string, any> = Record<string, never>> {
   build(): FormConfiguration<C> {
     const errors = this.validate();
     if (errors.length > 0) {
-      throw new Error(`Form validation failed: ${errors.join(', ')}`);
+      throw new ValidationError(`Form validation failed: ${errors.join(', ')}`, { errors });
     }
 
     // Build repeatableFields index
@@ -834,32 +923,16 @@ export class form<C extends Record<string, any> = Record<string, never>> {
 
     const allFields = this.getFields();
 
-    // Build effectsMap: watchFieldId -> FieldEffect[]
-    const effectsMap: Record<string, FieldEffect[]> = {};
-    for (const field of allFields) {
-      if (field.effects) {
-        for (const effect of field.effects) {
-          const key = effect.watchFieldId;
-          if (!effectsMap[key]) {
-            effectsMap[key] = [];
-          }
-          effectsMap[key].push(effect);
-        }
-      }
-    }
-    // Also process repeatable fields
+    // Build effectsMap: watchFieldId -> FieldEffect[].
+    // A Map accumulator, not a plain object: `watchFieldId` comes from the
+    // (possibly schema-authored) field config, and a plain object answers
+    // `effectsMap['toString']` with an inherited method — the guard then reads
+    // it as "already present" and `.push` blows up on a function.
+    const effectsMap = new Map<string, FieldEffect[]>();
+    indexEffects(allFields, effectsMap);
     if (repeatableFields) {
-      for (const config of Object.values(repeatableFields)) {
-        for (const field of config.allFields) {
-          if (field.effects) {
-            for (const effect of field.effects) {
-              if (!effectsMap[effect.watchFieldId]) {
-                effectsMap[effect.watchFieldId] = [];
-              }
-              effectsMap[effect.watchFieldId].push(effect);
-            }
-          }
-        }
+      for (const [repeatableId, config] of Object.entries(repeatableFields)) {
+        indexEffects(config.allFields, effectsMap, repeatableId);
       }
     }
 
@@ -869,10 +942,11 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       allFields,
       repeatableFields,
       config: this.config,
-      renderConfig: this.config.getFormRenderConfig(),
       validation: this.formValidation,
       submitOptions: this._submitOptions,
-      effectsMap: Object.keys(effectsMap).length > 0 ? effectsMap : undefined,
+      // `Object.fromEntries` defines every key as an own data property, so a
+      // watched field named `__proto__` stays a real key of the index.
+      effectsMap: effectsMap.size > 0 ? Object.fromEntries(effectsMap) : undefined,
     };
   }
 
@@ -982,4 +1056,44 @@ export class form<C extends Record<string, any> = Record<string, never>> {
       ),
     };
   }
+}
+
+/**
+ * Indexes every field's effects into `into`, keyed by watched field id.
+ *
+ * The single accumulator for both effect sources (top-level fields and
+ * repeatable templates) so the two cannot drift.
+ */
+function indexEffects(
+  fields: readonly FormFieldConfig[],
+  into: Map<string, FieldEffect[]>,
+  declaringRepeatableId?: string
+): void {
+  for (const field of fields) {
+    if (!field.effects) continue;
+    for (const effect of field.effects) {
+      // Tag a repeatable-template effect with the repeatable it was declared in,
+      // so the engine can fan it out per row when it watches a GLOBAL field.
+      const indexed = declaringRepeatableId ? { ...effect, declaringRepeatableId } : effect;
+      const existing = into.get(effect.watchFieldId);
+      if (existing) {
+        existing.push(indexed);
+      } else {
+        into.set(effect.watchFieldId, [indexed]);
+      }
+    }
+  }
+}
+
+/**
+ * Resolve a form definition to a built {@link FormConfiguration}.
+ *
+ * Accepts either an already-built configuration (returned as-is) or a
+ * form builder (auto-built via {@link form.build}). Single source of
+ * truth for the "config or builder" resolution used by form/workflow roots.
+ */
+export function resolveFormConfig<C extends Record<string, any>>(
+  value: FormConfiguration<C> | form<C>
+): FormConfiguration<C> {
+  return value instanceof form ? value.build() : value;
 }

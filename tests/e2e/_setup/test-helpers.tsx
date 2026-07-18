@@ -1,5 +1,5 @@
-import type { ValidationResult } from '@rilaykit/core';
-import { useFormConfigContext } from '@rilaykit/forms';
+import type { ComponentRenderContext, ValidationResult } from '@rilaykit/core';
+import { useForm } from '@rilaykit/forms/react';
 import {
   useFieldErrors,
   useFormDirty,
@@ -8,8 +8,8 @@ import {
   useFormValid,
   useFormValues,
   useRepeatableKeys,
-} from '@rilaykit/forms';
-import { useRepeatableField } from '@rilaykit/forms';
+} from '@rilaykit/forms/react';
+import { useRepeatableField } from '@rilaykit/forms/react';
 import type React from 'react';
 import { useState } from 'react';
 
@@ -17,34 +17,34 @@ import { useState } from 'react';
 // MOCK COMPONENTS
 // =================================================================
 
-export const MockTextInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
-      readOnly={props?.readonly}
-      placeholder={props?.placeholder}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
+      readOnly={Boolean(props?.readonly)}
+      placeholder={props?.placeholder ? String(props.placeholder) : undefined}
     />
   </div>
 );
 
-export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockSelectInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <select
       id={id}
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
     >
-      {props?.options?.map((opt: any) => (
+      {(props?.options as Array<{ value: string; label: string }> | undefined)?.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -53,96 +53,32 @@ export const MockSelectInput = ({ id, value, onChange, onBlur, disabled, props }
   </div>
 );
 
-export const MockNumberInput = ({ id, value, onChange, onBlur, disabled, props }: any) => (
+export const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
       type="number"
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(Number(e.target.value))}
-      onBlur={() => onBlur?.()}
-      disabled={disabled}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(Number(e.target.value))}
+      onBlur={() => field?.onBlur()}
+      disabled={field?.disabled}
     />
   </div>
 );
 
-export const MockCheckboxInput = ({ id, value, onChange, disabled, props }: any) => (
+export const MockCheckboxInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    {props?.label && <label htmlFor={id}>{props.label}</label>}
+    {props?.label && <label htmlFor={id}>{String(props.label)}</label>}
     <input
       id={id}
       data-testid={`input-${id}`}
       type="checkbox"
-      checked={!!value}
-      onChange={(e: any) => onChange?.(e.target.checked)}
-      disabled={disabled}
+      checked={!!field?.value}
+      onChange={(e) => field?.onChange(e.target.checked)}
+      disabled={field?.disabled}
     />
-  </div>
-);
-
-// =================================================================
-// MOCK RENDERERS
-// =================================================================
-
-export const TestBodyRenderer = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="body-renderer">{children}</div>
-);
-
-export const TestRowRenderer = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="row-renderer">{children}</div>
-);
-
-export const TestSubmitButtonRenderer = ({
-  onSubmit,
-  isSubmitting,
-}: { onSubmit: () => void; isSubmitting: boolean }) => (
-  <button
-    type="button"
-    onClick={onSubmit}
-    data-testid="submit-button"
-    data-submitting={isSubmitting}
-    disabled={isSubmitting}
-  >
-    {isSubmitting ? 'Submitting...' : 'Submit'}
-  </button>
-);
-
-export const TestRepeatableRenderer = ({
-  children,
-  onAdd,
-  canAdd,
-}: { children: React.ReactNode; onAdd: () => void; canAdd: boolean }) => (
-  <div data-testid="repeatable-renderer">
-    {children}
-    <button type="button" data-testid="repeatable-add" onClick={onAdd} disabled={!canAdd}>
-      Add Item
-    </button>
-  </div>
-);
-
-export const TestRepeatableItemRenderer = ({
-  children,
-  onRemove,
-  canRemove,
-  index,
-}: {
-  children: React.ReactNode;
-  onRemove: () => void;
-  canRemove: boolean;
-  index: number;
-}) => (
-  <div data-testid={`repeatable-item-${index}`}>
-    {children}
-    <button
-      type="button"
-      data-testid={`repeatable-remove-${index}`}
-      onClick={onRemove}
-      disabled={!canRemove}
-    >
-      Remove
-    </button>
   </div>
 );
 
@@ -167,7 +103,7 @@ export function FormStateDisplay() {
 }
 
 export function SubmitButton() {
-  const { submit } = useFormConfigContext();
+  const { submit } = useForm();
   return (
     <button type="button" data-testid="submit-btn" onClick={() => submit()}>
       Submit
@@ -176,7 +112,7 @@ export function SubmitButton() {
 }
 
 export function ValidationTrigger() {
-  const { validateForm } = useFormConfigContext();
+  const { validateForm } = useForm();
   const [result, setResult] = useState<ValidationResult | null>(null);
 
   const handleValidate = async () => {
@@ -199,13 +135,13 @@ export function ValidationTrigger() {
   );
 }
 
-export function FieldErrorDisplay({ fieldId }: { fieldId: string }) {
-  const errors = useFieldErrors(fieldId);
+export function FieldErrorDisplay({ id }: { id: string }) {
+  const errors = useFieldErrors(id);
   if (errors.length === 0) return null;
   return (
-    <div data-testid={`errors-${fieldId}`}>
+    <div data-testid={`errors-${id}`}>
       {errors.map((err) => (
-        <span key={err.message} data-testid={`error-${fieldId}-${errors.indexOf(err)}`}>
+        <span key={err.message} data-testid={`error-${id}-${errors.indexOf(err)}`}>
           {err.message}
         </span>
       ))}
@@ -213,15 +149,15 @@ export function FieldErrorDisplay({ fieldId }: { fieldId: string }) {
   );
 }
 
-export function SetValueButton({ fieldId, value }: { fieldId: string; value: unknown }) {
+export function SetValueButton({ id, value }: { id: string; value: unknown }) {
   const store = useFormStoreApi();
   return (
     <button
       type="button"
-      data-testid={`set-${fieldId}`}
-      onClick={() => store.getState()._setValue(fieldId, value)}
+      data-testid={`set-${id}`}
+      onClick={() => store.getState()._setValue(id, value)}
     >
-      Set {fieldId}
+      Set {id}
     </button>
   );
 }

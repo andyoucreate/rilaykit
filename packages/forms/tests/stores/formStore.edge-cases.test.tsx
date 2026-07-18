@@ -10,7 +10,7 @@ import {
   useFieldValidationState,
   useFieldValue,
   useFormStore,
-} from '../../src/stores/formStore';
+} from '../../src/stores';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);

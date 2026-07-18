@@ -4,13 +4,26 @@ import {
   type WorkflowPerformanceMetrics,
   getGlobalMonitor,
 } from '@rilaykit/core';
-import { useCallback, useEffect, useRef } from 'react';
-import type { WorkflowState } from './useWorkflowState';
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
+import type { WorkflowState } from './workflow-state';
 
 export interface UseWorkflowAnalyticsProps {
   workflowConfig: WorkflowConfig;
   workflowState: WorkflowState;
   workflowContext: WorkflowContext;
+  /**
+   * Shared signal set by {@link useWorkflowNavigation.skipStep} carrying the id
+   * of a step that was skipped (not validated). A skip is not a completion, so
+   * the step-change effect must suppress `onStepComplete` for it exactly once.
+   */
+  pendingSkipRef: MutableRefObject<string | null>;
+  /**
+   * Shared flag set by {@link useWorkflowSubmission} when the workflow finishes.
+   * Read by the abandon cleanup so a normal completion does NOT fire
+   * {@link WorkflowAnalytics.onWorkflowAbandon} on unmount.
+   */
+  workflowCompletedRef: MutableRefObject<boolean>;
 }
 
 export interface UseWorkflowAnalyticsReturn {
@@ -25,11 +38,59 @@ export function useWorkflowAnalytics({
   workflowConfig,
   workflowState,
   workflowContext,
+  pendingSkipRef,
+  workflowCompletedRef,
 }: UseWorkflowAnalyticsProps): UseWorkflowAnalyticsReturn {
   const analyticsStartTime = useRef<number>(Date.now());
   const stepStartTimes = useRef<Map<string, number>>(new Map());
   const workflowStartedRef = useRef<boolean>(false);
   const currentStepRef = useRef<string | null>(null);
+
+  // Abandon bookkeeping: the cleanup effect (unmount) reads the LATEST config
+  // and data through refs so it can fire onWorkflowAbandon without stale deps.
+  const configRef = useRef(workflowConfig);
+  configRef.current = workflowConfig;
+  const latestDataRef = useRef<Record<string, unknown>>(workflowState.allData);
+  latestDataRef.current = workflowState.allData;
+  // Same rationale as `latestDataRef`: the abandon payload is structured at the
+  // boundary, and structuring needs the row order the user actually arranged.
+  const latestOrdersRef = useRef<Record<string, Record<string, string[]>> | undefined>(
+    workflowState.repeatableOrders
+  );
+  latestOrdersRef.current = workflowState.repeatableOrders;
+  // "Started" means the workflow reached an interactive step (initialization,
+  // including any async persistence load, has settled). Independent of whether
+  // onWorkflowStart is configured.
+  const hasStartedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!workflowState.isInitializing) {
+      hasStartedRef.current = true;
+    }
+  }, [workflowState.isInitializing]);
+
+  // Fire onWorkflowAbandon on unmount IFF the workflow was started but never
+  // completed. Runs exactly once (empty deps) so it only reacts to a real
+  // unmount, reading current values through refs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refs only; unmount-only cleanup
+  useEffect(() => {
+    return () => {
+      const analytics = configRef.current.analytics;
+      if (hasStartedRef.current && !workflowCompletedRef.current && analytics?.onWorkflowAbandon) {
+        analytics.onWorkflowAbandon(
+          configRef.current.id,
+          currentStepRef.current ?? '',
+          // A host boundary: the store speaks flat composite keys internally,
+          // the abandonment snapshot speaks the AUTHORED shape — the same
+          // shape `onWorkflowComplete` hands the host on the same interface.
+          structureWorkflowData(
+            latestDataRef.current,
+            configRef.current.steps,
+            latestOrdersRef.current
+          )
+        );
+      }
+    };
+  }, []);
 
   // Get global monitor for enhanced tracking
   const monitor = getGlobalMonitor();
@@ -73,21 +134,56 @@ export function useWorkflowAnalytics({
 
   // Track step changes and completion
   useEffect(() => {
+    // Do not emit step analytics until initialization (including any async
+    // persistence load) has settled. Otherwise resuming from a persisted index
+    // emits a phantom onStepStart/onStepComplete for the default step the user
+    // never saw. The first REAL step becomes the first onStepStart.
+    if (workflowState.isInitializing) return;
+
     const currentStep = workflowConfig.steps[workflowState.currentStepIndex];
     if (!currentStep) return;
 
     // Only trigger if step actually changed
     if (currentStepRef.current === currentStep.id) return;
 
+    // A skipped step is not a completion: consume the skip signal and suppress
+    // onStepComplete for exactly that transition.
+    const previousStepId = currentStepRef.current;
+    const wasSkipped = previousStepId !== null && pendingSkipRef.current === previousStepId;
+    if (wasSkipped) {
+      pendingSkipRef.current = null;
+    }
+
+    // A completion is a FORWARD transition only. Backward navigation
+    // (goPrevious) retreats from a step the user has not completed, so it must
+    // not fire onStepComplete for the step being left behind.
+    const previousStepIndex = previousStepId
+      ? workflowConfig.steps.findIndex((s) => s.id === previousStepId)
+      : -1;
+    const isForward =
+      previousStepIndex !== -1 && workflowState.currentStepIndex > previousStepIndex;
+
     // Track step completion for previous step
-    if (currentStepRef.current && workflowConfig.analytics?.onStepComplete) {
-      const startTime = stepStartTimes.current.get(currentStepRef.current);
+    if (previousStepId && !wasSkipped && isForward && workflowConfig.analytics?.onStepComplete) {
+      const startTime = stepStartTimes.current.get(previousStepId);
       if (startTime) {
         const duration = Date.now() - startTime;
+        // Pass the COMPLETED step's data (its slice of allData), not the new
+        // step's stepData which the navigation has already swapped in.
+        //
+        // A host boundary: the slice is stored flat, the callback contract is
+        // the AUTHORED shape — the one `onWorkflowComplete` hands the host on
+        // this same interface.
+        const previousStep = workflowConfig.steps.find((step) => step.id === previousStepId);
+        const completedStepData = structureStepSlice(
+          (workflowState.allData[previousStepId] ?? {}) as Record<string, unknown>,
+          previousStep?.formConfig?.repeatableFields,
+          workflowState.repeatableOrders?.[previousStepId]
+        );
         workflowConfig.analytics.onStepComplete(
-          currentStepRef.current,
+          previousStepId,
           duration,
-          workflowState.stepData,
+          completedStepData,
           workflowContext
         );
 
@@ -99,7 +195,7 @@ export function useWorkflowAnalytics({
             {
               workflowId: workflowConfig.id,
               action: 'step_complete',
-              stepId: currentStepRef.current,
+              stepId: previousStepId,
               duration,
             },
             {
@@ -151,12 +247,15 @@ export function useWorkflowAnalytics({
     }
   }, [
     workflowState.currentStepIndex,
+    workflowState.isInitializing,
     workflowConfig.steps,
     workflowConfig.analytics,
     workflowContext,
-    workflowState.stepData,
+    workflowState.allData,
+    workflowState.repeatableOrders,
     monitor,
     workflowConfig.id,
+    pendingSkipRef,
   ]);
 
   // Helper to track step skips

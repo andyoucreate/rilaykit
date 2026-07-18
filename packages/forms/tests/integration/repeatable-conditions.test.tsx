@@ -1,4 +1,4 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -11,26 +11,26 @@ import { useFormStoreApi } from '../../src/stores';
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, value, onChange, props }: any) => (
+const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
   </div>
 );
 
-const MockSelectInput = ({ id, value, onChange, props }: any) => (
+const MockSelectInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <select
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     >
-      {props?.options?.map((opt: any) => (
+      {(props.options as Array<{ value: string; label: string }> | undefined)?.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -45,17 +45,11 @@ const MockSelectInput = ({ id, value, onChange, props }: any) => (
 
 let rilConfig: any;
 
-const TestBodyRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
-function SetValueButton({ fieldId, value }: { fieldId: string; value: unknown }) {
+function SetValueButton({ id, value }: { id: string; value: unknown }) {
   const store = useFormStoreApi();
   return (
-    <button
-      data-testid={`set-${fieldId}`}
-      onClick={() => store.getState()._setValue(fieldId, value)}
-    >
-      Set {fieldId}
+    <button data-testid={`set-${id}`} onClick={() => store.getState()._setValue(id, value)}>
+      Set {id}
     </button>
   );
 }
@@ -68,19 +62,15 @@ describe('Repeatable Fields — Conditions Integration', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockTextInput,
         defaultProps: { label: '' },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: MockSelectInput,
         defaultProps: { label: '', options: [] },
-      })
-      .configure({
-        bodyRenderer: TestBodyRenderer,
-        rowRenderer: TestRowRenderer,
       });
   });
 
@@ -133,7 +123,7 @@ describe('Repeatable Fields — Conditions Integration', () => {
         expect(screen.getByTestId('field-items[k0].weight')).toBeInTheDocument();
       });
 
-      // Digital item — weight should NOT be in the DOM (FormRow filters invisible fields)
+      // Digital item — weight should NOT be in the DOM (visibleRowFields filters invisible fields)
       expect(screen.queryByTestId('field-items[k1].weight')).not.toBeInTheDocument();
     });
   });
@@ -178,7 +168,7 @@ describe('Repeatable Fields — Conditions Integration', () => {
           }}
         >
           <FormBody />
-          <SetValueButton fieldId="country" value="FR" />
+          <SetValueButton id="country" value="FR" />
         </FormProvider>
       );
 

@@ -1,25 +1,19 @@
 import { Checkbox } from '@/components/ui/checkbox';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface CheckboxInputProps {
   label?: string;
   description?: string;
 }
 
-export function CheckboxInput({
-  id,
-  props,
-  value,
-  onChange,
-  disabled,
-}: ComponentRenderProps<CheckboxInputProps>) {
+export function CheckboxInput({ id, props, field }: ComponentRenderContext<CheckboxInputProps>) {
   return (
     <div className="flex items-center space-x-2">
       <Checkbox
         id={id}
-        checked={!!value}
-        onCheckedChange={(checked) => onChange?.(checked === true)}
-        disabled={disabled}
+        checked={!!field?.value}
+        onCheckedChange={(checked) => field?.onChange(checked === true)}
+        disabled={field?.disabled}
       />
       {props.label && (
         <label

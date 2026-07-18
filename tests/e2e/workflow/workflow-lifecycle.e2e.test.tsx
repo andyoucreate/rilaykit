@@ -1,17 +1,12 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowProvider,
-  flow,
-  useWorkflowContext,
-} from '@rilaykit/workflow';
-import { useCurrentStepIndex, useWorkflowAllData, useWorkflowStore } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
+import { useFlowData, useFlowStepIndex, useFlowStore } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextButton, PrevButton } from '../_setup/nav-buttons';
 import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
@@ -21,29 +16,15 @@ import { MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 function createWorkflowRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
-    })
-    .configure({
-      bodyRenderer: ({ children }) => <div>{children}</div>,
-      rowRenderer: ({ children }) => <div>{children}</div>,
-      nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-          {isSubmitting ? 'Loading...' : 'Next'}
-        </button>
-      ),
-      previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-          Previous
-        </button>
-      ),
     });
 }
 
@@ -54,7 +35,7 @@ let rilConfig: ReturnType<typeof createWorkflowRilConfig>;
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState, context } = useWorkflowContext();
+  const { workflowState, context } = useFlow();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -118,7 +99,7 @@ describe('Workflow Lifecycle — E2E', () => {
     // Act
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -144,8 +125,8 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -192,9 +173,9 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -242,9 +223,9 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -295,8 +276,8 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -339,8 +320,8 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onStepChange={onStepChange}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -395,8 +376,8 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -443,7 +424,7 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultStep="step2">
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -476,9 +457,9 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -525,8 +506,8 @@ describe('Workflow Lifecycle — E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );

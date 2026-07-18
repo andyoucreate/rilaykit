@@ -1,5 +1,6 @@
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import { Input } from '@/components/ui/input';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface EmailInputProps {
   label?: string;
@@ -8,28 +9,21 @@ interface EmailInputProps {
   required?: boolean;
 }
 
-export function EmailInput({
-  id,
-  props,
-  value,
-  onChange,
-  onBlur,
-  disabled,
-  error,
-  touched,
-}: ComponentRenderProps<EmailInputProps>) {
-  const hasError = touched && error && error.length > 0;
+export function EmailInput({ id, props, field }: ComponentRenderContext<EmailInputProps>) {
+  const hasError = hasFieldError(field);
 
   return (
-    <Input
-      id={id}
-      type="email"
-      value={(value as string) ?? ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-      disabled={disabled}
-      placeholder={props.placeholder ?? 'email@example.com'}
-      className={hasError ? 'border-destructive' : ''}
-    />
+    <FieldWrapper id={id} props={props} field={field}>
+      <Input
+        id={id}
+        type="email"
+        value={(field?.value as string) ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+        disabled={field?.disabled}
+        placeholder={props.placeholder ?? 'email@example.com'}
+        className={hasError ? 'border-destructive' : ''}
+      />
+    </FieldWrapper>
   );
 }

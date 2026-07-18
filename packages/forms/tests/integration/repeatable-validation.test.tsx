@@ -1,38 +1,42 @@
-import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
+import type { ComponentRenderContext, FormConfiguration, ValidationResult } from '@rilaykit/core';
 import { required, ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormBody } from '../../src/components/FormBody';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider, useForm } from '../../src/components/FormProvider';
 
 // =================================================================
 // MOCK COMPONENTS
 // =================================================================
 
-const MockTextInput = ({ id, value, onChange, props, error }: any) => (
+const MockTextInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       data-testid={`input-${id}`}
-      value={value || ''}
-      onChange={(e: any) => onChange?.(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
-    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
+    {field?.error && field.error.length > 0 && (
+      <div data-testid={`error-${id}`}>{field.error[0].message}</div>
+    )}
   </div>
 );
 
-const MockNumberInput = ({ id, value, onChange, props, error }: any) => (
+const MockNumberInput = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
-    <label>{props?.label}</label>
+    <label>{String(props.label ?? '')}</label>
     <input
       type="number"
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e: any) => onChange?.(Number(e.target.value))}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(Number(e.target.value))}
     />
-    {error && error.length > 0 && <div data-testid={`error-${id}`}>{error[0].message}</div>}
+    {field?.error && field.error.length > 0 && (
+      <div data-testid={`error-${id}`}>{field.error[0].message}</div>
+    )}
   </div>
 );
 
@@ -42,16 +46,9 @@ const MockNumberInput = ({ id, value, onChange, props, error }: any) => (
 
 let rilConfig: any;
 
-const TestBodyRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
 function buildForm(opts?: { min?: number }): FormConfiguration {
-  const cfg = rilConfig.configure({
-    bodyRenderer: TestBodyRenderer,
-    rowRenderer: TestRowRenderer,
-  });
   return form
-    .create(cfg, 'test-form')
+    .create(rilConfig, 'test-form')
     .add({ id: 'title', type: 'text', props: { label: 'Title' } })
     .addRepeatable('items', (r) => {
       let b = r.add(
@@ -70,7 +67,7 @@ function buildForm(opts?: { min?: number }): FormConfiguration {
 }
 
 function ValidationTestChild() {
-  const { validateForm } = useFormConfigContext();
+  const { validateForm } = useForm();
   const [result, setResult] = React.useState<ValidationResult | null>(null);
 
   return (
@@ -101,12 +98,12 @@ describe('Repeatable Fields — Validation Integration', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: MockTextInput,
         defaultProps: { label: '' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number',
         renderer: MockNumberInput,
         defaultProps: { label: '', min: 0 },

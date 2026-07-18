@@ -11,7 +11,7 @@
  * a simple API for common use cases.
  */
 
-import type { WorkflowState } from '../hooks/useWorkflowState';
+import type { WorkflowState } from '../hooks/workflow-state';
 
 /**
  * Persistent workflow data that gets saved/loaded
@@ -25,6 +25,17 @@ export interface PersistedWorkflowData {
   allData: Record<string, any>;
   /** Currently active step data */
   stepData: Record<string, any>;
+  /**
+   * Live repeatable row order per step, keyed `stepId -> repeatableId -> keys`.
+   *
+   * The order is unreconstructable from the values — a move rewrites the order
+   * and nothing else — so a snapshot that carries only the values restores the
+   * rows in their insertion order and silently reverts the user's arrangement.
+   *
+   * Optional: a snapshot written before this field existed must still restore,
+   * falling back to reconstruction from the flat composite keys.
+   */
+  repeatableOrders?: Record<string, Record<string, string[]>>;
   /** Set of visited step IDs */
   visitedSteps: string[];
   /** Set of passed/validated step IDs */

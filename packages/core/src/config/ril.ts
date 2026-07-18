@@ -1,59 +1,116 @@
-import type { ComponentConfig, FormRenderConfig, WorkflowRenderConfig } from '../types';
+import type React from 'react';
+import {
+  ConfigurationError,
+  DuplicateError,
+  MaxDepthExceededError,
+  NotFoundError,
+  ValidationError,
+} from '../errors';
+import type {
+  ComponentEntry,
+  ComponentRenderContext,
+  PartEntry,
+  PropsValidationResult,
+  ToolEntry,
+} from '../types/catalog';
 import { ensureUnique } from '../utils/builderHelpers';
 
 /**
- * Structured error hierarchy for Rilay
+ * Canonical key of a catalog entry in the namespaced catalog map.
+ * Shared with packages that reference entries in error payloads (e.g. forms'
+ * FormField) so the key scheme never diverges from core lookups.
  */
-export class RilayError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly meta?: Record<string, any>
-  ) {
-    super(message);
-    this.name = 'RilayError';
-  }
-}
-
-export class ValidationError extends RilayError {
-  constructor(message: string, meta?: Record<string, any>) {
-    super(message, 'VALIDATION_ERROR', meta);
-    this.name = 'ValidationError';
-  }
-}
-
-export class DuplicateIdError extends RilayError {
-  constructor(message: string, meta?: Record<string, any>) {
-    super(message, 'DUPLICATE_ID_ERROR', meta);
-    this.name = 'DuplicateIdError';
-  }
+export function catalogEntryKey(kind: 'component' | 'tool' | 'part', id: string): string {
+  return `${kind}:${id}`;
 }
 
 /**
- * Deep merge utility for nested configuration objects
+ * Determines whether a value is a plain data object (literal `{}` or
+ * null-prototype). Class instances, RegExp, Date, functions, etc. are not.
  */
-function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
-  const result = { ...target };
-
-  for (const key in source) {
-    const sourceValue = source[key];
-    const targetValue = result[key];
-
-    if (
-      sourceValue &&
-      typeof sourceValue === 'object' &&
-      !Array.isArray(sourceValue) &&
-      targetValue &&
-      typeof targetValue === 'object' &&
-      !Array.isArray(targetValue)
-    ) {
-      result[key] = deepMerge(targetValue, sourceValue);
-    } else {
-      result[key] = sourceValue as T[Extract<keyof T, string>];
-    }
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
   }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 
-  return result;
+/**
+ * Deep-clones the plain-data payload of a catalog entry while PRESERVING
+ * reference identity for functions and Standard Schema objects.
+ *
+ * Nested `meta`/`defaultProps` (and any plain object/array) are cloned so a
+ * caller mutating the object it passed in cannot leak into the stored entry.
+ * Functions (`renderer`), Standard Schema objects (`propsSchema`,
+ * `inputSchema`, `validate`) and any non-plain object are passed through by
+ * reference so their identity — and behaviour — is never disturbed.
+ *
+ * A `seen` map guards against cyclic plain input (e.g. `meta.self = meta`):
+ * each source object/array maps to its clone, so a cycle is reproduced in the
+ * output instead of recursing until the stack overflows.
+ *
+ * `seen` only catches CYCLES; a deeply nested ACYCLIC payload (every node a
+ * distinct object) still recurses per level. The input can be untrusted
+ * (model-authored `defaultValues`, a corrupted persisted value), so `depth` is
+ * bounded by `MAX_CLONE_DEPTH` and a `MaxDepthExceededError` is thrown before
+ * the native stack overflows — an untrusted-input boundary converts it into a
+ * domain error rather than crashing.
+ */
+const MAX_CLONE_DEPTH = 512;
+
+export function clonePlainData<T>(
+  value: T,
+  seen: WeakMap<object, unknown> = new WeakMap(),
+  depth = 0
+): T {
+  if (depth >= MAX_CLONE_DEPTH) {
+    throw new MaxDepthExceededError(MAX_CLONE_DEPTH);
+  }
+  if (Array.isArray(value)) {
+    const existing = seen.get(value);
+    if (existing !== undefined) return existing as T;
+    const clonedArray: unknown[] = [];
+    seen.set(value, clonedArray);
+    for (const item of value) {
+      clonedArray.push(clonePlainData(item, seen, depth + 1));
+    }
+    return clonedArray as T;
+  }
+  if (isPlainObject(value)) {
+    // Standard Schema objects carry a `~standard` marker — never clone them.
+    if ('~standard' in value) {
+      return value;
+    }
+    const existing = seen.get(value);
+    if (existing !== undefined) return existing as T;
+    const cloned: Record<string, unknown> = {};
+    seen.set(value, cloned);
+    for (const [key, item] of Object.entries(value)) {
+      // `defineProperty`, not `cloned[key] = ...`: a plain assignment routes a
+      // `__proto__` key through Object.prototype's accessor, which grafts a
+      // prototype and DROPS the key — a clone must reproduce every own key it
+      // was given, `__proto__` included.
+      Object.defineProperty(cloned, key, {
+        value: clonePlainData(item, seen, depth + 1),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+    return cloned as T;
+  }
+  // Functions, non-plain objects and primitives keep their identity.
+  return value;
+}
+
+/**
+ * Builds a type guard matching catalog entries of the given kind
+ * stored in the namespaced catalog map
+ */
+function isEntryOfKind<TEntry extends { kind: string }>(kind: TEntry['kind']) {
+  return (entry: unknown): entry is TEntry =>
+    typeof entry === 'object' && entry !== null && (entry as { kind?: unknown }).kind === kind;
 }
 
 /**
@@ -66,45 +123,67 @@ export interface AsyncValidationResult {
 }
 
 /**
+ * A plugin is a function that receives a ril instance and returns an
+ * extended one (registering components, tools, parts...)
+ */
+export type RilayPlugin = (r: ril<Record<string, unknown>>) => ril<Record<string, unknown>>;
+
+/**
+ * Renderer bags accepted by `.renderers()` — component keys are constrained
+ * to the instance's registered component map `C` with per-component ctx
+ * typing; tools/parts stay string-keyed in P1 (runtime NotFoundError covers them)
+ */
+export interface RendererAttachments<C> {
+  readonly components?: {
+    readonly [K in keyof C & string]?: (ctx: ComponentRenderContext<C[K]>) => React.ReactElement;
+  };
+  readonly tools?: Record<string, NonNullable<ToolEntry['renderer']>>;
+  readonly parts?: Record<string, PartEntry['renderer']>;
+}
+
+/**
  * Public interface for Rilay instances
  * Exposes only the methods necessary for the public API
  */
 export interface RilayInstance<C> {
-  // Configuration methods
-  addComponent<NewType extends string, TProps = any>(
+  // Catalog registration methods
+  component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): RilayInstance<C & { [K in NewType]: TProps }>;
 
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayInstance<C>;
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): RilayInstance<C>;
+
+  part<TPart = unknown>(
+    type: string,
+    entry: Omit<PartEntry<TPart>, 'kind' | 'type'>
+  ): RilayInstance<C>;
+
+  use(plugin: RilayPlugin): RilayInstance<C>;
+
+  renderers(attachments: RendererAttachments<C>): RilayInstance<C>;
 
   // Component access methods
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined;
-  getAllComponents(): ComponentConfig[];
+  getComponent<T extends string>(
+    id: T
+  ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined;
+  getAllComponents(): ComponentEntry[];
   hasComponent(id: string): boolean;
 
-  // Configuration getters
-  getFormRenderConfig(): FormRenderConfig;
-  getWorkflowRenderConfig(): WorkflowRenderConfig;
+  // Tool and part access methods
+  getTool(name: string): ToolEntry | undefined;
+  getPart(type: string): PartEntry | undefined;
+  getAllTools(): ToolEntry[];
+  getAllParts(): PartEntry[];
+
+  // Props validation
+  validateProps(type: string, props: unknown): PropsValidationResult;
 
   // Utility methods
-  getStats(): {
-    total: number;
-    byType: Record<string, number>;
-    hasCustomRenderers: {
-      row: boolean;
-      body: boolean;
-      submitButton: boolean;
-      field: boolean;
-      repeatable: boolean;
-      repeatableItem: boolean;
-      stepper: boolean;
-      workflowNextButton: boolean;
-      workflowPreviousButton: boolean;
-      workflowSkipButton: boolean;
-    };
-  };
+  getStats(): { total: number; components: number; tools: number; parts: number };
 
   // Validation methods
   validate(): string[];
@@ -118,12 +197,10 @@ export interface RilayInstance<C> {
 
 /**
  * Main configuration class for Rilay form components and workflows
- * Manages component registration, retrieval, and configuration with immutable API
+ * Manages catalog entry registration, retrieval, and configuration with immutable API
  */
 export class ril<C> implements RilayInstance<C> {
-  private components = new Map<string, ComponentConfig>();
-  private formRenderConfig: FormRenderConfig = {};
-  private workflowRenderConfig: WorkflowRenderConfig = {};
+  private entries = new Map<string, unknown>();
 
   /**
    * Static factory method to create a new ril instance
@@ -132,147 +209,228 @@ export class ril<C> implements RilayInstance<C> {
     return new ril<CT>();
   }
 
+  private cloneWith(mutate?: (entries: Map<string, unknown>) => void): ril<C> {
+    const next = new ril<C>();
+    next.entries = new Map(this.entries);
+    mutate?.(next.entries);
+    return next;
+  }
+
   /**
-   * Add a component to the configuration (immutable)
-   * Returns a new instance with the added component
+   * Shared registration path for all catalog facades (immutable)
+   * Enforces the DuplicateError/replace semantics in a single place
+   *
+   * @throws DuplicateError if the key is already registered and `replace` is not true
+   */
+  private register(
+    key: string,
+    label: string,
+    replace: boolean | undefined,
+    value: unknown
+  ): ril<C> {
+    if (this.entries.has(key) && replace !== true) {
+      throw new DuplicateError(`${label} is already registered`, { key });
+    }
+    return this.cloneWith((entries) => {
+      // Deep-clone plain data so external mutation of the caller's object
+      // cannot leak into the stored (immutable) entry; functions and schemas
+      // keep their reference identity.
+      entries.set(key, clonePlainData(value));
+    });
+  }
+
+  /**
+   * Register a component in the catalog (immutable)
+   * Returns a new instance with the added component entry
    *
    * @param type - The component type (e.g., 'text', 'email', 'heading'), used as a unique identifier.
-   * @param config - Component configuration without id and type
-   * @returns A new ril instance with the added component
+   * @param entry - Component entry without kind and type
+   * @returns A new ril instance with the registered component
+   * @throws DuplicateError if the type is already registered and `entry.replace` is not true
    *
    * @example
    * ```typescript
-   * // Component with default validation
    * const factory = ril.create()
-   *   .addComponent('email', {
-   *     name: 'Email Input',
-   *     renderer: EmailInput,
-   *     validation: {
-   *       validators: [email('Format email invalide')],
-   *       validateOnBlur: true,
-   *     }
+   *   .component('email', {
+   *     description: 'Email input',
+   *     propsSchema: z.object({ label: z.string() }),
+   *     renderer: (ctx) => <input aria-label={ctx.props.label} />,
    *   });
    * ```
    */
-  addComponent<NewType extends string, TProps = any>(
+  component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): ril<C & { [K in NewType]: TProps }> {
-    const fullConfig: ComponentConfig<TProps> = {
-      id: type,
+    return this.register(catalogEntryKey('component', type), `Component "${type}"`, entry.replace, {
+      ...entry,
+      kind: 'component',
       type,
-      ...config,
-    };
-
-    // Create new instance (immutable)
-    const newInstance = new ril<C & { [K in NewType]: TProps }>();
-
-    // Copy existing components
-    newInstance.components = new Map(this.components);
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-
-    // Add new component
-    newInstance.components.set(type, fullConfig as ComponentConfig);
-
-    return newInstance;
+    } satisfies ComponentEntry<TProps>) as ril<C & { [K in NewType]: TProps }>;
   }
 
   /**
-   * Universal configuration method with deep merge support (immutable)
+   * Register a tool in the catalog (immutable)
+   * Returns a new instance with the added tool entry
    *
-   * This method provides a unified API to configure both form and workflow renderers
-   * in a single call, automatically categorizing and applying the appropriate configurations
-   * using recursive deep merge.
+   * @param name - The tool name (e.g., 'search_flights'), used as a unique identifier.
+   * @param entry - Tool entry without kind and name
+   * @returns A new ril instance with the registered tool
+   * @throws DuplicateError if the name is already registered and `entry.replace` is not true
+   */
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): ril<C> {
+    return this.register(catalogEntryKey('tool', name), `Tool "${name}"`, entry.replace, {
+      ...entry,
+      kind: 'tool',
+      name,
+    } satisfies ToolEntry<TInput, TOutput>);
+  }
+
+  /**
+   * Register a message part renderer in the catalog (immutable)
+   * Returns a new instance with the added part entry
    *
-   * @param config - Configuration object containing renderer settings
-   * @returns A new ril instance with the updated configuration
+   * @param type - The part type (e.g., 'text', 'reasoning'), used as a unique identifier.
+   * @param entry - Part entry without kind and type
+   * @returns A new ril instance with the registered part
+   * @throws DuplicateError if the type is already registered and `entry.replace` is not true
+   */
+  part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): ril<C> {
+    return this.register(catalogEntryKey('part', type), `Part "${type}"`, entry.replace, {
+      ...entry,
+      kind: 'part',
+      type,
+    } satisfies PartEntry<TPart>);
+  }
+
+  /**
+   * Apply a plugin to this instance (immutable)
+   * The plugin receives the instance and returns an extended one
+   *
+   * @param plugin - Function that registers entries and returns the extended instance
+   * @returns The instance returned by the plugin
    *
    * @example
    * ```typescript
-   * // Configure with nested settings
-   * const config = ril.create()
-   *   .configure({
-   *     rowRenderer: CustomRowRenderer,
-   *     submitButtonRenderer: CustomSubmitButton,
-   *     // Deep nested configuration example
-   *     formStyles: {
-   *       layout: {
-   *         spacing: 'large',
-   *         alignment: 'center'
-   *       }
-   *     }
-   *   });
+   * const withSearch: RilayPlugin = (r) => r.tool('search', { description: 'Search' });
+   * const config = ril.create().use(withSearch);
    * ```
    */
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): ril<C> {
-    // Define renderer categories for automatic classification
-    const formKeys: (keyof FormRenderConfig)[] = [
-      'rowRenderer',
-      'bodyRenderer',
-      'submitButtonRenderer',
-      'fieldRenderer',
-      'repeatableRenderer',
-      'repeatableItemRenderer',
-    ];
-    const workflowKeys: (keyof WorkflowRenderConfig)[] = [
-      'stepperRenderer',
-      'nextButtonRenderer',
-      'previousButtonRenderer',
-      'skipButtonRenderer',
-    ];
-
-    // Initialize configuration containers
-    const formRenderers: Partial<FormRenderConfig> = {};
-    const workflowRenderers: Partial<WorkflowRenderConfig> = {};
-
-    // Categorize and extract renderers by type
-    for (const [key, value] of Object.entries(config)) {
-      if (formKeys.includes(key as keyof FormRenderConfig)) {
-        (formRenderers as any)[key] = value;
-      } else if (workflowKeys.includes(key as keyof WorkflowRenderConfig)) {
-        (workflowRenderers as any)[key] = value;
-      }
-    }
-
-    // Create new instance (immutable)
-    const newInstance = new ril<C>();
-
-    // Copy existing state
-    newInstance.components = new Map(this.components);
-
-    // Apply configurations using deep merge strategy
-    newInstance.formRenderConfig = deepMerge(this.formRenderConfig, formRenderers);
-    newInstance.workflowRenderConfig = deepMerge(this.workflowRenderConfig, workflowRenderers);
-
-    return newInstance;
+  use(plugin: RilayPlugin): ril<C> {
+    return plugin(this as ril<Record<string, unknown>>) as ril<C>;
   }
 
   /**
-   * Configuration getters
+   * Attach or override renderers on already-registered entries (immutable)
+   * Only the renderer is touched — schemas, descriptions and meta are preserved
+   *
+   * @param attachments - Renderer bags keyed by entry name per namespace
+   * @returns A new ril instance with the renderers attached
+   * @throws NotFoundError if a key does not match a registered entry
    */
-  getFormRenderConfig(): FormRenderConfig {
-    return { ...this.formRenderConfig };
-  }
-
-  getWorkflowRenderConfig(): WorkflowRenderConfig {
-    return { ...this.workflowRenderConfig };
+  renderers(attachments: RendererAttachments<C>): ril<C> {
+    return this.cloneWith((entries) => {
+      const attach = (
+        bag: Record<string, unknown> | undefined,
+        prefix: 'component' | 'tool' | 'part'
+      ) => {
+        for (const [name, renderer] of Object.entries(bag ?? {})) {
+          const key = catalogEntryKey(prefix, name);
+          const existing = entries.get(key);
+          if (!existing) {
+            throw new NotFoundError(`Cannot attach renderer: no ${prefix} "${name}" registered`, {
+              key,
+            });
+          }
+          entries.set(key, { ...(existing as object), renderer });
+        }
+      };
+      attach(attachments.components as Record<string, unknown> | undefined, 'component');
+      attach(attachments.tools, 'tool');
+      attach(attachments.parts, 'part');
+    });
   }
 
   /**
    * Component management methods
    */
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined {
-    return this.components.get(id);
+  getComponent<T extends string>(
+    id: T
+  ): ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>> | undefined {
+    return this.entries.get(catalogEntryKey('component', id)) as
+      | ComponentEntry<T extends keyof C ? C[T] : Record<string, unknown>>
+      | undefined;
   }
 
-  getAllComponents(): ComponentConfig[] {
-    return Array.from(this.components.values());
+  getAllComponents(): ComponentEntry[] {
+    return Array.from(this.entries.values()).filter(isEntryOfKind<ComponentEntry>('component'));
   }
 
   hasComponent(id: string): boolean {
-    return this.components.has(id);
+    return this.entries.has(catalogEntryKey('component', id));
+  }
+
+  /**
+   * Tool and part access methods
+   */
+  getTool(name: string): ToolEntry | undefined {
+    return this.entries.get(catalogEntryKey('tool', name)) as ToolEntry | undefined;
+  }
+
+  getPart(type: string): PartEntry | undefined {
+    return this.entries.get(catalogEntryKey('part', type)) as PartEntry | undefined;
+  }
+
+  getAllTools(): ToolEntry[] {
+    return Array.from(this.entries.values()).filter(isEntryOfKind<ToolEntry>('tool'));
+  }
+
+  getAllParts(): PartEntry[] {
+    return Array.from(this.entries.values()).filter(isEntryOfKind<PartEntry>('part'));
+  }
+
+  /**
+   * Validate props against a registered component's propsSchema (synchronous)
+   *
+   * Components without a propsSchema pass through unchanged. On failure the
+   * result carries the schema issues plus a best-effort `expectedKeys` list
+   * (zod object schemas expose `.shape`; other vendors simply omit it).
+   *
+   * @param type - The registered component type
+   * @param props - The props to validate
+   * @returns A structured success/failure result
+   * @throws NotFoundError if the component is not registered
+   * @throws ConfigurationError if the propsSchema validates asynchronously
+   */
+  validateProps(type: string, props: unknown): PropsValidationResult {
+    const entry = this.getComponent(type);
+    if (!entry) {
+      throw new NotFoundError(`Component "${type}" not found in catalog`, {
+        key: catalogEntryKey('component', type),
+      });
+    }
+    if (!entry.propsSchema) {
+      return { success: true, value: props };
+    }
+    const outcome = entry.propsSchema['~standard'].validate(props);
+    if (outcome instanceof Promise) {
+      throw new ConfigurationError(
+        `propsSchema of "${type}" is async — props schemas must validate synchronously`,
+        { key: catalogEntryKey('component', type) }
+      );
+    }
+    if (outcome.issues) {
+      const shape = (entry.propsSchema as { shape?: Record<string, unknown> }).shape;
+      return {
+        success: false,
+        issues: outcome.issues,
+        expectedKeys: shape ? Object.keys(shape) : undefined,
+      };
+    }
+    return { success: true, value: outcome.value };
   }
 
   /**
@@ -283,145 +441,62 @@ export class ril<C> implements RilayInstance<C> {
    * @returns A new ril instance without the component
    */
   removeComponent(id: string): ril<C> {
-    const newInstance = new ril<C>();
-
-    // Copy existing state
-    newInstance.components = new Map(this.components);
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-
-    // Remove component
-    newInstance.components.delete(id);
-
-    return newInstance;
+    return this.cloneWith((entries) => {
+      entries.delete(catalogEntryKey('component', id));
+    });
   }
 
   /**
-   * Clear all components from the configuration (immutable)
-   * Returns a new instance with no components
+   * Clear all catalog entries from the configuration (immutable)
+   * Returns a new instance with no entries
    *
    * @returns A new empty ril instance
    */
   clear(): ril<C> {
-    const newInstance = new ril<C>();
-    // Keep render configurations but clear components
-    newInstance.formRenderConfig = { ...this.formRenderConfig };
-    newInstance.workflowRenderConfig = { ...this.workflowRenderConfig };
-    // components map is already empty in new instance
-    return newInstance;
+    return this.cloneWith((entries) => {
+      entries.clear();
+    });
   }
 
   /**
    * Create a deep copy of the current ril instance
    */
   clone(): ril<C> {
-    const newInstance = new ril<C>();
-    newInstance.components = new Map(this.components);
-    newInstance.formRenderConfig = deepMerge({}, this.formRenderConfig);
-    newInstance.workflowRenderConfig = deepMerge({}, this.workflowRenderConfig);
-    return newInstance;
+    return this.cloneWith();
   }
 
   /**
-   * Enhanced statistics with more detailed information
+   * Flat catalog statistics: entry counts by kind
    */
-  getStats(): {
-    total: number;
-    byType: Record<string, number>;
-    hasCustomRenderers: {
-      row: boolean;
-      body: boolean;
-      submitButton: boolean;
-      field: boolean;
-      repeatable: boolean;
-      repeatableItem: boolean;
-      stepper: boolean;
-      workflowNextButton: boolean;
-      workflowPreviousButton: boolean;
-      workflowSkipButton: boolean;
-    };
-  } {
-    const components = Array.from(this.components.values());
-
+  getStats(): { total: number; components: number; tools: number; parts: number } {
+    const counts = { component: 0, tool: 0, part: 0 };
+    for (const entry of this.entries.values()) {
+      counts[(entry as { kind: 'component' | 'tool' | 'part' }).kind] += 1;
+    }
     return {
-      total: components.length,
-      byType: components.reduce(
-        (acc, comp) => {
-          acc[comp.type] = (acc[comp.type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
-      hasCustomRenderers: {
-        row: Boolean(this.formRenderConfig.rowRenderer),
-        body: Boolean(this.formRenderConfig.bodyRenderer),
-        submitButton: Boolean(this.formRenderConfig.submitButtonRenderer),
-        field: Boolean(this.formRenderConfig.fieldRenderer),
-        repeatable: Boolean(this.formRenderConfig.repeatableRenderer),
-        repeatableItem: Boolean(this.formRenderConfig.repeatableItemRenderer),
-        stepper: Boolean(this.workflowRenderConfig.stepperRenderer),
-        workflowNextButton: Boolean(this.workflowRenderConfig.nextButtonRenderer),
-        workflowPreviousButton: Boolean(this.workflowRenderConfig.previousButtonRenderer),
-        workflowSkipButton: Boolean(this.workflowRenderConfig.skipButtonRenderer),
-      },
+      total: this.entries.size,
+      components: counts.component,
+      tools: counts.tool,
+      parts: counts.part,
     };
   }
 
   /**
    * Synchronous validation using shared utilities
+   *
+   * Renderer-less components are legit blueprints and never error here;
+   * validateAsync surfaces them as warnings instead.
    */
   validate(): string[] {
     const errors: string[] = [];
-    const components = Array.from(this.components.values());
+    const components = this.getAllComponents();
 
-    // Check for duplicate IDs using shared utility
-    const ids = components.map((comp) => comp.id);
+    // Check for duplicate types using shared utility
+    const types = components.map((comp) => comp.type);
     try {
-      ensureUnique(ids, 'component');
+      ensureUnique(types, 'component');
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
-    }
-
-    // Check for components without renderers
-    const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
-    if (componentsWithoutRenderer.length > 0) {
-      errors.push(
-        `Components without renderer: ${componentsWithoutRenderer
-          .map((comp) => comp.id)
-          .join(', ')}`
-      );
-    }
-
-    // Check for invalid renderer configurations
-    const formRendererKeys = Object.keys(this.formRenderConfig);
-    const workflowRendererKeys = Object.keys(this.workflowRenderConfig);
-
-    const validFormKeys = [
-      'rowRenderer',
-      'bodyRenderer',
-      'submitButtonRenderer',
-      'fieldRenderer',
-      'repeatableRenderer',
-      'repeatableItemRenderer',
-    ];
-    const validWorkflowKeys = [
-      'stepperRenderer',
-      'nextButtonRenderer',
-      'previousButtonRenderer',
-      'skipButtonRenderer',
-    ];
-
-    const invalidFormKeys = formRendererKeys.filter((key) => !validFormKeys.includes(key));
-    const invalidWorkflowKeys = workflowRendererKeys.filter(
-      (key) => !validWorkflowKeys.includes(key)
-    );
-
-    if (invalidFormKeys.length > 0) {
-      errors.push(`Invalid form renderer keys: ${invalidFormKeys.join(', ')}`);
-    }
-
-    if (invalidWorkflowKeys.length > 0) {
-      errors.push(`Invalid workflow renderer keys: ${invalidWorkflowKeys.join(', ')}`);
     }
 
     return errors;
@@ -434,12 +509,22 @@ export class ril<C> implements RilayInstance<C> {
   async validateAsync(): Promise<AsyncValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
-    const components = Array.from(this.components.values());
+    const components = this.getAllComponents();
 
     try {
       // Basic synchronous validations
       const syncErrors = this.validate();
       errors.push(...syncErrors);
+
+      // Renderer-less entries are legit blueprints — surface them as warnings only
+      const componentsWithoutRenderer = components.filter((comp) => !comp.renderer);
+      if (componentsWithoutRenderer.length > 0) {
+        warnings.push(
+          `Components without renderer: ${componentsWithoutRenderer
+            .map((comp) => comp.type)
+            .join(', ')}`
+        );
+      }
 
       // Advanced asynchronous validations
       const componentValidationPromises = components.map(async (comp) => {
@@ -449,13 +534,13 @@ export class ril<C> implements RilayInstance<C> {
           typeof comp.renderer !== 'function' &&
           typeof comp.renderer !== 'object'
         ) {
-          return `Component "${comp.id}" has invalid renderer type: ${typeof comp.renderer}`;
+          return `Component "${comp.type}" has invalid renderer type: ${typeof comp.renderer}`;
         }
 
         // Check for potential naming conflicts
-        if (comp.id.includes(' ') || comp.id.includes('-')) {
+        if (comp.type.includes(' ') || comp.type.includes('-')) {
           warnings.push(
-            `Component "${comp.id}" uses non-standard naming (contains spaces or dashes)`
+            `Component "${comp.type}" uses non-standard naming (contains spaces or dashes)`
           );
         }
 

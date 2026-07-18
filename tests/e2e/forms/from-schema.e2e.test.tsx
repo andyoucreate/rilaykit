@@ -1,7 +1,8 @@
 // @ts-nocheck — generic constraints bypass for e2e flexibility
 import { custom, required } from '@rilaykit/core';
-import { FormBody, FormProvider, fromSchema } from '@rilaykit/forms';
+import { fromSchema } from '@rilaykit/forms';
 import type { FormSchema, SchemaRegistry } from '@rilaykit/forms';
+import { FormBody, FormProvider } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -151,7 +152,7 @@ describe('fromSchema e2e — validation', () => {
         extraChildren: (
           <>
             <ValidationTrigger />
-            <FieldErrorDisplay fieldId="name" />
+            <FieldErrorDisplay id="name" />
           </>
         ),
       }
@@ -176,7 +177,7 @@ describe('fromSchema e2e — validation', () => {
         extraChildren: (
           <>
             <ValidationTrigger />
-            <FieldErrorDisplay fieldId="email" />
+            <FieldErrorDisplay id="email" />
           </>
         ),
       }
@@ -207,7 +208,7 @@ describe('fromSchema e2e — validation', () => {
         extraChildren: (
           <>
             <ValidationTrigger />
-            <FieldErrorDisplay fieldId="username" />
+            <FieldErrorDisplay id="username" />
           </>
         ),
       }
@@ -251,7 +252,7 @@ describe('fromSchema e2e — validation', () => {
         extraChildren: (
           <>
             <ValidationTrigger />
-            <FieldErrorDisplay fieldId="zip" />
+            <FieldErrorDisplay id="zip" />
           </>
         ),
       }
@@ -301,7 +302,7 @@ describe('fromSchema e2e — validation', () => {
         extraChildren: (
           <>
             <ValidationTrigger />
-            <FieldErrorDisplay fieldId="password" />
+            <FieldErrorDisplay id="password" />
           </>
         ),
       }
@@ -338,7 +339,7 @@ describe('fromSchema e2e — validation', () => {
         ],
       },
       {
-        extraChildren: <FieldErrorDisplay fieldId="name" />,
+        extraChildren: <FieldErrorDisplay id="name" />,
       }
     );
 
@@ -446,7 +447,7 @@ describe('fromSchema e2e — conditions', () => {
         ],
       },
       {
-        extraChildren: <SetValueButton fieldId="locked" value={true} />,
+        extraChildren: <SetValueButton id="locked" value={true} />,
       }
     );
 
@@ -487,8 +488,8 @@ describe('fromSchema e2e — conditions', () => {
       {
         extraChildren: (
           <>
-            <SetValueButton fieldId="role" value="admin" />
-            <SetValueButton fieldId="level" value={10} />
+            <SetValueButton id="role" value="admin" />
+            <SetValueButton id="level" value={10} />
           </>
         ),
       }
@@ -646,7 +647,7 @@ describe('fromSchema e2e — effects', () => {
         registry,
         extraChildren: (
           <>
-            <SetValueButton fieldId="city" value="Paris" />
+            <SetValueButton id="city" value="Paris" />
             <FormValuesDisplay />
           </>
         ),
@@ -932,7 +933,7 @@ describe('fromSchema e2e — submission', () => {
         extraChildren: (
           <>
             <SubmitButton />
-            <FieldErrorDisplay fieldId="name" />
+            <FieldErrorDisplay id="name" />
           </>
         ),
       }
@@ -1164,8 +1165,8 @@ describe('fromSchema e2e — full integration', () => {
         <>
           <SubmitButton />
           <ValidationTrigger />
-          <FieldErrorDisplay fieldId="firstName" />
-          <FieldErrorDisplay fieldId="email" />
+          <FieldErrorDisplay id="firstName" />
+          <FieldErrorDisplay id="email" />
           <RepeatableControls repeatableId="addresses" />
         </>
       ),

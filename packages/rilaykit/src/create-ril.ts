@@ -1,37 +1,55 @@
 import {
-  type ComponentConfig,
-  type FormRenderConfig,
+  type ComponentEntry,
   ril as OriginalRil,
+  type PartEntry,
+  type RendererAttachments,
   type RilayInstance,
-  type WorkflowRenderConfig,
+  type RilayPlugin,
+  type ToolEntry,
 } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { flow } from '@rilaykit/workflow';
 
 /**
+ * Methods whose return type must be narrowed from RilayInstance to RilayKit
+ * so chaining keeps the enhanced .form()/.flow() surface.
+ */
+type ChainingKeys =
+  | 'component'
+  | 'tool'
+  | 'part'
+  | 'use'
+  | 'renderers'
+  | 'clone'
+  | 'removeComponent'
+  | 'clear';
+
+/**
  * Enhanced RilayKit interface with convenience .form() and .flow() methods.
  * Available when using the all-in-one `rilaykit` package.
+ *
+ * All accessors (getComponent, getTool, validateProps, getStats, validate...)
+ * are inherited from core's RilayInstance so the facade never drifts out of
+ * sync; only the chaining methods are re-declared to return RilayKit.
  */
-export interface RilayKit<C extends Record<string, any>> {
-  addComponent<NewType extends string, TProps = any>(
+export interface RilayKit<C extends Record<string, any>>
+  extends Omit<RilayInstance<C>, ChainingKeys> {
+  // Catalog registration facades (each preserves the enhanced instance)
+  component<NewType extends string, TProps = Record<string, unknown>>(
     type: NewType,
-    config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+    entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
   ): RilayKit<C & { [K in NewType]: TProps }>;
 
-  configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayKit<C>;
+  tool<TInput = unknown, TOutput = unknown>(
+    name: string,
+    entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+  ): RilayKit<C>;
 
-  getComponent<T extends keyof C & string>(id: T): ComponentConfig<C[T]> | undefined;
-  getComponent(id: string): ComponentConfig | undefined;
-  getAllComponents(): ComponentConfig[];
-  hasComponent(id: string): boolean;
+  part<TPart = unknown>(type: string, entry: Omit<PartEntry<TPart>, 'kind' | 'type'>): RilayKit<C>;
 
-  getFormRenderConfig(): FormRenderConfig;
-  getWorkflowRenderConfig(): WorkflowRenderConfig;
+  use(plugin: RilayPlugin): RilayKit<C>;
 
-  getStats(): ReturnType<RilayInstance<C>['getStats']>;
-
-  validate(): string[];
-  validateAsync(): Promise<{ isValid: boolean; errors: string[]; warnings?: string[] }>;
+  renderers(attachments: RendererAttachments<C>): RilayKit<C>;
 
   clone(): RilayKit<C>;
   removeComponent(id: string): RilayKit<C>;
@@ -43,22 +61,43 @@ export interface RilayKit<C extends Record<string, any>> {
 
 function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit<C> {
   return {
-    addComponent<NewType extends string, TProps = any>(
+    component<NewType extends string, TProps = Record<string, unknown>>(
       type: NewType,
-      config: Omit<ComponentConfig<TProps>, 'id' | 'type'>
+      entry: Omit<ComponentEntry<TProps>, 'kind' | 'type'>
     ): RilayKit<C & { [K in NewType]: TProps }> {
-      return wrapRil(inner.addComponent<NewType, TProps>(type, config));
+      return wrapRil(inner.component<NewType, TProps>(type, entry));
     },
 
-    configure(config: Partial<FormRenderConfig & WorkflowRenderConfig>): RilayKit<C> {
-      return wrapRil(inner.configure(config));
+    tool<TInput = unknown, TOutput = unknown>(
+      name: string,
+      entry: Omit<ToolEntry<TInput, TOutput>, 'kind' | 'name'>
+    ): RilayKit<C> {
+      return wrapRil(inner.tool<TInput, TOutput>(name, entry));
     },
 
-    getComponent: inner.getComponent.bind(inner) as RilayKit<C>['getComponent'],
+    part<TPart = unknown>(
+      type: string,
+      entry: Omit<PartEntry<TPart>, 'kind' | 'type'>
+    ): RilayKit<C> {
+      return wrapRil(inner.part<TPart>(type, entry));
+    },
+
+    use(plugin: RilayPlugin): RilayKit<C> {
+      return wrapRil(inner.use(plugin));
+    },
+
+    renderers(attachments: RendererAttachments<C>): RilayKit<C> {
+      return wrapRil(inner.renderers(attachments));
+    },
+
+    getComponent: inner.getComponent.bind(inner),
     getAllComponents: inner.getAllComponents.bind(inner),
     hasComponent: inner.hasComponent.bind(inner),
-    getFormRenderConfig: inner.getFormRenderConfig.bind(inner),
-    getWorkflowRenderConfig: inner.getWorkflowRenderConfig.bind(inner),
+    getTool: inner.getTool.bind(inner),
+    getPart: inner.getPart.bind(inner),
+    getAllTools: inner.getAllTools.bind(inner),
+    getAllParts: inner.getAllParts.bind(inner),
+    validateProps: inner.validateProps.bind(inner),
     getStats: inner.getStats.bind(inner),
     validate: inner.validate.bind(inner),
     validateAsync: inner.validateAsync.bind(inner),
@@ -93,7 +132,16 @@ function wrapRil<C extends Record<string, any>>(inner: OriginalRil<C>): RilayKit
  * also have `.form()` and `.flow()` methods.
  */
 export const ril = {
-  create<CT extends Record<string, any> = Record<string, never>>(): RilayKit<CT> {
+  /**
+   * The default component map mirrors core's `ril.create()` (whose unbound
+   * generic resolves to `unknown`, an identity for intersections):
+   * `Record<never, never>` is the closest constraint-satisfying identity —
+   * `Record<never, never> & { card: P }` keeps `keyof` = `'card'` and
+   * `['card']` = `P`. A `Record<string, never>` default instead POISONS the
+   * accumulated map: its string index turns every `.renderers()` `ctx.props`
+   * into `never` and lets typo'd renderer keys type-check.
+   */
+  create<CT extends Record<string, any> = Record<never, never>>(): RilayKit<CT> {
     return wrapRil(OriginalRil.create<CT>());
   },
 } as const;

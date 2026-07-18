@@ -1,0 +1,148 @@
+import type { SchemaIssue, SchemaValidationError } from '@rilaykit/forms';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+
+export interface EmissionIssue {
+  readonly path: string;
+  readonly message: string;
+  /** Carried through from `SchemaIssue.severity` when the source issue has one. */
+  readonly severity?: 'error' | 'warning';
+  /**
+   * Carried through from `SchemaIssue.expectedKeys` when the source issue has one
+   * (per-COMPONENT accepted prop names — see `validateFieldProps`). Takes
+   * precedence over the top-level `EmissionResult.expectedKeys`, which is only a
+   * caller-supplied default.
+   */
+  readonly expectedKeys?: readonly string[];
+}
+
+/**
+ * The payload an invalid agent emission produces. Fed back to the model as a tool
+ * result so it can retry. Format proven in production in stndrds `wrappers.ts`.
+ */
+export interface EmissionResult {
+  readonly error: string;
+  readonly issues: readonly EmissionIssue[];
+  readonly expectedKeys: readonly string[];
+}
+
+function pathToString(
+  path: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }> | undefined
+): string {
+  if (!path) return '';
+  return path
+    .map((segment) =>
+      typeof segment === 'object' && segment !== null && 'key' in segment
+        ? String(segment.key)
+        : String(segment)
+    )
+    .join('.');
+}
+
+/**
+ * Extracts a human-readable message from an arbitrary thrown value, defensively.
+ * A rogue `Error` subclass can throw from its own `message` getter, and a rogue
+ * non-Error value can throw from `toString()`; either would otherwise crash the
+ * "never throws" contract `toEmissionResult` promises its callers.
+ */
+function safeMessage(error: unknown): string {
+  try {
+    return error instanceof Error ? error.message : String(error);
+  } catch {
+    return 'Unrenderable error';
+  }
+}
+
+/**
+ * Defensively maps a single schema issue to the wire shape. The structural
+ * check in `isSchemaValidationError` only verifies `issues` is an *array* — a
+ * hand-forged (or otherwise misbehaving) error can still populate it with
+ * `null`/`undefined` holes, or with issue objects whose `path`/`message` are
+ * throwing getters. Either would otherwise crash the "never throws" contract
+ * `toEmissionResult` promises its callers, same as `safeMessage` guards the
+ * top-level error message. A rogue entry maps to a fixed placeholder rather
+ * than being dropped, so `issues.length` still lines up with the source array.
+ */
+function safeIssue(issue: SchemaIssue | null | undefined): EmissionIssue {
+  try {
+    if (!issue) return { path: '', message: 'Unrenderable issue' };
+    return {
+      path: issue.path,
+      message: issue.message,
+      severity: issue.severity,
+      ...(issue.expectedKeys ? { expectedKeys: issue.expectedKeys } : {}),
+    };
+  } catch {
+    return { path: '', message: 'Unrenderable issue' };
+  }
+}
+
+/**
+ * Structural check against `SchemaValidationError`, not `instanceof` — this module
+ * is imported by `lib/catalog.ts`-style server blueprints and must never pull a
+ * runtime value from `@rilaykit/forms` (forms' main entry bundles its React
+ * components). `code` is the class's own discriminant (`SchemaValidationError`'s
+ * `readonly code = 'SCHEMA_VALIDATION_ERROR' as const`), so this narrows exactly
+ * as reliably as `instanceof` without importing the class.
+ */
+function isSchemaValidationError(error: unknown): error is SchemaValidationError {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as unknown as { readonly code?: unknown; readonly issues?: unknown };
+  return candidate.code === 'SCHEMA_VALIDATION_ERROR' && Array.isArray(candidate.issues);
+}
+
+/** Never throws. An emission failure is data the model retries from, not an exception. */
+export function toEmissionResult(
+  error: unknown,
+  expectedKeys: readonly string[] = []
+): EmissionResult {
+  if (isSchemaValidationError(error)) {
+    return {
+      error: safeMessage(error),
+      issues: error.issues.map(safeIssue),
+      expectedKeys,
+    };
+  }
+  return { error: safeMessage(error), issues: [], expectedKeys };
+}
+
+function expectedKeysOf(schema: StandardSchemaV1): string[] {
+  const shape = (schema as { readonly shape?: Record<string, unknown> }).shape;
+  return shape ? Object.keys(shape) : [];
+}
+
+/**
+ * Discriminated outcome of `validateNodeProps`. On success it carries the
+ * schema's PARSED value — the renderer must receive that, never the raw props:
+ * zod strip mode silently drops excess keys (`dangerouslySetInnerHTML`, ...)
+ * only in the parsed output, not in the input it was handed.
+ */
+export type NodePropsValidation =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly result: EmissionResult };
+
+/** Returns the parsed value when the props are valid; an EmissionResult when they are not. */
+export function validateNodeProps(schema: StandardSchemaV1, props: unknown): NodePropsValidation {
+  const result = schema['~standard'].validate(props);
+  if (result instanceof Promise) {
+    return {
+      ok: false,
+      result: {
+        error: 'propsSchema must validate synchronously to render an agent emission',
+        issues: [],
+        expectedKeys: expectedKeysOf(schema),
+      },
+    };
+  }
+  if (!result.issues) return { ok: true, value: result.value };
+  return {
+    ok: false,
+    result: {
+      error: 'Invalid props',
+      issues: result.issues.map((issue) => ({
+        path: pathToString(issue.path),
+        message: issue.message,
+      })),
+      expectedKeys: expectedKeysOf(schema),
+    },
+  };
+}

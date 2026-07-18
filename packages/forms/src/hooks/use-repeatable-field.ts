@@ -1,6 +1,12 @@
-import type { FormFieldConfig, FormFieldRow, RepeatableFieldItem } from '@rilaykit/core';
+import type {
+  FormFieldConfig,
+  FormFieldRow,
+  RepeatableFieldConfig,
+  RepeatableFieldItem,
+} from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
-import { useFormConfigContext } from '../components/FormProvider';
+import { useForm } from '../components/FormProvider';
 import { useFormStore, useRepeatableKeys } from '../stores';
 import { buildCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
@@ -10,6 +16,8 @@ import { scopeConditions } from '../utils/scope-conditions';
 // =================================================================
 
 export interface UseRepeatableFieldReturn {
+  /** The resolved repeatable config, or undefined when the id is unknown */
+  config: RepeatableFieldConfig | undefined;
   items: RepeatableFieldItem[];
   append: (defaultValue?: Record<string, unknown>) => void;
   remove: (key: string) => void;
@@ -41,7 +49,7 @@ export interface UseRepeatableFieldReturn {
  *     {items.map(item => (
  *       <div key={item.key}>
  *         {item.allFields.map(field => (
- *           <FormField key={field.id} fieldId={field.id} fieldConfig={field} />
+ *           <FormField key={field.id} id={field.id} config={field} />
  *         ))}
  *         {canRemove && <button onClick={() => remove(item.key)}>Remove</button>}
  *       </div>
@@ -53,11 +61,11 @@ export interface UseRepeatableFieldReturn {
  */
 export function useRepeatableField(repeatableId: string): UseRepeatableFieldReturn {
   const store = useFormStore();
-  const { formConfig } = useFormConfigContext();
+  const { formConfig } = useForm();
   const orderedKeys = useRepeatableKeys(repeatableId);
 
   // Get the repeatable config from the form config
-  const repeatableConfig = formConfig.repeatableFields?.[repeatableId];
+  const repeatableConfig = getOwn(formConfig.repeatableFields, repeatableId);
 
   // Build set of template field IDs (for condition scoping)
   const templateFieldIds = useMemo(() => {
@@ -146,6 +154,7 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
   );
 
   return {
+    config: repeatableConfig,
     items,
     append,
     remove,

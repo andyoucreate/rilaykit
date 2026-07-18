@@ -30,58 +30,65 @@ bun add @rilaykit/core
 ### 1. Define Your Components
 
 ```tsx
-import { ComponentRenderer } from '@rilaykit/core';
+import type { ComponentRenderContext } from '@rilaykit/core';
+import { z } from 'zod';
 
-interface InputProps {
-  label: string;
-  type?: string;
-  placeholder?: string;
+const inputProps = z.object({
+  label: z.string(),
+  type: z.string().optional(),
+  placeholder: z.string().optional(),
+});
+type InputProps = z.infer<typeof inputProps>;
+
+function Input({ id, props, field }: ComponentRenderContext<InputProps>) {
+  return (
+    <div>
+      <label htmlFor={id}>{props.label}</label>
+      <input
+        id={id}
+        type={props.type || 'text'}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+      />
+      {field?.error?.[0] && <p>{field.error[0].message}</p>}
+    </div>
+  );
 }
-
-const Input: ComponentRenderer<InputProps> = ({
-  id, value, onChange, onBlur, error, props,
-}) => (
-  <div>
-    <label htmlFor={id}>{props.label}</label>
-    <input
-      id={id}
-      type={props.type || 'text'}
-      value={value || ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-    />
-    {error && <p>{error[0].message}</p>}
-  </div>
-);
 ```
 
-### 2. Create a Registry
+### 2. Create a Catalog
 
 ```tsx
 import { ril } from '@rilaykit/core';
 
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input })
-  .addComponent('select', { renderer: Select });
+  .component('input', { propsSchema: inputProps, renderer: Input })
+  .component('select', { renderer: Select });
 ```
 
-Each `.addComponent()` call returns a new typed instance — TypeScript tracks registered types and propagates component prop types through the entire builder chain.
+Each `.component()` call returns a new typed instance — TypeScript tracks registered types and propagates component prop types through the entire builder chain.
 
 ## Features
 
-### Component Registry
+### Unified Catalog
 
-An immutable, type-safe registry that maps component type names to their renderers and default props. Configured once, used across your entire application.
+An immutable, type-safe catalog with three namespaces — components, tools, and message parts — plus plugins and late renderer attachment.
 
 ```tsx
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input })
-  .addComponent('textarea', { renderer: Textarea })
-  .addComponent('select', { renderer: Select });
+  .component('input', { propsSchema: inputProps, meta: { icon: 'pencil' }, renderer: Input })
+  .tool('confirm_order', { description: 'Ask the user to confirm the order' })
+  .part('note', { renderer: NotePart })
+  .use(myPlugin)
+  .renderers({ tools: { confirm_order: ConfirmOrderTool } });
 
-// TypeScript knows exactly which types are valid
-// and narrows props accordingly
+// TypeScript knows exactly which component types are valid
+// and narrows props from each propsSchema
+rilay.validateProps('input', { label: 'Email' }); // { success: true, value: ... }
 ```
+
+Duplicate registrations throw `DuplicateError` (pass `replace: true` to swap an entry); unknown keys throw `NotFoundError`. Every error is a typed `RilayError` with a `code` (`VALIDATION | DUPLICATE | NOT_FOUND | INVALID_SCHEMA | CONFIGURATION`).
 
 ### Validation Engine
 
@@ -146,7 +153,8 @@ const monitor = initializeMonitoring({
 
 | Export | Description |
 |--------|-------------|
-| `ril` | Component registry builder with type accumulation |
+| `ril` | Unified catalog builder (`.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`) with type accumulation |
+| `RilayError`, `ValidationError`, `DuplicateError`, `NotFoundError`, `InvalidSchemaError`, `ConfigurationError` | Typed error hierarchy |
 | `when` | Condition builder for declarative field logic |
 | `required`, `email`, `url`, `pattern`, `min`, `max`, `minLength`, `maxLength`, `number` | Built-in validators |
 | `custom`, `async`, `combine` | Custom and composite validators |

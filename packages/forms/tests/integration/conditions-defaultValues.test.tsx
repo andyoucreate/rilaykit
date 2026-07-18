@@ -1,22 +1,25 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FormField, FormProvider, form } from '../../src';
+import { form } from '../../src';
+import { FormField, FormProvider } from '../../src/react';
 
 describe('Form - Field Conditions with DefaultValues', () => {
   // Mock components
-  const MockSelect = ({ id, value, onChange, props }: any) => (
+  const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
     <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
+      <label htmlFor={id}>{String(props.label ?? '')}</label>
       <select
         id={id}
-        value={Array.isArray(value) ? value[0] || '' : value || ''}
-        onChange={(e) => onChange?.(props.multiple ? [e.target.value] : e.target.value)}
+        value={
+          Array.isArray(field?.value) ? String(field?.value[0] ?? '') : String(field?.value ?? '')
+        }
+        onChange={(e) => field?.onChange(props.multiple ? [e.target.value] : e.target.value)}
         data-testid={`select-${id}`}
-        multiple={props.multiple}
+        multiple={Boolean(props.multiple)}
       >
-        {props.options.map((opt: any) => (
+        {(props.options as Array<{ value: string; label: string }>).map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
@@ -25,14 +28,14 @@ describe('Form - Field Conditions with DefaultValues', () => {
     </div>
   );
 
-  const MockInput = ({ id, value, onChange, props }: any) => (
+  const MockInput = ({ id, props, field }: ComponentRenderContext) => (
     <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
+      <label htmlFor={id}>{String(props.label ?? '')}</label>
       <input
         id={id}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
         data-testid={`input-${id}`}
       />
     </div>
@@ -46,17 +49,13 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     config = ril
       .create()
-      .addComponent('select', {
+      .component('select', {
         name: 'Select Input',
         renderer: MockSelect,
       })
-      .addComponent('input', {
+      .component('input', {
         name: 'Text Input',
         renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Create form with conditional fields
@@ -99,9 +98,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     render(
       <FormProvider formConfig={formConfig} defaultValues={defaultValues}>
-        <FormField fieldId="userType" />
-        <FormField fieldId="companyName" />
-        <FormField fieldId="personalInfo" />
+        <FormField id="userType" />
+        <FormField id="companyName" />
+        <FormField id="personalInfo" />
       </FormProvider>
     );
 
@@ -128,9 +127,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     render(
       <FormProvider formConfig={formConfig} defaultValues={defaultValues}>
-        <FormField fieldId="userType" />
-        <FormField fieldId="companyName" />
-        <FormField fieldId="personalInfo" />
+        <FormField id="userType" />
+        <FormField id="companyName" />
+        <FormField id="personalInfo" />
       </FormProvider>
     );
 
@@ -154,9 +153,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     render(
       <FormProvider formConfig={formConfig} defaultValues={defaultValues}>
-        <FormField fieldId="userType" />
-        <FormField fieldId="companyName" />
-        <FormField fieldId="personalInfo" />
+        <FormField id="userType" />
+        <FormField id="companyName" />
+        <FormField id="personalInfo" />
       </FormProvider>
     );
 
@@ -229,10 +228,10 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     render(
       <FormProvider formConfig={complexForm} defaultValues={defaultValues}>
-        <FormField fieldId="hasCompany" />
-        <FormField fieldId="companySize" />
-        <FormField fieldId="employeeCount" />
-        <FormField fieldId="personalReason" />
+        <FormField id="hasCompany" />
+        <FormField id="companySize" />
+        <FormField id="employeeCount" />
+        <FormField id="personalReason" />
       </FormProvider>
     );
 
@@ -295,9 +294,9 @@ describe('Form - Field Conditions with DefaultValues', () => {
 
     render(
       <FormProvider formConfig={arrayForm} defaultValues={defaultValues}>
-        <FormField fieldId="interests" />
-        <FormField fieldId="techDetails" />
-        <FormField fieldId="healthDetails" />
+        <FormField id="interests" />
+        <FormField id="techDetails" />
+        <FormField id="healthDetails" />
       </FormProvider>
     );
 

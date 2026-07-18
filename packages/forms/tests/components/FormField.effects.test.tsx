@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { onChange, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, onChange, ril } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,14 +11,14 @@ import { FormProvider } from '../../src/components/FormProvider';
 // Mock components
 // ---------------------------------------------------------------------------
 
-const MockSelect = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <select
       data-testid={`select-${id}`}
-      value={value || ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     >
-      {(props.options || []).map((opt: any) => (
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -27,25 +27,25 @@ const MockSelect = ({ id, value, onChange: onChangeHandler, props }: any) => (
   </div>
 );
 
-const MockText = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockText = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
-      value={value ?? ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e) => field?.onChange(e.target.value)}
       readOnly={props.readOnly || false}
       data-readonly={String(!!props.readOnly)}
     />
   </div>
 );
 
-const MockNumber = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockNumber = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
       type="number"
-      value={value ?? ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e) => field?.onChange(e.target.value)}
       readOnly={props.readOnly || false}
     />
   </div>
@@ -58,16 +58,16 @@ const MockNumber = ({ id, value, onChange: onChangeHandler, props }: any) => (
 function createConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: MockText,
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select Input',
       renderer: MockSelect,
       defaultProps: { options: [] },
     })
-    .addComponent('number', {
+    .component('number', {
       name: 'Number Input',
       renderer: MockNumber,
     });
@@ -124,8 +124,8 @@ describe('FormField — Effects Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
+          <FormField id="country" />
+          <FormField id="city" />
         </FormProvider>
       );
 
@@ -190,8 +190,8 @@ describe('FormField — Effects Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
+          <FormField id="country" />
+          <FormField id="city" />
         </FormProvider>
       );
 
@@ -269,9 +269,9 @@ describe('FormField — Effects Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ price: '10', quantity: '2' }}>
-          <FormField fieldId="price" />
-          <FormField fieldId="quantity" />
-          <FormField fieldId="total" />
+          <FormField id="price" />
+          <FormField id="quantity" />
+          <FormField id="total" />
         </FormProvider>
       );
 
@@ -341,8 +341,8 @@ describe('FormField — Effects Integration', () => {
       // Mount with defaultValues — effects should fire for country='france'
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ country: 'france' }}>
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
+          <FormField id="country" />
+          <FormField id="city" />
         </FormProvider>
       );
 
@@ -360,29 +360,29 @@ describe('FormField — Effects Integration', () => {
   });
 
   // =========================================================================
-  // 5. dynamicProps override static props but not customProps
+  // 5. dynamicProps override static props but not overrides
   // =========================================================================
 
-  describe('Props precedence: fieldConfig.props < dynamicProps < customProps', () => {
+  describe('Props precedence: fieldConfig.props < dynamicProps < overrides', () => {
     it('should let dynamicProps override static field props', async () => {
-      const MockTextWithPlaceholder = ({ id, value, onChange: onChangeHandler, props }: any) => (
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}
-            value={value ?? ''}
+            value={field?.value ?? ''}
             placeholder={props.placeholder ?? ''}
-            onChange={(e) => onChangeHandler?.(e.target.value)}
+            onChange={(e) => field?.onChange(e.target.value)}
           />
         </div>
       );
 
       const localConfig = ril
         .create()
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input',
           renderer: MockTextWithPlaceholder,
         })
-        .addComponent('select', {
+        .component('select', {
           name: 'Select Input',
           renderer: MockSelect,
           defaultProps: { options: [] },
@@ -416,8 +416,8 @@ describe('FormField — Effects Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="toggle" />
-          <FormField fieldId="target" />
+          <FormField id="toggle" />
+          <FormField id="target" />
         </FormProvider>
       );
 
@@ -434,25 +434,25 @@ describe('FormField — Effects Integration', () => {
       });
     });
 
-    it('should let customProps take precedence over dynamicProps', async () => {
-      const MockTextWithPlaceholder = ({ id, value, onChange: onChangeHandler, props }: any) => (
+    it('should let overrides take precedence over dynamicProps', async () => {
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}
-            value={value ?? ''}
+            value={field?.value ?? ''}
             placeholder={props.placeholder ?? ''}
-            onChange={(e) => onChangeHandler?.(e.target.value)}
+            onChange={(e) => field?.onChange(e.target.value)}
           />
         </div>
       );
 
       const localConfig = ril
         .create()
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input',
           renderer: MockTextWithPlaceholder,
         })
-        .addComponent('select', {
+        .component('select', {
           name: 'Select Input',
           renderer: MockSelect,
           defaultProps: { options: [] },
@@ -485,9 +485,9 @@ describe('FormField — Effects Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="toggle" />
-          {/* customProps forces placeholder='custom', overriding dynamicProps */}
-          <FormField fieldId="target" customProps={{ placeholder: 'custom' }} />
+          <FormField id="toggle" />
+          {/* overrides forces placeholder='custom', overriding dynamicProps */}
+          <FormField id="target" overrides={{ placeholder: 'custom' }} />
         </FormProvider>
       );
 
@@ -497,35 +497,35 @@ describe('FormField — Effects Integration', () => {
       });
 
       await waitFor(() => {
-        // But customProps { placeholder: 'custom' } has higher precedence
+        // But overrides { placeholder: 'custom' } has higher precedence
         expect(screen.getByTestId('input-target')).toHaveAttribute('placeholder', 'custom');
       });
     });
 
-    it('should apply precedence: fieldConfig.props < dynamicProps < customProps', async () => {
+    it('should apply precedence: fieldConfig.props < dynamicProps < overrides', async () => {
       // This test verifies the full chain in a single scenario.
       // fieldConfig.props has placeholder='static'
       // Effect sets placeholder='dynamic' via setProps
-      // customProps sets placeholder='custom'
+      // overrides sets placeholder='custom'
 
-      const MockTextWithPlaceholder = ({ id, value, onChange: onChangeHandler, props }: any) => (
+      const MockTextWithPlaceholder = ({ id, props, field }: ComponentRenderContext) => (
         <div data-testid={`field-${id}`}>
           <input
             data-testid={`input-${id}`}
-            value={value ?? ''}
+            value={field?.value ?? ''}
             placeholder={props.placeholder ?? ''}
-            onChange={(e) => onChangeHandler?.(e.target.value)}
+            onChange={(e) => field?.onChange(e.target.value)}
           />
         </div>
       );
 
       const configWithPlaceholder = ril
         .create()
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input',
           renderer: MockTextWithPlaceholder,
         })
-        .addComponent('select', {
+        .component('select', {
           name: 'Select Input',
           renderer: MockSelect,
           defaultProps: { options: [] },
@@ -552,11 +552,11 @@ describe('FormField — Effects Integration', () => {
         })
         .build();
 
-      // --- Without customProps: dynamicProps should win over static ---
+      // --- Without overrides: dynamicProps should win over static ---
       const { unmount } = render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="trigger" />
-          <FormField fieldId="fieldA" />
+          <FormField id="trigger" />
+          <FormField id="fieldA" />
         </FormProvider>
       );
 
@@ -572,11 +572,11 @@ describe('FormField — Effects Integration', () => {
 
       unmount();
 
-      // --- With customProps: customProps should win over dynamicProps ---
+      // --- With overrides: overrides should win over dynamicProps ---
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="trigger" />
-          <FormField fieldId="fieldA" customProps={{ placeholder: 'custom' }} />
+          <FormField id="trigger" />
+          <FormField id="fieldA" overrides={{ placeholder: 'custom' }} />
         </FormProvider>
       );
 

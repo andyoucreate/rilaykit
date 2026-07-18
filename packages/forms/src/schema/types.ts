@@ -74,6 +74,17 @@ export interface FormSchemaField {
   readonly type: string;
   /** Component props (JSON-serializable) */
   readonly props?: Record<string, unknown>;
+  /**
+   * Initial value for this field, declared inline (streaming-friendly: a field
+   * carries its own default, so a schema can be consumed field-by-field without
+   * waiting for a trailing `defaultValues` block).
+   *
+   * Merged into the compiled `defaultValues`. The schema-level
+   * `FormSchema.defaultValues[id]` is the explicit override and WINS when both
+   * are present. Ignored for fields inside a repeatable template — those use
+   * `FormSchemaRepeatable.defaultValue`.
+   */
+  readonly default?: unknown;
   /** Validation descriptors */
   readonly validation?: FieldSchemaValidation;
   /** Conditions — pass-through (already JSON-serializable ConditionConfig) */
@@ -159,18 +170,59 @@ export interface FieldSchemaEffect {
 }
 
 // =================================================================
-// REGISTRY — resolves non-serializable logic
+// BINDINGS — resolves non-serializable logic
 // =================================================================
 
 /**
- * Registry for custom validators and effect handlers.
+ * Consumer-supplied resolution for non-serializable schema references
+ * (custom validators, effect handlers).
  * Provided by the consumer alongside the ril config.
  */
-export interface SchemaRegistry {
+export interface Bindings {
   /** Custom validators indexed by key */
   readonly validators?: Record<string, CustomValidatorFactory>;
   /** Effect handlers indexed by key */
   readonly effects?: Record<string, SchemaEffectHandler>;
+}
+
+/** @deprecated Renamed to `Bindings`. */
+export type SchemaRegistry = Bindings;
+
+/** Options accepted by `compileForm`. */
+export interface CompileFormOptions {
+  /** Resolution for the schema's validator/effect string references. */
+  readonly bindings?: Bindings;
+  /**
+   * When true, each field's `props` are checked against its component's
+   * `propsSchema` and every violation is reported as a `SchemaValidationError`
+   * issue pathed to the offending PROP within the field's declaration
+   * (`fields[0].props.label`, `rows[1].fields[0].props.options[2]`), so the
+   * message names the exact key to fix. Fields whose component declares no
+   * `propsSchema` are skipped.
+   *
+   * Checks only — the compiled field keeps the props as authored. A passing
+   * `propsSchema`'s output is discarded, so its transforms and defaults do NOT
+   * apply (see `validateFieldProps` in compile-form.ts for why).
+   *
+   * Off by default — prop validation is the opt-in self-correction hook for
+   * agent-authored schemas, not a cost paid by hand-written ones.
+   */
+  readonly validateProps?: boolean;
+  /**
+   * Streaming tolerance: compile the COMPILABLE SUBSET of a partial schema
+   * instead of raising. A field whose definition is incomplete this render —
+   * missing `id`, missing or unknown `type`, non-object props, or (with
+   * `validateProps`) props that do not pass the component's propsSchema yet —
+   * is SKIPPED, never reported: the next chunk may complete it. A field whose
+   * core definition is complete mounts immediately; an invalid or half-arrived
+   * `validation` / `effects` / `conditions` block is stripped from it rather
+   * than unmounting the field. `compileForm` never throws in lenient mode.
+   *
+   * Off by default — strict compilation (throw on any defect) is the contract
+   * for settled schemas; lenient exists ONLY for `state === 'streaming'`
+   * emissions being progressively mounted.
+   */
+  readonly lenient?: boolean;
 }
 
 /**
@@ -184,7 +236,7 @@ export type CustomValidatorFactory = (
 
 /**
  * Effect handler with optional params (3rd argument).
- * The fromSchema resolver curries params into a standard FieldEffectHandler.
+ * The compileForm resolver curries params into a standard FieldEffectHandler.
  */
 export type SchemaEffectHandler = (
   newValue: unknown,
@@ -197,7 +249,7 @@ export type SchemaEffectHandler = (
 // =================================================================
 
 /**
- * Result of fromSchema() — separates formConfig from defaultValues
+ * Result of compileForm() — separates formConfig from defaultValues
  * because FormConfiguration does not have a defaultValues field.
  * defaultValues is a separate prop on FormProvider / Form.
  */
@@ -217,21 +269,41 @@ export interface SchemaIssue {
   readonly message: string;
   /** Error severity */
   readonly severity: 'error' | 'warning';
+  /**
+   * Every key the target accepts, when the target has a declared shape.
+   *
+   * Populated for `validateProps` issues from the component's `propsSchema`, so
+   * a self-correcting producer can see the accepted prop names alongside the
+   * one it got wrong (spec §7). Optional and purely additive: issues from paths
+   * with no declared shape omit it, and existing consumers are unaffected.
+   */
+  readonly expectedKeys?: readonly string[];
 }
 
 /**
- * Thrown when a form schema has structural errors.
+ * Which kind of document the issues describe. Names the document in the error
+ * message so a consumer — or an agent self-correcting from the message — is
+ * told what it actually handed in. A `FlowSchema` reported as an invalid *form*
+ * schema sends the reader looking for a form that does not exist.
+ */
+export type SchemaDocumentKind = 'form' | 'flow';
+
+/**
+ * Thrown when a form or flow schema has structural errors.
  * Contains a detailed list of issues with JSON paths.
  */
 export class SchemaValidationError extends Error {
   readonly code = 'SCHEMA_VALIDATION_ERROR' as const;
   readonly issues: SchemaIssue[];
+  /** The document these issues describe. Defaults to `'form'`. */
+  readonly documentKind: SchemaDocumentKind;
 
-  constructor(issues: SchemaIssue[]) {
+  constructor(issues: SchemaIssue[], documentKind: SchemaDocumentKind = 'form') {
     const errors = issues.filter((i) => i.severity === 'error');
     const summary = errors.map((i) => `[${i.path}] ${i.message}`).join('; ');
-    super(`Invalid form schema: ${summary}`);
+    super(`Invalid ${documentKind} schema: ${summary}`);
     this.name = 'SchemaValidationError';
     this.issues = issues;
+    this.documentKind = documentKind;
   }
 }

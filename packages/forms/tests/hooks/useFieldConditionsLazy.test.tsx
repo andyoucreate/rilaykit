@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider } from '../../src/components/FormProvider';
 import {
   useConditionEvaluator,
   useFieldConditionsLazy,
@@ -13,22 +13,13 @@ import { useFormStoreApi } from '../../src/stores';
 
 // Mock component
 const TestComponent = () => <input />;
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-
 // Create test config
 function createTestConfig() {
-  const config = ril
-    .create()
-    .addComponent('text', {
-      name: 'Text Input',
-      renderer: TestComponent,
-      defaultProps: {},
-    })
-    .configure({
-      rowRenderer: TestRowRenderer,
-      bodyRenderer: TestFormRenderer,
-    });
+  const config = ril.create().component('text', {
+    name: 'Text Input',
+    renderer: TestComponent,
+    defaultProps: {},
+  });
 
   return config;
 }

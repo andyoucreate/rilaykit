@@ -3,27 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
+import { MockInput } from '../_helpers/mock-components';
 
 describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
-  // Mock components
-  const MockInput = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Component to check visited steps
   const VisitedStepsChecker = () => {
-    const { workflowState, workflowConfig } = useWorkflowContext();
+    const { workflowState, workflowConfig } = useFlow();
 
     return (
       <div data-testid="visited-steps-info">
@@ -46,16 +33,10 @@ describe('WorkflowProvider - VisitedSteps with DefaultStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    config = ril
-      .create()
-      .addComponent('input', {
-        name: 'Text Input',
-        renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      });
+    config = ril.create().component('input', {
+      name: 'Text Input',
+      renderer: MockInput,
+    });
 
     // Create a workflow with multiple steps
     workflowConfig = flow

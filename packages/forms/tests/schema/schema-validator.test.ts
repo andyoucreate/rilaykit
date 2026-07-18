@@ -38,15 +38,15 @@ describe('validateSchema', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text',
         renderer: () => React.createElement('input'),
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email',
         renderer: () => React.createElement('input'),
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
       });
@@ -453,6 +453,45 @@ describe('validateSchema', () => {
       });
       const err = expectSchemaError(schema, rilConfig);
       expect(err.issues.some((i) => i.path.includes('operator'))).toBe(true);
+    });
+
+    it('should reject a non-string "matches" value (a RegExp does not JSON round-trip)', () => {
+      const schema = validSchema({
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            conditions: {
+              visible: { field: 'toggle', operator: 'matches', value: /abc/ },
+            },
+          },
+        ],
+      });
+      const err = expectSchemaError(schema, rilConfig);
+      expect(
+        err.issues.map((i) => ({ path: i.path, message: i.message, severity: i.severity }))
+      ).toEqual([
+        {
+          path: 'fields[0].conditions.visible.value',
+          message: 'matches must use a string pattern in a serialized schema',
+          severity: 'error',
+        },
+      ]);
+    });
+
+    it('should accept a string "matches" pattern', () => {
+      const schema = validSchema({
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            conditions: {
+              visible: { field: 'toggle', operator: 'matches', value: '^a' },
+            },
+          },
+        ],
+      });
+      expect(validateSchema(schema, rilConfig)).toBeUndefined();
     });
 
     it('should emit a warning for a leaf condition with empty field', () => {

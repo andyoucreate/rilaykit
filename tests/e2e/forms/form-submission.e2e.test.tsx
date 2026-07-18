@@ -1,6 +1,7 @@
 import { required, ril } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
-import { useFormStoreApi, useFormSubmitState, useFormValues } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { FormBody, FormProvider, useForm } from '@rilaykit/forms/react';
+import { useFormStoreApi, useFormSubmitState, useFormValues } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -216,7 +217,7 @@ describe('Form Submission — E2E', () => {
         <FormBody />
         <SubmitButton />
         <FormStateDisplay />
-        <FieldErrorDisplay fieldId="username" />
+        <FieldErrorDisplay id="username" />
         <StoreCapture />
       </FormProvider>
     );

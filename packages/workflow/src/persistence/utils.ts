@@ -6,7 +6,7 @@
  * converting between different data formats.
  */
 
-import type { WorkflowState } from '../hooks/useWorkflowState';
+import type { WorkflowState } from '../hooks/workflow-state';
 import type { PersistedWorkflowData } from './types';
 
 /**
@@ -22,6 +22,7 @@ export function workflowStateToPersisted(
     currentStepIndex: state.currentStepIndex,
     allData: { ...state.allData },
     stepData: { ...state.stepData },
+    repeatableOrders: state.repeatableOrders,
     visitedSteps: Array.from(state.visitedSteps),
     passedSteps: Array.from(state.passedSteps),
     lastSaved: Date.now(),
@@ -37,6 +38,10 @@ export function persistedToWorkflowState(data: PersistedWorkflowData): Partial<W
     currentStepIndex: data.currentStepIndex,
     allData: { ...data.allData },
     stepData: { ...data.stepData },
+    // Absent in a snapshot written before the order was persisted: leave it
+    // undefined so the caller falls back to reconstruction rather than
+    // restoring an empty order that would erase every row.
+    repeatableOrders: data.repeatableOrders,
     visitedSteps: new Set(data.visitedSteps),
     passedSteps: new Set(data.passedSteps || []),
     isSubmitting: false,
@@ -89,23 +94,47 @@ export function generateStorageKey(workflowId: string, userId?: string): string 
 }
 
 /**
- * Debounce function for auto-persistence
+ * A debounced function exposing a `cancel` to drop a pending invocation.
+ */
+export interface DebouncedFunction<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  /** Cancel any pending (scheduled-but-not-yet-fired) invocation. */
+  cancel: () => void;
+}
+
+/**
+ * Debounce function for auto-persistence.
+ *
+ * The returned function carries a `cancel()` so callers can drop a pending
+ * save — e.g. after clearing persisted data or on workflow completion, where a
+ * save scheduled from the last edit would otherwise fire and re-persist state
+ * that was just removed.
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): DebouncedFunction<T> {
   let timeout: NodeJS.Timeout | null = null;
 
-  return (...args: Parameters<T>) => {
+  const debounced = (...args: Parameters<T>) => {
     if (timeout) {
       clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
+      timeout = null;
       func(...args);
     }, wait);
   };
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return debounced;
 }
 
 /**

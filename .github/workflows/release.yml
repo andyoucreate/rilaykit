@@ -126,12 +126,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
+        # Audit only: pin a pnpm that uses npm's bulk advisory endpoint. pnpm 8's
+        # `pnpm audit` hits the retired /-/npm/v1/security/audits endpoint (HTTP 410).
+        # Audit is read-only against the lockfile, so the version may differ from the
+        # repo's PNPM_VERSION without affecting install/build/test.
         uses: pnpm/action-setup@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
+          version: 10
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level moderate
+        # This is a RELEASE gate, so it audits the tree that actually ships to
+        # consumers (`--prod`). Dev-only tooling advisories (e.g. undici under
+        # vitest, js-yaml under changesets) never reach an installed package and
+        # are handled separately via dependency updates — they must not block a
+        # release. A real advisory in a shipped dependency still fails this step.
+        run: pnpm audit --prod --audit-level moderate
 
   # Changeset Check
   changeset-check:

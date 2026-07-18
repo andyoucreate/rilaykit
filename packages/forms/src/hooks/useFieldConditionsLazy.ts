@@ -4,9 +4,12 @@ import {
   type ConditionalBehavior,
   type FieldConditions,
   evaluateCondition,
+  getLogger,
 } from '@rilaykit/core';
 import { useMemo, useRef } from 'react';
 import { useFieldConditions as useFieldConditionsFromStore, useFormStoreApi } from '../stores';
+
+const log = getLogger('forms:conditions');
 
 /**
  * Cache entry for lazy condition evaluation
@@ -53,7 +56,7 @@ function evaluateConditionSafe(
     }
     return evaluateCondition(condition as ConditionConfig, formData);
   } catch (error) {
-    console.warn('Error evaluating condition:', error);
+    log.warn('Error evaluating condition:', error);
     return undefined;
   }
 }

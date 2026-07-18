@@ -25,13 +25,13 @@
 
 // Core validation types (re-exported from types)
 export type {
+  FieldError,
   FieldValidationConfig,
   FormValidationConfig,
   InferInput,
   InferOutput,
   StandardSchema,
   ValidationContext,
-  ValidationError,
   ValidationResult,
 } from '../types';
 

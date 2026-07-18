@@ -1,18 +1,12 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowProvider,
-  WorkflowSkipButton,
-  flow,
-  useWorkflowContext,
-} from '@rilaykit/workflow';
-import { useCurrentStepIndex } from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
+import { useFlowStepIndex } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextButton, PrevButton, SkipButton } from '../_setup/nav-buttons';
 import { MockSelectInput, MockTextInput, SetValueButton } from '../_setup/test-helpers';
 
 // ============================================================================
@@ -24,34 +18,15 @@ let rilConfig: ReturnType<typeof createRilConfig>;
 function createRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
-    })
-    .configure({
-      bodyRenderer: ({ children }) => <div>{children}</div>,
-      rowRenderer: ({ children }) => <div>{children}</div>,
-      nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-          Next
-        </button>
-      ),
-      previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-          Previous
-        </button>
-      ),
-      skipButtonRenderer: ({ onSkip, canSkip }) => (
-        <button type="button" data-testid="skip-btn" onClick={onSkip} disabled={!canSkip}>
-          Skip
-        </button>
-      ),
     });
 }
 
@@ -60,7 +35,7 @@ function createRilConfig() {
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState, context } = useWorkflowContext();
+  const { workflowState, context } = useFlow();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -71,7 +46,7 @@ function WorkflowStateDisplay() {
 }
 
 function StepVisibilityDisplay({ stepCount }: { stepCount: number }) {
-  const { conditionsHelpers } = useWorkflowContext();
+  const { conditionsHelpers } = useFlow();
   const steps = Array.from({ length: stepCount }, (_, i) => i);
   return (
     <div>
@@ -140,8 +115,8 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -196,9 +171,9 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -265,8 +240,8 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -329,8 +304,8 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -397,9 +372,9 @@ describe('Workflow Conditions -- E2E', () => {
         workflowConfig={workflowConfig}
         defaultValues={{ step1: { accountType: 'business' } }}
       >
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -496,7 +471,7 @@ describe('Workflow Conditions -- E2E', () => {
         workflowConfig={workflowConfig}
         defaultValues={{ step1: { role: 'admin' } }}
       >
-        <WorkflowBody />
+        <FlowBody />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={3} />
       </WorkflowProvider>
@@ -538,9 +513,9 @@ describe('Workflow Conditions -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowSkipButton />
+        <FlowBody />
+        <NextButton />
+        <SkipButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -605,7 +580,7 @@ describe('Workflow Conditions -- E2E', () => {
     expect(() => {
       render(
         <WorkflowProvider workflowConfig={workflowConfig}>
-          <WorkflowBody />
+          <FlowBody />
           <WorkflowStateDisplay />
           <StepVisibilityDisplay stepCount={2} />
         </WorkflowProvider>

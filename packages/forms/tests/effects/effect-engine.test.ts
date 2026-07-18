@@ -1,3 +1,4 @@
+import { setLogSink } from '@rilaykit/core';
 import type { FieldEffect, FieldEffectContext } from '@rilaykit/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EffectEngine } from '../../src/effects/effect-engine';
@@ -19,14 +20,20 @@ function createEffect(
 // =================================================================
 
 describe('EffectEngine', () => {
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  // Capture library `log.warn(...)` output via the logger sink (runtime code no
+  // longer calls console directly). Forward only the message + args so existing
+  // assertions stay unchanged.
+  let consoleWarnSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleWarnSpy(message, ...args);
+    });
   });
 
   afterEach(() => {
-    consoleWarnSpy.mockRestore();
+    setLogSink(null);
   });
 
   // -----------------------------------------------------------------

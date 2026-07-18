@@ -2,7 +2,6 @@
  * @fileoverview Custom hooks for workflow management
  *
  * This module exports custom hooks that encapsulate specific aspects of workflow behavior:
- * - useWorkflowState: Manages workflow state with reducer pattern
  * - useWorkflowConditions: Handles step and field conditional logic
  * - useWorkflowNavigation: Manages navigation between workflow steps
  * - useWorkflowSubmission: Handles workflow submission workflow
@@ -14,10 +13,14 @@
  */
 
 export { useConditionEvaluation } from './useConditionEvaluation';
+export { useFlowSteps } from './useFlowSteps';
+export type { FlowStepsContext } from './useFlowSteps';
 export { usePersistence } from './usePersistence';
+export type { UsePersistenceProps } from './usePersistence';
+export { useStep } from './useStep';
+export type { StepContextValue } from './useStep';
 export { useStepMetadata } from './useStepMetadata';
 export { useWorkflowAnalytics } from './useWorkflowAnalytics';
 export { useWorkflowConditions } from './useWorkflowConditions';
 export { useWorkflowNavigation } from './useWorkflowNavigation';
-export { useWorkflowState } from './useWorkflowState';
 export { useWorkflowSubmission } from './useWorkflowSubmission';

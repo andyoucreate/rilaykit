@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { WorkflowState } from '../../src/hooks/useWorkflowState';
+import type { WorkflowState } from '../../src/hooks/workflow-state';
 import type { PersistedWorkflowData } from '../../src/persistence/types';
 import {
   debounce,

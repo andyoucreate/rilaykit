@@ -1,19 +1,14 @@
+import { NextButton } from '@/components/chrome/next-button';
+import { PreviousButton } from '@/components/chrome/previous-button';
+import { SkipButton } from '@/components/chrome/skip-button';
+import { Stepper } from '@/components/chrome/stepper';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import {
-  LocalStorageAdapter,
-  Workflow,
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowStepper,
-  email,
-  minLength,
-  required,
-} from 'rilaykit';
+import { LocalStorageAdapter, email, minLength, required } from 'rilaykit';
+import { Flow } from 'rilaykit/react';
 
 const personalInfoForm = r
   .form('personal-info')
@@ -158,23 +153,23 @@ export function MultiStepOnboardingPage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="Multi-step Onboarding"
-        description="4-step workflow with WorkflowStepper, navigation buttons, and localStorage persistence. Refresh the page to see your progress restored."
+        description="4-step workflow with a stepper, navigation buttons, and localStorage persistence. Refresh the page to see your progress restored."
       />
       <Card>
         <CardContent className="pt-6">
-          <Workflow
-            workflowConfig={onboardingFlow}
-            onWorkflowComplete={(data) => setCompletedData(data)}
-          >
-            <WorkflowStepper />
+          <Flow of={onboardingFlow} onComplete={(data) => setCompletedData(data)}>
+            <Stepper />
             <div className="mt-6">
-              <WorkflowBody />
+              <Flow.Body />
             </div>
             <div className="mt-6 flex justify-between">
-              <WorkflowPreviousButton />
-              <WorkflowNextButton />
+              <PreviousButton />
+              <div className="flex gap-2">
+                <SkipButton />
+                <NextButton />
+              </div>
             </div>
-          </Workflow>
+          </Flow>
         </CardContent>
       </Card>
     </div>

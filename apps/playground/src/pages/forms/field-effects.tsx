@@ -2,7 +2,8 @@ import { PageHeader } from '@/components/layout/page-header';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
-import { Form, FormBody, FormSubmitButton, onChange, useFormStoreApi } from 'rilaykit';
+import { onChange } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 const CITIES_BY_COUNTRY: Record<string, { label: string; value: string }[]> = {
   france: [
@@ -110,7 +111,7 @@ export function FieldEffectsPage() {
           <CardTitle>Cascading Selects</CardTitle>
         </CardHeader>
         <CardContent>
-          <Form formConfig={effectsForm} onSubmit={(data) => alert(JSON.stringify(data, null, 2))}>
+          <Form of={effectsForm} onSubmit={(data) => alert(JSON.stringify(data, null, 2))}>
             <FormInner />
           </Form>
         </CardContent>

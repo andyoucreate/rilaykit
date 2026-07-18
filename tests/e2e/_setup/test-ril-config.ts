@@ -1,15 +1,5 @@
 import { ril } from '@rilaykit/core';
-import {
-  MockCheckboxInput,
-  MockNumberInput,
-  MockSelectInput,
-  MockTextInput,
-  TestBodyRenderer,
-  TestRepeatableItemRenderer,
-  TestRepeatableRenderer,
-  TestRowRenderer,
-  TestSubmitButtonRenderer,
-} from './test-helpers';
+import { MockCheckboxInput, MockNumberInput, MockSelectInput, MockTextInput } from './test-helpers';
 
 // =================================================================
 // RIL CONFIGS
@@ -21,32 +11,25 @@ import {
 export function createTestRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: MockTextInput,
       defaultProps: { label: '', placeholder: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select Input',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
     })
-    .addComponent('number', {
+    .component('number', {
       name: 'Number Input',
       renderer: MockNumberInput,
       defaultProps: { label: '' },
     })
-    .addComponent('checkbox', {
+    .component('checkbox', {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },
-    })
-    .configure({
-      bodyRenderer: TestBodyRenderer,
-      rowRenderer: TestRowRenderer,
-      submitButtonRenderer: TestSubmitButtonRenderer,
-      repeatableRenderer: TestRepeatableRenderer,
-      repeatableItemRenderer: TestRepeatableItemRenderer,
     });
 }
 
@@ -56,18 +39,14 @@ export function createTestRilConfig() {
 export function createMinimalRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text Input',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select Input',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
-    })
-    .configure({
-      bodyRenderer: TestBodyRenderer,
-      rowRenderer: TestRowRenderer,
     });
 }

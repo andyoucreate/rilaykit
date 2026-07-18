@@ -1,5 +1,5 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
-import { ril } from '@rilaykit/core';
+import { ValidationError, ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { form } from '../../src/builders/form';
@@ -10,17 +10,17 @@ describe('Form Builder — Repeatable Fields', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', min: 0 },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },
@@ -416,5 +416,56 @@ describe('Form Builder — Repeatable Fields', () => {
       expect(clonedConfig.repeatableFields).toBeDefined();
       expect(clonedConfig.repeatableFields!.items.min).toBe(1);
     });
+  });
+});
+
+// Field ids and repeatable ids share ONE namespace: structureFormValues writes
+// both into the same submit-payload object, so a collision silently destroys the
+// repeatable's whole array.
+describe('Form Builder — field/repeatable ID namespace', () => {
+  let rilConfig: any;
+
+  beforeEach(() => {
+    rilConfig = ril
+      .create()
+      .component('text', { name: 'Text', renderer: () => React.createElement('input') });
+  });
+
+  it('rejects a top-level field id that collides with a repeatable id', () => {
+    const builder = form
+      .create(rilConfig, 'f')
+      .add({ id: 'items', type: 'text' })
+      .addRepeatable('items', (r) => r.add({ id: 'n', type: 'text' }));
+
+    let caught: unknown;
+    try {
+      builder.build();
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(ValidationError);
+    expect((caught as ValidationError).message).toContain('items');
+  });
+
+  it('still accepts a repeatable id that collides with nothing', () => {
+    const config = form
+      .create(rilConfig, 'f')
+      .add({ id: 'customer', type: 'text' })
+      .addRepeatable('items', (r) => r.add({ id: 'n', type: 'text' }))
+      .build();
+
+    expect(Object.keys(config.repeatableFields)).toEqual(['items']);
+  });
+
+  it('allows a repeatable template field to reuse its own repeatable id', () => {
+    // Template fields live under composite keys (`items[k0].items`), so they
+    // never collide with the repeatable's own payload key.
+    const config = form
+      .create(rilConfig, 'f')
+      .addRepeatable('items', (r) => r.add({ id: 'items', type: 'text' }))
+      .build();
+
+    expect(config.repeatableFields.items.allFields.map((f) => f.id)).toEqual(['items']);
   });
 });

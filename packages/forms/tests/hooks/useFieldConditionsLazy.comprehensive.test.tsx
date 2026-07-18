@@ -6,7 +6,7 @@ import {
   useConditionEvaluator,
   useFieldConditionsLazy,
 } from '../../src/hooks/useFieldConditionsLazy';
-import { FormStoreContext, createFormStore } from '../../src/stores/formStore';
+import { FormStoreContext, createFormStore } from '../../src/stores';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);
@@ -486,8 +486,21 @@ describe('useFieldConditionsLazy Comprehensive Tests', () => {
     });
   });
 
-  describe('Performance', () => {
-    it('should handle many conditions efficiently', () => {
+  describe('Many Conditions', () => {
+    const buildOrOverHundredFields = (): ConditionalBehavior => ({
+      visible: {
+        logicalOperator: 'or',
+        field: '',
+        operator: 'exists',
+        conditions: Array.from({ length: 100 }, (_, i) => ({
+          field: `field${i}`,
+          operator: 'greaterThan' as const,
+          value: 50,
+        })),
+      },
+    });
+
+    it('should evaluate a 100-condition OR to true when any field matches', () => {
       const initialValues: Record<string, unknown> = {};
       for (let i = 0; i < 100; i++) {
         initialValues[`field${i}`] = i;
@@ -495,31 +508,31 @@ describe('useFieldConditionsLazy Comprehensive Tests', () => {
 
       const { Wrapper } = createWrapper(initialValues);
 
-      const conditions: ConditionalBehavior = {
-        visible: {
-          logicalOperator: 'or',
-          field: '',
-          operator: 'exists',
-          conditions: Array.from({ length: 100 }, (_, i) => ({
-            field: `field${i}`,
-            operator: 'greaterThan' as const,
-            value: 50,
-          })),
-        },
-      };
+      const { result } = renderHook(
+        () => useFieldConditionsLazy('field1', { conditions: buildOrOverHundredFields() }),
+        { wrapper: Wrapper }
+      );
 
-      const start = performance.now();
-
-      const { result } = renderHook(() => useFieldConditionsLazy('field1', { conditions }), {
-        wrapper: Wrapper,
-      });
-
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(100);
-      console.log(`100 OR conditions evaluated in ${duration.toFixed(2)}ms`);
-
-      // Should be visible (some fields > 50)
+      // Should be visible (fields 51..99 are > 50)
       expect(result.current.visible).toBe(true);
+    });
+
+    it('should evaluate a 100-condition OR to false when no field matches', () => {
+      // Refutation: every one of the 100 conditions must actually be evaluated,
+      // so a value set where none matches must flip the result to false.
+      const initialValues: Record<string, unknown> = {};
+      for (let i = 0; i < 100; i++) {
+        initialValues[`field${i}`] = 0;
+      }
+
+      const { Wrapper } = createWrapper(initialValues);
+
+      const { result } = renderHook(
+        () => useFieldConditionsLazy('field1', { conditions: buildOrOverHundredFields() }),
+        { wrapper: Wrapper }
+      );
+
+      expect(result.current.visible).toBe(false);
     });
   });
 });

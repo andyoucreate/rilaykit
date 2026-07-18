@@ -1,9 +1,11 @@
+import { SubmitButton } from '@/components/chrome/submit-button';
 import { PageHeader } from '@/components/layout/page-header';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import { Form, FormBody, FormSubmitButton, email, required, useFormStoreApi } from 'rilaykit';
+import { email, required } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 const teamForm = r
   .form('team')
@@ -54,7 +56,7 @@ function FormInner() {
     <InspectorStoreProvider store={storeApi}>
       <FormBody />
       <div className="mt-6">
-        <FormSubmitButton />
+        <SubmitButton />
       </div>
     </InspectorStoreProvider>
   );
@@ -74,7 +76,7 @@ export function RepeatableFieldsPage() {
           <CardTitle>Team Builder</CardTitle>
         </CardHeader>
         <CardContent>
-          <Form formConfig={teamForm} onSubmit={(data) => setSubmittedData(data)}>
+          <Form of={teamForm} onSubmit={(data) => setSubmittedData(data)}>
             <FormInner />
           </Form>
         </CardContent>

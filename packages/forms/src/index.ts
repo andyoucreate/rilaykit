@@ -1,30 +1,34 @@
-// Export all form builder components
-export { Form } from './components/Form';
-export { FormBody } from './components/FormBody';
-export { FormField } from './components/FormField';
-export { FormProvider, useFormConfigContext } from './components/FormProvider';
-export type { FormConfigContextValue, FormProviderProps } from './components/FormProvider';
-export { FormRow } from './components/FormRow';
-export { FormSubmitButton } from './components/FormSubmitButton';
-export { RepeatableField } from './components/repeatable-field';
-export { RepeatableItem } from './components/repeatable-item';
+// =============================================================================
+// @rilaykit/forms — ISOMORPHIC entry (safe in a React Server Component).
+// React components and hooks live behind `@rilaykit/forms/react`, which carries
+// the `'use client'` boundary. Nothing here imports React (verified: the store
+// hooks and their module-level `createContext` are in ./stores/formStoreContext).
+// =============================================================================
 
-// Export form builder and ensure prototype extension is applied
-export { form as FormBuilder, form } from './builders/form';
+// Builders
+export { form as FormBuilder, form, resolveFormConfig } from './builders/form';
 export type { FieldConfig } from './builders/form';
 export { RepeatableBuilder } from './builders/repeatable-builder';
 
-// Export Zustand store and hooks
-export * from './stores';
+// Vanilla store factory (imported from the vanilla file, NOT the ./stores barrel,
+// which also re-exports the client-only hooks)
+export { createFormStore, type FormStore, type FormStoreState } from './stores/formStore';
 
-// Export custom hooks for advanced usage
-export * from './hooks';
+// Utilities
+export {
+  structureFormValues,
+  flattenRepeatableValues,
+  buildCompositeKey,
+  parseCompositeKey,
+} from './utils/repeatable-data';
+export {
+  evaluateConditionLive,
+  isFieldVisibleInData,
+  isRepeatableVisible,
+  pickVisibleSubmitValues,
+  resolveFieldConditionalBehavior,
+} from './utils/submit-visibility';
+export type { VisibleSubmitValues } from './utils/submit-visibility';
 
-// Export specific types for condition evaluation
-export type { ConditionEvaluationResult } from './hooks/useConditionEvaluation';
-
-// Export repeatable utilities
-export { structureFormValues, flattenRepeatableValues } from './utils/repeatable-data';
-
-// Export server-driven forms (fromSchema)
+// Schema layer (JSON form definitions)
 export * from './schema';

@@ -1,7 +1,19 @@
-import type { StepDataHelper, WorkflowConfig, WorkflowContext } from '@rilaykit/core';
-import { useCallback, useRef } from 'react';
+import {
+  type ConditionBuilder,
+  type ConditionConfig,
+  type StepDataHelper,
+  type WorkflowConfig,
+  type WorkflowContext,
+  evaluateCondition,
+  getLogger,
+} from '@rilaykit/core';
+import { type MutableRefObject, useCallback, useRef } from 'react';
+import { combineWorkflowDataForConditions } from '../utils/dataFlattening';
+import { structureStepSlice, structureWorkflowData } from '../utils/structureWorkflowData';
+
+const log = getLogger('workflow:navigation');
 import type { UseWorkflowConditionsReturn } from './useWorkflowConditions';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
 
 export interface UseWorkflowNavigationProps {
   workflowConfig: WorkflowConfig;
@@ -13,6 +25,24 @@ export interface UseWorkflowNavigationProps {
   markStepVisited: (stepIndex: number, stepId: string) => void;
   markStepPassed: (stepId: string) => void;
   setStepData: (data: Record<string, any>, stepId: string) => void;
+  /**
+   * Live accessor for the latest `allData`. The `workflowState` prop is a
+   * render-time snapshot: within a single navigation (onAfterValidation
+   * writing prefill data, then the step transition) it goes stale and the
+   * transition would wipe the freshly written data.
+   */
+  getAllData: () => Record<string, unknown>;
+  /**
+   * Live accessor for the mirrored repeatable row order, per step. Needed to
+   * hand `onAfterValidation` its rows in the order the user actually arranged
+   * them: the flat values can only ever recover their insertion order.
+   */
+  getRepeatableOrders?: () => Record<string, Record<string, string[]>>;
+  /**
+   * Shared signal read by {@link useWorkflowAnalytics} to suppress
+   * `onStepComplete` for a skipped step. A skip is not a completion.
+   */
+  pendingSkipRef: MutableRefObject<string | null>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
 }
 
@@ -37,14 +67,40 @@ export function useWorkflowNavigation({
   markStepVisited,
   markStepPassed,
   setStepData,
+  getAllData,
+  getRepeatableOrders,
+  pendingSkipRef,
   onStepChange,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
   // Use ref to avoid recreating callbacks when onStepChange changes
   const onStepChangeRef = useRef(onStepChange);
   onStepChangeRef.current = onStepChange;
 
+  // Re-entrancy guard for skipStep: two synchronous skipStep() calls for the
+  // same step must emit onStepSkip once. `isTransitioning` toggles across an
+  // await, so a second synchronous call is not gated by it; this ref tracks the
+  // step id whose skip is already in flight.
+  const skipInFlightRef = useRef<string | null>(null);
+
   // Get current step
   const currentStep = workflowConfig.steps[workflowState.currentStepIndex];
+
+  // Read one step's slice as the host contract sees it: the store keeps every
+  // slice FLAT (one internal shape, so a removed repeatable row has keys to
+  // delete), and every read that leaves for host code is structured back to the
+  // AUTHORED shape here. Read LIVE — these run inside a single navigation tick,
+  // before any React commit refreshes a snapshot.
+  const readStructuredSlice = useCallback(
+    (stepId: string): Record<string, unknown> => {
+      const step = workflowConfig.steps.find((candidate) => candidate.id === stepId);
+      return structureStepSlice(
+        (getAllData()[stepId] ?? {}) as Record<string, unknown>,
+        step?.formConfig?.repeatableFields,
+        getRepeatableOrders?.()[stepId]
+      );
+    },
+    [workflowConfig.steps, getAllData, getRepeatableOrders]
+  );
 
   // Create step data helper for validation callbacks
   const createStepDataHelper = useCallback((): StepDataHelper => {
@@ -54,20 +110,24 @@ export function useWorkflowNavigation({
       },
 
       setStepFields: (stepId: string, fields: Record<string, any>) => {
-        const existingData = workflowState.allData[stepId] || {};
+        // The merge base is read RAW on purpose: it never reaches host code, it
+        // goes straight back through `setStepData`, which is the write boundary
+        // and flattens. Structuring it here and letting the boundary flatten it
+        // again would re-key rows the order mirror still names.
+        const existingData = getAllData()[stepId] || {};
         const mergedData = { ...existingData, ...fields };
         setStepData(mergedData, stepId);
       },
 
       getStepData: (stepId: string) => {
-        return workflowState.allData[stepId] || {};
+        return readStructuredSlice(stepId);
       },
 
       setNextStepField: (fieldId: string, value: any) => {
         const nextStepIndex = workflowState.currentStepIndex + 1;
         if (nextStepIndex < workflowConfig.steps.length) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
-          const existingData = workflowState.allData[nextStepId] || {};
+          const existingData = getAllData()[nextStepId] || {};
           const mergedData = { ...existingData, [fieldId]: value };
           setStepData(mergedData, nextStepId);
         }
@@ -77,24 +137,66 @@ export function useWorkflowNavigation({
         const nextStepIndex = workflowState.currentStepIndex + 1;
         if (nextStepIndex < workflowConfig.steps.length) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
-          // FIXED: Only get existing data for the next step, don't propagate current step data
-          const existingData = workflowState.allData[nextStepId] || {};
+          // Only get existing data for the next step, don't propagate current step data
+          const existingData = getAllData()[nextStepId] || {};
 
-          // FIXED: Only merge the specified fields, not all current step data
+          // Only merge the specified fields, not all current step data
           const mergedData = { ...existingData, ...fields };
           setStepData(mergedData, nextStepId);
         }
       },
 
       getAllData: () => {
-        return { ...workflowState.allData };
+        return {
+          ...structureWorkflowData(getAllData(), workflowConfig.steps, getRepeatableOrders?.()),
+        };
       },
 
       getSteps: () => {
         return [...workflowConfig.steps];
       },
     };
-  }, [workflowState.allData, workflowState.currentStepIndex, workflowConfig.steps, setStepData]);
+  }, [
+    getAllData,
+    getRepeatableOrders,
+    readStructuredSlice,
+    workflowState.currentStepIndex,
+    workflowConfig.steps,
+    setStepData,
+  ]);
+
+  // Evaluate a step's `visible` condition against LIVE data. The
+  // `conditionsHelpers.isStepVisible` reads a render-time snapshot of allData,
+  // which goes stale within a single navigation tick (e.g. onAfterValidation
+  // writing data that flips a later step's visibility). Re-derive the decision
+  // from the freshly-written store, mirroring the live-read used for data.
+  const isStepVisibleLive = useCallback(
+    (stepIndex: number): boolean => {
+      if (stepIndex < 0 || stepIndex >= workflowConfig.steps.length) return false;
+
+      const visibleCondition = workflowConfig.steps[stepIndex]?.conditions?.visible;
+      if (!visibleCondition) return true;
+
+      const liveAllData = getAllData() as Record<string, unknown>;
+      const currentStepId = workflowConfig.steps[workflowState.currentStepIndex]?.id;
+      const liveStepData = (currentStepId ? liveAllData[currentStepId] : undefined) as
+        | Record<string, unknown>
+        | undefined;
+      const conditionData = combineWorkflowDataForConditions(liveAllData, liveStepData ?? {});
+
+      try {
+        const condition = visibleCondition as ConditionConfig | ConditionBuilder;
+        const conditionToEvaluate: ConditionConfig =
+          typeof condition === 'object' && 'build' in condition ? condition.build() : condition;
+        return evaluateCondition(conditionToEvaluate, conditionData);
+      } catch {
+        // Match the render-path behaviour: a visible condition that throws
+        // resolves to hidden rather than silently defaulting to visible.
+        return false;
+      }
+    },
+    [workflowConfig.steps, workflowState.currentStepIndex, getAllData]
+  );
 
   // Core navigation function
   const goToStep = useCallback(
@@ -103,8 +205,8 @@ export function useWorkflowNavigation({
         return false;
       }
 
-      // Check if step is visible
-      if (!conditionsHelpers.isStepVisible(stepIndex)) {
+      // Check if step is visible against LIVE data (see isStepVisibleLive)
+      if (!isStepVisibleLive(stepIndex)) {
         return false;
       }
 
@@ -118,17 +220,25 @@ export function useWorkflowNavigation({
 
         const newStepId = workflowConfig.steps[stepIndex].id;
 
+        // The MIRROR re-seed is the store's, not this caller's: `setCurrentStep`
+        // re-seeds `stepData` from the target's slice as part of the move, so
+        // the PUBLIC `useFlowActions().setCurrentStep` — the same move, one door
+        // over — cannot leak the previous step's fields the way it did while
+        // this function was the only thing re-seeding.
         setCurrentStep(stepIndex);
         markStepVisited(stepIndex, newStepId);
 
-        // Reset stepData to the target step's existing data to prevent
-        // leaking fields from the previous step into the new step's data
-        const existingStepData = (workflowState.allData[newStepId] || {}) as Record<string, any>;
+        // Still owed by navigation, and NOT the same thing: this MATERIALISES
+        // the target's slice in `allData`, so a step the user has visited
+        // appears in the completion payload even when they typed nothing into
+        // it. Read through getAllData(): onAfterValidation may have just written
+        // prefill data that the render-time snapshot does not contain yet.
+        const existingStepData = (getAllData()[newStepId] || {}) as Record<string, any>;
         setStepData(existingStepData, newStepId);
 
         return true;
       } catch (error) {
-        console.error('Step transition failed:', error);
+        log.error('Step transition failed:', error);
         if (workflowConfig.analytics?.onError) {
           workflowConfig.analytics.onError(error as Error, workflowContext);
         }
@@ -140,9 +250,9 @@ export function useWorkflowNavigation({
     [
       workflowConfig.steps,
       workflowConfig.analytics,
-      conditionsHelpers,
+      isStepVisibleLive,
       workflowState.currentStepIndex,
-      workflowState.allData,
+      getAllData,
       workflowContext,
       setTransitioning,
       setCurrentStep,
@@ -155,26 +265,26 @@ export function useWorkflowNavigation({
   const findNextVisibleStep = useCallback(
     (fromIndex: number): number | null => {
       for (let i = fromIndex + 1; i < workflowConfig.steps.length; i++) {
-        if (conditionsHelpers.isStepVisible(i)) {
+        if (isStepVisibleLive(i)) {
           return i;
         }
       }
       return null;
     },
-    [workflowConfig.steps.length, conditionsHelpers]
+    [workflowConfig.steps.length, isStepVisibleLive]
   );
 
   // Helper function to find the previous visible step
   const findPreviousVisibleStep = useCallback(
     (fromIndex: number): number | null => {
       for (let i = fromIndex - 1; i >= 0; i--) {
-        if (conditionsHelpers.isStepVisible(i)) {
+        if (isStepVisibleLive(i)) {
           return i;
         }
       }
       return null;
     },
-    [conditionsHelpers]
+    [isStepVisibleLive]
   );
 
   // Navigate to next step
@@ -183,9 +293,20 @@ export function useWorkflowNavigation({
     if (currentStep?.onAfterValidation) {
       try {
         const helper = createStepDataHelper();
-        await currentStep.onAfterValidation(workflowState.stepData, helper, workflowContext);
+        // Read the LIVE current-step slice rather than the render-time
+        // `workflowState.stepData` snapshot. handleSubmit writes the step's
+        // values via setStepData(values) then calls goNext() in the same tick
+        // (no React commit between), so the snapshot is pre-submit: it holds
+        // only incrementally-changed fields and is missing untouched defaults.
+        //
+        // The slice is stored flat (one internal shape, so a removed repeatable
+        // row has keys to delete); this callback is a HOST boundary, so it is
+        // structured on the way out — through the SAME reader the helper's
+        // `getStepData` uses, so one invocation can only ever speak one shape.
+        const liveStepData = readStructuredSlice(currentStep.id);
+        await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
-        console.error('onAfterValidation failed:', error);
+        log.error('onAfterValidation failed:', error);
         if (workflowConfig.analytics?.onError) {
           workflowConfig.analytics.onError(error as Error, workflowContext);
         }
@@ -208,7 +329,7 @@ export function useWorkflowNavigation({
   }, [
     currentStep,
     createStepDataHelper,
-    workflowState.stepData,
+    readStructuredSlice,
     workflowContext,
     workflowConfig.analytics,
     workflowState.currentStepIndex,
@@ -230,28 +351,62 @@ export function useWorkflowNavigation({
     return goToStep(previousStepIndex);
   }, [workflowState.currentStepIndex, findPreviousVisibleStep, goToStep]);
 
+  // Check if current step can be skipped — conditionsHelpers.isStepSkippable
+  // is the single source of truth: it already combines allowSkip (static or
+  // predicate) with the step's skippable condition, and is bounds-checked.
+  const canSkipCurrentStep = useCallback((): boolean => {
+    return conditionsHelpers.isStepSkippable(workflowState.currentStepIndex);
+  }, [conditionsHelpers, workflowState.currentStepIndex]);
+
   // Skip current step
   const skipStep = useCallback(async (): Promise<boolean> => {
-    if (
-      !currentStep?.allowSkip &&
-      !conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
-    ) {
+    if (!canSkipCurrentStep()) {
       return false;
     }
+
+    // Gate re-entrant synchronous skips of the SAME step: the first call owns
+    // the skip; a second call in the same tick is a no-op until the step id
+    // actually changes (a real transition), which re-enables a legitimate skip.
+    if (skipInFlightRef.current === currentStep.id) {
+      return false;
+    }
+    skipInFlightRef.current = currentStep.id;
 
     if (workflowConfig.analytics?.onStepSkip) {
       workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
     }
 
-    // Go to next step (skipping does not trigger validation)
-    return goNext();
+    // A skip is NOT a completion: it explicitly bypasses validation, so it must
+    // not run onAfterValidation, must not mark the step passed, and must not
+    // emit onStepComplete. Signal the analytics hook to suppress completion for
+    // this step, then transition to the next visible step directly.
+    const nextStepIndex = findNextVisibleStep(workflowState.currentStepIndex);
+    if (nextStepIndex === null) {
+      skipInFlightRef.current = null;
+      return false; // Let the submission hook handle this
+    }
+
+    // Signal the analytics hook to suppress completion for this step, but only
+    // for a transition that actually happens. If goToStep fails (e.g.
+    // onStepChange throws and is caught), the step index never changes and the
+    // analytics effect never consumes the signal — leaving it set would wrongly
+    // suppress the NEXT normal advance's onStepComplete. Clear it on failure.
+    pendingSkipRef.current = currentStep.id;
+    const didTransition = await goToStep(nextStepIndex);
+    if (!didTransition) {
+      pendingSkipRef.current = null;
+      skipInFlightRef.current = null;
+    }
+    return didTransition;
   }, [
+    canSkipCurrentStep,
     currentStep,
-    conditionsHelpers,
-    workflowState.currentStepIndex,
     workflowConfig.analytics,
     workflowContext,
-    goNext,
+    workflowState.currentStepIndex,
+    findNextVisibleStep,
+    goToStep,
+    pendingSkipRef,
   ]);
 
   // Check if we can navigate to a specific step
@@ -274,14 +429,6 @@ export function useWorkflowNavigation({
     const prevStepIndex = findPreviousVisibleStep(workflowState.currentStepIndex);
     return prevStepIndex !== null && canGoToStep(prevStepIndex);
   }, [workflowState.currentStepIndex, findPreviousVisibleStep, canGoToStep]);
-
-  // Check if current step can be skipped
-  const canSkipCurrentStep = useCallback((): boolean => {
-    return (
-      currentStep?.allowSkip === true &&
-      conditionsHelpers.isStepSkippable(workflowState.currentStepIndex)
-    );
-  }, [currentStep?.allowSkip, conditionsHelpers, workflowState.currentStepIndex]);
 
   return {
     goToStep,

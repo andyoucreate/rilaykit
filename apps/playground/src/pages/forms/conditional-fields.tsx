@@ -1,8 +1,10 @@
+import { SubmitButton } from '@/components/chrome/submit-button';
 import { PageHeader } from '@/components/layout/page-header';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
-import { Form, FormBody, FormSubmitButton, email, required, useFormStoreApi, when } from 'rilaykit';
+import { email, required, when } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 const conditionalForm = r
   .form('conditional')
@@ -66,7 +68,7 @@ function FormInner() {
     <InspectorStoreProvider store={storeApi}>
       <FormBody />
       <div className="mt-6">
-        <FormSubmitButton />
+        <SubmitButton />
       </div>
     </InspectorStoreProvider>
   );
@@ -84,10 +86,7 @@ export function ConditionalFieldsPage() {
           <CardTitle>Conditional Form</CardTitle>
         </CardHeader>
         <CardContent>
-          <Form
-            formConfig={conditionalForm}
-            onSubmit={(data) => alert(JSON.stringify(data, null, 2))}
-          >
+          <Form of={conditionalForm} onSubmit={(data) => alert(JSON.stringify(data, null, 2))}>
             <FormInner />
           </Form>
         </CardContent>

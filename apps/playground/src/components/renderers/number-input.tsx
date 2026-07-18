@@ -1,5 +1,6 @@
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import { Input } from '@/components/ui/input';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface NumberInputProps {
   label?: string;
@@ -12,35 +13,28 @@ interface NumberInputProps {
   readOnly?: boolean;
 }
 
-export function NumberInput({
-  id,
-  props,
-  value,
-  onChange,
-  onBlur,
-  disabled,
-  error,
-  touched,
-}: ComponentRenderProps<NumberInputProps>) {
-  const hasError = touched && error && error.length > 0;
+export function NumberInput({ id, props, field }: ComponentRenderContext<NumberInputProps>) {
+  const hasError = hasFieldError(field);
 
   return (
-    <Input
-      id={id}
-      type="number"
-      value={value != null ? String(value) : ''}
-      onChange={(e) => {
-        const v = e.target.value;
-        onChange?.(v === '' ? '' : Number(v));
-      }}
-      onBlur={onBlur}
-      disabled={disabled}
-      readOnly={props.readOnly}
-      placeholder={props.placeholder}
-      min={props.min}
-      max={props.max}
-      step={props.step}
-      className={hasError ? 'border-destructive' : ''}
-    />
+    <FieldWrapper id={id} props={props} field={field}>
+      <Input
+        id={id}
+        type="number"
+        value={field?.value != null ? String(field.value) : ''}
+        onChange={(e) => {
+          const v = e.target.value;
+          field?.onChange(v === '' ? '' : Number(v));
+        }}
+        onBlur={() => field?.onBlur()}
+        disabled={field?.disabled}
+        readOnly={props.readOnly}
+        placeholder={props.placeholder}
+        min={props.min}
+        max={props.max}
+        step={props.step}
+        className={hasError ? 'border-destructive' : ''}
+      />
+    </FieldWrapper>
   );
 }

@@ -1,19 +1,29 @@
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import type { FieldRendererProps } from 'rilaykit';
+import type React from 'react';
+import type { FieldBinding } from 'rilaykit';
 
-export function FieldWrapper({
-  children,
-  id,
-  error,
-  touched,
-  isValidating,
-  ...props
-}: FieldRendererProps) {
-  const label = props.label as string | undefined;
-  const description = props.description as string | undefined;
-  const required = props.required as boolean | undefined;
-  const hasError = touched && error && error.length > 0;
+export interface FieldWrapperFieldProps {
+  label?: string;
+  description?: string;
+  required?: boolean;
+}
+
+export interface FieldWrapperProps {
+  id: string;
+  props: FieldWrapperFieldProps;
+  field?: FieldBinding;
+  children: React.ReactNode;
+}
+
+export function hasFieldError(field?: FieldBinding): boolean {
+  return Boolean(field?.touched && field?.error?.length);
+}
+
+export function FieldWrapper({ id, props, field, children }: FieldWrapperProps) {
+  const { label, description, required } = props;
+  const error = field?.error;
+  const hasError = hasFieldError(field);
 
   return (
     <div className="space-y-2">
@@ -25,8 +35,8 @@ export function FieldWrapper({
       )}
       {children}
       {description && !hasError && <p className="text-sm text-muted-foreground">{description}</p>}
-      {hasError && <p className="text-sm text-destructive">{error[0].message}</p>}
-      {isValidating && <p className="text-sm text-muted-foreground">Validating...</p>}
+      {hasError && error && <p className="text-sm text-destructive">{error[0].message}</p>}
+      {field?.isValidating && <p className="text-sm text-muted-foreground">Validating...</p>}
     </div>
   );
 }

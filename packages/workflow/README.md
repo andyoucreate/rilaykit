@@ -101,30 +101,47 @@ const quickWorkflow = flow
 ### 3. Render It
 
 ```tsx
-import {
-  Workflow,
-  WorkflowBody,
-  WorkflowStepper,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-} from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow';
 
 function OnboardingFlow() {
   const handleComplete = (data: Record<string, unknown>) => {
-    console.log('Workflow complete:', data);
+    saveOnboarding(data);
   };
 
   return (
-    <Workflow workflowConfig={onboarding} onComplete={handleComplete}>
-      <WorkflowStepper />
-      <WorkflowBody />
+    <Flow of={onboarding} onComplete={handleComplete}>
+      <Flow.Progress />
+      <Flow.Body />
       <div>
-        <WorkflowPreviousButton />
-        <WorkflowNextButton />
+        <Flow.Back />
+        <Flow.Skip />
+        <Flow.Next />
       </div>
-    </Workflow>
+    </Flow>
   );
 }
+```
+
+Every compound piece accepts a render prop for full markup control:
+
+```tsx
+<Flow.Progress>
+  {({ steps, currentIndex, goTo }) =>
+    steps.map((step, index) => (
+      <button key={step.id} type="button" onClick={() => goTo(index)}
+        aria-current={index === currentIndex}>
+        {step.title}
+      </button>
+    ))
+  }
+</Flow.Progress>
+<Flow.Next>
+  {({ go, canGo, isLastStep }) => (
+    <button type="button" disabled={!canGo} onClick={go}>
+      {isLastStep ? 'Finish' : 'Continue'}
+    </button>
+  )}
+</Flow.Next>
 ```
 
 ## Features
@@ -148,14 +165,14 @@ const checkoutFlow = flow
 
 ### Step Navigation
 
-Navigation with validation guards — users can't advance until the current step validates. Steps can be optional with `allowSkip: true`.
+Navigation with validation guards — users can't advance until the current step validates. Steps can be optional with `allowSkip: true`, or with a predicate over the accumulated flow data.
 
 ```tsx
 .step({
   id: 'profile',
   title: 'Your Profile',
   formConfig: profileForm,
-  allowSkip: true,
+  allowSkip: ({ allData }) => allData.account?.plan === 'free',
 })
 ```
 
@@ -248,8 +265,8 @@ Encapsulate reusable cross-cutting behavior with plugins. Plugins support depend
 ```tsx
 const loggingPlugin = {
   name: 'logging',
-  onStepEnter: (stepId) => console.log(`Entering ${stepId}`),
-  onStepLeave: (stepId) => console.log(`Leaving ${stepId}`),
+  onStepEnter: (stepId) => trackEvent('step_enter', { stepId }),
+  onStepLeave: (stepId) => trackEvent('step_leave', { stepId }),
 };
 
 const flow = rilay
@@ -261,24 +278,93 @@ const flow = rilay
 
 | Component | Description |
 |-----------|-------------|
-| `<Workflow>` | Main wrapper — manages context and state |
+| `<Flow of defaults onComplete>` | Root — accepts a builder or a built configuration, manages context and state |
+| `<Flow.Body>` | Renders the current step's form — custom `step.renderer` takes precedence, render prop `{ step }` supported |
+| `<Flow.Progress>` | Progress over VISIBLE steps — bare default or a `{ steps, currentIndex, goTo }` render prop |
+| `<Flow.Next>` | Validates then advances (submits the flow on the last step) — render prop `{ go, canGo, submitting, isLastStep, step }` |
+| `<Flow.Back>` | Go back to previous step (disabled on the first step) |
+| `<Flow.Skip>` | Skip the current step without validating — hidden while the step is not skippable |
 | `<WorkflowProvider>` | Context provider (used separately when needed) |
-| `<WorkflowBody>` | Renders the current step's form |
-| `<WorkflowStepper>` | Progress indicator / step navigation |
-| `<WorkflowNextButton>` | Advance to next step (or submit on last step) |
-| `<WorkflowPreviousButton>` | Go back to previous step |
-| `<WorkflowSkipButton>` | Skip the current step |
+
+Bare defaults ship styleable data attributes: `[data-flow-progress]` (+ `data-active` per step) and `[data-flow-nav="next|back|skip"]`.
+
+### Server-Driven Workflows
+
+`compileFlow` turns a data-only JSON `FlowSchema` into a live `WorkflowConfig`
+— the whole flow, backend-authored, no frontend redeployment. Each step's
+`form` is compiled through `compileForm`, so everything the form schema
+supports works per step.
+
+```tsx
+import { Flow, compileFlow } from '@rilaykit/workflow';
+import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
+
+const schema: FlowSchema = await fetch('/api/flows/subscription').then(r => r.json());
+
+const bindings: FlowBindings = {
+  // Runs after a step validates — e.g. prefill the next step from this one
+  after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
+  // Decides whether a step may be skipped, from the data collected so far
+  allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },
+  // Per-step form bindings resolve exactly as in compileForm
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
+  effects: { loadCities: async (country, ctx) => { /* ... */ } },
+};
+
+const { workflowConfig, defaultValues } = compileFlow(schema, rilConfig, { bindings });
+
+<Flow of={workflowConfig} defaults={defaultValues} onComplete={handleComplete}>
+  <Flow.Body />
+  <Flow.Back>Back</Flow.Back>
+  <Flow.Next>Next</Flow.Next>
+</Flow>
+```
+
+```json
+{
+  "version": 1,
+  "id": "subscription",
+  "name": "Subscription",
+  "steps": [
+    {
+      "id": "account",
+      "title": "Account",
+      "onAfterValidation": "prefillBilling",
+      "form": {
+        "version": 1,
+        "id": "account",
+        "fields": [{ "id": "email", "type": "text", "validation": { "rules": ["required", "email"] } }]
+      }
+    },
+    {
+      "id": "billing",
+      "title": "Billing",
+      "allowSkip": { "binding": "freePlan" },
+      "form": { "version": 1, "id": "billing", "fields": [{ "id": "vat", "type": "text" }] }
+    }
+  ]
+}
+```
+
+`WorkflowConfig` has no defaults slot, so compiled defaults come back out of
+band, already namespaced by step id (`{ account: { ... }, billing: { ... } }`)
+— the shape `<Flow defaults>` consumes, and the shape `onComplete` returns.
+
+An invalid schema throws `SchemaValidationError` with `documentKind: 'flow'`;
+its `issues[]` name a JSON path into the flow (`steps[0].form.fields[1].type`),
+including unresolved binding references.
 
 ### Hooks
 
 | Hook | Description |
 |------|-------------|
-| `useWorkflowContext()` | Full workflow context |
-| `useWorkflowState()` | Current workflow state |
-| `useWorkflowNavigation()` | Navigation actions (next, previous, goTo) |
-| `useWorkflowConditions()` | Evaluated step conditions |
-| `useWorkflowSubmission()` | Submission state and handlers |
-| `useWorkflowAnalytics()` | Analytics tracking |
+| `useFlow()` | Full flow context |
+| `useStep()` | Current step — `{ step, index, metadata }` |
+| `useFlowSteps()` | Visible steps — `{ steps, currentIndex, goTo }` |
+| `useFlowData()` | Accumulated data across steps |
+| `useFlowActions()` | Navigation and data actions |
+| `useFlowStepIndex()` | Current step index |
+| `useFlowNavigationState()` / `useFlowSubmitState()` | Granular state selectors |
 | `useConditionEvaluation()` | Condition evaluation utilities |
 | `usePersistence()` | Persistence state and actions |
 | `useStepMetadata()` | Current step metadata |

@@ -1,5 +1,6 @@
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import { Input } from '@/components/ui/input';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface TextInputProps {
   label?: string;
@@ -9,29 +10,22 @@ interface TextInputProps {
   readOnly?: boolean;
 }
 
-export function TextInput({
-  id,
-  props,
-  value,
-  onChange,
-  onBlur,
-  disabled,
-  error,
-  touched,
-}: ComponentRenderProps<TextInputProps>) {
-  const hasError = touched && error && error.length > 0;
+export function TextInput({ id, props, field }: ComponentRenderContext<TextInputProps>) {
+  const hasError = hasFieldError(field);
 
   return (
-    <Input
-      id={id}
-      type="text"
-      value={(value as string) ?? ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-      disabled={disabled}
-      readOnly={props.readOnly}
-      placeholder={props.placeholder}
-      className={hasError ? 'border-destructive' : ''}
-    />
+    <FieldWrapper id={id} props={props} field={field}>
+      <Input
+        id={id}
+        type="text"
+        value={(field?.value as string) ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+        disabled={field?.disabled}
+        readOnly={props.readOnly}
+        placeholder={props.placeholder}
+        className={hasError ? 'border-destructive' : ''}
+      />
+    </FieldWrapper>
   );
 }

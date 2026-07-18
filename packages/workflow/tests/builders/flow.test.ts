@@ -12,22 +12,22 @@ describe('Flow Builder', () => {
   beforeEach(() => {
     rilConfig = ril
       .create<any>()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', required: false },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },
       })
-      .addComponent('textarea', {
+      .component('textarea', {
         name: 'Textarea',
         renderer: () => React.createElement('textarea'),
         defaultProps: { label: '', rows: 3 },
@@ -70,6 +70,26 @@ describe('Flow Builder', () => {
       expect(config.id).toBe('test-id');
       expect(config.name).toBe('Test Name');
       expect(config.description).toBeUndefined();
+    });
+  });
+
+  describe('JSON serialization round-trip', () => {
+    it('should preserve id/name/description and steps through toJSON()/fromJSON()', () => {
+      const builder = flow
+        .create(rilConfig as any, 'wf-1', 'My Flow', 'desc')
+        .addStep({ title: 'S', formConfig: sampleForm });
+
+      const json = JSON.parse(JSON.stringify(builder.toJSON()));
+      const built = flow
+        .create(rilConfig as any)
+        .fromJSON(json)
+        .build();
+
+      expect(built.id).toBe('wf-1');
+      expect(built.name).toBe('My Flow');
+      expect(built.description).toBe('desc');
+      expect(built.steps).toHaveLength(1);
+      expect(built.steps[0].title).toBe('S');
     });
   });
 
@@ -335,21 +355,9 @@ describe('Flow Builder', () => {
       expect(config).toHaveProperty('steps');
       expect(config).toHaveProperty('analytics');
       expect(config).toHaveProperty('plugins');
-      expect(config).toHaveProperty('renderConfig');
 
       expect(config.steps).toHaveLength(1);
       expect(config.plugins).toEqual([]);
-    });
-
-    it('should include ril render configuration', () => {
-      const builder = flow
-        .create(rilConfig, 'test-workflow', 'Test')
-        .addStep({ title: 'Step 1', formConfig: sampleForm });
-
-      const config = builder.build();
-
-      expect(config.renderConfig).toBeDefined();
-      // The renderConfig should come from rilConfig.getWorkflowRenderConfig()
     });
   });
 
@@ -678,8 +686,7 @@ describe('Flow Builder', () => {
 
       const config = builder.build();
 
-      // The config should be available via renderConfig
-      expect(config.renderConfig).toBeDefined();
+      expect(config.steps[0].formConfig.config).toBe(rilConfig);
     });
 
     it('should work with form builders from the same ril config', () => {

@@ -1,5 +1,6 @@
+import { getOwn, hasOwn } from '@rilaykit/core';
 import { useMemo } from 'react';
-import { useWorkflowContext } from '../components/WorkflowProvider';
+import { useFlow } from '../components/WorkflowProvider';
 
 /**
  * Hook return type for step metadata access
@@ -107,7 +108,7 @@ export interface UseStepMetadataReturn {
  * ```
  */
 export function useStepMetadata(): UseStepMetadataReturn {
-  const { workflowConfig, currentStep } = useWorkflowContext();
+  const { workflowConfig, currentStep } = useFlow();
 
   // Memoize current step metadata
   const current = useMemo(() => {
@@ -129,17 +130,20 @@ export function useStepMetadata(): UseStepMetadataReturn {
     };
   }, [workflowConfig.steps]);
 
-  // Helper functions for current step
+  // Helper functions for current step.
+  // Own-property only: `in` is prototype-inclusive, so a step whose metadata
+  // simply omits `toString` would report the key present and hand back
+  // Object.prototype's method instead of the caller's default.
   const hasCurrentKey = useMemo(() => {
     return (key: string): boolean => {
-      return current ? key in current : false;
+      return current ? hasOwn(current, key) : false;
     };
   }, [current]);
 
   const getCurrentValue = useMemo(() => {
     return <T = any>(key: string, defaultValue?: T): T => {
-      if (current && key in current) {
-        return current[key] as T;
+      if (current && hasOwn(current, key)) {
+        return getOwn(current, key) as T;
       }
       return defaultValue as T;
     };

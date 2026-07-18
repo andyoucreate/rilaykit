@@ -1,53 +1,34 @@
-import type { ComponentRendererBaseProps, FormBodyRendererProps } from '@rilaykit/core';
-import { ComponentRendererWrapper } from '@rilaykit/core';
-import React, { useMemo } from 'react';
-import { useFormConfigContext } from './FormProvider';
-import FormRow from './FormRow';
-import { RepeatableField } from './repeatable-field';
+import React from 'react';
+import { type VisibleRow, useFormRows } from '../hooks/useFormRows';
+import { FormField } from './FormField';
+import { FormList } from './FormList';
 
-export const FormBody = React.memo(function FormBody({
-  className,
-  ...props
-}: ComponentRendererBaseProps<FormBodyRendererProps>) {
-  const { formConfig } = useFormConfigContext();
+export interface FormBodyProps {
+  children?: (ctx: { rows: VisibleRow[] }) => React.ReactNode;
+  className?: string;
+}
 
-  // Render all rows — dispatch by kind
-  const defaultRenderedRows = useMemo<React.ReactNode>(
-    () =>
-      formConfig.rows.map((row) => {
-        if (row.kind === 'repeatable') {
-          return (
-            <RepeatableField
-              key={row.id}
-              repeatableId={row.repeatable.id}
-              repeatableConfig={row.repeatable}
-            />
-          );
-        }
-        return <FormRow key={row.id} row={row} />;
-      }),
-    [formConfig.rows]
-  );
+export const FormBody = React.memo(function FormBody({ children, className }: FormBodyProps) {
+  const rows = useFormRows();
 
-  // Memoize base props to avoid recreating object
-  const baseProps: FormBodyRendererProps = useMemo(
-    () => ({
-      formConfig,
-      children: defaultRenderedRows,
-      className,
-    }),
-    [formConfig, defaultRenderedRows, className]
-  );
+  if (children) {
+    return <>{children({ rows })}</>;
+  }
 
   return (
-    <ComponentRendererWrapper
-      name="FormBody"
-      renderer={formConfig.renderConfig?.bodyRenderer}
-      props={baseProps}
-      {...props}
-    >
-      {defaultRenderedRows}
-    </ComponentRendererWrapper>
+    <div className={className} data-form-body>
+      {rows.map((row) =>
+        row.kind === 'repeatable' ? (
+          <FormList key={row.id} id={row.repeatable.id} />
+        ) : (
+          <div key={row.id} data-form-row={row.id}>
+            {row.fields.map((field) => (
+              <FormField key={field.id} id={field.id} />
+            ))}
+          </div>
+        )
+      )}
+    </div>
   );
 });
 

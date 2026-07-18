@@ -3,8 +3,9 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
+import { MockInput, MockSelect } from '../_helpers/mock-components';
 
 /**
  * Integration test to reproduce the bug where conditions fail
@@ -14,45 +15,9 @@ import { flow } from '../../src/builders/flow';
  * qu'une de ses variables dans son formulaire, les conditions ne marche pas."
  */
 describe('Identical Step and Field Names - Bug Reproduction', () => {
-  // Mock components
-  const MockProducts = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label || id}</label>
-      <select
-        id={id}
-        value={Array.isArray(value) ? value[0] || '' : value || ''}
-        onChange={(e) => {
-          const newValue = props.multiple ? [e.target.value] : e.target.value;
-          onChange?.(newValue);
-        }}
-        data-testid={`select-${id}`}
-        multiple={props.multiple}
-      >
-        {props.options?.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const MockInput = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label || id}</label>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Test component to check step visibility
   const StepVisibilityChecker = () => {
-    const { workflowConfig, conditionsHelpers } = useWorkflowContext();
+    const { workflowConfig, conditionsHelpers } = useFlow();
 
     return (
       <div data-testid="step-visibility-checker">
@@ -72,19 +37,15 @@ describe('Identical Step and Field Names - Bug Reproduction', () => {
 
     rilConfig = ril
       .create()
-      .addComponent('products', {
+      .component('products', {
         name: 'Products Selector',
-        renderer: MockProducts,
+        renderer: MockSelect,
         defaultProps: {},
       })
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: MockInput,
         defaultProps: {},
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
   });
 

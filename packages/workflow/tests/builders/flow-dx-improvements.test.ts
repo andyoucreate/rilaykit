@@ -13,12 +13,12 @@ describe('Flow Builder - DX Improvements', () => {
   beforeEach(() => {
     rilConfig = ril
       .create<any>()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', required: false },

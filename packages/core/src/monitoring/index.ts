@@ -81,8 +81,10 @@ export class RilayMonitor {
   ): void {
     if (!this.config.enabled) return;
 
-    // Apply sample rate
-    if (Math.random() > (this.config.sampleRate || 1.0)) return;
+    // Apply sample rate. `??`, not `||`: a `sampleRate` of 0 (track nothing) is
+    // falsy, so `|| 1.0` would collapse it to 1.0 and track EVERYTHING — the exact
+    // inverse of the intent. Only null/undefined should fall back to 1.0.
+    if (Math.random() > (this.config.sampleRate ?? 1.0)) return;
 
     const event: MonitoringEvent = {
       id: generateEventId(),
@@ -214,6 +216,14 @@ export class RilayMonitor {
       this.flushTimer = setInterval(() => {
         this.flush();
       }, this.config.flushInterval);
+
+      // On Node the interval would keep the event loop alive and prevent the
+      // process from exiting; unref it so a monitor alone never blocks exit.
+      // Browser timers are plain numbers with no `.unref`, hence the guard.
+      const timerHandle: { unref?: () => void } = this.flushTimer;
+      if (typeof timerHandle.unref === 'function') {
+        timerHandle.unref();
+      }
     }
   }
 

@@ -1,15 +1,10 @@
 import { ril, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowProvider,
-  flow,
-  useWorkflowContext,
-} from '@rilaykit/workflow';
+import { flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextButton, PrevButton } from '../_setup/nav-buttons';
 import { MockCheckboxInput, MockSelectInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
@@ -21,34 +16,20 @@ let rilConfig: ReturnType<typeof createRilConfig>;
 function createRilConfig() {
   return ril
     .create()
-    .addComponent('text', {
+    .component('text', {
       name: 'Text',
       renderer: MockTextInput,
       defaultProps: { label: '' },
     })
-    .addComponent('select', {
+    .component('select', {
       name: 'Select',
       renderer: MockSelectInput,
       defaultProps: { label: '', options: [] },
     })
-    .addComponent('checkbox', {
+    .component('checkbox', {
       name: 'Checkbox',
       renderer: MockCheckboxInput,
       defaultProps: { label: '' },
-    })
-    .configure({
-      bodyRenderer: ({ children }) => <div>{children}</div>,
-      rowRenderer: ({ children }) => <div>{children}</div>,
-      nextButtonRenderer: ({ onSubmit, isSubmitting, isLastStep }) => (
-        <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-          {isLastStep ? 'Complete' : 'Next'}
-        </button>
-      ),
-      previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-        <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-          Previous
-        </button>
-      ),
     });
 }
 
@@ -57,7 +38,7 @@ function createRilConfig() {
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState, currentStep, context } = useWorkflowContext();
+  const { workflowState, currentStep, context } = useFlow();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -70,7 +51,7 @@ function WorkflowStateDisplay() {
 }
 
 function StepVisibilityDisplay({ stepCount }: { stepCount: number }) {
-  const { conditionsHelpers } = useWorkflowContext();
+  const { conditionsHelpers } = useFlow();
   const steps = Array.from({ length: stepCount }, (_, i) => i);
   return (
     <div>
@@ -199,9 +180,9 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -298,9 +279,9 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -353,8 +334,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -390,8 +371,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onComplete}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -476,9 +457,9 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -545,9 +526,9 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>
@@ -587,8 +568,8 @@ describe('Workflow Conditional Steps Navigation -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
         <StepVisibilityDisplay stepCount={4} />
       </WorkflowProvider>

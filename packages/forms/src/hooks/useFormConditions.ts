@@ -1,4 +1,5 @@
 import type { ConditionalBehavior, FormConfiguration } from '@rilaykit/core';
+import { getOwn } from '@rilaykit/core';
 import { useCallback, useMemo } from 'react';
 import { buildCompositeKey } from '../utils/repeatable-data';
 import { scopeConditions } from '../utils/scope-conditions';
@@ -6,6 +7,14 @@ import {
   type ConditionEvaluationResult,
   useMultipleConditionEvaluation,
 } from './useConditionEvaluation';
+
+// Stable empty singletons for the no-conditions fast path. Passing fresh `{}`
+// literals would give `useMultipleConditionEvaluation`'s memo new deps on every
+// render, changing `fieldConditions` identity every keystroke — which would
+// churn `conditionsHelpers` in the form context and re-render EVERY field,
+// defeating granular subscription isolation.
+const EMPTY_CONDITIONS: Record<string, ConditionalBehavior | undefined> = Object.freeze({});
+const EMPTY_VALUES: Record<string, any> = Object.freeze({});
 
 export interface UseFormConditionsProps {
   formConfig: FormConfiguration;
@@ -69,7 +78,7 @@ export function useFormConditions({
     // Repeatable item fields — scope conditions to each active item
     if (repeatableOrder && formConfig.repeatableFields) {
       for (const [repeatableId, config] of Object.entries(formConfig.repeatableFields)) {
-        const keys = repeatableOrder[repeatableId] ?? [];
+        const keys = getOwn(repeatableOrder, repeatableId) ?? [];
         if (keys.length === 0) continue;
 
         // Build template field IDs set once per repeatable
@@ -101,14 +110,14 @@ export function useFormConditions({
 
   // Evaluate conditions for all fields - only if there are conditional fields
   const fieldConditions = useMultipleConditionEvaluation(
-    hasConditionalFields ? fieldsWithConditions : {},
-    hasConditionalFields ? formValues : {}
+    hasConditionalFields ? fieldsWithConditions : EMPTY_CONDITIONS,
+    hasConditionalFields ? formValues : EMPTY_VALUES
   );
 
   // Helper function to get condition result for a specific field
   const getFieldCondition = useCallback(
     (fieldId: string): ConditionEvaluationResult | undefined => {
-      return fieldConditions[fieldId];
+      return getOwn(fieldConditions, fieldId);
     },
     [fieldConditions]
   );
@@ -116,7 +125,7 @@ export function useFormConditions({
   // Helper function to check if field is visible
   const isFieldVisible = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.visible : true;
     },
     [fieldConditions]
@@ -125,7 +134,7 @@ export function useFormConditions({
   // Helper function to check if field is disabled
   const isFieldDisabled = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.disabled : false;
     },
     [fieldConditions]
@@ -134,7 +143,7 @@ export function useFormConditions({
   // Helper function to check if field is required
   const isFieldRequired = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.required : false;
     },
     [fieldConditions]
@@ -143,7 +152,7 @@ export function useFormConditions({
   // Helper function to check if field is readonly
   const isFieldReadonly = useCallback(
     (fieldId: string): boolean => {
-      const condition = fieldConditions[fieldId];
+      const condition = getOwn(fieldConditions, fieldId);
       return condition ? condition.readonly : false;
     },
     [fieldConditions]

@@ -1,11 +1,13 @@
 import { ril, when } from '@rilaykit/core';
-import { form, useFormConfigContext, useFormStoreApi } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { useForm, useFormStoreApi } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { useCallback } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
+import { MockCheckbox, MockInput, MockSelect } from '../_helpers/mock-components';
 
 /**
  * Integration test reproducing the conditional steps navigation bug:
@@ -14,51 +16,6 @@ import { flow } from '../../src/builders/flow';
  * because stepData no longer contains the triggering field value.
  */
 describe('Conditional steps - navigation bug', () => {
-  const MockSelect = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <select
-        id={id}
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`select-${id}`}
-      >
-        <option value="">Select...</option>
-        {props.options.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const MockInput = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
-  const MockCheckbox = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="checkbox"
-        checked={value || false}
-        onChange={(e) => onChange?.(e.target.checked)}
-        data-testid={`checkbox-${id}`}
-      />
-    </div>
-  );
-
   let config: any;
   let conditionalFlow: any;
 
@@ -67,21 +24,17 @@ describe('Conditional steps - navigation bug', () => {
 
     config = ril
       .create()
-      .addComponent('select', {
+      .component('select', {
         name: 'Select Input',
         renderer: MockSelect,
       })
-      .addComponent('input', {
+      .component('input', {
         name: 'Text Input',
         renderer: MockInput,
       })
-      .addComponent('checkbox', {
+      .component('checkbox', {
         name: 'Checkbox',
         renderer: MockCheckbox,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Reproduce the playground conditional-steps example
@@ -162,7 +115,7 @@ describe('Conditional steps - navigation bug', () => {
   // Test helper component
   function WorkflowTestHarness() {
     const { workflowState, workflowConfig, conditionsHelpers, goNext, setValue, currentStep } =
-      useWorkflowContext();
+      useFlow();
 
     return (
       <div>
@@ -375,52 +328,10 @@ describe('Conditional steps - navigation bug', () => {
 
 /**
  * Tests using the REAL form submission flow (submit() → handleSubmit → setStepDataAction → goNext).
- * This reproduces the exact behavior of WorkflowNextButton in the playground.
+ * This reproduces the exact behavior of Flow.Next in the playground.
  * The tests above use goNext() directly which bypasses setStepDataAction.
  */
-describe('Conditional steps - form submission flow (real WorkflowNextButton path)', () => {
-  const MockSelect = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <select
-        id={id}
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`select-${id}`}
-      >
-        <option value="">Select...</option>
-        {props.options.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const MockInput = ({ id, value, onChange }: any) => (
-    <div data-testid={`field-${id}`}>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
-  const MockCheckbox = ({ id, value, onChange }: any) => (
-    <div data-testid={`field-${id}`}>
-      <input
-        id={id}
-        type="checkbox"
-        checked={value || false}
-        onChange={(e) => onChange?.(e.target.checked)}
-        data-testid={`checkbox-${id}`}
-      />
-    </div>
-  );
-
+describe('Conditional steps - form submission flow (real Flow.Next path)', () => {
   let config: any;
   let conditionalFlow: any;
 
@@ -429,13 +340,9 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
 
     config = ril
       .create()
-      .addComponent('select', { name: 'Select', renderer: MockSelect })
-      .addComponent('input', { name: 'Input', renderer: MockInput })
-      .addComponent('checkbox', { name: 'Checkbox', renderer: MockCheckbox })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      });
+      .component('select', { name: 'Select', renderer: MockSelect })
+      .component('input', { name: 'Input', renderer: MockInput })
+      .component('checkbox', { name: 'Checkbox', renderer: MockCheckbox });
 
     conditionalFlow = flow
       .create(config, 'conditional-submit', 'Account Setup')
@@ -504,7 +411,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
   });
 
   /**
-   * Test harness that uses submit() from FormProvider (like WorkflowNextButton does),
+   * Test harness that uses submit() from FormProvider (like Flow.Next does),
    * NOT goNext() directly. This tests the real submission flow:
    * submit() → form validation → handleSubmit(values) → setStepDataAction → goNext
    *
@@ -512,10 +419,10 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
    * which triggers onFieldChange → workflow store update. Both stores stay in sync.
    */
   function FormSubmitTestHarness() {
-    const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useWorkflowContext();
+    const { workflowState, workflowConfig, conditionsHelpers, currentStep } = useFlow();
 
-    // Access submit from FormProvider — same as WorkflowNextButton
-    const { submit } = useFormConfigContext();
+    // Access submit from FormProvider — same as Flow.Next
+    const { submit } = useForm();
 
     // Access form store to set values like a real form component would
     const formStore = useFormStoreApi();
@@ -542,7 +449,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
           </div>
         ))}
 
-        {/* Submit button — triggers full form submission flow like WorkflowNextButton */}
+        {/* Submit button — triggers full form submission flow like Flow.Next */}
         <button type="button" data-testid="fs-submit" onClick={() => submit()}>
           Submit (Next)
         </button>
@@ -617,7 +524,7 @@ describe('Conditional steps - form submission flow (real WorkflowNextButton path
       expect(screen.getByTestId('fs-step-enterprise-visible')).toHaveTextContent('true');
     });
 
-    // Submit form (like WorkflowNextButton) — goes through handleSubmit → setStepDataAction → goNext
+    // Submit form (like Flow.Next) — goes through handleSubmit → setStepDataAction → goNext
     fireEvent.click(screen.getByTestId('fs-submit'));
 
     // Wait for navigation AND verify conditional steps are still visible

@@ -21,6 +21,7 @@ export type ConditionValue =
   | boolean
   | null
   | undefined
+  | RegExp
   | Array<string | number | boolean>;
 
 export interface ConditionConfig {
@@ -128,7 +129,9 @@ class ConditionBuilderImpl implements ConditionBuilder {
 
   matches(pattern: string | RegExp): ConditionBuilder {
     this.operator = 'matches';
-    this.value = pattern instanceof RegExp ? pattern.source : pattern;
+    // Keep the RegExp instance so its flags survive evaluation; strings are
+    // compiled lazily (and defensively) at eval time.
+    this.value = pattern;
     return this;
   }
 
@@ -268,7 +271,8 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
       if (Array.isArray(fieldValue)) {
         return !fieldValue.includes(condition.value);
       }
-      return false;
+      // A value that cannot contain anything vacuously does not contain X.
+      return true;
 
     case 'in':
       return Array.isArray(condition.value) && condition.value.includes(fieldValue);
@@ -277,11 +281,21 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
       return Array.isArray(condition.value) && !condition.value.includes(fieldValue);
 
     case 'matches': {
-      if (typeof fieldValue !== 'string' || typeof condition.value !== 'string') {
+      if (typeof fieldValue !== 'string') {
         return false;
       }
-      const regex = new RegExp(condition.value);
-      return regex.test(fieldValue);
+      try {
+        const regex =
+          condition.value instanceof RegExp
+            ? new RegExp(condition.value.source, condition.value.flags)
+            : typeof condition.value === 'string'
+              ? new RegExp(condition.value)
+              : null;
+        return regex ? regex.test(fieldValue) : false;
+      } catch {
+        // Invalid user-supplied pattern must never crash the evaluation pass.
+        return false;
+      }
     }
     case 'exists':
       return fieldValue !== undefined && fieldValue !== null;
@@ -295,8 +309,12 @@ export function evaluateCondition(condition: ConditionConfig, data: Record<strin
 }
 
 function getFieldValue(data: Record<string, any>, fieldPath: string): any {
-  // Direct key lookup first — supports flat composite keys like "items[k0].type"
-  if (fieldPath in data) {
+  const hasOwn = Object.prototype.hasOwnProperty;
+
+  // Direct key lookup first — supports flat composite keys like "items[k0].type".
+  // Use an own-property check so inherited members (toString, constructor,
+  // __proto__, …) never masquerade as real fields.
+  if (hasOwn.call(data, fieldPath)) {
     return data[fieldPath];
   }
 
@@ -305,7 +323,7 @@ function getFieldValue(data: Record<string, any>, fieldPath: string): any {
   let value: any = data;
 
   for (const part of parts) {
-    if (value && typeof value === 'object' && part in value) {
+    if (value && typeof value === 'object' && hasOwn.call(value, part)) {
       value = value[part];
     } else {
       return undefined;

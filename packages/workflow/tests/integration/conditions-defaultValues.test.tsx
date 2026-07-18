@@ -3,46 +3,14 @@ import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
+import { MockInput, MockSelect } from '../_helpers/mock-components';
 
 describe('Workflow - Conditions with DefaultValues', () => {
-  // Mock components
-  const MockSelect = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <select
-        id={id}
-        value={Array.isArray(value) ? value[0] || '' : value || ''}
-        onChange={(e) => onChange?.(props.multiple ? [e.target.value] : e.target.value)}
-        data-testid={`select-${id}`}
-        multiple={props.multiple}
-      >
-        {props.options.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const MockInput = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Test component to check step visibility
   const StepVisibilityChecker = () => {
-    const { workflowConfig, conditionsHelpers } = useWorkflowContext();
+    const { workflowConfig, conditionsHelpers } = useFlow();
 
     return (
       <div data-testid="step-visibility-checker">
@@ -63,17 +31,13 @@ describe('Workflow - Conditions with DefaultValues', () => {
 
     config = ril
       .create()
-      .addComponent('select', {
+      .component('select', {
         name: 'Select Input',
         renderer: MockSelect,
       })
-      .addComponent('input', {
+      .component('input', {
         name: 'Text Input',
         renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
       });
 
     // Create workflow similar to QuotePricingFlow
@@ -280,7 +244,7 @@ describe('Workflow - Conditions with DefaultValues', () => {
     };
 
     const ComplexStepChecker = () => {
-      const { workflowConfig, conditionsHelpers } = useWorkflowContext();
+      const { workflowConfig, conditionsHelpers } = useFlow();
 
       return (
         <div data-testid="complex-step-checker">

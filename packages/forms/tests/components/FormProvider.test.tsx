@@ -1,32 +1,14 @@
 import type { FormConfiguration, ValidationResult } from '@rilaykit/core';
-import { ril } from '@rilaykit/core';
+import { ConfigurationError, ril } from '@rilaykit/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
-import { FormProvider, useFormConfigContext } from '../../src/components/FormProvider';
+import { FormProvider, useForm } from '../../src/components/FormProvider';
 import { useFormStoreApi, useFormSubmitState, useFormValues } from '../../src/stores';
 
 // Mock components
 const TestComponent = () => React.createElement('div', null, 'test');
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'form-renderer' }, children);
-const TestRowRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'row-renderer' }, children);
-const TestSubmitButtonRenderer = ({
-  onSubmit,
-  isSubmitting,
-}: { onSubmit: () => void; isSubmitting: boolean }) =>
-  React.createElement(
-    'div',
-    {
-      role: 'button',
-      onClick: onSubmit,
-      'data-testid': 'submit-button',
-      'data-submitting': isSubmitting,
-    },
-    isSubmitting ? 'Submitting...' : 'Submit'
-  );
 
 describe('FormProvider', () => {
   let config: ReturnType<typeof ril.create>;
@@ -37,20 +19,15 @@ describe('FormProvider', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter email...' },
-      })
-      .configure({
-        rowRenderer: TestRowRenderer,
-        bodyRenderer: TestFormRenderer,
-        submitButtonRenderer: TestSubmitButtonRenderer,
       });
 
     formConfig = form
@@ -112,7 +89,7 @@ describe('FormProvider', () => {
       const onSubmit = vi.fn().mockResolvedValue(undefined);
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         return (
           <button type="button" onClick={() => submit()} data-testid="submit-btn">
             Submit
@@ -163,21 +140,30 @@ describe('FormProvider', () => {
     });
   });
 
-  describe('useFormConfigContext Hook', () => {
-    it('should throw error when used outside provider', () => {
+  describe('useForm Hook', () => {
+    it('should throw ConfigurationError when used outside provider', () => {
       const TestComponent = () => {
-        useFormConfigContext();
+        useForm();
         return null;
       };
 
-      expect(() => render(<TestComponent />)).toThrow(
-        'useFormConfigContext must be used within a FormProvider'
+      let caught: unknown;
+      try {
+        render(<TestComponent />);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ConfigurationError);
+      expect((caught as ConfigurationError).message).toBe(
+        'useForm must be used within a FormProvider'
       );
+      expect((caught as ConfigurationError).code).toBe('CONFIGURATION');
     });
 
     it('should provide form config', () => {
       const TestChild = () => {
-        const { formConfig: config } = useFormConfigContext();
+        const { formConfig: config } = useForm();
         return (
           <div>
             <div data-testid="form-id">{config.id}</div>
@@ -291,7 +277,7 @@ describe('FormProvider', () => {
         .build();
 
       const TestChild = () => {
-        const { validateField } = useFormConfigContext();
+        const { validateField } = useForm();
         const store = useFormStoreApi();
         return (
           <div>
@@ -342,7 +328,7 @@ describe('FormProvider', () => {
         .build();
 
       const TestChild = () => {
-        const { validateForm } = useFormConfigContext();
+        const { validateForm } = useForm();
         const [result, setResult] = React.useState<ValidationResult | null>(null);
 
         const handleValidateAll = async () => {
@@ -381,7 +367,7 @@ describe('FormProvider', () => {
       const onSubmit = vi.fn().mockResolvedValue(undefined);
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const { isSubmitting } = useFormSubmitState();
         return (
           <div>
@@ -413,7 +399,7 @@ describe('FormProvider', () => {
       const onSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'));
 
       const TestChild = () => {
-        const { submit } = useFormConfigContext();
+        const { submit } = useForm();
         const { isSubmitting } = useFormSubmitState();
         return (
           <div>

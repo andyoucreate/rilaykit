@@ -1,8 +1,9 @@
+// Vanilla store factory (isomorphic — safe in a server component)
+export { createFormStore, type FormStore, type FormStoreState } from './formStore';
+
+// React context + selector/action hooks (client-only — the `'use client'`
+// boundary lives in ./formStoreContext)
 export {
-  // Store factory
-  createFormStore,
-  type FormStore,
-  type FormStoreState,
   // Context
   FormStoreContext,
   useFormStore,
@@ -28,4 +29,4 @@ export {
   useFormStoreApi,
   type UseFieldActionsResult,
   type UseFormActionsResult,
-} from './formStore';
+} from './formStoreContext';

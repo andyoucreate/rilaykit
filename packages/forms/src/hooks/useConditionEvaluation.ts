@@ -3,8 +3,11 @@ import {
   type ConditionConfig,
   type ConditionalBehavior,
   evaluateCondition,
+  getLogger,
 } from '@rilaykit/core';
 import { useMemo } from 'react';
+
+const log = getLogger('forms:conditions');
 
 export interface ConditionEvaluationResult {
   visible: boolean;
@@ -45,7 +48,7 @@ export function useConditionEvaluation(
         // If it's already a ConditionConfig
         return evaluateCondition(condition as ConditionConfig, formData);
       } catch (error) {
-        console.warn('Error evaluating condition:', error);
+        log.warn('Error evaluating condition:', error);
         return false;
       }
     };
@@ -97,7 +100,7 @@ export function useMultipleConditionEvaluation(
             }
             return evaluateCondition(condition as ConditionConfig, formData);
           } catch (error) {
-            console.warn(`Error evaluating condition for field ${fieldId}:`, error);
+            log.warn(`Error evaluating condition for field ${fieldId}:`, error);
             return false;
           }
         };

@@ -1,8 +1,8 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  // Multiple entry points for better code splitting
-  entry: ["src/index.ts"],
+  // Entry points — isomorphic `.` + client-only `./react`
+  entry: ['src/index.ts', 'src/react/index.ts'],
   
   // Output formats
   format: ['esm', 'cjs'],
@@ -30,9 +30,11 @@ export default defineConfig({
   // Bundle internal dependencies
   bundle: true,
   
-  // Tree-shake unused code
-  treeshake: true,
-  
+  // NO rollup `treeshake` pass: it strips the leading `'use client'` directive
+  // from the client entry (`src/react/index.ts`), which Next.js App Router needs
+  // as an RSC boundary. esbuild still tree-shakes via `bundle: true`; the main
+  // entry (`src/index.ts`) stays isomorphic regardless.
+
   // No source maps for production
   sourcemap: false,
   

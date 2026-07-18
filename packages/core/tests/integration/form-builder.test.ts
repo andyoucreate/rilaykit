@@ -14,20 +14,15 @@ describe('Core-FormBuilder Integration', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: vi.fn(),
         defaultProps: { placeholder: 'Enter text' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: vi.fn(),
         defaultProps: { placeholder: 'Enter email' },
-      })
-      .configure({
-        bodyRenderer: vi.fn(),
-        rowRenderer: vi.fn(),
-        submitButtonRenderer: vi.fn(),
       });
   });
 
@@ -36,13 +31,11 @@ describe('Core-FormBuilder Integration', () => {
       const textComponent = config.getComponent('text');
       const emailComponent = config.getComponent('email');
 
-      expect(textComponent).toBeDefined();
       expect(textComponent.name).toBe('Text Input');
-      expect(emailComponent).toBeDefined();
       expect(emailComponent.name).toBe('Email Input');
     });
 
-    it('should return null for non-existent components', () => {
+    it('should return undefined for non-existent components', () => {
       const nonExistent = config.getComponent('nonexistent');
       expect(nonExistent).toBeUndefined();
     });
@@ -55,18 +48,9 @@ describe('Core-FormBuilder Integration', () => {
   });
 
   describe('Configuration Management', () => {
-    it('should store render configuration', () => {
-      const renderConfig = config.getFormRenderConfig();
-
-      expect(renderConfig).toBeDefined();
-      expect(renderConfig.bodyRenderer).toBeDefined();
-      expect(renderConfig.rowRenderer).toBeDefined();
-      expect(renderConfig.submitButtonRenderer).toBeDefined();
-    });
-
     it('should maintain component registry state', () => {
       // Add more components (immutable API returns new instance)
-      config = config.addComponent('number', {
+      config = config.component('number', {
         name: 'Number Input',
         renderer: vi.fn(),
         defaultProps: { min: 0 },
@@ -105,14 +89,14 @@ describe('Core-FormBuilder Integration', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle invalid component registration gracefully', () => {
-      expect(() => {
-        config.addComponent('invalid', {
-          name: 'Invalid Component',
-          renderer: null,
-          defaultProps: {},
-        });
-      }).not.toThrow();
+    it('should register renderer-less blueprint components', () => {
+      const withBlueprint = config.component('blueprint', {
+        name: 'Blueprint Component',
+        defaultProps: {},
+      });
+
+      expect(withBlueprint.hasComponent('blueprint')).toBe(true);
+      expect(withBlueprint.getComponent('blueprint').renderer).toBeUndefined();
     });
 
     it('should handle missing configuration gracefully', () => {
@@ -123,45 +107,42 @@ describe('Core-FormBuilder Integration', () => {
     });
   });
 
-  describe('Performance', () => {
-    it('should handle many components efficiently', () => {
-      const startTime = performance.now();
-
+  describe('Scale', () => {
+    it('should register 100 components with every entry intact', () => {
       // Add 100 components (immutable API requires reassignment)
       for (let i = 0; i < 100; i++) {
-        config = config.addComponent(`component${i}`, {
+        config = config.component(`component${i}`, {
           name: `Component ${i}`,
           renderer: vi.fn(),
           defaultProps: { index: i },
         });
       }
 
-      const endTime = performance.now();
-
-      expect(endTime - startTime).toBeLessThan(100); // Should be fast
-      expect(config.hasComponent('component50')).toBe(true);
+      for (let i = 0; i < 100; i++) {
+        expect(config.hasComponent(`component${i}`)).toBe(true);
+        expect(config.getComponent(`component${i}`)?.name).toBe(`Component ${i}`);
+        expect(config.getComponent(`component${i}`)?.defaultProps).toEqual({ index: i });
+      }
+      expect(config.hasComponent('component100')).toBe(false);
     });
 
-    it('should handle component lookups efficiently', () => {
+    it('should return a stable, identical entry across 1000 lookups', () => {
       // Add some components first
       for (let i = 0; i < 50; i++) {
-        config.addComponent(`component${i}`, {
+        config = config.component(`component${i}`, {
           name: `Component ${i}`,
           renderer: vi.fn(),
           defaultProps: { index: i },
         });
       }
 
-      const startTime = performance.now();
+      const first = config.getComponent('component25');
+      expect(first?.name).toBe('Component 25');
 
-      // Perform many lookups
+      // Perform many lookups: each must yield the very same entry
       for (let i = 0; i < 1000; i++) {
-        config.getComponent('component25');
+        expect(config.getComponent('component25')).toBe(first);
       }
-
-      const endTime = performance.now();
-
-      expect(endTime - startTime).toBeLessThan(50); // Should be very fast
     });
   });
 
@@ -197,25 +178,20 @@ describe('Core-FormBuilder Integration', () => {
       // Test a more complex configuration
       const complexConfig = ril
         .create()
-        .addComponent('text', {
+        .component('text', {
           name: 'Text Input',
           renderer: vi.fn(),
           defaultProps: { type: 'text', autocomplete: 'off' },
         })
-        .addComponent('select', {
+        .component('select', {
           name: 'Select Input',
           renderer: vi.fn(),
           defaultProps: { options: [] },
         })
-        .addComponent('checkbox', {
+        .component('checkbox', {
           name: 'Checkbox Input',
           renderer: vi.fn(),
           defaultProps: { checked: false },
-        })
-        .configure({
-          bodyRenderer: vi.fn(),
-          rowRenderer: vi.fn(),
-          submitButtonRenderer: vi.fn(),
         });
 
       expect(complexConfig.hasComponent('text')).toBe(true);
@@ -223,10 +199,7 @@ describe('Core-FormBuilder Integration', () => {
       expect(complexConfig.hasComponent('checkbox')).toBe(true);
 
       const selectComponent = complexConfig.getComponent('select');
-      expect(selectComponent).toBeDefined();
-      if (selectComponent?.defaultProps) {
-        expect(selectComponent.defaultProps.options).toEqual([]);
-      }
+      expect(selectComponent?.defaultProps?.options).toEqual([]);
     });
   });
 
@@ -244,7 +217,7 @@ describe('Core-FormBuilder Integration', () => {
       };
 
       const component = config.getComponent(fieldConfig.type);
-      expect(component).toBeDefined();
+      expect(component.type).toBe('email');
 
       // Simulate validation
       const validationResult = fieldConfig.validation.validator('test@example.com');

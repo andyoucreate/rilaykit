@@ -5,7 +5,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePersistence } from '../../src/hooks/usePersistence';
-import type { WorkflowState } from '../../src/hooks/useWorkflowState';
+import type { WorkflowState } from '../../src/hooks/workflow-state';
 import type {
   PersistedWorkflowData,
   WorkflowPersistenceAdapter,

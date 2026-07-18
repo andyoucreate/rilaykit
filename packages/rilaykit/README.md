@@ -31,32 +31,35 @@ bun add rilaykit
 ### 1. Register Your Components
 
 ```tsx
-import { ril, ComponentRenderer } from 'rilaykit';
+import { ril } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
+import { z } from 'zod';
 
-interface InputProps {
-  label: string;
-  type?: string;
-  placeholder?: string;
+const inputProps = z.object({
+  label: z.string(),
+  type: z.string().optional(),
+  placeholder: z.string().optional(),
+});
+type InputProps = z.infer<typeof inputProps>;
+
+function Input({ id, props, field }: ComponentRenderContext<InputProps>) {
+  return (
+    <div>
+      <label htmlFor={id}>{props.label}</label>
+      <input
+        id={id}
+        type={props.type || 'text'}
+        value={String(field?.value ?? '')}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={() => field?.onBlur()}
+      />
+      {field?.error?.[0] && <p>{field.error[0].message}</p>}
+    </div>
+  );
 }
 
-const Input: ComponentRenderer<InputProps> = ({
-  id, value, onChange, onBlur, error, props,
-}) => (
-  <div>
-    <label htmlFor={id}>{props.label}</label>
-    <input
-      id={id}
-      type={props.type || 'text'}
-      value={value || ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-    />
-    {error && <p>{error[0].message}</p>}
-  </div>
-);
-
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .component('input', { propsSchema: inputProps, renderer: Input });
 ```
 
 ### 2. Build a Form
@@ -85,36 +88,37 @@ const loginForm = rilay
 ### 3. Render It
 
 ```tsx
-import { Form, FormField } from 'rilaykit';
+import { Form } from 'rilaykit';
 
 function LoginForm() {
-  const handleSubmit = (data: { email: string; password: string }) => {
-    console.log('Login:', data);
+  const handleSubmit = (data: Record<string, unknown>) => {
+    login(data);
   };
 
   return (
-    <Form formConfig={loginForm} onSubmit={handleSubmit}>
-      <FormField fieldId="email" />
-      <FormField fieldId="password" />
-      <button type="submit">Sign In</button>
+    <Form of={loginForm} onSubmit={handleSubmit}>
+      <Form.Field id="email" />
+      <Form.Field id="password" />
+      <Form.Submit>Sign In</Form.Submit>
     </Form>
   );
 }
 ```
 
-### 4. Add a Workflow
+### 4. Add a Flow
 
 ```tsx
-import {
-  Workflow, WorkflowBody, WorkflowStepper,
-  WorkflowNextButton, WorkflowPreviousButton,
-  LocalStorageAdapter,
-} from 'rilaykit';
+import { Flow, LocalStorageAdapter } from 'rilaykit';
 
 const onboarding = rilay
   .flow('onboarding', 'User Onboarding')
   .step({ id: 'account', title: 'Create Account', formConfig: accountForm })
-  .step({ id: 'profile', title: 'Your Profile', formConfig: profileForm, allowSkip: true })
+  .step({
+    id: 'profile',
+    title: 'Your Profile',
+    formConfig: profileForm,
+    allowSkip: ({ allData }) => allData.account?.plan === 'free',
+  })
   .configure({
     persistence: {
       adapter: new LocalStorageAdapter({ maxAge: 7 * 24 * 60 * 60 * 1000 }),
@@ -125,24 +129,72 @@ const onboarding = rilay
 
 function OnboardingFlow() {
   return (
-    <Workflow workflowConfig={onboarding} onComplete={handleComplete}>
-      <WorkflowStepper />
-      <WorkflowBody />
+    <Flow of={onboarding} onComplete={handleComplete}>
+      <Flow.Progress />
+      <Flow.Body />
       <div>
-        <WorkflowPreviousButton />
-        <WorkflowNextButton />
+        <Flow.Back />
+        <Flow.Skip />
+        <Flow.Next />
       </div>
-    </Workflow>
+    </Flow>
   );
 }
 ```
+
+### 5. Or Compile It from JSON
+
+Both halves also compile from a data-only JSON payload, so a backend can author
+the form — or the whole flow — with no frontend redeployment. `bindings` resolve
+the schema's string references to real functions.
+
+```tsx
+import { Flow, Form, compileFlow, compileForm } from 'rilaykit';
+import type { Bindings, FlowBindings, FlowSchema, FormSchema } from 'rilaykit';
+
+const formSchema: FormSchema = await fetch('/api/forms/signin').then(r => r.json());
+const bindings: Bindings = {
+  validators: { postalCode: (params, msg) => custom(v => /^\d{5}$/.test(String(v)), msg) },
+  effects: { loadCities: async (country, ctx) => { /* ... */ } },
+};
+const { formConfig, defaultValues } = compileForm(formSchema, rilay, { bindings });
+
+<Form of={formConfig} defaults={defaultValues} onSubmit={handleSubmit}>
+  <Form.Body />
+  <Form.Submit>Sign In</Form.Submit>
+</Form>;
+
+// Same for a whole flow — each step's `form` compiles through compileForm, and
+// the compiled defaults come back namespaced by step id.
+const flowSchema: FlowSchema = await fetch('/api/flows/onboarding').then(r => r.json());
+const flowBindings: FlowBindings = {
+  ...bindings,
+  after: { prefillBilling: (step) => step.next.prefill({ billingEmail: step.data.email }) },
+  allowSkip: { freePlan: ({ allData }) => allData.account?.plan === 'free' },
+};
+const { workflowConfig, defaultValues: flowDefaults } = compileFlow(flowSchema, rilay, {
+  bindings: flowBindings,
+});
+
+<Flow of={workflowConfig} defaults={flowDefaults} onComplete={handleComplete}>
+  <Flow.Body />
+  <Flow.Next />
+</Flow>;
+```
+
+An invalid schema throws `SchemaValidationError`, whose `issues[]` carry a JSON
+path and message, and whose `documentKind` says whether it was a `'form'` or a
+`'flow'`. See the [forms](../forms/README.md) and
+[workflow](../workflow/README.md) READMEs for the schema shape.
+
+> `fromSchema` remains as a deprecated alias for `compileForm`, and `SchemaRegistry` for `Bindings`.
 
 ## Why the All-in-One Package?
 
 | | `rilaykit` | Individual packages |
 |---|---|---|
 | Install | `pnpm add rilaykit` | `pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow` |
-| Imports | `import { ril, Form, Workflow } from 'rilaykit'` | Multiple import sources |
+| Imports | `import { ril, Form, Flow } from 'rilaykit'` | Multiple import sources |
 | API | `rilay.form()` / `rilay.flow()` | `form.create(rilay)` / `flow.create(rilay)` |
 | Best for | New projects, prototyping, full-featured apps | Fine-grained control, minimal bundle |
 
@@ -156,24 +208,24 @@ The `ril` exported from `rilaykit` extends the core `ril` with two convenience m
 import { ril } from 'rilaykit';
 
 const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+  .component('input', { renderer: Input });
 
 // Create a form directly from the ril instance
 const myForm = rilay.form('my-form');
 
-// Create a workflow directly from the ril instance
+// Create a flow directly from the ril instance
 const myFlow = rilay.flow('my-flow', 'My Workflow');
 ```
 
-All other `ril` methods (`addComponent`, `configure`, `getComponent`, `clone`, etc.) work exactly the same.
+All other `ril` methods (`component`, `tool`, `part`, `use`, `renderers`, `getComponent`, `validateProps`, `clone`, etc.) work exactly the same.
 
 ## What's Included
 
 Everything from all three packages:
 
-- **From `@rilaykit/core`** — `ril`, `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), monitoring, condition utilities
-- **From `@rilaykit/forms`** — `form`, `Form`, `FormField`, `FormBody`, `FormRow`, `FormProvider`, `FormSubmitButton`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.)
-- **From `@rilaykit/workflow`** — `flow`, `Workflow`, `WorkflowBody`, `WorkflowStepper`, `WorkflowNextButton`, `WorkflowPreviousButton`, `WorkflowSkipButton`, `LocalStorageAdapter`, persistence, analytics, plugin hooks
+- **From `@rilaykit/core`** — `ril` (unified catalog: `.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`), `when`, `onChange`, validators (`required`, `email`, `url`, `min`, `max`, `minLength`, `maxLength`, `pattern`, `number`, `custom`, `async`, `combine`), typed errors (`RilayError` and subclasses), monitoring (`LocalStorageMonitoringAdapter` buffers monitoring events — distinct from workflow's `LocalStorageAdapter`, which persists flow state), condition utilities
+- **From `@rilaykit/forms`** — `form`, compound `Form` (`Form.Body`, `Form.Field`, `Form.Submit`, `Form.List`), `FormProvider`, `useForm`, Zustand hooks (`useFieldValue`, `useFieldErrors`, `useFieldProps`, `useFormValues`, `useFormActions`, etc.), the schema layer (`compileForm`, `FormSchema`, `Bindings`, `SchemaValidationError`)
+- **From `@rilaykit/workflow`** — `flow`, compound `Flow` (`Flow.Body`, `Flow.Progress`, `Flow.Next`, `Flow.Back`, `Flow.Skip`), `useFlow`, `useStep`, `useFlowSteps`, `useFlowData`, `LocalStorageAdapter`, persistence, analytics, plugin hooks, the schema layer (`compileFlow`, `FlowSchema`, `FlowBindings`, `validateFlowSchema`)
 
 ## Documentation
 

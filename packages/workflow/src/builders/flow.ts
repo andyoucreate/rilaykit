@@ -1,10 +1,15 @@
 import {
+  ConfigurationError,
   type CustomStepRenderer,
   type FormConfiguration,
   IdGenerator,
+  NotFoundError,
+  type RilayInstance,
+  type StepAllowSkip,
   type StepConditionalBehavior,
   type StepConfig,
   type StepDataHelper,
+  ValidationError,
   type WorkflowAnalytics,
   type WorkflowConfig,
   type WorkflowContext,
@@ -12,9 +17,8 @@ import {
   deepClone,
   ensureUnique,
   normalizeToArray,
-  type ril,
 } from '@rilaykit/core';
-import { form } from '@rilaykit/forms';
+import { type form, resolveFormConfig } from '@rilaykit/forms';
 import type { StepContext, StepMetadata } from '../context/step-context';
 import { createStepContext } from '../context/step-context';
 import type { PersistenceOptions, WorkflowPersistenceAdapter } from '../persistence/types';
@@ -54,10 +58,11 @@ export interface StepDefinition {
   formConfig: FormConfiguration<any> | form<any>;
 
   /**
-   * Whether users can skip this step
+   * Whether users can skip this step.
+   * Accepts a static boolean or a predicate evaluated against the workflow data.
    * @default false
    */
-  allowSkip?: boolean;
+  allowSkip?: StepAllowSkip;
 
   /**
    * Custom renderer for the step
@@ -115,11 +120,6 @@ export interface StepDefinition {
    *
    *   // Access other steps
    *   const basics = step.workflow.get('basics');
-   *
-   *   // Navigation
-   *   if (step.data.skipPayment) {
-   *     step.next.skip();
-   *   }
    * }
    * ```
    */
@@ -210,7 +210,7 @@ interface WorkflowOptions {
  * @class flow
  */
 export class flow {
-  private config: ril<any>;
+  private config: RilayInstance<any>;
   private workflowId: string;
   private workflowName: string;
   private workflowDescription?: string;
@@ -232,7 +232,12 @@ export class flow {
    * @param workflowName - Optional display name for the workflow. Defaults to "Workflow" if not provided
    * @param description - Optional description of the workflow purpose
    */
-  constructor(config: ril<any>, workflowId?: string, workflowName?: string, description?: string) {
+  constructor(
+    config: RilayInstance<any>,
+    workflowId?: string,
+    workflowName?: string,
+    description?: string
+  ) {
     this.config = config;
     this.workflowId = workflowId || `workflow-${Math.random().toString(36).substring(2, 15)}`;
     this.workflowName = workflowName || 'Workflow';
@@ -262,8 +267,8 @@ export class flow {
    * const workflow = flow.create(rilConfig);
    * ```
    */
-  static create(
-    config: ril<any>,
+  static create<Cm extends Record<string, unknown>>(
+    config: RilayInstance<Cm>,
     workflowId?: string,
     workflowName?: string,
     description?: string
@@ -296,9 +301,8 @@ export class flow {
       id: stepDef.id || this.idGenerator.next('step'),
       title: stepDef.title,
       description: stepDef.description,
-      formConfig:
-        stepDef.formConfig instanceof form ? stepDef.formConfig.build() : stepDef.formConfig,
-      allowSkip: stepDef.allowSkip || false,
+      formConfig: resolveFormConfig(stepDef.formConfig),
+      allowSkip: stepDef.allowSkip ?? false,
       renderer: stepDef.renderer,
       conditions: stepDef.conditions,
       metadata: stepDef.metadata,
@@ -464,15 +468,20 @@ export class flow {
    */
   use(plugin: WorkflowPlugin): this {
     this.validatePluginDependencies(plugin);
-    this.plugins.push(plugin);
 
+    // Install BEFORE registering: if install() throws, the plugin must not be
+    // left registered (which would corrupt dependency validation, build() and
+    // toJSON()). Only record the plugin once installation succeeds.
     try {
       plugin.install(this);
     } catch (error) {
-      throw new Error(
-        `Failed to install plugin "${plugin.name}": ${error instanceof Error ? error.message : String(error)}`
+      throw new ConfigurationError(
+        `Failed to install plugin "${plugin.name}": ${error instanceof Error ? error.message : String(error)}`,
+        { plugin: plugin.name }
       );
     }
+
+    this.plugins.push(plugin);
 
     return this;
   }
@@ -492,8 +501,9 @@ export class flow {
     );
 
     if (missingDeps.length > 0) {
-      throw new Error(
-        `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`
+      throw new ConfigurationError(
+        `Plugin "${plugin.name}" requires missing dependencies: ${missingDeps.join(', ')}`,
+        { plugin: plugin.name, missingDeps }
       );
     }
   }
@@ -533,11 +543,21 @@ export class flow {
    * });
    * ```
    */
-  updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
+  /**
+   * Finds the index of a step by ID or throws a `NotFoundError`.
+   *
+   * @internal
+   */
+  private findStepIndexOrThrow(stepId: string): number {
     const stepIndex = this.steps.findIndex((step) => step.id === stepId);
     if (stepIndex === -1) {
-      throw new Error(`Step with ID "${stepId}" not found`);
+      throw new NotFoundError(`Step with ID "${stepId}" not found`, { stepId });
     }
+    return stepIndex;
+  }
+
+  updateStep(stepId: string, updates: Partial<Omit<StepConfig, 'id'>>): this {
+    const stepIndex = this.findStepIndexOrThrow(stepId);
 
     this.steps[stepIndex] = { ...this.steps[stepIndex], ...updates };
     return this;
@@ -563,10 +583,7 @@ export class flow {
    * ```
    */
   addStepConditions(stepId: string, conditions: StepConditionalBehavior): this {
-    const stepIndex = this.steps.findIndex((step) => step.id === stepId);
-    if (stepIndex === -1) {
-      throw new Error(`Step with ID "${stepId}" not found`);
-    }
+    const stepIndex = this.findStepIndexOrThrow(stepId);
 
     const updatedConditions: StepConditionalBehavior = {
       ...this.steps[stepIndex].conditions,
@@ -784,7 +801,9 @@ export class flow {
   build(): WorkflowConfig {
     const validationErrors = this.validate();
     if (validationErrors.length > 0) {
-      throw new Error(`Workflow validation failed: ${validationErrors.join(', ')}`);
+      throw new ValidationError(`Workflow validation failed: ${validationErrors.join(', ')}`, {
+        errors: validationErrors,
+      });
     }
 
     const finalConfig: WorkflowConfig = {
@@ -795,7 +814,6 @@ export class flow {
       analytics: this.analytics,
       persistence: this.persistenceConfig,
       plugins: this.plugins,
-      renderConfig: this.config.getWorkflowRenderConfig(),
     };
 
     return finalConfig;
@@ -845,13 +863,25 @@ export class flow {
    * ```
    */
   fromJSON(json: any): this {
-    this.workflowId = json.workflowId;
-    this.workflowName = json.workflowName;
-    this.workflowDescription = json.workflowDescription;
+    this.workflowId = json.id;
+    this.workflowName = json.name;
+    this.workflowDescription = json.description;
     this.steps = json.steps;
     this.analytics = json.analytics;
     this.persistenceConfig = json.persistence;
     this.plugins = json.plugins || [];
     return this;
   }
+}
+
+/**
+ * Resolve a workflow definition to a built {@link WorkflowConfig}.
+ *
+ * Accepts either an already-built configuration (returned as-is) or a
+ * flow builder (auto-built via {@link flow.build}). Single source of
+ * truth for the "config or builder" resolution, mirroring
+ * `resolveFormConfig` from `@rilaykit/forms`.
+ */
+export function resolveWorkflowConfig(value: WorkflowConfig | flow): WorkflowConfig {
+  return value instanceof flow ? value.build() : value;
 }

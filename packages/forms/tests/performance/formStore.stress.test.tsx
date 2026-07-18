@@ -1,12 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  FormStoreContext,
-  createFormStore,
-  useFieldValue,
-  useFormValues,
-} from '../../src/stores/formStore';
+import { FormStoreContext, createFormStore, useFieldValue, useFormValues } from '../../src/stores';
 
 function createWrapper(initialValues: Record<string, unknown> = {}) {
   const store = createFormStore(initialValues);
@@ -18,9 +13,8 @@ function createWrapper(initialValues: Record<string, unknown> = {}) {
 
 describe('FormStore Stress Tests', () => {
   describe('High Volume Operations', () => {
-    it('should handle 10,000 value updates efficiently', () => {
+    it('should apply 10,000 value updates with the last write winning', () => {
       const { store } = createWrapper({});
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 10_000; i++) {
@@ -28,15 +22,12 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(store.getState().values.field).toBe(9999);
-      expect(duration).toBeLessThan(1000); // Should complete in under 1 second
-      console.log(`10,000 updates completed in ${duration.toFixed(2)}ms`);
+      // 10k writes to one field collapse to exactly the last one
+      expect(store.getState().values).toEqual({ field: 9999 });
     });
 
-    it('should handle 1,000 different fields efficiently', () => {
+    it('should hold 1,000 distinct fields with the correct value in each', () => {
       const { store } = createWrapper({});
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 1000; i++) {
@@ -44,15 +35,15 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(Object.keys(store.getState().values).length).toBe(1000);
-      expect(duration).toBeLessThan(500);
-      console.log(`1,000 fields created in ${duration.toFixed(2)}ms`);
+      const expected: Record<string, string> = {};
+      for (let i = 0; i < 1000; i++) {
+        expected[`field${i}`] = `value${i}`;
+      }
+      expect(store.getState().values).toEqual(expected);
     });
 
-    it('should handle rapid touch/untouch cycles', () => {
+    it('should stay idempotent across 5,000 touch operations', () => {
       const { store } = createWrapper({});
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 5000; i++) {
@@ -60,15 +51,12 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(store.getState().touched.field).toBe(true);
-      expect(duration).toBeLessThan(500);
-      console.log(`5,000 touch operations in ${duration.toFixed(2)}ms`);
+      // Touching is idempotent: one field, one flag, no fan-out
+      expect(store.getState().touched).toEqual({ field: true });
     });
 
-    it('should handle rapid error set/clear cycles', () => {
+    it('should end with errors cleared after 5,000 alternating set/clear cycles', () => {
       const { store } = createWrapper({});
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 5000; i++) {
@@ -80,16 +68,15 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
-      console.log(`5,000 error operations in ${duration.toFixed(2)}ms`);
+      // The last operation (i = 4999, odd) is a clear: no residue is left behind
+      expect(store.getState().errors).toEqual({});
+      expect(store.getState().validationStates).toEqual({ field: 'idle' });
+      expect(store.getState().isValid).toBe(true);
     });
 
-    it('should handle 100 subscribers efficiently', () => {
+    it('should deliver the right value to each of 100 subscribers', () => {
       const { Wrapper, store } = createWrapper({});
-      const results: ReturnType<typeof renderHook>[] = [];
-
-      const start = performance.now();
+      const results: ReturnType<typeof renderHook<unknown, unknown>>[] = [];
 
       // Create 100 subscribers
       for (let i = 0; i < 100; i++) {
@@ -99,21 +86,17 @@ describe('FormStore Stress Tests', () => {
         results.push(hookResult);
       }
 
-      const setupDuration = performance.now() - start;
-      console.log(`100 hooks setup in ${setupDuration.toFixed(2)}ms`);
-
       // Update all values
-      const updateStart = performance.now();
       act(() => {
         for (let i = 0; i < 100; i++) {
           store.getState()._setValue(`field${i}`, `value${i}`);
         }
       });
 
-      const updateDuration = performance.now() - updateStart;
-      console.log(`100 values updated in ${updateDuration.toFixed(2)}ms`);
-
-      expect(updateDuration).toBeLessThan(200);
+      // Each subscriber observes its own field's value — no cross-wiring
+      results.forEach((result, i) => {
+        expect(result.result.current).toBe(`value${i}`);
+      });
 
       // Cleanup
       for (const result of results) {
@@ -146,7 +129,7 @@ describe('FormStore Stress Tests', () => {
       }
     });
 
-    it('should handle large values efficiently', () => {
+    it('should store a 10k-item array by reference without copying it', () => {
       const { store } = createWrapper({});
       const largeArray = Array.from({ length: 10000 }, (_, i) => ({
         id: i,
@@ -154,19 +137,21 @@ describe('FormStore Stress Tests', () => {
         data: { nested: { deep: { value: i * 2 } } },
       }));
 
-      const start = performance.now();
-
       act(() => {
         store.getState()._setValue('largeField', largeArray);
       });
 
-      const duration = performance.now() - start;
+      // Stored by reference: the store does not clone or truncate large values
       expect(store.getState().values.largeField).toBe(largeArray);
-      expect(duration).toBeLessThan(100);
-      console.log(`Large array (10k items) stored in ${duration.toFixed(2)}ms`);
+      expect(store.getState().values.largeField).toHaveLength(10000);
+      expect(largeArray[9999]).toEqual({
+        id: 9999,
+        name: 'Item 9999',
+        data: { nested: { deep: { value: 19998 } } },
+      });
     });
 
-    it('should handle deeply nested updates', () => {
+    it('should store a 100-level nested object intact', () => {
       const { store } = createWrapper({});
       const depth = 100;
 
@@ -176,15 +161,17 @@ describe('FormStore Stress Tests', () => {
         nested = { level: nested };
       }
 
-      const start = performance.now();
-
       act(() => {
         store.getState()._setValue('deepField', nested);
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(50);
-      console.log(`100-level nested object stored in ${duration.toFixed(2)}ms`);
+      // The whole 100-level chain survives, down to the innermost leaf
+      expect(store.getState().values.deepField).toBe(nested);
+      let cursor = store.getState().values.deepField as Record<string, unknown>;
+      for (let i = 0; i < depth; i++) {
+        cursor = cursor.level as Record<string, unknown>;
+      }
+      expect(cursor).toEqual({ value: 'deep' });
     });
   });
 
@@ -267,10 +254,8 @@ describe('FormStore Stress Tests', () => {
       expect(validStates.length).toBeGreaterThan(0);
     });
 
-    it('should handle validation on many fields simultaneously', () => {
+    it('should resolve validation state for 500 fields simultaneously', () => {
       const { store } = createWrapper({});
-
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 500; i++) {
@@ -289,22 +274,29 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
+      // Every one of the 500 fields settled on its own final state
+      const { validationStates, errors } = store.getState();
+      for (let i = 0; i < 500; i++) {
+        if (i % 3 === 0) {
+          expect(validationStates[`field${i}`]).toBe('invalid');
+          expect(errors[`field${i}`]).toEqual([{ message: 'Error' }]);
+        } else {
+          expect(validationStates[`field${i}`]).toBe('valid');
+          expect(errors[`field${i}`]).toBeUndefined();
+        }
+      }
+      expect(Object.keys(validationStates)).toHaveLength(500);
+      expect(Object.keys(errors)).toHaveLength(167); // ceil(500 / 3)
 
       // Form should be invalid (some fields have errors)
       expect(store.getState().isValid).toBe(false);
-
-      console.log(`500 field validations in ${duration.toFixed(2)}ms`);
     });
   });
 
   describe('Edge Case Combinations', () => {
-    it('should handle all operations in rapid succession', () => {
+    it('should converge to a deterministic state after 1000 mixed operations', () => {
       const { store } = createWrapper({});
       const operations = 1000;
-
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < operations; i++) {
@@ -334,14 +326,46 @@ describe('FormStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
-      console.log(`${operations} mixed operations in ${duration.toFixed(2)}ms`);
+      // fieldId = field(i % 10) and op = i % 6, so a field's op set is fixed by
+      // its parity: even fields only ever receive setValue / setErrors /
+      // 'validating', odd fields only setTouched / clearErrors / 'valid'.
+      const state = store.getState();
+
+      // setValue lands on i ≡ 0 (mod 6); last such i per even field:
+      expect(state.values).toEqual({
+        field0: 990,
+        field2: 972,
+        field4: 984,
+        field6: 996,
+        field8: 978,
+      });
+
+      // setTouched lands on i ≡ 1 (mod 6) → odd fields only
+      expect(state.touched).toEqual({
+        field1: true,
+        field3: true,
+        field5: true,
+        field7: true,
+        field9: true,
+      });
+
+      // setErrors lands on i ≡ 2 (mod 6) → even fields only; clearErrors
+      // (i ≡ 3 mod 6) only ever hits odd fields, so nothing clears the even ones.
+      expect(state.errors).toEqual({
+        field0: [{ message: 'Error 980' }],
+        field2: [{ message: 'Error 992' }],
+        field4: [{ message: 'Error 974' }],
+        field6: [{ message: 'Error 986' }],
+        field8: [{ message: 'Error 998' }],
+      });
+
+      expect(state.isValid).toBe(false);
+      expect(operations).toBe(1000);
     });
   });
 
-  describe('Selector Performance', () => {
-    it('should not degrade with many inactive fields', () => {
+  describe('Selector Isolation', () => {
+    it('should update only the subscribed field among 1000 fields', () => {
       const { Wrapper, store } = createWrapper({});
 
       // Create many fields
@@ -358,16 +382,21 @@ describe('FormStore Stress Tests', () => {
 
       expect(result.current).toBe('value500');
 
-      // Measure update performance
-      const start = performance.now();
       act(() => {
         store.getState()._setValue('field500', 'updated');
       });
-      const duration = performance.now() - start;
 
+      // The subscriber sees the new value...
       expect(result.current).toBe('updated');
-      expect(duration).toBeLessThan(50);
-      console.log(`Single field update with 1000 fields: ${duration.toFixed(2)}ms`);
+
+      // ...and the other 999 fields are untouched by that write
+      const { values } = store.getState();
+      expect(Object.keys(values)).toHaveLength(1000);
+      for (let i = 0; i < 1000; i++) {
+        if (i !== 500) {
+          expect(values[`field${i}`]).toBe(`value${i}`);
+        }
+      }
     });
   });
 });

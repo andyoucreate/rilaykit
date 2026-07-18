@@ -1,14 +1,22 @@
 // Export all types
 export * from './types';
 
-export * from './components/ComponentRendererWrapper';
+// Export typed error hierarchy
+export * from './errors';
 
 // Export configuration
-export { ril, type RilayInstance } from './config/ril';
+export {
+  catalogEntryKey,
+  clonePlainData,
+  ril,
+  type RilayInstance,
+  type RilayPlugin,
+  type RendererAttachments,
+} from './config/ril';
 
 // Export shared utilities
 export * from './utils/builderHelpers';
-export * from './utils/componentHelpers';
+export * from './utils/ownProperty';
 
 // Export validation system
 export * from './validation';
@@ -22,3 +30,6 @@ export * from './conditions';
 
 // Export effects system
 export * from './effects';
+
+// Export internal runtime logger (redirectable logging seam)
+export { getLogger, setLogSink, type LogLevel, type LogSink, type Logger } from './runtime/logger';

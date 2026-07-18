@@ -1,26 +1,26 @@
 // @ts-nocheck
-import { onChange, ril } from '@rilaykit/core';
+import { type ComponentRenderContext, onChange, ril, setLogSink } from '@rilaykit/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
 import { FormField } from '../../src/components/FormField';
 import { FormProvider } from '../../src/components/FormProvider';
-import { useFormValues } from '../../src/stores/formStore';
+import { useFormValues } from '../../src/stores';
 
 // =================================================================
 // MOCK COMPONENTS
 // =================================================================
 
-const MockSelect = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockSelect = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <select
       data-testid={`select-${id}`}
-      value={value || ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      value={String(field?.value ?? '')}
+      onChange={(e) => field?.onChange(e.target.value)}
     >
       <option value="">--</option>
-      {(props.options || []).map((opt: any) => (
+      {((props.options as Array<{ value: string; label: string }> | undefined) ?? []).map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
         </option>
@@ -29,25 +29,25 @@ const MockSelect = ({ id, value, onChange: onChangeHandler, props }: any) => (
   </div>
 );
 
-const MockText = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockText = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
-      value={value ?? ''}
+      value={field?.value ?? ''}
       placeholder={props.placeholder ?? ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      onChange={(e) => field?.onChange(e.target.value)}
     />
     {props.hint && <span data-testid={`hint-${id}`}>{props.hint}</span>}
   </div>
 );
 
-const MockNumber = ({ id, value, onChange: onChangeHandler, props }: any) => (
+const MockNumber = ({ id, props, field }: ComponentRenderContext) => (
   <div data-testid={`field-${id}`}>
     <input
       data-testid={`input-${id}`}
       type="number"
-      value={value ?? ''}
-      onChange={(e) => onChangeHandler?.(e.target.value)}
+      value={field?.value ?? ''}
+      onChange={(e) => field?.onChange(e.target.value)}
       readOnly={props.readOnly || false}
     />
   </div>
@@ -69,13 +69,13 @@ function ValuesInspector({ onValues }: { onValues: (v: Record<string, unknown>) 
 function createConfig() {
   return ril
     .create()
-    .addComponent('text', { name: 'Text', renderer: MockText })
-    .addComponent('select', {
+    .component('text', { name: 'Text', renderer: MockText })
+    .component('select', {
       name: 'Select',
       renderer: MockSelect,
       defaultProps: { options: [] },
     })
-    .addComponent('number', { name: 'Number', renderer: MockNumber });
+    .component('number', { name: 'Number', renderer: MockNumber });
 }
 
 // =================================================================
@@ -89,11 +89,15 @@ describe('FormField Effects — Hardcore Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     config = createConfig();
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Runtime code routes through the logger sink, not console directly.
+    consoleWarnSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleWarnSpy(message, ...args);
+    });
   });
 
   afterEach(() => {
-    consoleWarnSpy.mockRestore();
+    setLogSink(null);
   });
 
   // -----------------------------------------------------------------
@@ -153,9 +157,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
-          <FormField fieldId="district" />
+          <FormField id="country" />
+          <FormField id="city" />
+          <FormField id="district" />
         </FormProvider>
       );
 
@@ -231,8 +235,8 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       const { unmount } = render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="trigger" />
-          <FormField fieldId="target" />
+          <FormField id="trigger" />
+          <FormField id="target" />
         </FormProvider>
       );
 
@@ -288,8 +292,8 @@ describe('FormField Effects — Hardcore Integration', () => {
             changeLog.push({ fieldId, value });
           }}
         >
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
+          <FormField id="country" />
+          <FormField id="city" />
         </FormProvider>
       );
 
@@ -333,8 +337,8 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="trigger" />
-          <FormField fieldId="target" />
+          <FormField id="trigger" />
+          <FormField id="target" />
         </FormProvider>
       );
 
@@ -385,8 +389,8 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="search" />
-          <FormField fieldId="results" />
+          <FormField id="search" />
+          <FormField id="results" />
         </FormProvider>
       );
 
@@ -461,9 +465,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="category" />
-          <FormField fieldId="subcategory" />
-          <FormField fieldId="description" />
+          <FormField id="category" />
+          <FormField id="subcategory" />
+          <FormField id="description" />
         </FormProvider>
       );
 
@@ -542,9 +546,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ country: 'france' }}>
-          <FormField fieldId="country" />
-          <FormField fieldId="city" />
-          <FormField fieldId="label" />
+          <FormField id="country" />
+          <FormField id="city" />
+          <FormField id="label" />
         </FormProvider>
       );
 
@@ -594,9 +598,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="trigger" />
-          <FormField fieldId="good" />
-          <FormField fieldId="sibling" />
+          <FormField id="trigger" />
+          <FormField id="good" />
+          <FormField id="sibling" />
         </FormProvider>
       );
 
@@ -654,9 +658,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="source" />
-          <FormField fieldId="derived1" />
-          <FormField fieldId="derived2" />
+          <FormField id="source" />
+          <FormField id="derived1" />
+          <FormField id="derived2" />
           <ValuesInspector
             onValues={(v) => {
               latestValues = v;
@@ -707,7 +711,7 @@ describe('FormField Effects — Hardcore Integration', () => {
       render(
         <FormProvider formConfig={formConfig}>
           {/* Note: hidden field is NOT rendered as FormField */}
-          <FormField fieldId="trigger" />
+          <FormField id="trigger" />
           <ValuesInspector
             onValues={(v) => {
               latestValues = v;
@@ -757,8 +761,8 @@ describe('FormField Effects — Hardcore Integration', () => {
         const formConfig = React.useMemo(() => buildForm(effectValue), [effectValue]);
         return (
           <FormProvider formConfig={formConfig}>
-            <FormField fieldId="trigger" />
-            <FormField fieldId="target" />
+            <FormField id="trigger" />
+            <FormField id="target" />
           </FormProvider>
         );
       }
@@ -815,9 +819,9 @@ describe('FormField Effects — Hardcore Integration', () => {
 
       render(
         <FormProvider formConfig={formConfig}>
-          <FormField fieldId="firstName" />
-          <FormField fieldId="lastName" />
-          <FormField fieldId="fullName" />
+          <FormField id="firstName" />
+          <FormField id="lastName" />
+          <FormField id="fullName" />
         </FormProvider>
       );
 

@@ -1,5 +1,5 @@
 // @ts-nocheck - Disable TypeScript checking for test file due to generic constraints
-import { email, minLength, required, ril } from '@rilaykit/core';
+import { ConfigurationError, NotFoundError, email, minLength, required, ril } from '@rilaykit/core';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { form } from '../../src/builders/form';
@@ -10,7 +10,7 @@ describe('Form Builder', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
@@ -19,7 +19,7 @@ describe('Form Builder', () => {
           validators: [],
         },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', required: false },
@@ -28,7 +28,7 @@ describe('Form Builder', () => {
           validators: [email()],
         },
       })
-      .addComponent('password', {
+      .component('password', {
         name: 'Password Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', minLength: 8 },
@@ -37,22 +37,22 @@ describe('Form Builder', () => {
           validators: [required(), minLength(8)],
         },
       })
-      .addComponent('number', {
+      .component('number', {
         name: 'Number Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', min: 0 },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },
       })
-      .addComponent('textarea', {
+      .component('textarea', {
         name: 'Textarea',
         renderer: () => React.createElement('textarea'),
         defaultProps: { label: '', rows: 3 },
       })
-      .addComponent('checkbox', {
+      .component('checkbox', {
         name: 'Checkbox',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', checked: false },
@@ -217,6 +217,9 @@ describe('Form Builder', () => {
 
         expect(() => {
           builder.add({ type: 'unknown' as any, props: { label: 'Test' } });
+        }).toThrow(NotFoundError);
+        expect(() => {
+          builder.add({ type: 'unknown' as any, props: { label: 'Test' } });
         }).toThrow('No component found with type "unknown"');
       });
     });
@@ -315,6 +318,14 @@ describe('Form Builder', () => {
         expect(() => {
           builder.add([]);
         }).toThrow('At least one field is required');
+
+        try {
+          builder.add([]);
+          expect.unreachable('builder.add([]) should have thrown');
+        } catch (err) {
+          expect(err).toBeInstanceOf(ConfigurationError);
+          expect((err as ConfigurationError).code).toBe('CONFIGURATION');
+        }
       });
 
       it('should generate unique row IDs', () => {
@@ -391,7 +402,6 @@ describe('Form Builder', () => {
       expect(config).toHaveProperty('rows');
       expect(config).toHaveProperty('allFields');
       expect(config).toHaveProperty('config');
-      expect(config).toHaveProperty('renderConfig');
       expect(config).toHaveProperty('validation');
 
       expect(config.allFields).toHaveLength(2);
@@ -642,24 +652,6 @@ describe('Form Builder', () => {
   });
 
   describe('integration with ril configuration', () => {
-    it('should use ril form render configuration', () => {
-      // Set up a render config on ril
-      const configuredRil = rilConfig.configure({
-        bodyRenderer: vi.fn(),
-        rowRenderer: vi.fn(),
-        fieldRenderer: vi.fn(),
-      });
-
-      const builder = form.create(configuredRil).add({ type: 'text', props: { label: 'Test' } });
-
-      const config = builder.build();
-
-      expect(config.renderConfig).toBeDefined();
-      expect(config.renderConfig?.bodyRenderer).toBeDefined();
-      expect(config.renderConfig?.rowRenderer).toBeDefined();
-      expect(config.renderConfig?.fieldRenderer).toBeDefined();
-    });
-
     it('should reference the same ril config instance', () => {
       const builder = form.create(rilConfig).add({ type: 'text', props: { label: 'Test' } });
 

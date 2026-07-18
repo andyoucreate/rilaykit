@@ -1,0 +1,97 @@
+{
+  "name": "@rilaykit/agent",
+  "version": "0.1.6",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react/index.d.mts",
+        "default": "./dist/react/index.mjs"
+      },
+      "require": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      }
+    },
+    "./ai-sdk": {
+      "import": {
+        "types": "./dist/ai-sdk/index.d.mts",
+        "default": "./dist/ai-sdk/index.mjs"
+      },
+      "require": {
+        "types": "./dist/ai-sdk/index.d.ts",
+        "default": "./dist/ai-sdk/index.js"
+      }
+    },
+    "./anthropic": {
+      "import": {
+        "types": "./dist/anthropic/index.d.mts",
+        "default": "./dist/anthropic/index.mjs"
+      },
+      "require": {
+        "types": "./dist/anthropic/index.d.ts",
+        "default": "./dist/anthropic/index.js"
+      }
+    }
+  },
+  "files": ["dist"],
+  "license": "MIT",
+  "publishConfig": {
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rilaykit/core": "workspace:*",
+    "@rilaykit/forms": "workspace:*",
+    "@rilaykit/workflow": "workspace:*",
+    "@standard-schema/spec": "^1.1.0",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "ai": ">=5.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8",
+    "ai": "^5.0.0"
+  },
+  "typesVersions": {
+    "*": {
+      "react": ["./dist/react/index.d.ts"],
+      "ai-sdk": ["./dist/ai-sdk/index.d.ts"],
+      "anthropic": ["./dist/anthropic/index.d.ts"]
+    }
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    }
+  }
+}

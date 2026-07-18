@@ -30,20 +30,36 @@ export interface StepContext {
 
   /** Controls for the next step */
   readonly next: {
-    /** Pre-fill fields in the next step */
+    /**
+     * Write fields into the next step's data.
+     *
+     * OVERWRITE-ALWAYS, and it RE-RUNS. The owning `after` binding fires on
+     * every forward transition, so a Back→Next round trip re-derives these
+     * fields and replaces whatever the user typed into them meanwhile. This is
+     * a derivation, not a seed: it is what makes a corrected input propagate
+     * forward instead of leaving a stale derived value to be submitted.
+     *
+     * For seed-if-empty, guard on the value — only you know which of your
+     * fields are derived and which are the user's:
+     *
+     * ```ts
+     * after: { prefillBilling: (step) => {
+     *   if (step.workflow.get('billing')?.billingEmail) return;
+     *   step.next.prefill({ billingEmail: step.data.email });
+     * } }
+     * ```
+     *
+     * Pinned by tests/e2e/proof/prefill-rerun.proof.e2e.test.tsx.
+     */
     prefill(fields: Record<string, any>): void;
-    /** Skip the next step */
-    skip(): void;
   };
 
-  /** Access to workflow-level data and navigation */
+  /** Access to workflow-level data */
   readonly workflow: {
     /** Get data from a specific step by ID */
     get<T = any>(stepId: string): T;
     /** Get all workflow data across all steps */
     all<T = any>(): T;
-    /** Navigate to a specific step by ID */
-    goto(stepId: string): void;
   };
 
   /** Step metadata */
@@ -83,13 +99,6 @@ export function createStepContext(
       prefill: (fields: Record<string, any>) => {
         helper.setNextStepFields(fields);
       },
-      skip: () => {
-        // NOTE: Cannot be implemented with current architecture.
-        // The after() callback runs BEFORE navigation (in goNext()),
-        // so we cannot skip the next step from within this callback.
-        // To skip steps dynamically, use step conditions with `when()`.
-        console.warn('step.next.skip() is not supported. Use step conditions with when() instead.');
-      },
     },
 
     workflow: {
@@ -98,15 +107,6 @@ export function createStepContext(
       },
       all: <T = any>(): T => {
         return helper.getAllData() as T;
-      },
-      goto: (_stepId: string) => {
-        // NOTE: Cannot be implemented with current architecture.
-        // The after() callback runs BEFORE navigation (in goNext()),
-        // so we cannot redirect to a different step from within this callback.
-        // To conditionally show/hide steps, use step conditions with `when()`.
-        console.warn(
-          'step.workflow.goto() is not supported. Use step conditions with when() instead.'
-        );
       },
     },
 

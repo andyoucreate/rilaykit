@@ -5,7 +5,8 @@
  * and managing validation contexts using Standard Schema exclusively.
  */
 
-import type { ValidationContext, ValidationError, ValidationResult } from '../types';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { FieldError, ValidationContext, ValidationResult } from '../types';
 
 // =================================================================
 // VALUE CHECKS
@@ -15,7 +16,12 @@ import type { ValidationContext, ValidationError, ValidationResult } from '../ty
  * Checks whether a value is considered "empty" for validation purposes.
  *
  * Handles: `undefined`, `null`, empty string, whitespace-only string,
- * empty array, and empty plain object.
+ * empty array, and empty PLAIN object.
+ *
+ * Non-plain objects (Date, File, Blob, Map, Set, class instances) are never
+ * empty: `Object.keys(new Date())` is `[]`, so the plain-object heuristic would
+ * otherwise wrongly report a filled Date/File/Map/Set as empty and make
+ * `required()` fail on a genuinely populated field.
  *
  * @returns `true` if the value is empty
  */
@@ -23,8 +29,90 @@ export function isEmptyValue(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') return value.trim().length === 0;
   if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+  if (typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value);
+    // Only a plain object (literal `{}` or null-prototype) can be "empty".
+    if (proto === Object.prototype || proto === null) {
+      return Object.keys(value as Record<string, unknown>).length === 0;
+    }
+    return false;
+  }
   return false;
+}
+
+// =================================================================
+// SCHEMA COMBINATION
+// =================================================================
+
+type CombinedResult<T> = StandardSchemaV1.Result<T> | Promise<StandardSchemaV1.Result<T>>;
+
+/**
+ * Runs a list of Standard Schemas as a pipeline over a single value.
+ *
+ * - Stays SYNCHRONOUS as long as no sub-schema returns a Promise, so a
+ *   combination of purely-synchronous validators yields a plain result (never
+ *   a Promise). It switches to an async path only once a sub-schema actually
+ *   validates asynchronously.
+ * - THREADS the value: each sub-schema validates the output of the previous
+ *   successful one (pipe semantics), so coercions compose.
+ * - ACCUMULATES issues from every sub-schema (issues never short-circuit the
+ *   value threading), preserving the established combined error shape.
+ */
+export function runCombinedSchemas<T>(
+  schemas: readonly StandardSchemaV1<T>[],
+  value: unknown
+): CombinedResult<T> {
+  const allIssues: StandardSchemaV1.Issue[] = [];
+  let currentValue = value;
+
+  for (let index = 0; index < schemas.length; index++) {
+    const result = schemas[index]['~standard'].validate(currentValue);
+
+    if (result instanceof Promise) {
+      return finishCombinedAsync(schemas, index, result, currentValue, allIssues);
+    }
+
+    if (result.issues) {
+      allIssues.push(...result.issues);
+    } else {
+      currentValue = result.value;
+    }
+  }
+
+  return allIssues.length > 0 ? { issues: allIssues } : { value: currentValue as T };
+}
+
+/**
+ * Async continuation of {@link runCombinedSchemas}, entered only after a
+ * sub-schema returned a Promise. Awaits the pending result then keeps threading
+ * the value and accumulating issues across any remaining sub-schemas.
+ */
+async function finishCombinedAsync<T>(
+  schemas: readonly StandardSchemaV1<T>[],
+  pendingIndex: number,
+  pending: Promise<StandardSchemaV1.Result<T>>,
+  valueSoFar: unknown,
+  issuesSoFar: StandardSchemaV1.Issue[]
+): Promise<StandardSchemaV1.Result<T>> {
+  const allIssues = [...issuesSoFar];
+  let currentValue = valueSoFar;
+
+  const applyResult = (result: StandardSchemaV1.Result<T>): void => {
+    if (result.issues) {
+      allIssues.push(...result.issues);
+    } else {
+      currentValue = result.value;
+    }
+  };
+
+  applyResult(await pending);
+
+  for (let index = pendingIndex + 1; index < schemas.length; index++) {
+    const result = schemas[index]['~standard'].validate(currentValue);
+    applyResult(result instanceof Promise ? await result : result);
+  }
+
+  return allIssues.length > 0 ? { issues: allIssues } : { value: currentValue as T };
 }
 
 // =================================================================
@@ -47,7 +135,7 @@ export function isEmptyValue(value: unknown): boolean {
  */
 export function createValidationResult(
   isValid: boolean,
-  errors: ValidationError[] = []
+  errors: FieldError[] = []
 ): ValidationResult {
   return {
     isValid,
@@ -105,7 +193,7 @@ export function createErrorResult(message: string, code?: string, path?: string)
  * ```
  */
 export function combineValidationResults(results: ValidationResult[]): ValidationResult {
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
   let isValid = true;
 
   for (const result of results) {

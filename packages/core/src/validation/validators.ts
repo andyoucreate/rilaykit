@@ -4,11 +4,39 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { isEmptyValue } from './utils';
+import { isEmptyValue, runCombinedSchemas } from './utils';
 
 // =================================================================
 // STANDARD SCHEMA VALIDATORS - RILAY BUILT-INS
 // =================================================================
+
+/**
+ * Strict decimal-number string shape: optional sign, digits with optional
+ * fraction, and optional exponent. Deliberately excludes hex/octal/binary
+ * literals (`0x10`) and empty/whitespace strings, which `Number()` would
+ * otherwise coerce to finite values.
+ */
+const DECIMAL_NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * Coerces a value to a finite number, or returns `null` when it is not a
+ * genuine number. Numeric strings must trim to a non-empty decimal literal;
+ * empty/whitespace-only strings, arrays, and hex strings are rejected.
+ */
+function coerceToFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!DECIMAL_NUMBER_PATTERN.test(trimmed)) {
+      return null;
+    }
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : null;
+  }
+  return null;
+}
 
 /**
  * Required field validator - Standard Schema implementation
@@ -167,9 +195,9 @@ export function number(message = 'Must be a valid number'): StandardSchemaV1<num
       version: 1,
       vendor: 'rilaykit',
       validate: (value: unknown) => {
-        const num = typeof value === 'string' ? Number(value) : value;
+        const num = coerceToFiniteNumber(value);
 
-        if (typeof num !== 'number' || Number.isNaN(num)) {
+        if (num === null) {
           return { issues: [{ message }] };
         }
 
@@ -194,9 +222,9 @@ export function min(minValue: number, message?: string): StandardSchemaV1<number
       version: 1,
       vendor: 'rilaykit',
       validate: (value: unknown) => {
-        const num = typeof value === 'string' ? Number(value) : value;
+        const num = coerceToFiniteNumber(value);
 
-        if (typeof num !== 'number' || Number.isNaN(num)) {
+        if (num === null) {
           return { issues: [{ message: 'Value must be a number' }] };
         }
 
@@ -223,9 +251,9 @@ export function max(maxValue: number, message?: string): StandardSchemaV1<number
       version: 1,
       vendor: 'rilaykit',
       validate: (value: unknown) => {
-        const num = typeof value === 'string' ? Number(value) : value;
+        const num = coerceToFiniteNumber(value);
 
-        if (typeof num !== 'number' || Number.isNaN(num)) {
+        if (num === null) {
           return { issues: [{ message: 'Value must be a number' }] };
         }
 
@@ -308,27 +336,7 @@ export function combine<T>(...schemas: StandardSchemaV1<T>[]): StandardSchemaV1<
     '~standard': {
       version: 1,
       vendor: 'rilaykit',
-      validate: async (value: unknown) => {
-        const allIssues: StandardSchemaV1.Issue[] = [];
-        let finalValue = value;
-
-        for (const schema of schemas) {
-          let result = schema['~standard'].validate(value);
-
-          // Handle async validation
-          if (result instanceof Promise) {
-            result = await result;
-          }
-
-          if (result.issues) {
-            allIssues.push(...result.issues);
-          } else {
-            finalValue = result.value;
-          }
-        }
-
-        return allIssues.length > 0 ? { issues: allIssues } : { value: finalValue as T };
-      },
+      validate: (value: unknown) => runCombinedSchemas(schemas, value),
     },
   };
 }

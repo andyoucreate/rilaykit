@@ -1,3 +1,5 @@
+import { DuplicateError, ValidationError } from '../errors';
+
 /**
  * Utility for merging partial configurations into existing objects
  * Eliminates repetitive object spread operations
@@ -12,7 +14,10 @@ export function mergeInto<T>(target: T, partial: Partial<T>): T {
 export function ensureUnique(ids: string[], entityName: string): void {
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicates.length > 0) {
-    throw new Error(`Duplicate ${entityName} IDs: ${duplicates.join(', ')}`);
+    throw new DuplicateError(`Duplicate ${entityName} IDs: ${duplicates.join(', ')}`, {
+      entityName,
+      duplicates,
+    });
   }
 }
 
@@ -27,7 +32,10 @@ export function validateRequired<T>(
   const missing = items.filter((item) => requiredFields.some((field) => !item[field]));
 
   if (missing.length > 0) {
-    throw new Error(`Missing required fields in ${entityName}: ${requiredFields.join(', ')}`);
+    throw new ValidationError(
+      `Missing required fields in ${entityName}: ${requiredFields.join(', ')}`,
+      { entityName, requiredFields: requiredFields.map(String) }
+    );
   }
 }
 
@@ -49,6 +57,17 @@ export class IdGenerator {
     } else {
       this.counters.clear();
     }
+  }
+
+  /**
+   * Creates an independent copy of this generator that continues numbering
+   * from the current counter state. Used to keep cloned builders from
+   * regenerating ids that already exist on the cloned data.
+   */
+  clone(): IdGenerator {
+    const copy = new IdGenerator();
+    copy.counters = new Map(this.counters);
+    return copy;
   }
 }
 

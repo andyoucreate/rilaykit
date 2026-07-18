@@ -4,14 +4,16 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { InvalidSchemaError } from '../errors';
 import type {
+  FieldError,
   FieldValidationConfig,
   FormValidationConfig,
   StandardSchema,
   ValidationContext,
-  ValidationError,
   ValidationResult,
 } from '../types';
+import { runCombinedSchemas } from './utils';
 // =================================================================
 // STANDARD SCHEMA CORE FUNCTIONS
 // =================================================================
@@ -23,7 +25,11 @@ export function isStandardSchema(value: any): value is StandardSchema {
   return (
     value !== null &&
     value !== undefined &&
-    typeof value === 'object' &&
+    // A Standard Schema carrier may be an object OR a callable — ArkType schemas
+    // are functions you call to validate. The spec only requires a `~standard`
+    // property, not an object carrier; gating on `object` alone silently rejects
+    // every ArkType schema, breaking field validation for that vendor entirely.
+    (typeof value === 'object' || typeof value === 'function') &&
     '~standard' in value &&
     value['~standard'] !== null &&
     typeof value['~standard'] === 'object' &&
@@ -41,7 +47,9 @@ export async function validateWithStandardSchema<T extends StandardSchema>(
   value: unknown
 ): Promise<ValidationResult> {
   if (!isStandardSchema(schema)) {
-    throw new Error('Invalid Standard Schema: missing ~standard property or invalid structure');
+    throw new InvalidSchemaError(
+      'Invalid Standard Schema: missing ~standard property or invalid structure'
+    );
   }
 
   try {
@@ -54,7 +62,7 @@ export async function validateWithStandardSchema<T extends StandardSchema>(
 
     // Check if validation failed
     if (result.issues) {
-      const errors: ValidationError[] = result.issues.map((issue) => ({
+      const errors: FieldError[] = result.issues.map((issue) => ({
         message: issue.message,
         code: 'VALIDATION_ERROR',
         path: formatIssuePath(issue.path),
@@ -115,7 +123,7 @@ export function getSchemaInfo(schema: StandardSchema): {
   hasTypes: boolean;
 } {
   if (!isStandardSchema(schema)) {
-    throw new Error('Invalid Standard Schema');
+    throw new InvalidSchemaError('Invalid Standard Schema');
   }
 
   return {
@@ -152,7 +160,7 @@ export async function validateWithUnifiedConfig<T>(
   }
 
   const schemas = Array.isArray(config.validate) ? config.validate : [config.validate];
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
 
   for (const schema of schemas) {
     if (!isStandardSchema(schema)) {
@@ -196,7 +204,7 @@ export async function validateFormWithUnifiedConfig<T extends Record<string, any
   }
 
   const schemas = Array.isArray(config.validate) ? config.validate : [config.validate];
-  const allErrors: ValidationError[] = [];
+  const allErrors: FieldError[] = [];
 
   for (const schema of schemas) {
     if (!isStandardSchema(schema)) {
@@ -245,27 +253,7 @@ export function combineSchemas<T>(...schemas: StandardSchemaV1<T>[]): StandardSc
     '~standard': {
       version: 1,
       vendor: 'rilaykit-combined',
-      validate: async (value: unknown) => {
-        const allIssues: StandardSchemaV1.Issue[] = [];
-        let finalValue = value;
-
-        for (const schema of schemas) {
-          let result = schema['~standard'].validate(value);
-
-          // Handle async validation
-          if (result instanceof Promise) {
-            result = await result;
-          }
-
-          if (result.issues) {
-            allIssues.push(...result.issues);
-          } else {
-            finalValue = result.value;
-          }
-        }
-
-        return allIssues.length > 0 ? { issues: allIssues } : { value: finalValue as T };
-      },
+      validate: (value: unknown) => runCombinedSchemas(schemas, value),
     },
   };
 }

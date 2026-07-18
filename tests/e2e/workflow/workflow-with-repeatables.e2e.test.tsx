@@ -1,18 +1,14 @@
 import { required, ril } from '@rilaykit/core';
-import { form, useFormStoreApi } from '@rilaykit/forms';
-import { useRepeatableField } from '@rilaykit/forms';
-import {
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowProvider,
-  flow,
-  useWorkflowContext,
-} from '@rilaykit/workflow';
-import { useWorkflowAllData } from '@rilaykit/workflow';
+import { form } from '@rilaykit/forms';
+import { useFormStoreApi } from '@rilaykit/forms/react';
+import { useRepeatableField } from '@rilaykit/forms/react';
+import { flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
+import { useFlowData } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextButton, PrevButton } from '../_setup/nav-buttons';
 import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
@@ -21,29 +17,15 @@ import { MockNumberInput, MockTextInput } from '../_setup/test-helpers';
 
 const rilConfig = ril
   .create()
-  .addComponent('text', {
+  .component('text', {
     name: 'Text',
     renderer: MockTextInput,
     defaultProps: { label: '' },
   })
-  .addComponent('number', {
+  .component('number', {
     name: 'Number',
     renderer: MockNumberInput,
     defaultProps: { label: '' },
-  })
-  .configure({
-    bodyRenderer: ({ children }) => <div>{children}</div>,
-    rowRenderer: ({ children }) => <div>{children}</div>,
-    nextButtonRenderer: ({ onSubmit, isSubmitting }) => (
-      <button type="button" data-testid="next-btn" onClick={onSubmit} disabled={isSubmitting}>
-        Next
-      </button>
-    ),
-    previousButtonRenderer: ({ onPrevious, canGoPrevious }) => (
-      <button type="button" data-testid="prev-btn" onClick={onPrevious} disabled={!canGoPrevious}>
-        Previous
-      </button>
-    ),
   });
 
 // ============================================================================
@@ -125,8 +107,8 @@ function RepeatableHelper() {
 }
 
 function WorkflowDataDisplay() {
-  const { workflowState } = useWorkflowContext();
-  const allData = useWorkflowAllData();
+  const { workflowState } = useFlow();
+  const allData = useFlowData();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -174,8 +156,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
           },
         }}
       >
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -217,8 +199,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -280,8 +262,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -339,9 +321,9 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig}>
-        <WorkflowBody />
-        <WorkflowNextButton />
-        <WorkflowPreviousButton />
+        <FlowBody />
+        <NextButton />
+        <PrevButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>
@@ -422,13 +404,19 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     expect(allData.items).toBeDefined();
 
-    // The step data is stored under the step ID 'items'.
-    // It should contain structured data with the items array.
+    // The step data is stored under the step ID 'items', in the store's INTERNAL
+    // shape: flat composite keys. `allData` deliberately speaks one shape — a
+    // deleted repeatable row must have keys to delete, and every writer (the
+    // value mirror, prefill bindings, the persistence layer) has to agree on
+    // what the step holds. The AUTHORED nested-array shape is the HOST contract
+    // and is produced at the boundaries that hand data out — the completion
+    // payload and `onAfterValidation` — not in the store. What this test is
+    // about is that nothing is LOST across the round trip.
     const itemsStepData = allData.items;
-    expect(itemsStepData.items).toBeDefined();
-    expect(itemsStepData.items).toHaveLength(2);
-    expect(itemsStepData.items[0]).toEqual(expect.objectContaining({ name: 'Widget', qty: 5 }));
-    expect(itemsStepData.items[1]).toEqual(expect.objectContaining({ name: 'Gadget', qty: 10 }));
+    expect(itemsStepData['items[k0].name']).toBe('Widget');
+    expect(itemsStepData['items[k0].qty']).toBe(5);
+    expect(itemsStepData['items[k1].name']).toBe('Gadget');
+    expect(itemsStepData['items[k1].qty']).toBe(10);
 
     // The remounted form should also rehydrate the repeatable UI from workflow allData.
     await waitFor(() => {
@@ -450,8 +438,8 @@ describe('Workflow with Repeatable Fields -- E2E', () => {
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} onWorkflowComplete={onWorkflowComplete}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <RepeatableHelper />
         <WorkflowDataDisplay />
       </WorkflowProvider>

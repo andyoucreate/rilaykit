@@ -6,7 +6,9 @@
  * It integrates seamlessly with the existing workflow state management.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { getLogger } from '@rilaykit/core';
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { serializePersistedData } from '../persistence/serialization';
 import type {
   PersistedWorkflowData,
   PersistenceOptions,
@@ -15,7 +17,9 @@ import type {
 } from '../persistence/types';
 import { WorkflowPersistenceError } from '../persistence/types';
 import { debounce, generateStorageKey, workflowStateToPersisted } from '../persistence/utils';
-import type { WorkflowState } from './useWorkflowState';
+import type { WorkflowState } from './workflow-state';
+
+const log = getLogger('workflow:persistence');
 
 export interface UsePersistenceProps {
   /** Unique workflow identifier */
@@ -28,6 +32,12 @@ export interface UsePersistenceProps {
   options?: PersistenceOptions;
   /** Optional user ID for multi-user scenarios */
   userId?: string;
+  /**
+   * Shared flag flipped once the workflow completes. When set, the auto-persist
+   * effect must NOT schedule further saves: completion clears the persisted data
+   * and any subsequent save would resurrect the finished workflow.
+   */
+  workflowCompletedRef?: MutableRefObject<boolean>;
 }
 
 /**
@@ -60,6 +70,7 @@ export function usePersistence({
   adapter,
   options = {},
   userId,
+  workflowCompletedRef,
 }: UsePersistenceProps): UsePersistenceReturn {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<WorkflowPersistenceError | null>(null);
@@ -103,7 +114,7 @@ export function usePersistence({
           );
 
     setPersistenceError(persistenceError);
-    console.error('[WorkflowPersistence]', persistenceError);
+    log.error('[WorkflowPersistence]', persistenceError);
   }, []);
 
   /**
@@ -121,7 +132,25 @@ export function usePersistence({
           optionsRef.current.metadata
         );
 
+        // Completion clears the persisted data; a save that reaches the
+        // adapter after the flag flipped would resurrect the finished
+        // workflow, so skip the write entirely.
+        if (workflowCompletedRef?.current) {
+          persistenceStateRef.current.hasPendingChanges = false;
+          return;
+        }
+
         await adapterRef.current.save(storageKey, persistedData);
+
+        // The workflow may have completed (and cleared its persisted data)
+        // while the save above was in flight — in that case the write just
+        // resurrected the cleared record, so undo it instead of keeping it.
+        if (workflowCompletedRef?.current) {
+          await adapterRef.current.remove(storageKey);
+          persistenceStateRef.current.lastSavedState = undefined;
+          persistenceStateRef.current.hasPendingChanges = false;
+          return;
+        }
 
         // Update tracking state
         persistenceStateRef.current.lastSavedState = { ...state };
@@ -133,7 +162,7 @@ export function usePersistence({
         setIsPersisting(false);
       }
     },
-    [workflowId, storageKey, clearError, handleError]
+    [workflowId, storageKey, clearError, handleError, workflowCompletedRef]
   );
 
   /**
@@ -146,7 +175,7 @@ export function usePersistence({
       } catch (error) {
         // Error is already handled in saveWorkflowState
         // Just log for debugging
-        console.debug('[WorkflowPersistence] Auto-save failed:', error);
+        log.debug('[WorkflowPersistence] Auto-save failed:', error);
       }
     }, options.debounceMs || 500)
   );
@@ -161,8 +190,18 @@ export function usePersistence({
       // Check for changes in significant fields
       return (
         currentState.currentStepIndex !== lastSavedState.currentStepIndex ||
-        JSON.stringify(currentState.allData) !== JSON.stringify(lastSavedState.allData) ||
-        JSON.stringify(currentState.stepData) !== JSON.stringify(lastSavedState.stepData) ||
+        // Same serializer the adapter persists with, so change-detection agrees
+        // with what is stored — and a Date/NaN edit is not conflated with a
+        // string/null one the way a bare JSON.stringify would.
+        serializePersistedData(currentState.allData) !==
+          serializePersistedData(lastSavedState.allData) ||
+        serializePersistedData(currentState.stepData) !==
+          serializePersistedData(lastSavedState.stepData) ||
+        // A reorder rewrites the order and NOTHING else, so without this a
+        // moved row is never auto-saved — the very change the order mirror
+        // exists to capture would be the one change persistence ignores.
+        serializePersistedData(currentState.repeatableOrders) !==
+          serializePersistedData(lastSavedState.repeatableOrders) ||
         currentState.visitedSteps.size !== lastSavedState.visitedSteps.size ||
         !Array.from(currentState.visitedSteps).every((step) =>
           lastSavedState.visitedSteps.has(step)
@@ -187,6 +226,7 @@ export function usePersistence({
           currentStepIndex: data.currentStepIndex,
           allData: data.allData,
           stepData: data.stepData,
+          repeatableOrders: data.repeatableOrders,
           visitedSteps: new Set(data.visitedSteps),
           passedSteps: new Set(data.passedSteps || []),
           isSubmitting: false,
@@ -210,6 +250,11 @@ export function usePersistence({
    */
   const clearPersistedData = useCallback(async (): Promise<void> => {
     clearError();
+
+    // Cancel any pending debounced save first: a save scheduled from the last
+    // edit / navigation transition would otherwise fire after the remove below
+    // and re-persist data we just cleared (resurrecting a completed workflow).
+    debouncedSave.current.cancel();
 
     try {
       await adapterRef.current.remove(storageKey);
@@ -238,8 +283,14 @@ export function usePersistence({
   /**
    * Auto-persistence effect
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: workflowCompletedRef is a ref read for its current value, not an input that should retrigger the effect
   useEffect(() => {
     if (!optionsRef.current.autoPersist) return;
+
+    // Once the workflow has completed, never schedule another save: completion
+    // clears the persisted data, so a later auto-save would resurrect the
+    // finished workflow on the next mount.
+    if (workflowCompletedRef?.current) return;
 
     // Skip if currently persisting, loading, initializing, or in transition states
     if (

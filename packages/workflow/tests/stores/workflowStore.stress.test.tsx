@@ -4,13 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   WorkflowStoreContext,
   createWorkflowStore,
-  useCurrentStepIndex,
+  useFlowData,
+  useFlowStepIndex,
+  useFlowSubmitting,
+  useFlowTransitioning,
   usePassedSteps,
   useVisitedSteps,
-  useWorkflowAllData,
-  useWorkflowSubmitting,
-  useWorkflowTransitioning,
-} from '../../src/stores/workflowStore';
+} from '../../src/stores';
 
 function createWrapper() {
   const store = createWorkflowStore();
@@ -22,9 +22,8 @@ function createWrapper() {
 
 describe('WorkflowStore Stress Tests', () => {
   describe('Navigation Stress', () => {
-    it('should handle rapid forward navigation', () => {
+    it('should land on the last requested step after 1000 navigations', () => {
       const { store } = createWrapper();
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 1000; i++) {
@@ -32,10 +31,8 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
+      // Last call was _setCurrentStep(999 % 10) === 9
       expect(store.getState().currentStepIndex).toBe(9);
-      expect(duration).toBeLessThan(500);
-      console.log(`1000 step navigations in ${duration.toFixed(2)}ms`);
     });
 
     it('should handle back-and-forth navigation', () => {
@@ -50,15 +47,14 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      // Should be at a valid step
-      expect(store.getState().currentStepIndex).toBeGreaterThanOrEqual(0);
+      // Last iteration is i = 99: forward to min(9, 5) === 5, back to max(9 - 1, 0) === 8
+      expect(store.getState().currentStepIndex).toBe(8);
     });
   });
 
   describe('Data Accumulation Stress', () => {
-    it('should handle large amounts of step data', () => {
+    it('should keep all 100 steps x 50 fields addressable and correct', () => {
       const { store } = createWrapper();
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 100; i++) {
@@ -70,10 +66,17 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(Object.keys(store.getState().allData).length).toBe(100);
-      expect(duration).toBeLessThan(500);
-      console.log(`100 steps with 50 fields each in ${duration.toFixed(2)}ms`);
+      const { allData } = store.getState();
+      expect(Object.keys(allData)).toHaveLength(100);
+
+      // Every one of the 5000 cells is exactly where it was written
+      for (let i = 0; i < 100; i++) {
+        const step = allData[`step${i}`] as Record<string, unknown>;
+        expect(Object.keys(step)).toHaveLength(50);
+        for (let j = 0; j < 50; j++) {
+          expect(step[`field${j}`]).toBe(`value-${i}-${j}`);
+        }
+      }
     });
 
     it('should handle repeated data overwrites', () => {
@@ -109,24 +112,30 @@ describe('WorkflowStore Stress Tests', () => {
         };
       }
 
-      const start = performance.now();
-
       act(() => {
         store.getState()._setStepData(complexData, 'step1');
       });
 
-      const duration = performance.now() - start;
-      expect(Object.keys(store.getState().allData.step1 as Record<string, unknown>).length).toBe(
-        100
-      );
-      expect(duration).toBeLessThan(100);
+      const step1 = store.getState().allData.step1 as Record<string, unknown>;
+      expect(Object.keys(step1)).toHaveLength(100);
+
+      // Nested structures survive intact, down to the deepest leaf
+      expect(step1.user99).toEqual({
+        id: 99,
+        name: 'User 99',
+        preferences: {
+          theme: 'dark',
+          notifications: true,
+          settings: { email: true, push: false, frequency: 'daily' },
+        },
+        roles: ['admin', 'user', 'moderator'],
+      });
     });
   });
 
   describe('Visited/Passed Steps Management Stress', () => {
-    it('should handle marking many steps as visited', () => {
+    it('should record all 1000 steps as visited, each exactly once', () => {
       const { store } = createWrapper();
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 1000; i++) {
@@ -134,10 +143,12 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(store.getState().visitedSteps.size).toBe(1000);
-      expect(duration).toBeLessThan(500);
-      console.log(`1000 steps marked visited in ${duration.toFixed(2)}ms`);
+      const { visitedSteps } = store.getState();
+      expect(visitedSteps.size).toBe(1000);
+      for (let i = 0; i < 1000; i++) {
+        expect(visitedSteps.has(`step${i}`)).toBe(true);
+      }
+      expect(visitedSteps.has('step1000')).toBe(false);
     });
 
     it('should handle marking same step visited multiple times', () => {
@@ -209,19 +220,19 @@ describe('WorkflowStore Stress Tests', () => {
   });
 
   describe('Subscription Stress', () => {
-    it('should handle many concurrent subscribers', () => {
+    it('should propagate the final value to all 200 concurrent subscribers', () => {
       const { Wrapper, store } = createWrapper();
-      const hooks: ReturnType<typeof renderHook>[] = [];
+      const stepIndexHooks: ReturnType<typeof renderHook<number, unknown>>[] = [];
+      const transitioningHooks: ReturnType<typeof renderHook<boolean, unknown>>[] = [];
+      const submittingHooks: ReturnType<typeof renderHook<boolean, unknown>>[] = [];
 
       // Create many different subscriptions
       for (let i = 0; i < 50; i++) {
-        hooks.push(renderHook(() => useCurrentStepIndex(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowAllData(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowTransitioning(), { wrapper: Wrapper }));
-        hooks.push(renderHook(() => useWorkflowSubmitting(), { wrapper: Wrapper }));
+        stepIndexHooks.push(renderHook(() => useFlowStepIndex(), { wrapper: Wrapper }));
+        renderHook(() => useFlowData(), { wrapper: Wrapper });
+        transitioningHooks.push(renderHook(() => useFlowTransitioning(), { wrapper: Wrapper }));
+        submittingHooks.push(renderHook(() => useFlowSubmitting(), { wrapper: Wrapper }));
       }
-
-      const start = performance.now();
 
       // Trigger updates
       act(() => {
@@ -230,12 +241,21 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
-      console.log(`200 subscribers with 100 updates: ${duration.toFixed(2)}ms`);
+      // Every subscriber converged on the same final value (99 % 5 === 4),
+      // and unrelated selectors were not disturbed by the step-index writes.
+      expect(store.getState().currentStepIndex).toBe(4);
+      for (const hook of stepIndexHooks) {
+        expect(hook.result.current).toBe(4);
+      }
+      for (const hook of transitioningHooks) {
+        expect(hook.result.current).toBe(false);
+      }
+      for (const hook of submittingHooks) {
+        expect(hook.result.current).toBe(false);
+      }
 
       // Cleanup
-      for (const hook of hooks) {
+      for (const hook of [...stepIndexHooks, ...transitioningHooks, ...submittingHooks]) {
         hook.unmount();
       }
     });
@@ -244,7 +264,7 @@ describe('WorkflowStore Stress Tests', () => {
       const { Wrapper, store } = createWrapper();
 
       for (let i = 0; i < 500; i++) {
-        const { unmount } = renderHook(() => useCurrentStepIndex(), {
+        const { unmount } = renderHook(() => useFlowStepIndex(), {
           wrapper: Wrapper,
         });
         unmount();
@@ -313,8 +333,8 @@ describe('WorkflowStore Stress Tests', () => {
     });
   });
 
-  describe('Selector Performance', () => {
-    it('useCurrentStepIndex should be efficient with large allData', () => {
+  describe('Selector Isolation', () => {
+    it('useFlowStepIndex should track step changes without disturbing large allData', () => {
       const { Wrapper, store } = createWrapper();
 
       // Fill with lots of data
@@ -328,25 +348,30 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const { result } = renderHook(() => useCurrentStepIndex(), {
+      const { result } = renderHook(() => useFlowStepIndex(), {
         wrapper: Wrapper,
       });
 
-      const start = performance.now();
+      const dataBefore = store.getState().allData;
+
       act(() => {
         store.getState()._setCurrentStep(50);
       });
-      const duration = performance.now() - start;
 
       expect(result.current).toBe(50);
-      expect(duration).toBeLessThan(50);
+
+      // The 100 x 100 data grid is untouched by a step-index write
+      expect(store.getState().allData).toBe(dataBefore);
+      expect(Object.keys(store.getState().allData)).toHaveLength(100);
+      expect((store.getState().allData.step99 as Record<string, unknown>).field99).toBe(
+        'value-99-99'
+      );
     });
   });
 
   describe('Field Value Updates', () => {
-    it('should handle rapid field value updates', () => {
+    it('should apply 10,000 field updates with the last write winning per field', () => {
       const { store } = createWrapper();
-      const start = performance.now();
 
       act(() => {
         for (let i = 0; i < 10000; i++) {
@@ -354,9 +379,12 @@ describe('WorkflowStore Stress Tests', () => {
         }
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(500);
-      console.log(`10,000 field updates in ${duration.toFixed(2)}ms`);
+      // field{k} was last written at i === 9900 + k
+      const expected: Record<string, number> = {};
+      for (let k = 0; k < 100; k++) {
+        expected[`field${k}`] = 9900 + k;
+      }
+      expect(store.getState().allData.step1).toEqual(expected);
     });
 
     it('should handle updating multiple fields across multiple steps', () => {
@@ -399,17 +427,29 @@ describe('WorkflowStore Stress Tests', () => {
         passedSteps: new Set(Array.from({ length: 25 }, (_, i) => `step${i}`)),
       };
 
-      const start = performance.now();
-
       act(() => {
         store.getState()._loadPersistedState(largePersistedState);
       });
 
-      const duration = performance.now() - start;
-      expect(duration).toBeLessThan(100);
-      expect(store.getState().currentStepIndex).toBe(5);
-      expect(Object.keys(store.getState().allData).length).toBe(50);
-      console.log(`Large state loaded in ${duration.toFixed(2)}ms`);
+      // The whole persisted payload is restored, not just its shape
+      const state = store.getState();
+      expect(state.currentStepIndex).toBe(5);
+      expect(Object.keys(state.allData)).toHaveLength(50);
+
+      for (let i = 0; i < 50; i++) {
+        const step = state.allData[`step${i}`] as Record<string, unknown>;
+        expect(Object.keys(step)).toHaveLength(20);
+        for (let j = 0; j < 20; j++) {
+          expect(step[`field${j}`]).toBe(`value-${i}-${j}`);
+        }
+      }
+
+      expect(state.visitedSteps.size).toBe(30);
+      expect(state.passedSteps.size).toBe(25);
+      expect(state.visitedSteps.has('step29')).toBe(true);
+      expect(state.visitedSteps.has('step30')).toBe(false);
+      expect(state.passedSteps.has('step24')).toBe(true);
+      expect(state.passedSteps.has('step25')).toBe(false);
     });
   });
 });

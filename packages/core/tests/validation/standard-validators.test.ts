@@ -307,6 +307,40 @@ describe('Standard Schema Built-in Validators', () => {
     });
   });
 
+  describe('numeric coercion hardening (Bug 5)', () => {
+    const bogusInputs: unknown[] = ['', '   ', [], '0x10'];
+
+    it('rejects empty/whitespace/array/hex-string inputs in number()', async () => {
+      for (const value of bogusInputs) {
+        const result = await validateWithStandardSchema(number(), value);
+        expect(result.isValid).toBe(false);
+      }
+    });
+
+    it('rejects the same bogus inputs in min() and max()', async () => {
+      for (const value of bogusInputs) {
+        expect((await validateWithStandardSchema(min(0), value)).isValid).toBe(false);
+        expect((await validateWithStandardSchema(max(100), value)).isValid).toBe(false);
+      }
+    });
+
+    it('keeps valid numeric inputs passing and coerced', async () => {
+      const fromString = await validateWithStandardSchema(number(), '42');
+      expect(fromString.isValid).toBe(true);
+      expect(fromString.value).toBe(42);
+
+      const fromNumber = await validateWithStandardSchema(number(), 42);
+      expect(fromNumber.isValid).toBe(true);
+      expect(fromNumber.value).toBe(42);
+    });
+
+    it('does not change range failure messages for genuine out-of-range numbers', async () => {
+      const tooSmall = await validateWithStandardSchema(min(10), 5);
+      expect(tooSmall.isValid).toBe(false);
+      expect(tooSmall.errors[0]?.message).toBe('Must be at least 10');
+    });
+  });
+
   describe('Standard Schema compliance', () => {
     it('should have proper Standard Schema structure', () => {
       const schema = required();

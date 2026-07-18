@@ -1,6 +1,7 @@
 import { required, ril, when } from '@rilaykit/core';
-import { FormBody, FormProvider, form, useFormConfigContext } from '@rilaykit/forms';
-import { useFormStoreApi, useFormValues } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { FormBody, FormProvider, useForm } from '@rilaykit/forms/react';
+import { useFormStoreApi, useFormValues } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,8 +64,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{}}>
           <FormBody />
-          <SetValueButton fieldId="type" value="company" />
-          <SetValueButton fieldId="type" value="personal" />
+          <SetValueButton id="type" value="company" />
+          <SetValueButton id="type" value="personal" />
         </FormProvider>
       );
 
@@ -124,8 +125,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ role: 'admin' }}>
           <FormBody />
-          <SetValueButton fieldId="role" value="guest" />
-          <SetValueButton fieldId="role" value="admin" />
+          <SetValueButton id="role" value="guest" />
+          <SetValueButton id="role" value="admin" />
         </FormProvider>
       );
 
@@ -171,8 +172,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ age: 15 }}>
           <FormBody />
-          <SetValueButton fieldId="age" value={25} />
-          <SetValueButton fieldId="age" value={10} />
+          <SetValueButton id="age" value={25} />
+          <SetValueButton id="age" value={10} />
         </FormProvider>
       );
 
@@ -227,8 +228,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{}}>
           <FormBody />
-          <SetValueButton fieldId="tags" value={['vip', 'premium']} />
-          <SetValueButton fieldId="tags" value={['basic']} />
+          <SetValueButton id="tags" value={['vip', 'premium']} />
+          <SetValueButton id="tags" value={['basic']} />
         </FormProvider>
       );
 
@@ -290,8 +291,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ country: 'US' }}>
           <FormBody />
-          <SetValueButton fieldId="country" value="FR" />
-          <SetValueButton fieldId="country" value="US" />
+          <SetValueButton id="country" value="FR" />
+          <SetValueButton id="country" value="US" />
         </FormProvider>
       );
 
@@ -346,8 +347,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ code: 'ab' }}>
           <FormBody />
-          <SetValueButton fieldId="code" value="ABC" />
-          <SetValueButton fieldId="code" value="abcd" />
+          <SetValueButton id="code" value="ABC" />
+          <SetValueButton id="code" value="abcd" />
         </FormProvider>
       );
 
@@ -402,8 +403,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{}}>
           <FormBody />
-          <SetValueButton fieldId="optional" value="something" />
-          <SetValueButton fieldId="optional" value={null} />
+          <SetValueButton id="optional" value="something" />
+          <SetValueButton id="optional" value={null} />
         </FormProvider>
       );
 
@@ -468,8 +469,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ isPro: true, country: 'US' }}>
           <FormBody />
-          <SetValueButton fieldId="country" value="FR" />
-          <SetValueButton fieldId="isPro" value={false} />
+          <SetValueButton id="country" value="FR" />
+          <SetValueButton id="isPro" value={false} />
         </FormProvider>
       );
 
@@ -531,9 +532,9 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ role: 'viewer' }}>
           <FormBody />
-          <SetValueButton fieldId="role" value="admin" />
-          <SetValueButton fieldId="role" value="manager" />
-          <SetValueButton fieldId="role" value="viewer" />
+          <SetValueButton id="role" value="admin" />
+          <SetValueButton id="role" value="manager" />
+          <SetValueButton id="role" value="viewer" />
         </FormProvider>
       );
 
@@ -612,9 +613,9 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{}}>
           <FormBody />
-          <SetValueButton fieldId="a" value="show-b" />
-          <SetValueButton fieldId="b" value="hello" />
-          <SetValueButton fieldId="a" value="hide-b" />
+          <SetValueButton id="a" value="show-b" />
+          <SetValueButton id="b" value="hello" />
+          <SetValueButton id="a" value="hide-b" />
         </FormProvider>
       );
 
@@ -681,8 +682,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ locked: false }}>
           <FormBody />
-          <SetValueButton fieldId="locked" value={true} />
-          <SetValueButton fieldId="locked" value={false} />
+          <SetValueButton id="locked" value={true} />
+          <SetValueButton id="locked" value={false} />
         </FormProvider>
       );
 
@@ -738,7 +739,7 @@ describe('Form Conditions E2E', () => {
         <FormProvider formConfig={formConfig} defaultValues={{ isPro: true, company: '' }}>
           <FormBody />
           <ValidationTrigger />
-          <FieldErrorDisplay fieldId="company" />
+          <FieldErrorDisplay id="company" />
         </FormProvider>
       );
 
@@ -775,8 +776,8 @@ describe('Form Conditions E2E', () => {
       render(
         <FormProvider formConfig={formConfig} defaultValues={{ finalized: false }}>
           <FormBody />
-          <SetValueButton fieldId="finalized" value={true} />
-          <SetValueButton fieldId="finalized" value={false} />
+          <SetValueButton id="finalized" value={true} />
+          <SetValueButton id="finalized" value={false} />
         </FormProvider>
       );
 
@@ -881,9 +882,9 @@ describe('Form Conditions E2E', () => {
         <FormProvider formConfig={formConfig} defaultValues={{ showName: true, name: '' }}>
           <FormBody />
           <ValidationTrigger />
-          <FieldErrorDisplay fieldId="name" />
-          <SetValueButton fieldId="showName" value={false} />
-          <SetValueButton fieldId="showName" value={true} />
+          <FieldErrorDisplay id="name" />
+          <SetValueButton id="showName" value={false} />
+          <SetValueButton id="showName" value={true} />
         </FormProvider>
       );
 

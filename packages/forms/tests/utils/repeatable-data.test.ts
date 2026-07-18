@@ -244,6 +244,57 @@ describe('flattenRepeatableValues', () => {
   });
 });
 
+describe('BUG 4: flattenRepeatableValues error-path — null/non-object items', () => {
+  it('should NOT throw when an array item is null (backend JSON null row)', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    expect(() => flattenRepeatableValues({ items: [null] }, configs)).not.toThrow();
+  });
+
+  it('should normalize null/non-object items to empty objects (degrade, never throw)', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const result = flattenRepeatableValues(
+      { items: [null, undefined, 42, 'str', { name: 'ok' }] },
+      configs
+    );
+
+    // Each item still gets a key, non-object items contribute no field values
+    expect(result.order).toEqual({ items: ['k0', 'k1', 'k2', 'k3', 'k4'] });
+    expect(result.nextKeys).toEqual({ items: 5 });
+    expect(result.values).toEqual({ 'items[k4].name': 'ok' });
+  });
+});
+
+describe('BUG 7: round-trip fidelity — preserve non-template item keys (no silent data loss)', () => {
+  it('structureFormValues(flatten(data)) deep-equals data when an item carries a non-template key', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+    const data = {
+      items: [{ name: 'a', legacyId: 42 }],
+    };
+
+    const flattened = flattenRepeatableValues(data, configs);
+    const structured = structureFormValues(flattened.values, configs, flattened.order);
+
+    expect(structured).toEqual(data);
+  });
+
+  it('preserves multiple non-template keys across several items', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+    const data = {
+      items: [
+        { name: 'a', legacyId: 1, meta: { x: true } },
+        { name: 'b', legacyId: 2 },
+      ],
+    };
+
+    const flattened = flattenRepeatableValues(data, configs);
+    const structured = structureFormValues(flattened.values, configs, flattened.order);
+
+    expect(structured).toEqual(data);
+  });
+});
+
 describe('roundtrip: flatten ↔ structure', () => {
   it('should roundtrip correctly', () => {
     const original = {
@@ -291,5 +342,40 @@ describe('roundtrip: flatten ↔ structure', () => {
     const structured = structureFormValues(flattened.values, configs, flattened.order);
 
     expect(structured).toEqual(original);
+  });
+});
+
+// =================================================================
+// PROTOTYPE-KEY LOOKUPS
+// =================================================================
+
+describe('Prototype-key repeatable ids and field ids', () => {
+  it('structures a repeatable whose id is a prototype key without inheriting from Object.prototype', () => {
+    const configs = { toString: createRepeatableConfig('toString', ['name']) };
+
+    const result = structureFormValues({ 'toString[k0].name': 'Widget' }, configs, {});
+
+    expect(Object.getOwnPropertyDescriptor(result, 'toString')?.value).toEqual([]);
+  });
+
+  it('carries a non-template row field named "toString" into the structured item', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const result = structureFormValues(
+      { 'items[k0].name': 'Widget', 'items[k0].toString': 'extra' },
+      configs,
+      { items: ['k0'] }
+    );
+
+    expect(result.items).toEqual([{ name: 'Widget', toString: 'extra' }]);
+  });
+
+  it('does not treat a plain array-valued field named "toString" as a repeatable', () => {
+    const configs = { items: createRepeatableConfig('items', ['name']) };
+
+    const { values, order } = flattenRepeatableValues({ toString: ['a', 'b'] }, configs);
+
+    expect(values).toEqual({ toString: ['a', 'b'] });
+    expect(order).toEqual({});
   });
 });

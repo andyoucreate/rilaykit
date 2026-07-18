@@ -1,4 +1,4 @@
-import { ril, when } from '@rilaykit/core';
+import { type ComponentRenderContext, ril, when } from '@rilaykit/core';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,36 +14,36 @@ describe('FormField - Conditional Visibility', () => {
 
     config = ril
       .create()
-      .addComponent('switch', {
+      .component('switch', {
         name: 'Switch',
-        renderer: ({ id, value, onChange, props }: any) => (
+        renderer: ({ id, props, field }: ComponentRenderContext) => (
           <div>
-            <label htmlFor={id}>{props.label}</label>
+            <label htmlFor={id}>{String(props.label ?? '')}</label>
             <input
               id={id}
               type="checkbox"
-              checked={value || false}
-              onChange={(e) => onChange(e.target.checked)}
+              checked={Boolean(field?.value)}
+              onChange={(e) => field?.onChange(e.target.checked)}
               data-testid={id}
             />
           </div>
         ),
       })
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
-        renderer: ({ id, value, onChange, props, error }: any) => (
+        renderer: ({ id, props, field }: ComponentRenderContext) => (
           <div>
-            <label htmlFor={id}>{props.label}</label>
+            <label htmlFor={id}>{String(props.label ?? '')}</label>
             <input
               id={id}
               type="text"
-              value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={props.placeholder}
+              value={String(field?.value ?? '')}
+              onChange={(e) => field?.onChange(e.target.value)}
+              placeholder={props.placeholder ? String(props.placeholder) : undefined}
               data-testid={id}
             />
-            {error && error.length > 0 && (
-              <span data-testid={`${id}-error`}>{error[0].message}</span>
+            {field?.error && field.error.length > 0 && (
+              <span data-testid={`${id}-error`}>{field.error[0].message}</span>
             )}
           </div>
         ),
@@ -83,8 +83,8 @@ describe('FormField - Conditional Visibility', () => {
           isRepresentativeSelf: true,
         }}
       >
-        <FormField fieldId="isRepresentativeSelf" />
-        <FormField fieldId="representativeFirstName" />
+        <FormField id="isRepresentativeSelf" />
+        <FormField id="representativeFirstName" />
       </FormProvider>
     );
 
@@ -149,9 +149,9 @@ describe('FormField - Conditional Visibility', () => {
           isRepresentativeSelf: true,
         }}
       >
-        <FormField fieldId="isRepresentativeSelf" />
-        <FormField fieldId="representativeFirstName" />
-        <FormField fieldId="representativeLastName" />
+        <FormField id="isRepresentativeSelf" />
+        <FormField id="representativeFirstName" />
+        <FormField id="representativeLastName" />
       </FormProvider>
     );
 
@@ -200,8 +200,8 @@ describe('FormField - Conditional Visibility', () => {
           isRepresentativeSelf: true,
         }}
       >
-        <FormField fieldId="isRepresentativeSelf" />
-        <FormField fieldId="representativeFirstName" />
+        <FormField id="isRepresentativeSelf" />
+        <FormField id="representativeFirstName" />
       </FormProvider>
     );
 
@@ -249,8 +249,8 @@ describe('FormField - Conditional Visibility', () => {
         defaultValues={{ isRepresentativeSelf: true }}
         onFieldChange={onFieldChange}
       >
-        <FormField fieldId="isRepresentativeSelf" />
-        <FormField fieldId="conditionalField" />
+        <FormField id="isRepresentativeSelf" />
+        <FormField id="conditionalField" />
       </FormProvider>
     );
 

@@ -1,3 +1,4 @@
+import { FieldWrapper, hasFieldError } from '@/components/renderers/field-wrapper';
 import {
   Select,
   SelectContent,
@@ -5,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { ComponentRenderProps } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface SelectOption {
   label: string;
@@ -20,34 +21,28 @@ interface SelectInputProps {
   options?: SelectOption[];
 }
 
-export function SelectInput({
-  id,
-  props,
-  value,
-  onChange,
-  disabled,
-  error,
-  touched,
-}: ComponentRenderProps<SelectInputProps>) {
-  const hasError = touched && error && error.length > 0;
+export function SelectInput({ id, props, field }: ComponentRenderContext<SelectInputProps>) {
+  const hasError = hasFieldError(field);
   const options = props.options ?? [];
 
   return (
-    <Select
-      value={(value as string) ?? ''}
-      onValueChange={(v) => onChange?.(v)}
-      disabled={disabled}
-    >
-      <SelectTrigger id={id} className={hasError ? 'border-destructive' : ''}>
-        <SelectValue placeholder={props.placeholder ?? 'Select...'} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <FieldWrapper id={id} props={props} field={field}>
+      <Select
+        value={(field?.value as string) ?? ''}
+        onValueChange={(v) => field?.onChange(v)}
+        disabled={field?.disabled}
+      >
+        <SelectTrigger id={id} className={hasError ? 'border-destructive' : ''}>
+          <SelectValue placeholder={props.placeholder ?? 'Select...'} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FieldWrapper>
   );
 }

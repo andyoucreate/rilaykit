@@ -4,16 +4,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { flow } from '../../src/builders/flow';
-import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
-
-// Mock text input component for testing
-const TextInput: React.FC<any> = ({ value, onChange, ...props }) => (
-  <input type="text" value={value || ''} onChange={(e) => onChange?.(e.target.value)} {...props} />
-);
+import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider';
+import { MockInput } from '../_helpers/mock-components';
 
 // Test component that displays workflow context values
 const WorkflowContextDisplay: React.FC = () => {
-  const { context } = useWorkflowContext();
+  const { context } = useFlow();
 
   return (
     <div>
@@ -29,9 +25,9 @@ describe('WorkflowProvider isLastStep with Conditions', () => {
   let rilConfig: ril<any>;
 
   beforeEach(() => {
-    rilConfig = ril.create().addComponent('text', {
+    rilConfig = ril.create().component('text', {
       name: 'Text Input',
-      renderer: TextInput as any,
+      renderer: MockInput,
       defaultProps: {},
     });
   });
@@ -131,7 +127,7 @@ describe('WorkflowProvider isLastStep with Conditions', () => {
       .build();
 
     const TestComponent = () => {
-      const { goToStep, context } = useWorkflowContext();
+      const { goToStep, context } = useFlow();
       const [hasNavigated, setHasNavigated] = React.useState(false);
 
       React.useEffect(() => {
@@ -199,7 +195,7 @@ describe('WorkflowProvider isLastStep with Conditions', () => {
       .build();
 
     const TestOnLastStep = () => {
-      const { goToStep, context } = useWorkflowContext();
+      const { goToStep, context } = useFlow();
       const [hasNavigated, setHasNavigated] = React.useState(false);
 
       React.useEffect(() => {

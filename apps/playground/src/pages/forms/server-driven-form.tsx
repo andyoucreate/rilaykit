@@ -1,17 +1,11 @@
+import { SubmitButton } from '@/components/chrome/submit-button';
 import { PageHeader } from '@/components/layout/page-header';
 import { InspectorStoreProvider } from '@/components/shared/inspector-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { r } from '@/lib/ril-config';
 import { useState } from 'react';
-import {
-  Form,
-  FormBody,
-  type FormSchema,
-  FormSubmitButton,
-  type SchemaRegistry,
-  fromSchema,
-  useFormStoreApi,
-} from 'rilaykit';
+import { type FormSchema, type SchemaRegistry, fromSchema } from 'rilaykit';
+import { Form, FormBody, useFormStoreApi } from 'rilaykit/react';
 
 // ---------------------------------------------------------------------------
 // 1. JSON Schema — this would come from a backend API in production
@@ -204,7 +198,7 @@ function FormInner() {
     <InspectorStoreProvider store={storeApi}>
       <FormBody />
       <div className="mt-6">
-        <FormSubmitButton />
+        <SubmitButton />
       </div>
     </InspectorStoreProvider>
   );
@@ -228,8 +222,8 @@ export function ServerDrivenFormPage() {
         </CardHeader>
         <CardContent>
           <Form
-            formConfig={formConfig}
-            defaultValues={defaultValues}
+            of={formConfig}
+            defaults={defaultValues}
             onSubmit={(data) => {
               setSubmittedData(data);
             }}

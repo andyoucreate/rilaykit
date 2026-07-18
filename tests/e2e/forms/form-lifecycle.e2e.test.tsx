@@ -1,6 +1,7 @@
 import { email, required } from '@rilaykit/core';
-import { FormBody, FormProvider, form } from '@rilaykit/forms';
-import { useFormStoreApi } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
+import { FormBody, FormProvider } from '@rilaykit/forms/react';
+import { useFormStoreApi } from '@rilaykit/forms/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -182,8 +183,8 @@ describe('Form Lifecycle — E2E', () => {
       <FormProvider formConfig={formConfig} onSubmit={onSubmit}>
         <FormBody />
         <SubmitButton />
-        <FieldErrorDisplay fieldId="fullName" />
-        <FieldErrorDisplay fieldId="contactEmail" />
+        <FieldErrorDisplay id="fullName" />
+        <FieldErrorDisplay id="contactEmail" />
       </FormProvider>
     );
 
@@ -334,7 +335,7 @@ describe('Form Lifecycle — E2E', () => {
         <FormBody />
         <FormValuesDisplay />
         <FormStateDisplay />
-        <SetValueButton fieldId="nickname" value="Modified" />
+        <SetValueButton id="nickname" value="Modified" />
         <ResetButton />
       </FormProvider>
     );

@@ -10,12 +10,12 @@ describe('Form Builder - Effects', () => {
   beforeEach(() => {
     rilConfig = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
       })
-      .addComponent('select', {
+      .component('select', {
         name: 'Select',
         renderer: () => React.createElement('select'),
         defaultProps: { label: '', options: [] },

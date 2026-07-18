@@ -1,29 +1,16 @@
-import { ril, when } from '@rilaykit/core';
+import { ril, setLogSink, when } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowProvider, useWorkflowContext } from '../../src';
 import { flow } from '../../src/builders/flow';
+import { WorkflowProvider, useFlow } from '../../src/react';
+import { MockInput } from '../_helpers/mock-components';
 
 describe('WorkflowProvider - DefaultStep', () => {
-  // Mock components
-  const MockInput = ({ id, value, onChange, props }: any) => (
-    <div data-testid={`field-${id}`}>
-      <label htmlFor={id}>{props.label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        data-testid={`input-${id}`}
-      />
-    </div>
-  );
-
   // Component to check current step
   const CurrentStepChecker = () => {
-    const { currentStep, workflowState } = useWorkflowContext();
+    const { currentStep, workflowState } = useFlow();
 
     return (
       <div data-testid="current-step-info">
@@ -40,16 +27,10 @@ describe('WorkflowProvider - DefaultStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    config = ril
-      .create()
-      .addComponent('input', {
-        name: 'Text Input',
-        renderer: MockInput,
-      })
-      .configure({
-        rowRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-        bodyRenderer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      });
+    config = ril.create().component('input', {
+      name: 'Text Input',
+      renderer: MockInput,
+    });
 
     // Create a workflow with multiple steps
     workflowConfig = flow
@@ -127,8 +108,11 @@ describe('WorkflowProvider - DefaultStep', () => {
   });
 
   it('should fallback to step 0 when defaultStep does not exist', async () => {
-    // Mock console.warn to verify the warning is shown
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Runtime code routes warnings through the logger sink, not console.
+    const consoleSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleSpy(message, ...args);
+    });
 
     render(
       <WorkflowProvider workflowConfig={workflowConfig} defaultStep="nonexistent">
@@ -146,7 +130,7 @@ describe('WorkflowProvider - DefaultStep', () => {
       'Default step with ID "nonexistent" not found. Starting at step 0.'
     );
 
-    consoleSpy.mockRestore();
+    setLogSink(null);
   });
 
   it('should work with defaultStep and defaultValues together', async () => {
@@ -223,7 +207,7 @@ describe('WorkflowProvider - DefaultStep', () => {
     };
 
     const ConditionalStepChecker = () => {
-      const { currentStep, conditionsHelpers } = useWorkflowContext();
+      const { currentStep, conditionsHelpers } = useFlow();
 
       return (
         <div data-testid="conditional-step-info">

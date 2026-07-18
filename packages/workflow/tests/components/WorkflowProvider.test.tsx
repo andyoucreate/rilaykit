@@ -1,19 +1,14 @@
-import { ril } from '@rilaykit/core';
-import { form, useFormConfigContext } from '@rilaykit/forms';
+import { ConfigurationError, ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { useForm } from '@rilaykit/forms/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flow } from '../../src/builders/flow';
-import { WorkflowProvider, useWorkflowContext } from '../../src/components/WorkflowProvider';
+import { WorkflowProvider, useFlow } from '../../src/components/WorkflowProvider';
 
 // Mock components
 const TestComponent = () => React.createElement('div', null, 'test');
-const TestFormRenderer = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'form-renderer' }, children);
-const TestStepperRenderer = () =>
-  React.createElement('div', { 'data-testid': 'stepper' }, 'stepper');
-const TestButtonRenderer = ({ children, ...props }: any) =>
-  React.createElement('div', { ...props, role: 'button' }, children);
 
 describe('WorkflowProvider', () => {
   let config: any;
@@ -24,23 +19,15 @@ describe('WorkflowProvider', () => {
 
     config = ril
       .create()
-      .addComponent('text', {
+      .component('text', {
         name: 'Text Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter text...' },
       })
-      .addComponent('email', {
+      .component('email', {
         name: 'Email Input',
         renderer: TestComponent,
         defaultProps: { placeholder: 'Enter email...' },
-      })
-      .configure({
-        rowRenderer: TestFormRenderer,
-        bodyRenderer: TestFormRenderer,
-        stepperRenderer: TestStepperRenderer,
-        nextButtonRenderer: TestButtonRenderer,
-        previousButtonRenderer: TestButtonRenderer,
-        skipButtonRenderer: TestButtonRenderer,
       });
 
     const personalInfoForm = form
@@ -83,7 +70,7 @@ describe('WorkflowProvider', () => {
 
     it('should provide workflow context to children', () => {
       const TestChild = () => {
-        const { workflowState } = useWorkflowContext();
+        const { workflowState } = useFlow();
         return <div data-testid="current-step">{workflowState.currentStepIndex}</div>;
       };
 
@@ -103,7 +90,7 @@ describe('WorkflowProvider', () => {
       };
 
       const TestChild = () => {
-        const { workflowState } = useWorkflowContext();
+        const { workflowState } = useFlow();
         return <div data-testid="default-values">{JSON.stringify(workflowState.allData)}</div>;
       };
 
@@ -120,7 +107,7 @@ describe('WorkflowProvider', () => {
       const onStepChange = vi.fn();
 
       const TestChild = () => {
-        const { goNext } = useWorkflowContext();
+        const { goNext } = useFlow();
         return (
           <button type="button" onClick={() => goNext()} data-testid="next-btn">
             Next
@@ -145,7 +132,7 @@ describe('WorkflowProvider', () => {
       const onWorkflowComplete = vi.fn();
 
       const TestChild = () => {
-        const { workflowState } = useWorkflowContext();
+        const { workflowState } = useFlow();
 
         return (
           <div data-testid="workflow-complete">
@@ -165,20 +152,28 @@ describe('WorkflowProvider', () => {
   });
 
   describe('useWorkflow Hook', () => {
-    it('should throw error when used outside provider', () => {
+    it('should throw a ConfigurationError when used outside provider', () => {
       const TestComponent = () => {
-        useWorkflowContext();
+        useFlow();
         return null;
       };
 
-      expect(() => render(<TestComponent />)).toThrow(
-        'useWorkflowContext must be used within a WorkflowProvider'
-      );
+      expect(() => render(<TestComponent />)).toThrow(ConfigurationError);
+
+      try {
+        render(<TestComponent />);
+        expect.unreachable('useFlow must throw outside a WorkflowProvider');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConfigurationError);
+        const configurationError = error as ConfigurationError;
+        expect(configurationError.code).toBe('CONFIGURATION');
+        expect(configurationError.message).toBe('useFlow must be used within a WorkflowProvider');
+      }
     });
 
     it('should provide workflow state', () => {
       const TestChild = () => {
-        const { workflowState, workflowConfig } = useWorkflowContext();
+        const { workflowState, workflowConfig } = useFlow();
         return (
           <div>
             <div data-testid="current-step">{workflowState.currentStepIndex}</div>
@@ -209,7 +204,7 @@ describe('WorkflowProvider', () => {
 
     it('should provide workflow config', () => {
       const TestChild = () => {
-        const { workflowConfig: config } = useWorkflowContext();
+        const { workflowConfig: config } = useFlow();
         return (
           <div>
             <div data-testid="workflow-id">{config.id}</div>
@@ -230,7 +225,7 @@ describe('WorkflowProvider', () => {
 
     it('should provide current step info', () => {
       const TestChild = () => {
-        const { currentStep } = useWorkflowContext();
+        const { currentStep } = useFlow();
         return (
           <div>
             <div data-testid="step-id">{currentStep?.id}</div>
@@ -253,7 +248,7 @@ describe('WorkflowProvider', () => {
   describe('Navigation Functions', () => {
     it('should navigate to next step', async () => {
       const TestChild = () => {
-        const { workflowState, goNext } = useWorkflowContext();
+        const { workflowState, goNext } = useFlow();
         return (
           <div>
             <div data-testid="current-step">{workflowState.currentStepIndex}</div>
@@ -281,7 +276,7 @@ describe('WorkflowProvider', () => {
 
     it('should navigate to previous step', async () => {
       const TestChild = () => {
-        const { workflowState, goNext, goPrevious } = useWorkflowContext();
+        const { workflowState, goNext, goPrevious } = useFlow();
         return (
           <div>
             <div data-testid="current-step">{workflowState.currentStepIndex}</div>
@@ -316,7 +311,7 @@ describe('WorkflowProvider', () => {
 
     it('should navigate to specific step', async () => {
       const TestChild = () => {
-        const { workflowState, goToStep } = useWorkflowContext();
+        const { workflowState, goToStep } = useFlow();
         return (
           <div>
             <div data-testid="current-step">{workflowState.currentStepIndex}</div>
@@ -346,7 +341,7 @@ describe('WorkflowProvider', () => {
   describe('Data Management', () => {
     it('should manage step data', async () => {
       const TestChild = () => {
-        const { workflowState, setValue, setStepData } = useWorkflowContext();
+        const { workflowState, setValue, setStepData } = useFlow();
         return (
           <div>
             <div data-testid="step-data">{JSON.stringify(workflowState.stepData)}</div>
@@ -390,7 +385,7 @@ describe('WorkflowProvider', () => {
 
     it('should manage all workflow data', async () => {
       const TestChild = () => {
-        const { workflowState, setValue, goNext } = useWorkflowContext();
+        const { workflowState, setValue, goNext } = useFlow();
         return (
           <div>
             <div data-testid="all-data">{JSON.stringify(workflowState.allData)}</div>
@@ -431,7 +426,7 @@ describe('WorkflowProvider', () => {
   describe('Validation', () => {
     it('should validate current step', async () => {
       const TestChild = () => {
-        const { validateForm } = useFormConfigContext();
+        const { validateForm } = useForm();
         const [result, setResult] = React.useState<any>(null);
 
         const handleValidate = async () => {
@@ -466,7 +461,7 @@ describe('WorkflowProvider', () => {
   describe('Submission', () => {
     it('should handle workflow completion', async () => {
       const TestChild = () => {
-        const { workflowState } = useWorkflowContext();
+        const { workflowState } = useFlow();
         return (
           <div>
             <div data-testid="is-completed">
@@ -489,7 +484,7 @@ describe('WorkflowProvider', () => {
   describe('User Context', () => {
     it('should provide basic workflow info', () => {
       const TestChild = () => {
-        const { workflowConfig: config } = useWorkflowContext();
+        const { workflowConfig: config } = useFlow();
         return (
           <div>
             <div data-testid="workflow-name">{config.name}</div>

@@ -1,17 +1,20 @@
+import { ril } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import type React from 'react';
 import { memo, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { flow } from '../../src/builders/flow';
 import {
   type CreateWorkflowStoreOptions,
   WorkflowStoreContext,
   createWorkflowStore,
-  useCurrentStepIndex,
-  useWorkflowAllData,
-  useWorkflowStepData,
-  useWorkflowSubmitting,
-  useWorkflowTransitioning,
-} from '../../src/stores/workflowStore';
+  useFlowData,
+  useFlowStepIndex,
+  useFlowSubmitting,
+  useFlowTransitioning,
+  useStepData,
+} from '../../src/stores';
 
 // Helper to create a wrapper with store context
 function createWrapper(options: CreateWorkflowStoreOptions = {}) {
@@ -22,14 +25,22 @@ function createWrapper(options: CreateWorkflowStoreOptions = {}) {
   return { Wrapper, store };
 }
 
+const catalog = ril.create();
+const STEPS = flow
+  .create(catalog, 'wf', 'W')
+  .addStep({ id: 'step1', title: 'Step 1', formConfig: form.create(catalog, 'f1') })
+  .addStep({ id: 'step2', title: 'Step 2', formConfig: form.create(catalog, 'f2') })
+  .build().steps;
+const getSteps = () => STEPS;
+
 describe('Workflow Selector Hooks - Re-render Isolation', () => {
-  it('useCurrentStepIndex should not re-render when other state changes', () => {
+  it('useFlowStepIndex should not re-render when other state changes', () => {
     const { Wrapper, store } = createWrapper();
     const renderCount = { current: 0 };
 
     const TestComponent = () => {
       renderCount.current += 1;
-      const stepIndex = useCurrentStepIndex();
+      const stepIndex = useFlowStepIndex();
       return <div data-testid="step">{stepIndex}</div>;
     };
 
@@ -66,13 +77,13 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
     expect(screen.getByTestId('step')).toHaveTextContent('1');
   });
 
-  it('useWorkflowSubmitting should not re-render when other state changes', () => {
+  it('useFlowSubmitting should not re-render when other state changes', () => {
     const { Wrapper, store } = createWrapper();
     const renderCount = { current: 0 };
 
     const TestComponent = () => {
       renderCount.current += 1;
-      const isSubmitting = useWorkflowSubmitting();
+      const isSubmitting = useFlowSubmitting();
       return <div data-testid="submitting">{isSubmitting ? 'yes' : 'no'}</div>;
     };
 
@@ -103,13 +114,13 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
     expect(screen.getByTestId('submitting')).toHaveTextContent('yes');
   });
 
-  it('useWorkflowTransitioning should not re-render when other state changes', () => {
+  it('useFlowTransitioning should not re-render when other state changes', () => {
     const { Wrapper, store } = createWrapper();
     const renderCount = { current: 0 };
 
     const TestComponent = () => {
       renderCount.current += 1;
-      const isTransitioning = useWorkflowTransitioning();
+      const isTransitioning = useFlowTransitioning();
       return <div data-testid="transitioning">{isTransitioning ? 'yes' : 'no'}</div>;
     };
 
@@ -134,13 +145,17 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
     expect(renderCount.current).toBe(2);
   });
 
-  it('useWorkflowStepData should not re-render when unrelated data changes', () => {
-    const { Wrapper, store } = createWrapper();
+  it('useStepData should not re-render when unrelated data changes', () => {
+    // `stepData` is a VIEW of `allData[_currentStepId]`, and the store names
+    // that owner from its OWN steps — so a store with none cannot name a
+    // current step, and every mirror assertion below would be vacuous. Same
+    // reasoning, same `getSteps`, as `workflowStore.crossStepWrite.test.ts`.
+    const { Wrapper, store } = createWrapper({ getSteps });
     const renderCount = { current: 0 };
 
     const TestComponent = () => {
       renderCount.current += 1;
-      const stepData = useWorkflowStepData();
+      const stepData = useStepData();
       return <div data-testid="data">{JSON.stringify(stepData)}</div>;
     };
 
@@ -152,15 +167,17 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
 
     expect(renderCount.current).toBe(1);
 
-    // Changing unrelated state should NOT cause re-render
+    // Moving to a step whose slice is empty too: the view is re-derived and
+    // comes back the same EMPTY_SLICE it already was, so nothing is published
+    // and no consumer is woken.
     act(() => {
-      store.getState()._setCurrentStep(5);
+      store.getState()._setCurrentStep(1);
     });
     expect(renderCount.current).toBe(1);
 
     // Changing step data SHOULD cause re-render
     act(() => {
-      store.getState()._setStepData({ field: 'value' }, 'step1');
+      store.getState()._setStepData({ field: 'value' }, 'step2');
     });
     expect(renderCount.current).toBe(2);
     expect(screen.getByTestId('data')).toHaveTextContent('{"field":"value"}');
@@ -174,19 +191,19 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
 
     const StepComponent = memo(() => {
       stepRenderCount.current += 1;
-      const stepIndex = useCurrentStepIndex();
+      const stepIndex = useFlowStepIndex();
       return <div data-testid="step">{stepIndex}</div>;
     });
 
     const SubmittingComponent = memo(() => {
       submittingRenderCount.current += 1;
-      const isSubmitting = useWorkflowSubmitting();
+      const isSubmitting = useFlowSubmitting();
       return <div data-testid="submitting">{isSubmitting ? 'yes' : 'no'}</div>;
     });
 
     const DataComponent = memo(() => {
       dataRenderCount.current += 1;
-      const allData = useWorkflowAllData();
+      const allData = useFlowData();
       return <div data-testid="data">{JSON.stringify(allData)}</div>;
     });
 
@@ -228,12 +245,12 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
     expect(dataRenderCount.current).toBe(2);
   });
 
-  it('useWorkflowAllData should update when nested step data changes', () => {
+  it('useFlowData should update when nested step data changes', () => {
     const { Wrapper, store } = createWrapper({
       defaultValues: { step1: { field1: 'initial' } },
     });
 
-    const { result } = renderHook(() => useWorkflowAllData(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useFlowData(), { wrapper: Wrapper });
 
     expect(result.current.step1).toEqual({ field1: 'initial' });
 
@@ -248,7 +265,7 @@ describe('Workflow Selector Hooks - Re-render Isolation', () => {
 describe('Workflow Selector Hooks - Edge Cases', () => {
   it('should handle rapid consecutive updates', () => {
     const { Wrapper, store } = createWrapper();
-    const { result } = renderHook(() => useCurrentStepIndex(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useFlowStepIndex(), { wrapper: Wrapper });
 
     act(() => {
       for (let i = 0; i < 100; i++) {
@@ -261,8 +278,8 @@ describe('Workflow Selector Hooks - Edge Cases', () => {
 
   it('should handle concurrent state updates', () => {
     const { Wrapper, store } = createWrapper();
-    const { result: stepResult } = renderHook(() => useCurrentStepIndex(), { wrapper: Wrapper });
-    const { result: submittingResult } = renderHook(() => useWorkflowSubmitting(), {
+    const { result: stepResult } = renderHook(() => useFlowStepIndex(), { wrapper: Wrapper });
+    const { result: submittingResult } = renderHook(() => useFlowSubmitting(), {
       wrapper: Wrapper,
     });
 
@@ -279,7 +296,7 @@ describe('Workflow Selector Hooks - Edge Cases', () => {
     const { Wrapper, store } = createWrapper();
 
     const TestComponent = () => {
-      const stepData = useWorkflowStepData();
+      const stepData = useStepData();
       return <div data-testid="data">{Object.keys(stepData).length}</div>;
     };
 

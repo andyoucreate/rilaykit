@@ -1,5 +1,6 @@
-import type { ComponentRenderProps, FormFieldConfig } from '@rilaykit/core';
-import React, { useCallback, useMemo } from 'react';
+import type { ComponentEntry, ComponentRenderContext, FormFieldConfig } from '@rilaykit/core';
+import { NotFoundError, catalogEntryKey, getOwn } from '@rilaykit/core';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   useFieldActions,
   useFieldConditions,
@@ -8,28 +9,28 @@ import {
   useFieldValue,
 } from '../stores';
 import { parseCompositeKey } from '../utils/repeatable-data';
-import { useFormConfigContext } from './FormProvider';
+import { useForm } from './FormProvider';
 
 export interface FormFieldProps {
-  fieldId: string;
-  /** Pre-resolved field config (used by RepeatableItem to skip allFields lookup) */
-  fieldConfig?: FormFieldConfig;
+  id: string;
+  /** Pre-resolved field config (used by FormListItem to skip allFields lookup) */
+  config?: FormFieldConfig;
   disabled?: boolean;
-  customProps?: Record<string, unknown>;
+  overrides?: Record<string, unknown>;
   className?: string;
   forceVisible?: boolean;
 }
 
 export const FormField = React.memo(function FormField({
-  fieldId,
-  fieldConfig: fieldConfigProp,
+  id: fieldId,
+  config: fieldConfigProp,
   disabled = false,
-  customProps = {},
+  overrides = {},
   className,
   forceVisible = false,
 }: FormFieldProps) {
   // Get form config (stable reference)
-  const { formConfig, validateField, conditionsHelpers } = useFormConfigContext();
+  const { formConfig, validateField, conditionsHelpers, formInstanceKey } = useForm();
 
   // Granular selectors - only re-render when THIS field changes
   const value = useFieldValue(fieldId);
@@ -49,7 +50,7 @@ export const FormField = React.memo(function FormField({
     // Try composite key lookup for repeatable fields
     const parsed = parseCompositeKey(fieldId);
     if (parsed && formConfig.repeatableFields) {
-      const repeatableConfig = formConfig.repeatableFields[parsed.repeatableId];
+      const repeatableConfig = getOwn(formConfig.repeatableFields, parsed.repeatableId);
       if (repeatableConfig) {
         const templateField = repeatableConfig.allFields.find((f) => f.id === parsed.fieldId);
         if (templateField) {
@@ -63,13 +64,18 @@ export const FormField = React.memo(function FormField({
   }, [fieldConfigProp, formConfig.allFields, formConfig.repeatableFields, fieldId]);
 
   if (!fieldConfig) {
-    throw new Error(`Field with ID "${fieldId}" not found`);
+    throw new NotFoundError(`Field "${fieldId}" not found`, { key: fieldId });
   }
 
-  // Get component config - early return if not found
-  const componentConfig = formConfig.config.getComponent(fieldConfig.componentId);
-  if (!componentConfig) {
-    throw new Error(`Component with ID "${fieldConfig.componentId}" not found`);
+  // Get catalog entry - early throw if not found or renderless.
+  // componentId is runtime-dynamic, so the per-component props typing is erased here.
+  const componentEntry = formConfig.config.getComponent(fieldConfig.componentId) as
+    | ComponentEntry<Record<string, unknown>>
+    | undefined;
+  if (!componentEntry?.renderer) {
+    throw new NotFoundError(`Component "${fieldConfig.componentId}" not found in catalog`, {
+      key: catalogEntryKey('component', fieldConfig.componentId),
+    });
   }
 
   const isValidating = fieldState.validationState === 'validating';
@@ -85,17 +91,73 @@ export const FormField = React.memo(function FormField({
     [forceVisible, disabled, conditions, conditionsHelpers, fieldId]
   );
 
+  // Per-field debounce timer for change-triggered validation. Cleared on
+  // unmount, whenever a newer change supersedes a pending run, and — see below
+  // — whenever the mounted form is swapped.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A pending debounced run is work scheduled BY, and FOR, the form mounted when
+  // the user typed. It closes over the value they typed and passes it to
+  // `validateField` EXPLICITLY, so once it fires it is not a stale run that can
+  // be recognised and dropped downstream — it is a brand-new, perfectly current
+  // run carrying a value from a form that no longer exists.
+  //
+  // Unmount does not cover this. A step transition re-renders the same
+  // `FormField` in the same position with the same field id, so React reconciles
+  // it rather than remounting it: the timer survives, fires on the new step, and
+  // validates the PREVIOUS step's text against the NEW step's rules — leaving an
+  // error on a field the user is looking at empty and has never touched.
+  // `formInstanceKey` and `componentId` are deliberately dependencies the BODY
+  // does not read: their whole job is to make this effect re-run — i.e. to fire
+  // the cleanup — when the mounted form is swapped OR the field is retyped
+  // mid-stream (`text`→`textarea`, same id, new component). Without the retype
+  // trigger a pending debounced run fires the ORPHANED pre-retype value's verdict
+  // onto the freshly re-registered control. The rule below reasons about what a
+  // body READS, and cannot see that a cleanup-only effect's deps are its TRIGGER.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup trigger, not an input
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    },
+    [formInstanceKey, fieldConfig.componentId]
+  );
+
   // Stable change handler
   const handleChange = useCallback(
     async (newValue: unknown) => {
       setValue(newValue);
 
-      // Validate immediately if configured OR if field is already touched
-      if (fieldConfig.validation?.validateOnChange || fieldState.touched) {
-        await validateField(fieldId, newValue);
+      // Validate on change if configured OR if the field is already touched.
+      const shouldValidate = fieldConfig.validation?.validateOnChange || fieldState.touched;
+      if (!shouldValidate) return;
+
+      // Debounce change-triggered validation when configured (blur/submit always
+      // validate immediately, unaffected by this). Superseded runs are cancelled.
+      const debounceMs = fieldConfig.validation?.debounceMs;
+      if (debounceMs && debounceMs > 0) {
+        if (debounceTimerRef.current !== null) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          void validateField(fieldId, newValue);
+        }, debounceMs);
+        return;
       }
+
+      await validateField(fieldId, newValue);
     },
-    [fieldId, setValue, validateField, fieldConfig.validation?.validateOnChange, fieldState.touched]
+    [
+      fieldId,
+      setValue,
+      validateField,
+      fieldConfig.validation?.validateOnChange,
+      fieldConfig.validation?.debounceMs,
+      fieldState.touched,
+    ]
   );
 
   // Stable blur handler
@@ -116,40 +178,52 @@ export const FormField = React.memo(function FormField({
   ]);
 
   // Memoize merged props
-  // Precedence: defaultProps < fieldConfig.props < dynamicProps (effects) < customProps < conditions
+  // Precedence: defaultProps < fieldConfig.props < dynamicProps (effects) < overrides < conditions
   const mergedProps = useMemo(
     () => ({
-      ...(componentConfig.defaultProps ?? {}),
+      ...(componentEntry.defaultProps ?? {}),
       ...fieldConfig.props,
       ...dynamicProps,
-      ...customProps,
+      ...overrides,
       disabled: effectiveConditions.isFieldDisabled,
       required: effectiveConditions.isFieldRequired,
       readOnly: effectiveConditions.isFieldReadonly,
     }),
     [
-      componentConfig.defaultProps,
+      componentEntry.defaultProps,
       fieldConfig.props,
       dynamicProps,
-      customProps,
+      overrides,
       effectiveConditions.isFieldDisabled,
       effectiveConditions.isFieldRequired,
       effectiveConditions.isFieldReadonly,
     ]
   );
 
-  // Memoize render props
-  const renderProps: ComponentRenderProps = useMemo(
+  // Memoize the render context passed to the catalog renderer
+  const context: ComponentRenderContext<Record<string, unknown>> = useMemo(
     () => ({
       id: fieldId,
       props: mergedProps,
-      value,
-      onChange: handleChange,
-      onBlur: handleBlur,
-      disabled: effectiveConditions.isFieldDisabled,
-      error: fieldState.errors,
-      isValidating,
-      touched: fieldState.touched,
+      field: {
+        value,
+        onChange: handleChange,
+        onBlur: handleBlur,
+        error: fieldState.errors,
+        disabled: effectiveConditions.isFieldDisabled,
+        isValidating,
+        touched: fieldState.touched,
+      },
+      conditions: {
+        // Raw store visibility (pre-forceVisible): effective visibility is
+        // always true inside a rendered field, so the raw flag is the only
+        // informative value (e.g. styling a condition-hidden field under forceVisible)
+        visible: conditions.visible,
+        disabled: effectiveConditions.isFieldDisabled,
+        required: effectiveConditions.isFieldRequired,
+        readonly: effectiveConditions.isFieldReadonly,
+      },
+      meta: componentEntry.meta,
     }),
     [
       fieldId,
@@ -157,10 +231,12 @@ export const FormField = React.memo(function FormField({
       value,
       handleChange,
       handleBlur,
-      effectiveConditions.isFieldDisabled,
       fieldState.errors,
-      isValidating,
       fieldState.touched,
+      isValidating,
+      conditions.visible,
+      effectiveConditions,
+      componentEntry.meta,
     ]
   );
 
@@ -169,36 +245,17 @@ export const FormField = React.memo(function FormField({
     return null;
   }
 
-  // Render component
-  const renderedComponent = componentConfig.renderer(renderProps as ComponentRenderProps<never>);
-
-  // Render field wrapper
-  const fieldRenderer = formConfig.renderConfig?.fieldRenderer;
-  const shouldUseFieldRenderer = componentConfig.useFieldRenderer !== false;
-
-  const content =
-    fieldRenderer && shouldUseFieldRenderer
-      ? fieldRenderer({
-          children: renderedComponent,
-          id: fieldId,
-          ...mergedProps,
-          error: fieldState.errors,
-          isValidating,
-          touched: fieldState.touched,
-        })
-      : renderedComponent;
-
   return (
     <div
       className={className}
       data-field-id={fieldId}
-      data-field-type={componentConfig.type}
+      data-field-type={componentEntry.type}
       data-field-visible={effectiveConditions.isVisible}
       data-field-disabled={effectiveConditions.isFieldDisabled}
       data-field-required={effectiveConditions.isFieldRequired}
       data-field-readonly={effectiveConditions.isFieldReadonly}
     >
-      {content}
+      {componentEntry.renderer(context)}
     </div>
   );
 });

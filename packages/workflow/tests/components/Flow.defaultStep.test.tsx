@@ -1,0 +1,158 @@
+import { ril, setLogSink } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
+import { render, screen, waitFor } from '@testing-library/react';
+import type React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { flow } from '../../src/builders/flow';
+import { Flow, useFlow } from '../../src/react';
+import { MockInput } from '../_helpers/mock-components';
+
+describe('Flow Component - DefaultStep', () => {
+  // Component to check current step
+  const CurrentStepDisplay = () => {
+    const { currentStep, workflowState } = useFlow();
+
+    return (
+      <div data-testid="workflow-info">
+        <div data-testid="current-step-id">{currentStep?.id || 'none'}</div>
+        <div data-testid="current-step-index">{workflowState.currentStepIndex}</div>
+        <div data-testid="current-step-title">{currentStep?.title || 'none'}</div>
+      </div>
+    );
+  };
+
+  let config: ril<Record<string, any>>;
+  let workflowBuilder: flow;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    config = ril.create().component('input', {
+      name: 'Text Input',
+      renderer: MockInput,
+    });
+
+    // Create a workflow builder (not built yet)
+    workflowBuilder = flow
+      .create(config, 'test-workflow', 'Test Workflow')
+      .addStep({
+        id: 'intro',
+        title: 'Introduction',
+        formConfig: form.create(config).add({
+          id: 'name',
+          type: 'input',
+          props: { label: 'Your Name' },
+        }),
+      })
+      .addStep({
+        id: 'details',
+        title: 'Details',
+        formConfig: form.create(config).add({
+          id: 'email',
+          type: 'input',
+          props: { label: 'Email' },
+        }),
+      })
+      .addStep({
+        id: 'summary',
+        title: 'Summary',
+        formConfig: form.create(config).add({
+          id: 'notes',
+          type: 'input',
+          props: { label: 'Notes' },
+        }),
+      });
+  });
+
+  it('should start at step 0 by default with Flow component', async () => {
+    render(
+      <Flow of={workflowBuilder}>
+        <CurrentStepDisplay />
+      </Flow>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-step-id')).toHaveTextContent('intro');
+      expect(screen.getByTestId('current-step-index')).toHaveTextContent('0');
+      expect(screen.getByTestId('current-step-title')).toHaveTextContent('Introduction');
+    });
+  });
+
+  it('should start at specified defaultStep with Flow component', async () => {
+    render(
+      <Flow of={workflowBuilder} defaultStep="details">
+        <CurrentStepDisplay />
+      </Flow>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-step-id')).toHaveTextContent('details');
+      expect(screen.getByTestId('current-step-index')).toHaveTextContent('1');
+      expect(screen.getByTestId('current-step-title')).toHaveTextContent('Details');
+    });
+  });
+
+  it('should work with built workflow config', async () => {
+    const builtWorkflow = workflowBuilder.build();
+
+    render(
+      <Flow of={builtWorkflow} defaultStep="summary">
+        <CurrentStepDisplay />
+      </Flow>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-step-id')).toHaveTextContent('summary');
+      expect(screen.getByTestId('current-step-index')).toHaveTextContent('2');
+      expect(screen.getByTestId('current-step-title')).toHaveTextContent('Summary');
+    });
+  });
+
+  it('should combine defaultStep with defaultValues', async () => {
+    const defaultValues = {
+      details: {
+        email: 'test@example.com',
+      },
+      summary: {
+        notes: 'Pre-filled notes',
+      },
+    };
+
+    render(
+      <Flow of={workflowBuilder} defaultStep="details" defaults={defaultValues}>
+        <CurrentStepDisplay />
+      </Flow>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-step-id')).toHaveTextContent('details');
+      expect(screen.getByTestId('current-step-index')).toHaveTextContent('1');
+    });
+  });
+
+  it('should handle invalid defaultStep gracefully', async () => {
+    // Runtime code routes warnings through the logger sink, not console.
+    const consoleSpy = vi.fn();
+    setLogSink((level, _scope, message, ...args) => {
+      if (level === 'warn') consoleSpy(message, ...args);
+    });
+
+    render(
+      <Flow of={workflowBuilder} defaultStep="invalid-step">
+        <CurrentStepDisplay />
+      </Flow>
+    );
+
+    await waitFor(() => {
+      // Should fallback to first step
+      expect(screen.getByTestId('current-step-id')).toHaveTextContent('intro');
+      expect(screen.getByTestId('current-step-index')).toHaveTextContent('0');
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Default step with ID "invalid-step" not found. Starting at step 0.'
+    );
+
+    setLogSink(null);
+  });
+});

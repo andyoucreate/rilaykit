@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DuplicateError, ValidationError } from '../../src/errors';
 import {
   IdGenerator,
   configureObject,
@@ -124,6 +125,20 @@ describe('Builder Helpers', () => {
         ensureUnique(ids, 'test');
       }).not.toThrow();
     });
+
+    it('throws DuplicateError with code and meta', () => {
+      let caught: unknown;
+
+      try {
+        ensureUnique(['a', 'b', 'a'], 'field');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(DuplicateError);
+      expect((caught as DuplicateError).code).toBe('DUPLICATE');
+      expect((caught as DuplicateError).meta).toEqual({ entityName: 'field', duplicates: ['a'] });
+    });
   });
 
   describe('validateRequired', () => {
@@ -154,6 +169,14 @@ describe('Builder Helpers', () => {
       expect(() => {
         validateRequired(items, ['id', 'name', 'type'], 'field');
       }).toThrow('Missing required fields in field: id, name, type');
+
+      try {
+        validateRequired(items, ['id', 'name', 'type'], 'field');
+        expect.unreachable('validateRequired should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        expect((err as ValidationError).code).toBe('VALIDATION');
+      }
     });
 
     it('should handle items with falsy values correctly', () => {
@@ -166,6 +189,14 @@ describe('Builder Helpers', () => {
       expect(() => {
         validateRequired(items, ['id', 'name', 'type', 'required'], 'field');
       }).toThrow('Missing required fields in field');
+
+      try {
+        validateRequired(items, ['id', 'name', 'type', 'required'], 'field');
+        expect.unreachable('validateRequired should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        expect((err as ValidationError).code).toBe('VALIDATION');
+      }
     });
 
     it('should handle empty items array', () => {
@@ -191,6 +222,14 @@ describe('Builder Helpers', () => {
       expect(() => {
         validateRequired(items, ['id', 'name', 'type'], 'field');
       }).toThrow('Missing required fields in field');
+
+      try {
+        validateRequired(items, ['id', 'name', 'type'], 'field');
+        expect.unreachable('validateRequired should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        expect((err as ValidationError).code).toBe('VALIDATION');
+      }
     });
   });
 

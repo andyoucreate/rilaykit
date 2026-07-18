@@ -1,17 +1,12 @@
 import { ril } from '@rilaykit/core';
 import { form } from '@rilaykit/forms';
-import {
-  LocalStorageAdapter,
-  WorkflowBody,
-  WorkflowNextButton,
-  WorkflowProvider,
-  flow,
-  useWorkflowContext,
-} from '@rilaykit/workflow';
-import { useWorkflowAllData } from '@rilaykit/workflow';
+import { LocalStorageAdapter, flow } from '@rilaykit/workflow';
+import { FlowBody, WorkflowProvider, useFlow } from '@rilaykit/workflow/react';
+import { useFlowData } from '@rilaykit/workflow/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextButton } from '../_setup/nav-buttons';
 import { MockTextInput } from '../_setup/test-helpers';
 
 // ============================================================================
@@ -19,35 +14,19 @@ import { MockTextInput } from '../_setup/test-helpers';
 // ============================================================================
 
 const STORAGE_KEY = 'rilay_workflow_test-workflow';
-const rilConfig = ril
-  .create()
-  .addComponent('text', {
-    name: 'Text',
-    renderer: MockTextInput,
-    defaultProps: { label: '' },
-  })
-  .configure({
-    bodyRenderer: ({ children }) => <div>{children}</div>,
-    rowRenderer: ({ children }) => <div>{children}</div>,
-    nextButtonRenderer: ({ onSubmit }) => (
-      <button type="button" data-testid="next-btn" onClick={onSubmit}>
-        Next
-      </button>
-    ),
-    previousButtonRenderer: ({ onPrevious }) => (
-      <button type="button" data-testid="prev-btn" onClick={onPrevious}>
-        Previous
-      </button>
-    ),
-  });
+const rilConfig = ril.create().component('text', {
+  name: 'Text',
+  renderer: MockTextInput,
+  defaultProps: { label: '' },
+});
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
 function WorkflowStateDisplay() {
-  const { workflowState } = useWorkflowContext();
-  const allData = useWorkflowAllData();
+  const { workflowState } = useFlow();
+  const allData = useFlowData();
   return (
     <div>
       <span data-testid="current-step">{workflowState.currentStepIndex}</span>
@@ -127,8 +106,8 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // then use the adapter directly to verify save behavior
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -209,8 +188,8 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // and the persisted data could be applied to restore state
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -268,8 +247,8 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // The workflow itself should render fine without persistence
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
@@ -325,8 +304,8 @@ describe('Workflow Persistence with localStorage - E2E', () => {
     // Render workflow without persistence - should work normally
     render(
       <WorkflowProvider workflowConfig={buildWorkflow()}>
-        <WorkflowBody />
-        <WorkflowNextButton />
+        <FlowBody />
+        <NextButton />
         <WorkflowStateDisplay />
       </WorkflowProvider>
     );
