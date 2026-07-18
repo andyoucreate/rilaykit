@@ -1,5 +1,14 @@
 # @rilaykit/agent
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [[`850f391`](https://github.com/andyoucreate/rilaykit/commit/850f3914892abfaeef3e0585ea1c6ff4a50380db)]:
+  - @rilaykit/workflow@0.2.1
+  - @rilaykit/core@0.2.1
+  - @rilaykit/forms@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

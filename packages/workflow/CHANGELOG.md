@@ -1,5 +1,15 @@
 # @rilaykit/workflow
 
+## 0.2.1
+
+### Patch Changes
+
+- [#20](https://github.com/andyoucreate/rilaykit/pull/20) [`850f391`](https://github.com/andyoucreate/rilaykit/commit/850f3914892abfaeef3e0585ea1c6ff4a50380db) Thanks [@reizam](https://github.com/reizam)! - Clear the persistence load-settle timer on unmount. `loadPersistedData` scheduled a 100ms `setIsLoadingPersisted(false)` timer that nothing cancelled; unmounting inside that window fired React state on a torn-down hook. The timer is now tracked, mount-guarded, and cancelled in the unmount cleanup.
+
+- Updated dependencies []:
+  - @rilaykit/core@0.2.1
+  - @rilaykit/forms@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
