@@ -196,6 +196,21 @@ export function useFormSubmissionWithStore({
           return false;
         }
 
+        // A submit is the moment errors are meant to appear, and it has just
+        // painted one on every invalid field at once — so mark exactly those
+        // fields touched. `touched` is what a renderer gates its error display
+        // on (`FieldBinding.touched`, the idiom the API invites) and what
+        // change-validation gates on (`FormField`'s handleChange). Without this
+        // a refused submit showed NOTHING to such a renderer — a silently
+        // rejected form — and left a stale error on screen while the user typed
+        // the fix, until they blurred or submitted again.
+        const validatedState = store.getState();
+        for (const [erroredFieldId, fieldErrors] of Object.entries(validatedState.errors)) {
+          if (fieldErrors.length > 0) {
+            validatedState._setTouched(erroredFieldId);
+          }
+        }
+
         if (!validationResult.isValid && !resolvedOptions.skipInvalid) {
           state._setSubmitting(false);
           return false;

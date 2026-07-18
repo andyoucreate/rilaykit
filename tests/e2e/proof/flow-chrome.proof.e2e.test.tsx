@@ -40,7 +40,10 @@ describe('PROOF flow chrome hardening', () => {
     fireEvent.change(await screen.findByTestId('b-f'), { target: { value: 'two' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() =>
-      expect(onComplete).toHaveBeenCalledWith({ a: { 'a-f': 'one' }, b: { 'b-f': 'two' } })
+      expect(onComplete).toHaveBeenCalledWith(
+        { a: { 'a-f': 'one' }, b: { 'b-f': 'two' } },
+        expect.objectContaining({ skippedSteps: [] })
+      )
     );
   });
 

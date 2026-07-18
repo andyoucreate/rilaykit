@@ -1494,8 +1494,6 @@ export function resolveFieldValidation(
   const validate = resolveRuleSchemas(validation.rules, registry);
 
   return {
-    validateOnChange: validation.validateOnChange,
-    validateOnBlur: validation.validateOnBlur,
     debounceMs: validation.debounceMs,
     ...(validate === undefined ? {} : { validate }),
   };
@@ -1512,7 +1510,10 @@ function resolveFormValidation(
   const validate = resolveRuleSchemas<Record<string, any>>(validation.rules, registry);
 
   return {
-    validateOnSubmit: validation.validateOnSubmit,
+    ...(validation.mode === undefined ? {} : { mode: validation.mode }),
+    ...(validation.reValidateMode === undefined
+      ? {}
+      : { reValidateMode: validation.reValidateMode }),
     validateOnStepChange: validation.validateOnStepChange,
     ...(validate === undefined ? {} : { validate }),
   };

@@ -13,7 +13,7 @@ const teamForm = r
     id: 'teamName',
     type: 'text',
     props: { label: 'Team Name', placeholder: 'Engineering Team' },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .addRepeatable('members', (rep) =>
     rep
@@ -22,13 +22,13 @@ const teamForm = r
           id: 'name',
           type: 'text',
           props: { label: 'Name', placeholder: 'Jane Doe' },
-          validation: { validate: [required()], validateOnBlur: true },
+          validation: { validate: [required()] },
         },
         {
           id: 'email',
           type: 'email',
           props: { label: 'Email' },
-          validation: { validate: [required(), email()], validateOnBlur: true },
+          validation: { validate: [required(), email()] },
         }
       )
       .add({
@@ -42,7 +42,7 @@ const teamForm = r
             { label: 'Manager', value: 'manager' },
           ],
         },
-        validation: { validate: [required()], validateOnBlur: true },
+        validation: { validate: [required()] },
       })
       .min(1)
       .max(5)

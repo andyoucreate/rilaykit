@@ -38,6 +38,12 @@ export interface UsePersistenceProps {
    * and any subsequent save would resurrect the finished workflow.
    */
   workflowCompletedRef?: MutableRefObject<boolean>;
+  /**
+   * Reports a persistence failure to the workflow's observability layer (via
+   * `trackError`), so a Sentry/Datadog integration sees save/load/remove errors.
+   * Optional: persistence still works without any analytics/monitor configured.
+   */
+  onPersistenceError?: (error: Error) => void;
 }
 
 /**
@@ -71,6 +77,7 @@ export function usePersistence({
   options = {},
   userId,
   workflowCompletedRef,
+  onPersistenceError,
 }: UsePersistenceProps): UsePersistenceReturn {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<WorkflowPersistenceError | null>(null);
@@ -79,6 +86,9 @@ export function usePersistence({
   // Refs for stable references
   const adapterRef = useRef(adapter);
   const optionsRef = useRef(options);
+  // Flipped false on unmount so a flushed save does not set React state on a
+  // torn-down hook.
+  const isMountedRef = useRef(true);
   const persistenceStateRef = useRef<{
     lastSavedState?: WorkflowState;
     hasPendingChanges: boolean;
@@ -103,19 +113,26 @@ export function usePersistence({
   /**
    * Handle persistence errors consistently
    */
-  const handleError = useCallback((error: Error, operation: string) => {
-    const persistenceError =
-      error instanceof WorkflowPersistenceError
-        ? error
-        : new WorkflowPersistenceError(
-            `${operation} failed: ${error.message}`,
-            'OPERATION_FAILED',
-            error
-          );
+  const handleError = useCallback(
+    (error: Error, operation: string) => {
+      const persistenceError =
+        error instanceof WorkflowPersistenceError
+          ? error
+          : new WorkflowPersistenceError(
+              `${operation} failed: ${error.message}`,
+              'OPERATION_FAILED',
+              error
+            );
 
-    setPersistenceError(persistenceError);
-    log.error('[WorkflowPersistence]', persistenceError);
-  }, []);
+      setPersistenceError(persistenceError);
+      log.error('[WorkflowPersistence]', persistenceError);
+
+      // Also surface the failure to the workflow's observability layer so a
+      // monitoring integration sees it — the state + log above stay for the UI.
+      onPersistenceError?.(persistenceError);
+    },
+    [onPersistenceError]
+  );
 
   /**
    * Save current workflow state
@@ -123,7 +140,7 @@ export function usePersistence({
   const saveWorkflowState = useCallback(
     async (state: WorkflowState): Promise<void> => {
       clearError();
-      setIsPersisting(true);
+      if (isMountedRef.current) setIsPersisting(true);
 
       try {
         const persistedData = workflowStateToPersisted(
@@ -159,7 +176,7 @@ export function usePersistence({
         handleError(error as Error, 'Save');
         throw error;
       } finally {
-        setIsPersisting(false);
+        if (isMountedRef.current) setIsPersisting(false);
       }
     },
     [workflowId, storageKey, clearError, handleError, workflowCompletedRef]
@@ -229,6 +246,7 @@ export function usePersistence({
           repeatableOrders: data.repeatableOrders,
           visitedSteps: new Set(data.visitedSteps),
           passedSteps: new Set(data.passedSteps || []),
+          skippedSteps: new Set(data.skippedSteps || []),
           isSubmitting: false,
           isTransitioning: false,
           isInitializing: false,
@@ -314,6 +332,20 @@ export function usePersistence({
     // Trigger debounced save
     debouncedSave.current(workflowState);
   }, [workflowState, isPersisting, isLoadingPersisted, hasSignificantChanges]);
+
+  // On unmount, FLUSH any pending debounced save so the user's last edit is
+  // persisted even when they navigate away inside the debounce window — losing
+  // it would defeat the point of resumable workflow persistence. `isMountedRef`
+  // is cleared first so the flushed save writes to the adapter without touching
+  // React state on the torn-down hook. (Completion clears data on its own path,
+  // and saveWorkflowState still honours the workflowCompletedRef guard, so this
+  // never resurrects a finished workflow.)
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      debouncedSave.current.flush();
+    };
+  }, []);
 
   /**
    * Manual save operation

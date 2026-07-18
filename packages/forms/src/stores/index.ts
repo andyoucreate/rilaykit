@@ -10,6 +10,7 @@ export {
   // Field selectors
   useFieldValue,
   useFieldErrors,
+  useFormErrors,
   useFieldTouched,
   useFieldValidationState,
   useFieldConditions,

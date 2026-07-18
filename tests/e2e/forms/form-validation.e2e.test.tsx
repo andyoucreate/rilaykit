@@ -64,7 +64,6 @@ describe('Form Validation E2E', () => {
           props: { label: 'Name' },
           validation: {
             validate: required(),
-            validateOnBlur: true,
           },
         })
         .build();
@@ -105,9 +104,9 @@ describe('Form Validation E2E', () => {
           props: { label: 'Email' },
           validation: {
             validate: email(),
-            validateOnChange: true,
           },
         })
+        .setValidation({ mode: 'onChange' })
         .build();
 
       render(

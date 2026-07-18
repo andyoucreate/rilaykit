@@ -58,6 +58,19 @@ export interface WorkflowStoreState {
   // Progress tracking
   visitedSteps: Set<string>;
   passedSteps: Set<string>;
+  /**
+   * Steps the user explicitly SKIPPED (bypassed without validating). The exact
+   * structural mirror of {@link passedSteps}, and a persistent one — the
+   * transient `pendingSkipRef` only survives to the next navigation, but the
+   * completion boundary needs to know, at any later instant, which steps were
+   * skipped so it can drop their (unanswered) slices from the payload.
+   *
+   * A step leaves this set the moment it is PASSED: skip a step, navigate back
+   * onto it, fill it and advance, and `_markStepPassed` deletes it here — a
+   * skip that was later answered is no longer a skip. So the two sets are
+   * disjoint by construction.
+   */
+  skippedSteps: Set<string>;
 
   // Submission state
   isSubmitting: boolean;
@@ -224,6 +237,7 @@ export interface WorkflowStoreState {
   _setInitializing: (isInitializing: boolean) => void;
   _markStepVisited: (stepId: string) => void;
   _markStepPassed: (stepId: string) => void;
+  _markStepSkipped: (stepId: string) => void;
   _reset: () => void;
   _loadPersistedState: (state: Partial<WorkflowStoreState>) => void;
 }
@@ -352,6 +366,7 @@ export interface CreateWorkflowStoreOptions {
   getDefaultValues?: () => Record<string, unknown>;
   initialVisitedSteps?: Set<string>;
   initialPassedSteps?: Set<string>;
+  initialSkippedSteps?: Set<string>;
 }
 
 export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
@@ -362,6 +377,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
     getDefaultValues = () => defaultValues,
     initialVisitedSteps = new Set<string>(),
     initialPassedSteps = new Set<string>(),
+    initialSkippedSteps = new Set<string>(),
   } = options;
 
   /**
@@ -638,6 +654,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
         stepData: initialOwner === null ? EMPTY_SLICE : readStepSlice(initial.data, initialOwner),
         visitedSteps: new Set(initialVisitedSteps),
         passedSteps: new Set(initialPassedSteps),
+        skippedSteps: new Set(initialSkippedSteps),
         isSubmitting: false,
 
         // Internal state
@@ -926,9 +943,36 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
           }));
         },
 
+        /**
+         * Passing a step ALSO un-skips it. A step the user skipped, then
+         * returned to and completed, is no longer a skip — its answer belongs
+         * in the payload and its id must leave {@link WorkflowStoreState.skippedSteps}.
+         * The two sets stay disjoint here, at the one write that can make a
+         * skipped step passed. Publishes a fresh `skippedSteps` only when it
+         * actually removed something, so a normal advance wakes no extra
+         * subscriber.
+         */
         _markStepPassed: (stepId) => {
+          set((state) => {
+            const passedSteps = new Set([...state.passedSteps, stepId]);
+            if (!state.skippedSteps.has(stepId)) {
+              return { passedSteps };
+            }
+            const skippedSteps = new Set(state.skippedSteps);
+            skippedSteps.delete(stepId);
+            return { passedSteps, skippedSteps };
+          });
+        },
+
+        /**
+         * Record a step the user explicitly skipped. The mirror of
+         * {@link _markStepPassed}, and the persistent counterpart of the
+         * transient skip signal the analytics hook consumes: the completion
+         * boundary reads this set to drop skipped steps from the payload.
+         */
+        _markStepSkipped: (stepId) => {
           set((state) => ({
-            passedSteps: new Set([...state.passedSteps, stepId]),
+            skippedSteps: new Set([...state.skippedSteps, stepId]),
           }));
         },
 
@@ -961,6 +1005,7 @@ export function createWorkflowStore(options: CreateWorkflowStoreOptions = {}) {
             _repeatableOrders: seed.orders,
             visitedSteps: new Set(),
             passedSteps: new Set(),
+            skippedSteps: new Set(),
             isSubmitting: false,
             isTransitioning: false,
             isInitializing: false,

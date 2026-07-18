@@ -9,6 +9,7 @@ import {
   useFieldValue,
 } from '../stores';
 import { parseCompositeKey } from '../utils/repeatable-data';
+import { shouldValidateOnEvent } from '../utils/validation-timing';
 import { useForm } from './FormProvider';
 
 export interface FormFieldProps {
@@ -30,7 +31,14 @@ export const FormField = React.memo(function FormField({
   forceVisible = false,
 }: FormFieldProps) {
   // Get form config (stable reference)
-  const { formConfig, validateField, conditionsHelpers, formInstanceKey } = useForm();
+  const { formConfig, validateField, validateFormLevel, conditionsHelpers, formInstanceKey } =
+    useForm();
+
+  // Two-phase validation timing (RHF model), resolved once from the form config.
+  // Default `mode` is `onTouched` (validate on first blur, then live) — RilayKit's
+  // established default; RHF's own default is `onSubmit`, but we preserve behavior.
+  const mode = formConfig.validation?.mode ?? 'onTouched';
+  const reValidateMode = formConfig.validation?.reValidateMode ?? 'onChange';
 
   // Granular selectors - only re-render when THIS field changes
   const value = useFieldValue(fieldId);
@@ -130,12 +138,18 @@ export const FormField = React.memo(function FormField({
     async (newValue: unknown) => {
       setValue(newValue);
 
-      // Validate on change if configured OR if the field is already touched.
-      const shouldValidate = fieldConfig.validation?.validateOnChange || fieldState.touched;
+      const shouldValidate = shouldValidateOnEvent('change', {
+        mode,
+        reValidateMode,
+        hasErrored: fieldState.errors.length > 0,
+        touched: fieldState.touched,
+      });
       if (!shouldValidate) return;
 
       // Debounce change-triggered validation when configured (blur/submit always
       // validate immediately, unaffected by this). Superseded runs are cancelled.
+      // Form-level (cross-field) re-evaluation rides the SAME debounce so it sees
+      // the settled value and clears/adds cross-field errors on the same cadence.
       const debounceMs = fieldConfig.validation?.debounceMs;
       if (debounceMs && debounceMs > 0) {
         if (debounceTimerRef.current !== null) {
@@ -143,19 +157,23 @@ export const FormField = React.memo(function FormField({
         }
         debounceTimerRef.current = setTimeout(() => {
           debounceTimerRef.current = null;
-          void validateField(fieldId, newValue);
+          void validateField(fieldId, newValue).then(() => validateFormLevel());
         }, debounceMs);
         return;
       }
 
       await validateField(fieldId, newValue);
+      await validateFormLevel();
     },
     [
       fieldId,
       setValue,
       validateField,
-      fieldConfig.validation?.validateOnChange,
+      validateFormLevel,
+      mode,
+      reValidateMode,
       fieldConfig.validation?.debounceMs,
+      fieldState.errors.length,
       fieldState.touched,
     ]
   );
@@ -166,15 +184,25 @@ export const FormField = React.memo(function FormField({
       setTouched();
     }
 
-    if (fieldConfig.validation?.validateOnBlur !== false) {
+    const shouldValidate = shouldValidateOnEvent('blur', {
+      mode,
+      reValidateMode,
+      hasErrored: fieldState.errors.length > 0,
+      touched: fieldState.touched,
+    });
+    if (shouldValidate) {
       await validateField(fieldId);
+      await validateFormLevel();
     }
   }, [
     fieldId,
+    mode,
+    reValidateMode,
+    fieldState.errors.length,
     fieldState.touched,
     setTouched,
     validateField,
-    fieldConfig.validation?.validateOnBlur,
+    validateFormLevel,
   ]);
 
   // Memoize merged props

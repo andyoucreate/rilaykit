@@ -190,14 +190,10 @@ describe('Unified Validation System', () => {
     it('should handle validation timing options', async () => {
       const config: FieldValidationConfig = {
         validate: email(),
-        validateOnChange: true,
-        validateOnBlur: false,
         debounceMs: 300,
       };
 
-      // The timing options should be preserved in config
-      expect(config.validateOnChange).toBe(true);
-      expect(config.validateOnBlur).toBe(false);
+      // The per-field timing knob is preserved in config
       expect(config.debounceMs).toBe(300);
     });
   });

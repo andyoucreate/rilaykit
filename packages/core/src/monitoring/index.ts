@@ -93,7 +93,11 @@ export class RilayMonitor {
       source,
       data: {
         ...data,
-        context: this.context,
+        // The monitoring session context (sessionId/environment/url/…) rides
+        // under its OWN key so it never clobbers a caller-supplied `context` —
+        // `trackError` always puts the error's originating context in `data`, and
+        // that debugging payload (which workflow/step failed) must reach the sink.
+        monitoringContext: this.context,
       },
       metrics,
       severity,

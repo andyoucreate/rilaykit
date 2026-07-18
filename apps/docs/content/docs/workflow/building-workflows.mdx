@@ -2,219 +2,95 @@
 title: Building Workflows
 description: How to define multi-step workflows with the flow builder.
 ---
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-A workflow is a sequence of steps, where each step is usually a Rilaykit form. The workflow builder allows you to chain these steps together and configure the navigation logic between them.
+A workflow is a sequence of steps — each usually a RilayKit form — chained together with navigation logic.
 
 ## The `flow` Builder
 
-The `flow` class provides a static factory method to build multi-step workflows. It follows the same builder pattern as forms, with method chaining and full type safety.
-
-<Steps>
-<Step>
-### 1. Create your Form Configurations
-
-First, you need a `formConfig` for each step of your workflow. You'll create these using the standard form builder.
+`rilay.flow(id?, name?, description?)` starts a builder. ID and name are auto-generated when omitted. Chain `.step()` per step, `.configure()` for workflow-level options, then pass the builder to `<Workflow />`.
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
-const personalInfoForm = rilay.form('personal-info').add(...).build();
-const preferencesForm = rilay.form('preferences').add(...).build();
-const reviewForm = rilay.form('review').add(...).build();
+const workflow = rilay
+  .flow('user-onboarding', 'User Onboarding')
+  .step({ id: 'personal-info', title: 'Personal Information', formConfig: personalInfoForm })
+  .step({ id: 'preferences', title: 'Preferences', formConfig: preferencesForm, allowSkip: true });
 ```
+
 <Callout>
-You can also pass a `form` builder instance directly to a step. It will be built automatically.
+`formConfig` accepts a `form` builder instance directly — it is built automatically.
 </Callout>
-</Step>
-<Step>
-### 2. Start the Flow Builder
-
-Use `.flow()` on your `rilay` instance to begin building your workflow. The workflow ID and name are optional — if not provided, they will be auto-generated.
-
-```tsx
-import { rilay } from '@/lib/rilay';
-
-// With explicit ID and name (recommended for production)
-const workflowBuilder = rilay.flow(
-    'user-onboarding',
-    'User Onboarding Workflow',
-    'A multi-step workflow to onboard new users' // Optional description
-  )
-
-// With auto-generated ID and default name (useful for prototyping)
-const quickWorkflow = rilay.flow()
-```
-</Step>
-<Step>
-### 3. Add Steps
-
-Use `.step()` to add steps to your workflow. You must provide at least a `title` and `formConfig`.
-
-```tsx
-//...
-.step({
-  id: 'personal-info',
-  title: 'Personal Information',
-  description: 'Tell us about yourself',
-  formConfig: personalInfoForm,
-})
-.step({
-  id: 'preferences',
-  title: 'Preferences',
-  description: 'Set your preferences',
-  formConfig: preferencesForm,
-  allowSkip: true, // This step is optional
-})
-.step({
-  id: 'review',
-  title: 'Review & Feedback',
-  description: 'Review your information',
-  formConfig: reviewForm,
-})
-// ...
-```
-</Step>
-<Step>
-### 4. Configure Navigation and Hooks
-
-You can configure the overall workflow behavior with the unified `.configure()` method.
-
-```tsx
-// ...
-.configure({
-  analytics: {
-    onWorkflowStart: (workflowId) => console.log(`Workflow ${workflowId} started.`),
-    onStepComplete: (stepId, duration) => console.log(`Step ${stepId} took ${duration}ms.`),
-  }
-})
-// ...
-```
-</Step>
-<Step>
-### 5. Build the Configuration
-
-Finally, call `.build()` to get the final `workflowConfig` object.
-
-```tsx
-const workflowConfig = rilay.flow(...)
-  .step(...)
-  .step(...)
-  .configure(...)
-  .build();
-```
-This configuration can now be passed to the `<Workflow>` component, which will build it automatically if you pass the builder instance.
-</Step>
-</Steps>
 
 ## When to use `.build()`
 
-Just like with forms, you often don't need to call `.build()` on a workflow builder. The `<Workflow />` component handles it for you.
-
-You should call `.build()` manually when you need the final, serializable `WorkflowConfig` object, for example, to save it as JSON or for debugging.
+`<Workflow />` builds the workflow for you. Call `.build()` manually only when you need the final serializable `WorkflowConfig` object — e.g. to save it as JSON or for debugging.
 
 ## Step Configuration
 
-The object passed to `.step()` has several options:
+Options for `.step()`:
 
-- `id` (optional): A unique identifier for the step. Auto-generated if not provided.
-- `title` (required): A human-readable title for the step, often shown in the stepper.
-- `description` (optional): A short description of the step.
-- `formConfig` (required): The form configuration or form builder instance for this step.
-- `renderer` (optional): A custom renderer for the body of this specific step.
-- `allowSkip` (optional, default: `false`): If `true`, users can skip this step via `<WorkflowSkipButton>`.
-- `metadata` (optional): Structured metadata object with `icon`, `category`, `tags`, and custom fields.
-- `conditions` (optional): Conditional behavior configuration (visibility, skippable state).
-- **`after` (recommended)**: Simplified callback with single parameter containing step data and helpers. See [Advanced Workflows](/docs/workflow/advanced-workflows).
-- `onAfterValidation` (deprecated): Legacy 3-parameter callback. Use `after` instead for better DX.
+| Option | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Unique identifier. Auto-generated if omitted. |
+| `title` | `string` (required) | Shown in the stepper. |
+| `description` | `string` | Short step description. |
+| `formConfig` | `FormConfiguration` \| form builder (required) | The step's form. |
+| `renderer` | `CustomStepRenderer` | Custom renderer for this step's body. |
+| `allowSkip` | `boolean` \| `({ allData }) => boolean` | Enables `<FlowSkip>` (from `rilaykit/react`). Default `false`. |
+| `metadata` | `StepMetadata` | `icon`, `category`, `tags`, and custom fields — readable via hooks and context. |
+| `conditions` | `StepConditionalBehavior` | Conditional visibility and skippable state. |
+| `after` | `(step: StepContext) => void \| Promise<void>` | Runs after successful validation, before navigation. See [Advanced Workflows](/docs/workflow/advanced-workflows). |
+| `onAfterValidation` | deprecated | Legacy 3-parameter callback. Use `after`. |
 
----
+`.configure()` accepts `analytics` (`WorkflowAnalytics` callbacks) and `persistence` (`{ adapter, options?, userId? }`).
 
 ## Complete Example: User Onboarding Workflow
 
-Let's put it all together. Here is a full example of a 3-step user onboarding workflow.
-
-First, we define the forms for each step:
-
 ```tsx
-// 1. Define the forms for each step
-const accountForm = rilay.form('account-form')
-  .add(
-    { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()] } },
-    { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } }
-  );
+import { custom, email, minLength, required } from 'rilaykit';
+import { rilay } from '@/lib/rilay';
 
-const profileForm = rilay.form('profile-form')
-  .add(
-    { id: 'firstName', type: 'text', props: { label: 'First Name' } },
-    { id: 'lastName', type: 'text', props: { label: 'Last Name' } }
-  );
+// 1. Define the forms
+const accountForm = rilay.form('account-form').add(
+  { id: 'email', type: 'email', props: { label: 'Email' }, validation: { validate: [required(), email()] } },
+  { id: 'password', type: 'password', props: { label: 'Password' }, validation: { validate: [required(), minLength(8)] } }
+);
 
-const confirmationForm = rilay.form('confirmation-form')
-  .add({
-    id: 'terms',
-    type: 'checkbox', // Assumes a 'checkbox' component is registered
-    props: {
-      label: 'I agree to the terms and conditions',
-    },
-    validation: {
-      validate: [
-        custom(value => value === true, 'You must accept the terms')
-      ]
-    }
-  });
-```
+const profileForm = rilay.form('profile-form').add(
+  { id: 'firstName', type: 'text', props: { label: 'First Name' } },
+  { id: 'lastName', type: 'text', props: { label: 'Last Name' } }
+);
 
-<Callout title="About Validation">
-  This example uses several built-in validators. To learn more about how validation works in Rilay, check out our in-depth [Field and Form Validation](/docs/forms/validation) guide.
-</Callout>
+const confirmationForm = rilay.form('confirmation-form').add({
+  id: 'terms',
+  type: 'checkbox',
+  props: { label: 'I agree to the terms and conditions' },
+  validation: { validate: [custom(value => value === true, 'You must accept the terms')] },
+});
 
-Now, we use the `flow` builder to chain them together into a workflow:
-
-```tsx
-// 2. Build the workflow
-export const onboardingWorkflow = rilay.flow(
-    'onboarding',
-    'New User Onboarding'
-  )
+// 2. Chain them into a workflow
+export const onboardingWorkflow = rilay
+  .flow('onboarding', 'New User Onboarding')
   .step({
     id: 'account-creation',
     title: 'Create Account',
     formConfig: accountForm,
     metadata: { icon: 'user', category: 'account' },
     after: async (step) => {
-      // Simplified callback signature
-      console.log('Account created:', step.data.email);
-
-      // Pre-fill next step with user's email
-      step.next.prefill({
-        email: step.data.email
-      });
-    }
+      // Pre-fill the next visible step with the user's email
+      step.next.prefill({ email: step.data.email });
+    },
   })
-  .step({
-    id: 'personal-info',
-    title: 'Your Profile',
-    formConfig: profileForm,
-    metadata: { icon: 'profile', category: 'profile' }
-  })
-  .step({
-    id: 'confirmation',
-    title: 'Confirmation',
-    formConfig: confirmationForm,
-    metadata: { icon: 'check', category: 'confirmation' }
-  })
+  .step({ id: 'personal-info', title: 'Your Profile', formConfig: profileForm })
+  .step({ id: 'confirmation', title: 'Confirmation', formConfig: confirmationForm })
   .configure({
     analytics: {
       onWorkflowStart: (id) => console.log(`Started: ${id}`),
-      onWorkflowComplete: (id, totalTime) => console.log(`Completed: ${id} in ${totalTime}ms`),
+      onWorkflowComplete: (id, duration, data) => console.log(`Completed: ${id} in ${duration}ms`, data),
     },
   });
 ```
 
-<Callout type="info">
-**New in v0.2:** The simplified `after` callback replaces the verbose `onAfterValidation` (still supported but deprecated).
-</Callout>
-
-This `onboardingWorkflow` builder instance is ready to be passed to the `<Workflow />` component, providing a complete multi-step form experience out of the box. 
+Pass `onboardingWorkflow` to `<Workflow />`. See [Field and Form Validation](/docs/forms/validation) for the validators used above.

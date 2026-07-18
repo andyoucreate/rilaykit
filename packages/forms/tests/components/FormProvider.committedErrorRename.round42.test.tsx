@@ -48,15 +48,17 @@ describe('a committed error under a torn-id that is then renamed does not wedge 
         }),
       },
     };
-    const validation = { rules: [{ type: 'minLen' }], validateOnChange: true };
+    const validation = { rules: [{ type: 'minLen' }] };
     const tornChunk: FormSchema = {
       version: 1,
       id: 'contact-form',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'na', type: 'text', props: {}, validation }],
     };
     const completedChunk: FormSchema = {
       version: 1,
       id: 'contact-form',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'name', type: 'text', props: {}, validation }],
     };
     const torn = compileForm(tornChunk, config, { lenient: true, bindings });

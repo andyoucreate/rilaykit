@@ -35,14 +35,14 @@ function delay(ms: number): Promise<void> {
 const SCHEMA_JSON = `{
   "version": 1,
   "id": "subscription-signup",
+  "validation": { "mode": "onChange" },
   "fields": [
     {
       "id": "email",
       "type": "text",
       "props": { "label": "Work email" },
       "validation": {
-        "rules": ["required", { "type": "uniqueEmail", "message": "Email already registered" }],
-        "validateOnChange": true
+        "rules": ["required", { "type": "uniqueEmail", "message": "Email already registered" }]
       }
     },
     {

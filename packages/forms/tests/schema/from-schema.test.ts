@@ -24,7 +24,7 @@ beforeEach(() => {
       name: 'Email Input',
       renderer: () => React.createElement('input'),
       defaultProps: { label: '', required: false },
-      validation: { validateOnChange: true },
+      validation: { validate: email() },
     })
     .component('select', {
       name: 'Select',
@@ -321,8 +321,9 @@ describe('fromSchema', () => {
       const field = result.formConfig.allFields[0];
 
       expect(field.validation).toBeDefined();
-      expect(field.validation.validateOnChange).toBe(true);
-      expect(field.validation.validate).toBeDefined();
+      // Component email validator + field required merge into a combined array
+      expect(Array.isArray(field.validation.validate)).toBe(true);
+      expect(field.validation.validate).toHaveLength(2);
     });
   });
 
@@ -505,14 +506,16 @@ describe('fromSchema', () => {
         fields: [{ id: 'name', type: 'text' }],
         validation: {
           rules: { type: 'crossField' },
-          validateOnSubmit: true,
+          mode: 'onBlur',
+          reValidateMode: 'onSubmit',
         },
       };
 
       const result = fromSchema(schema, rilConfig, registry);
 
       expect(result.formConfig.validation).toBeDefined();
-      expect(result.formConfig.validation.validateOnSubmit).toBe(true);
+      expect(result.formConfig.validation.mode).toBe('onBlur');
+      expect(result.formConfig.validation.reValidateMode).toBe('onSubmit');
       expect(result.formConfig.validation.validate).toBeDefined();
     });
   });

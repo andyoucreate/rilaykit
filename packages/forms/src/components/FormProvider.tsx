@@ -33,6 +33,14 @@ export interface FormConfigContextValue {
   conditionsHelpers: Omit<UseFormConditionsReturn, 'fieldConditions'>;
   validateField: (fieldId: string, value?: unknown) => Promise<ValidationResult>;
   validateForm: () => Promise<ValidationResult>;
+  /**
+   * Re-run the form-level (cross-field) validation and route its issues into the
+   * shared error map. Fired by `FormField` on the same mode/reValidateMode
+   * schedule as field validation, so a cross-field error appears and clears live
+   * as the user edits — without a resubmit. A no-op when the form declares no
+   * form-level validation.
+   */
+  validateFormLevel: () => Promise<unknown>;
   submit: (eventOrOptions?: React.FormEvent | SubmitOptions) => Promise<boolean>;
   /**
    * Opaque identity of the form CURRENTLY mounted. Treat the value as
@@ -1318,7 +1326,7 @@ export function FormProvider({
   );
 
   // Initialize validation with store
-  const { validateField, validateForm } = useFormValidationWithStore({
+  const { validateField, validateForm, validateFormLevel } = useFormValidationWithStore({
     formConfig,
     store,
     // A validation run in flight is state OF the form that started it. The store
@@ -1352,10 +1360,19 @@ export function FormProvider({
       conditionsHelpers,
       validateField,
       validateForm,
+      validateFormLevel,
       submit,
       formInstanceKey: formIdentity,
     }),
-    [formConfig, conditionsHelpers, validateField, validateForm, submit, formIdentity]
+    [
+      formConfig,
+      conditionsHelpers,
+      validateField,
+      validateForm,
+      validateFormLevel,
+      submit,
+      formIdentity,
+    ]
   );
 
   return (

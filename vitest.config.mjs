@@ -19,6 +19,9 @@ export default defineConfig({
       'rilaykit/ai-sdk': path.resolve(__dirname, 'packages/rilaykit/src/ai-sdk/index.ts'),
       'rilaykit/anthropic': path.resolve(__dirname, 'packages/rilaykit/src/anthropic/index.ts'),
       rilaykit: path.resolve(__dirname, 'packages/rilaykit/src/index.ts'),
+      // Playground `@/` path alias, so a playground page render test resolves its
+      // own `@/components|lib` imports. Only playground tests use `@/`.
+      '@/': `${path.resolve(__dirname, 'apps/playground/src')}/`,
       react: path.resolve(__dirname, 'packages/forms/node_modules/react'),
       'react-dom': path.resolve(__dirname, 'packages/forms/node_modules/react-dom'),
     },
@@ -27,9 +30,19 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    // Heavy multi-step e2e (emission → fill → validate → derive → conditional →
+    // repeatable → reload) run well under a second in isolation, but their
+    // `waitFor`s can exceed the 5s default when the full suite runs them under
+    // CPU/memory contention — a load-induced flake, not a hang. A generous
+    // budget absorbs the contention; a genuine hang still fails (at 15s).
+    testTimeout: 15000,
+    hookTimeout: 15000,
     include: [
       'packages/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
       'tests/e2e/**/*.e2e.test.{ts,tsx}',
+      // Playground demo pages carry a little testable logic (the simulated-agent
+      // transcript reducer); its unit tests run in the same `vitest run` as the rest.
+      'apps/playground/src/**/*.{test,spec}.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**'],
     typecheck: {

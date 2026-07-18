@@ -21,6 +21,7 @@ describe('Persistence Utils', () => {
     stepData: { age: 25 },
     visitedSteps: new Set(['step1', 'step2']),
     passedSteps: new Set(['step1']),
+    skippedSteps: new Set(['step2']),
     isSubmitting: false,
     isTransitioning: true,
     isInitializing: false,
@@ -32,6 +33,7 @@ describe('Persistence Utils', () => {
     allData: { step1: { name: 'Jane' }, step3: { phone: '123' } },
     stepData: { city: 'Paris' },
     visitedSteps: ['step1', 'step3'],
+    skippedSteps: ['step3'],
     lastSaved: Date.now(),
   };
 
@@ -45,6 +47,7 @@ describe('Persistence Utils', () => {
         allData: mockWorkflowState.allData,
         stepData: mockWorkflowState.stepData,
         visitedSteps: Array.from(mockWorkflowState.visitedSteps),
+        skippedSteps: Array.from(mockWorkflowState.skippedSteps),
       });
       expect(result.lastSaved).toBeTypeOf('number');
     });
@@ -70,6 +73,8 @@ describe('Persistence Utils', () => {
       });
       expect(result.visitedSteps).toBeInstanceOf(Set);
       expect(Array.from(result.visitedSteps!)).toEqual(mockPersistedData.visitedSteps);
+      expect(result.skippedSteps).toBeInstanceOf(Set);
+      expect(Array.from(result.skippedSteps!)).toEqual(mockPersistedData.skippedSteps);
     });
   });
 
@@ -183,6 +188,11 @@ describe('Persistence Utils', () => {
         ...mockPersistedData.visitedSteps,
       ]);
       expect(result.visitedSteps).toEqual(expectedVisitedSteps);
+
+      // Skipped steps union the same way (current ∪ persisted)
+      expect(result.skippedSteps).toEqual(
+        new Set([...mockWorkflowState.skippedSteps, ...(mockPersistedData.skippedSteps ?? [])])
+      );
     });
 
     it('should use merge strategy', () => {
@@ -209,6 +219,11 @@ describe('Persistence Utils', () => {
         ...mockWorkflowState.visitedSteps,
       ]);
       expect(result.visitedSteps).toEqual(expectedVisitedSteps);
+
+      // Skipped steps union the same way (persisted ∪ current)
+      expect(result.skippedSteps).toEqual(
+        new Set([...(mockPersistedData.skippedSteps ?? []), ...mockWorkflowState.skippedSteps])
+      );
     });
 
     it('should handle unknown strategy as persist', () => {

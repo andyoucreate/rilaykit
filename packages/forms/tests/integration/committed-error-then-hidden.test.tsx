@@ -52,7 +52,7 @@ function buildForm(): FormConfiguration {
       id: 'b',
       type: 'text',
       props: { label: 'B' },
-      validation: { validate: requiredSchema, validateOnBlur: true },
+      validation: { validate: requiredSchema },
       conditions: { visible: when('a').equals('show') },
     })
     .build();

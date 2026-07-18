@@ -227,6 +227,7 @@ describe('the store enforces its invariant with NO exempt action', () => {
     setInitializing: null,
     markStepVisited: null,
     markStepPassed: null,
+    markStepSkipped: null,
     reset: null,
     loadPersistedState: (actions) =>
       actions.loadPersistedState({

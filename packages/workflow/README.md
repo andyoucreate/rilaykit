@@ -1,31 +1,16 @@
 # @rilaykit/workflow
 
-The multi-step workflow engine for [RilayKit](https://rilay.dev) — build complex, production-ready wizard flows with navigation, persistence, analytics, and plugins.
-
-`@rilaykit/workflow` extends `@rilaykit/forms` with a real workflow engine: step navigation with guards, auto-persistence to any storage backend, analytics tracking, cross-step conditions, and a plugin system for reusable behavior.
+The multi-step workflow engine for [RilayKit](https://rilay.dev): step navigation with validation guards, persistence to any storage backend, analytics, cross-step conditions, and plugins. Builds on `@rilaykit/forms`.
 
 ## Installation
 
 ```bash
-# pnpm (recommended)
 pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
-
-# npm
-npm install @rilaykit/core @rilaykit/forms @rilaykit/workflow
-
-# yarn
-yarn add @rilaykit/core @rilaykit/forms @rilaykit/workflow
-
-# bun
-bun add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 ```
 
-> `@rilaykit/core` and `@rilaykit/forms` are required peer dependencies.
+> `@rilaykit/core` and `@rilaykit/forms` are required peer dependencies. React >= 18.
 
-### Requirements
-
-- React >= 18
-- React DOM >= 18
+The main entry is React-free (server-safe); import components and hooks from `@rilaykit/workflow/react`.
 
 ## Quick Start
 
@@ -33,6 +18,7 @@ bun add @rilaykit/core @rilaykit/forms @rilaykit/workflow
 
 ```tsx
 import { required, email, minLength } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 
 const accountForm = form.create(rilay, 'account')
   .add({
@@ -59,52 +45,24 @@ const profileForm = form.create(rilay, 'profile')
 
 ```tsx
 import { flow } from '@rilaykit/workflow';
-import { LocalStorageAdapter } from '@rilaykit/workflow';
 
-// Option 1: With explicit ID and name
 const onboarding = flow
-  .create(rilay, 'onboarding', 'User Onboarding')
-  .step({
-    id: 'account',
-    title: 'Create Account',
-    formConfig: accountForm,
-  })
-  .step({
-    id: 'profile',
-    title: 'Your Profile',
-    formConfig: profileForm,
-    allowSkip: true,
-  })
-  .configure({
-    persistence: {
-      adapter: new LocalStorageAdapter({ maxAge: 7 * 24 * 60 * 60 * 1000 }),
-      options: { autoPersist: true, debounceMs: 500 },
-    },
-    analytics: {
-      onStepComplete: (stepId, duration) => {
-        trackEvent('step_complete', { stepId, duration });
-      },
-      onWorkflowComplete: (id, totalTime) => {
-        trackEvent('workflow_complete', { id, totalTime });
-      },
-    },
-  })
-  .build();
-
-// Option 2: Auto-generated ID and default name
-const quickWorkflow = flow
-  .create(rilay) // ID and name are optional
-  .step({ title: 'Step 1', formConfig: accountForm })
+  .create(rilay, 'onboarding', 'User Onboarding') // id and name optional
+  .step({ id: 'account', title: 'Create Account', formConfig: accountForm })
+  .step({ id: 'profile', title: 'Your Profile', formConfig: profileForm, allowSkip: true })
   .build();
 ```
 
 ### 3. Render It
 
 ```tsx
-import { Flow } from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow/react';
+import type { WorkflowCompletionMeta } from '@rilaykit/workflow/react';
 
 function OnboardingFlow() {
-  const handleComplete = (data: Record<string, unknown>) => {
+  const handleComplete = (data: Record<string, unknown>, meta: WorkflowCompletionMeta) => {
+    // data holds ONLY answered visible steps — skipped or hidden steps are absent
+    // meta = { visitedSteps, skippedSteps, passedSteps }
     saveOnboarding(data);
   };
 
@@ -122,50 +80,11 @@ function OnboardingFlow() {
 }
 ```
 
-Every compound piece accepts a render prop for full markup control:
-
-```tsx
-<Flow.Progress>
-  {({ steps, currentIndex, goTo }) =>
-    steps.map((step, index) => (
-      <button key={step.id} type="button" onClick={() => goTo(index)}
-        aria-current={index === currentIndex}>
-        {step.title}
-      </button>
-    ))
-  }
-</Flow.Progress>
-<Flow.Next>
-  {({ go, canGo, isLastStep }) => (
-    <button type="button" disabled={!canGo} onClick={go}>
-      {isLastStep ? 'Finish' : 'Continue'}
-    </button>
-  )}
-</Flow.Next>
-```
-
 ## Features
-
-### Fluent Workflow Builder
-
-Chainable API for defining multi-step flows with step-level configuration.
-
-```tsx
-import { flow } from '@rilaykit/workflow';
-
-const checkoutFlow = flow
-  .create(rilay, 'checkout', 'Checkout Flow')
-  .step({ id: 'cart', title: 'Review Cart', formConfig: cartForm })
-  .step({ id: 'shipping', title: 'Shipping', formConfig: shippingForm })
-  .step({ id: 'payment', title: 'Payment', formConfig: paymentForm })
-  .configure({ persistence: { ... }, analytics: { ... } })
-  .use(myPlugin)
-  .build();
-```
 
 ### Step Navigation
 
-Navigation with validation guards — users can't advance until the current step validates. Steps can be optional with `allowSkip: true`, or with a predicate over the accumulated flow data.
+Users can't advance until the current step validates. Steps are skippable with `allowSkip: true`, or a predicate over accumulated flow data:
 
 ```tsx
 .step({
@@ -178,7 +97,7 @@ Navigation with validation guards — users can't advance until the current step
 
 ### Cross-Step Conditions
 
-Use `when('stepId.fieldId')` to reference fields from other steps. Steps can be conditionally visible or skippable.
+`when('stepId.fieldId')` references fields from other steps:
 
 ```tsx
 import { when } from '@rilaykit/core';
@@ -195,26 +114,24 @@ import { when } from '@rilaykit/core';
 
 ### Pre-fill Next Steps
 
-Use `onAfterValidation` to pre-populate fields in upcoming steps based on current step data.
+`after` runs once a step validates. `step.next.prefill(fields)` writes into the next VISIBLE step — a conditionally hidden step in between never swallows the prefill:
 
 ```tsx
 .step({
   id: 'account',
   title: 'Account',
   formConfig: accountForm,
-  onAfterValidation: (stepData, helper) => {
-    helper.setNextStepValue('profile', 'email', stepData.email);
+  after: (step) => {
+    step.next.prefill({ email: step.data.email });
   },
 })
 ```
 
 ### Persistence
 
-Auto-save workflow state to any storage backend through an adapter interface. Ships with `LocalStorageAdapter`, and you can implement your own for Supabase, your API, or any backend.
+Auto-save to any backend through an adapter. Ships with `LocalStorageAdapter`:
 
 ```tsx
-import { LocalStorageAdapter } from '@rilaykit/workflow';
-
 .configure({
   persistence: {
     adapter: new LocalStorageAdapter({
@@ -230,12 +147,14 @@ import { LocalStorageAdapter } from '@rilaykit/workflow';
 })
 ```
 
+Field values survive save→load byte-faithfully (`Date`, `NaN`, `±Infinity`, `-0`, `BigInt` are tag-encoded). A pending debounced save is flushed on unmount; completion clears persisted data; corrupted blobs degrade to a fresh start and surface `LOAD_FAILED` on `persistenceError`.
+
 **Custom adapter interface:**
 
 ```tsx
 interface WorkflowPersistenceAdapter {
-  save(key: string, data: unknown): Promise<void>;
-  load(key: string): Promise<unknown | null>;
+  save(key: string, data: PersistedWorkflowData): Promise<void>;
+  load(key: string): Promise<PersistedWorkflowData | null>;
   remove(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   listKeys?(): Promise<string[]>;
@@ -245,36 +164,37 @@ interface WorkflowPersistenceAdapter {
 
 ### Analytics
 
-Track step completions, drop-offs, time per step, and errors with callback hooks.
-
 ```tsx
 .configure({
   analytics: {
-    onStepComplete: (stepId, duration) => { ... },
-    onStepSkip: (stepId) => { ... },
-    onWorkflowComplete: (id, totalTime) => { ... },
-    onError: (stepId, error) => { ... },
+    onStepComplete: (stepId, duration, data, context) => { ... },
+    onStepSkip: (stepId, reason, context) => { ... },
+    onWorkflowComplete: (workflowId, duration, data) => { ... },
+    onError: (error, context) => { ... },
   },
 })
 ```
 
+Every workflow error path routes through `onError` — step-transition failures, `onAfterValidation` throws, submission throws, persistence failures. A validation error blocking Next is not an error path. The last step fires no `onStepComplete`; completion is carried by `onWorkflowComplete` with the same projected data as `onComplete`.
+
 ### Plugin System
 
-Encapsulate reusable cross-cutting behavior with plugins. Plugins support dependency declaration.
+Encapsulate reusable cross-cutting behavior:
 
 ```tsx
 const loggingPlugin = {
   name: 'logging',
-  onStepEnter: (stepId) => trackEvent('step_enter', { stepId }),
-  onStepLeave: (stepId) => trackEvent('step_leave', { stepId }),
+  install: (workflow) => {
+    // extend the builder — e.g. add analytics, wrap steps
+  },
 };
 
-const flow = rilay
-  .flow('checkout', 'Checkout')
-  .use(loggingPlugin);
+flow.create(rilay, 'checkout', 'Checkout').use(loggingPlugin);
 ```
 
 ### Headless React Components
+
+All from `@rilaykit/workflow/react`:
 
 | Component | Description |
 |-----------|-------------|
@@ -286,18 +206,27 @@ const flow = rilay
 | `<Flow.Skip>` | Skip the current step without validating — hidden while the step is not skippable |
 | `<WorkflowProvider>` | Context provider (used separately when needed) |
 
-Bare defaults ship styleable data attributes: `[data-flow-progress]` (+ `data-active` per step) and `[data-flow-nav="next|back|skip"]`.
+Bare defaults ship styleable data attributes: `[data-flow-progress]` (+ `data-active` per step) and `[data-flow-nav="next|back|skip"]`. Every compound piece accepts a render prop for full markup control:
+
+```tsx
+<Flow.Next>
+  {({ go, canGo, isLastStep }) => (
+    <button type="button" disabled={!canGo} onClick={go}>
+      {isLastStep ? 'Finish' : 'Continue'}
+    </button>
+  )}
+</Flow.Next>
+```
 
 ### Server-Driven Workflows
 
-`compileFlow` turns a data-only JSON `FlowSchema` into a live `WorkflowConfig`
-— the whole flow, backend-authored, no frontend redeployment. Each step's
-`form` is compiled through `compileForm`, so everything the form schema
-supports works per step.
+`compileFlow` turns a data-only JSON `FlowSchema` into a live `WorkflowConfig` — the whole flow, backend-authored, no frontend redeployment. Each step's `form` compiles through `compileForm`, so everything the form schema supports works per step.
 
 ```tsx
-import { Flow, compileFlow } from '@rilaykit/workflow';
+import { custom } from '@rilaykit/core';
+import { compileFlow } from '@rilaykit/workflow';
 import type { FlowBindings, FlowSchema } from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow/react';
 
 const schema: FlowSchema = await fetch('/api/flows/subscription').then(r => r.json());
 
@@ -346,15 +275,13 @@ const { workflowConfig, defaultValues } = compileFlow(schema, rilConfig, { bindi
 }
 ```
 
-`WorkflowConfig` has no defaults slot, so compiled defaults come back out of
-band, already namespaced by step id (`{ account: { ... }, billing: { ... } }`)
-— the shape `<Flow defaults>` consumes, and the shape `onComplete` returns.
+`WorkflowConfig` has no defaults slot, so compiled defaults come back out of band, already namespaced by step id (`{ account: { ... } }`) — the shape `<Flow defaults>` consumes, and the shape `onComplete` returns.
 
-An invalid schema throws `SchemaValidationError` with `documentKind: 'flow'`;
-its `issues[]` name a JSON path into the flow (`steps[0].form.fields[1].type`),
-including unresolved binding references.
+An invalid schema throws `SchemaValidationError` with `documentKind: 'flow'`; its `issues[]` name a JSON path into the flow (`steps[0].form.fields[1].type`), including unresolved binding references.
 
 ### Hooks
+
+From `@rilaykit/workflow/react`:
 
 | Hook | Description |
 |------|-------------|

@@ -358,6 +358,7 @@ const STEP_IDENTITY_STATE: Record<string, OrphanProbe | null> = {
   // itself is the host's own. Checked below.
   visitedSteps: null,
   passedSteps: null,
+  skippedSteps: null,
 };
 
 describe('EVERY piece of store state keyed by step identity handles a step that is gone', () => {
@@ -371,6 +372,7 @@ describe('EVERY piece of store state keyed by step identity handles a step that 
     state._setRepeatableOrder(BRAVO, { lines: ['k1', 'k0'] });
     state._markStepVisited(ALPHA);
     state._markStepPassed(ALPHA);
+    state._markStepSkipped(BRAVO);
 
     const liveStepIds = getLiveSteps().map((step) => step.id);
 
@@ -664,6 +666,7 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
     _setInitializing: null,
     _markStepVisited: null,
     _markStepPassed: null,
+    _markStepSkipped: null,
     _reset: (store) => store.getState()._reset(),
     _loadPersistedState: (store) =>
       store.getState()._loadPersistedState({ allData: { [BRAVO]: { lines: AUTHORED } } }),
@@ -678,6 +681,7 @@ describe('EVERY action leaves every LIVE step flat when the step set moved since
     _setInitializing: (store) => store.getState()._setInitializing(false),
     _markStepVisited: (store) => store.getState()._markStepVisited(BRAVO),
     _markStepPassed: (store) => store.getState()._markStepPassed(BRAVO),
+    _markStepSkipped: (store) => store.getState()._markStepSkipped(BRAVO),
   };
 
   it('classifies EVERY action the store exposes', () => {

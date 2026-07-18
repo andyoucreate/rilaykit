@@ -3,11 +3,10 @@ title: Installation
 description: Install RilayKit packages in your React project with step-by-step instructions.
 ---
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { Callout } from 'fumadocs-ui/components/callout';
 
 ## Quick Start (Recommended)
 
-The easiest way to get started is with the all-in-one `rilaykit` package. It includes core, forms, and workflows in a single install:
+The all-in-one `rilaykit` package bundles core, forms, workflows, and the agent toolkit:
 
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
   <Tab value="pnpm">
@@ -32,211 +31,68 @@ The easiest way to get started is with the all-in-one `rilaykit` package. It inc
   </Tab>
 </Tabs>
 
-Everything is available from a single import:
+Two entry points: the main entry is React-free (safe in Server Components); components and hooks come from `rilaykit/react`:
 
 ```tsx
-import { ril, Form, FormField, Workflow, required, when } from 'rilaykit';
+import { ril, required, when } from 'rilaykit';
+import { Form, FormField, Flow } from 'rilaykit/react';
 ```
 
-The all-in-one package also adds convenience methods `.form()` and `.flow()` directly on the `ril` instance:
+The `ril` instance exposes `.form()` and `.flow()` directly:
 
 ```tsx
-const r = ril.create()
-  .addComponent('input', { renderer: MyInput });
+const r = ril.create().component('input', { renderer: renderInput });
 
-// Create forms directly from the ril instance
-const myForm = r.form('contact')
-  .add({ type: 'input', props: { label: 'Name' } })
+const contactForm = r.form('contact')
+  .add({ id: 'name', type: 'input', props: { label: 'Name' } })
   .build();
 
-// Create workflows directly from the ril instance
-const myFlow = r.flow('onboarding', 'Onboarding')
-  .step({ title: 'Step 1', formConfig: myForm })
+const onboarding = r.flow('onboarding', 'Onboarding')
+  .step({ title: 'Step 1', formConfig: contactForm })
   .build();
 ```
+
+AI adapters ship as sub-entries: `rilaykit/ai-sdk` (Vercel AI SDK, requires the optional `ai >= 5` peer) and `rilaykit/anthropic` (requires `@anthropic-ai/sdk`).
 
 ## Package Overview
 
-| Package | License | Description | Use Case |
-|---------|---------|-------------|----------|
-| `rilaykit` | MIT | All-in-one package with enhanced API | **Recommended** - Everything you need |
-| `@rilaykit/core` | MIT | Core engine, types, validation system | Modular install - foundation only |
-| `@rilaykit/forms` | MIT | Form builder and React components | Modular install - forms only |
-| `@rilaykit/workflow` | MIT | Multi-step workflows with advanced features | Modular install - workflows only |
+| Package | Description |
+|---------|-------------|
+| `rilaykit` | **Recommended** — all-in-one, re-exports everything below plus the enhanced `ril` |
+| `@rilaykit/core` | Engine: component catalog, types, validation, conditions |
+| `@rilaykit/forms` | Form builder + React components |
+| `@rilaykit/workflow` | Multi-step workflows: navigation, persistence, analytics |
+| `@rilaykit/agent` | AI chat tools (`show_form` / `show_flow` / `show_component`) + AI SDK and Anthropic adapters |
+
+All packages are MIT-licensed. Each pairs a React-free main entry with a `/react` entry for components and hooks.
 
 ## Modular Installation
 
-If you prefer to install only the packages you need (for optimal tree-shaking), you can use the individual packages. `@rilaykit/core` is always required as the foundation.
+`@rilaykit/core` is the required foundation:
 
-### Forms Only
-
-<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
-  <Tab value="pnpm">
-    ```bash
-    pnpm add @rilaykit/core @rilaykit/forms
-    ```
-  </Tab>
-  <Tab value="npm">
-    ```bash
-    npm install @rilaykit/core @rilaykit/forms
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn add @rilaykit/core @rilaykit/forms
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bun add @rilaykit/core @rilaykit/forms
-    ```
-  </Tab>
-</Tabs>
-
-### Forms + Workflows
-
-<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
-  <Tab value="pnpm">
-    ```bash
-    pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow
-    ```
-  </Tab>
-  <Tab value="npm">
-    ```bash
-    npm install @rilaykit/core @rilaykit/forms @rilaykit/workflow
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn add @rilaykit/core @rilaykit/forms @rilaykit/workflow
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bun add @rilaykit/core @rilaykit/forms @rilaykit/workflow
-    ```
-  </Tab>
-</Tabs>
-
-### Validation Libraries
-
-RilayKit supports any Standard Schema compatible validation library out of the box — no adapters needed:
-
-<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
-  <Tab value="pnpm">
-    ```bash
-    # Universal validation with Standard Schema - no adapters needed!
-    
-    # For Zod users (recommended)
-    pnpm add zod
-    
-    # For Yup users
-    pnpm add yup
-    
-    # For Joi users
-    pnpm add joi
-    
-    # Or use any other Standard Schema compatible library
-    pnpm add valibot arktype # etc.
-    ```
-  </Tab>
-  <Tab value="npm">
-    ```bash
-    # Universal validation with Standard Schema - no adapters needed!
-    
-    # For Zod users (recommended)
-    npm install zod
-    
-    # For Yup users
-    npm install yup
-    
-    # For Joi users
-    npm install joi
-    
-    # Or use any other Standard Schema compatible library
-    npm install valibot arktype # etc.
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    # Universal validation with Standard Schema - no adapters needed!
-    
-    # For Zod users (recommended)
-    yarn add zod
-    
-    # For Yup users
-    yarn add yup
-    
-    # For Joi users
-    yarn add joi
-    
-    # Or use any other Standard Schema compatible library
-    yarn add valibot arktype # etc.
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    # Universal validation with Standard Schema - no adapters needed!
-    
-    # For Zod users (recommended)
-    bun add zod
-    
-    # For Yup users
-    bun add yup
-    
-    # For Joi users
-    bun add joi
-    
-    # Or use any other Standard Schema compatible library
-    bun add valibot arktype # etc.
-    ```
-  </Tab>
-</Tabs>
-
-## System Requirements
-
-<Callout type="warning">
-RilayKit requires modern React and TypeScript versions for optimal type safety and performance.
-</Callout>
-
-### Required Dependencies
-
-```json
-{
-  "peerDependencies": {
-    "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
-  },
-  "devDependencies": {
-    "typescript": ">=5.0.0"
-  }
-}
+```bash
+pnpm add @rilaykit/core @rilaykit/forms                                     # forms only
+pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow                  # + workflows
+pnpm add @rilaykit/core @rilaykit/forms @rilaykit/workflow @rilaykit/agent  # + agent
 ```
 
-### Framework Compatibility
+## Validation Libraries
 
-RilayKit works with any React-based framework:
+Any [Standard Schema](https://standardschema.dev) library works — no adapters:
 
-- **Next.js** (App Router & Pages Router)
-- **Vite** + React
-- **Create React App** (CRA)
-- **Remix**
-- **Gatsby**
-- **Expo** (React Native compatible)
-
-## Verification
-
-Verify your installation by importing the package:
-
-```tsx title="test-installation.tsx"
-import { ril, Form } from 'rilaykit';
-
-// If this imports without errors, you're ready to go!
-console.log('RilayKit is ready!');
+```bash
+pnpm add zod   # or valibot, arktype, ...
 ```
+
+## Requirements
+
+- React `>= 18` (peer dependency)
+- TypeScript `>= 5` recommended
+- `ai >= 5` — optional peer, only needed for the `rilaykit/ai-sdk` adapter
+
+Works with any React framework: Next.js (main entries are RSC-safe; `/react` entries ship `'use client'`), Vite, Remix, and others.
 
 ## Next Steps
 
-- **New to RilayKit?** → Start with [Your First Form](/getting-started/your-first-form)
-- **Want to see examples?** → Browse the [Examples Gallery](/examples)
-- **Coming from another library?** → Check our [Standard Schema Migration Guide](/migration/standard-schema)
+- [Your First Form](/getting-started/your-first-form)
+- [Examples](/examples)

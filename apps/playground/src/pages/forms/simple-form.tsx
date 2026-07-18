@@ -14,26 +14,26 @@ const contactForm = r
       id: 'firstName',
       type: 'text',
       props: { label: 'First Name', placeholder: 'John' },
-      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(2)] },
     },
     {
       id: 'lastName',
       type: 'text',
       props: { label: 'Last Name', placeholder: 'Doe' },
-      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(2)] },
     }
   )
   .add({
     id: 'email',
     type: 'email',
     props: { label: 'Email', placeholder: 'john@example.com' },
-    validation: { validate: [required(), email()], validateOnBlur: true },
+    validation: { validate: [required(), email()] },
   })
   .add({
     id: 'message',
     type: 'textarea',
     props: { label: 'Message', placeholder: 'Your message...', rows: 5 },
-    validation: { validate: [required(), minLength(10)], validateOnBlur: true },
+    validation: { validate: [required(), minLength(10)] },
   })
   .build();
 

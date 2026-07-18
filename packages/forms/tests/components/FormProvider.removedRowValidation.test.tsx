@@ -68,7 +68,7 @@ describe('a repeatable row removed mid-validation does not wedge the form', () =
                       id: 'sku',
                       type: 'text',
                       props: { label: 'SKU' },
-                      validation: { rules: [{ type: 'slowFail' }], validateOnChange: true },
+                      validation: { rules: [{ type: 'slowFail' }] },
                     },
                   ],
                 },

@@ -3,18 +3,17 @@ title: Repeatable Fields
 description: Add dynamic, repeatable field groups to your forms with min/max constraints, validation, and reordering.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-Repeatable fields allow users to add, remove, and reorder groups of fields at runtime. Think "Add another item", "Add another contact", or any list-like structure within a form.
+Repeatable fields let users add, remove, and reorder groups of fields at runtime — "Add another item", "Add another contact", any list-like structure.
 
 ## Defining Repeatable Fields
 
-Use `.addRepeatable()` on the form builder to define a repeatable group. It takes an ID and a callback that receives a `RepeatableBuilder`.
+Use `.addRepeatable()` on the form builder. It takes an ID and a callback that receives a `RepeatableBuilder`.
 
 ```tsx
 import { form } from '@rilaykit/forms';
-import { rilay } from '@/lib/rilay';
 import { required } from '@rilaykit/core';
+import { rilay } from '@/lib/rilay';
 
 const orderForm = form
   .create(rilay, 'order')
@@ -32,78 +31,75 @@ const orderForm = form
 
 ### RepeatableBuilder API
 
-The callback receives a `RepeatableBuilder` with the following methods:
+All methods are chainable.
 
 | Method | Description |
 |--------|-------------|
-| `.add(...fields)` | Add fields to the template. Same API as `form.add()` — up to 3 fields per row. |
+| `.add(...fields)` | Add fields to the template. Same API as `form.add()` — fields passed in one call share a row. |
 | `.addSeparateRows(fields)` | Add fields each on their own row. |
-| `.min(n)` | Set minimum number of items (defaults to 0). |
-| `.max(n)` | Set maximum number of items (unlimited if not set). |
-| `.defaultValue(obj)` | Set default values used when appending new items. |
-| `.validation(config)` | Set group-level validation for the entire array. |
+| `.min(n)` | Minimum number of items (default 0). |
+| `.max(n)` | Maximum number of items (unlimited if not set). |
+| `.defaultValue(obj)` | Default values used when appending new items. |
+| `.validation(config)` | Group-level validation for the entire array. |
 
-All methods are chainable and return the builder instance.
+<Callout>
+Repeatables are strictly one level deep. Nesting a repeatable inside another throws at build time.
+</Callout>
 
 ## Rendering Repeatable Fields
 
-### Automatic Rendering with `<FormBody>`
+### Automatic with `<FormBody>`
 
-If you use `<FormBody>`, repeatable fields are rendered automatically using your registered `repeatableRenderer` and `repeatableItemRenderer`.
+`<FormBody>` renders each repeatable as a `<FormList>` with default markup (item rows plus an Add button).
 
 ```tsx
-import { Form, FormBody, FormSubmitButton } from '@rilaykit/forms';
+import { Form, FormBody, FormSubmit } from '@rilaykit/forms/react';
 
 function OrderPage() {
   return (
-    <Form formConfig={orderForm} onSubmit={(data) => console.log(data)}>
+    <Form of={orderForm} onSubmit={(data) => console.log(data)}>
       <FormBody />
-      <FormSubmitButton>Place Order</FormSubmitButton>
+      <FormSubmit>Place Order</FormSubmit>
     </Form>
   );
 }
 ```
 
-### Custom Rendering with `useRepeatableField`
+### Custom Markup with `<FormList>`
 
-For full control over the layout, use the `useRepeatableField` hook.
+`<FormList>` accepts a render prop for custom layout:
 
 ```tsx
-import { useRepeatableField, FormField } from '@rilaykit/forms';
+import { FormList, FormField } from '@rilaykit/forms/react';
 
-function ItemsList() {
-  const { items, append, remove, move, canAdd, canRemove, count } =
-    useRepeatableField('items');
-
-  return (
+<FormList id="items">
+  {({ items, add, remove, canAdd, canRemove }) => (
     <div>
-      <h3>Items ({count})</h3>
       {items.map((item) => (
         <div key={item.key} className="flex gap-2 items-end">
           {item.allFields.map((field) => (
-            <FormField key={field.id} fieldId={field.id} fieldConfig={field} />
+            <FormField key={field.id} id={field.id} config={field} />
           ))}
           {canRemove && (
-            <button type="button" onClick={() => remove(item.key)}>
-              Remove
-            </button>
+            <button type="button" onClick={() => remove(item.key)}>Remove</button>
           )}
         </div>
       ))}
       {canAdd && (
-        <button type="button" onClick={() => append()}>
-          Add Item
-        </button>
+        <button type="button" onClick={add}>Add Item</button>
       )}
     </div>
-  );
-}
+  )}
+</FormList>
 ```
 
-### Hook Return Value
+### Full Control with `useRepeatableField`
+
+The hook behind `<FormList>`:
 
 ```ts
 interface UseRepeatableFieldReturn {
+  config: RepeatableFieldConfig | undefined; // undefined when the id is unknown
   items: RepeatableFieldItem[];  // Scoped items with composite field IDs
   append: (defaultValue?: Record<string, unknown>) => void;
   remove: (key: string) => void;
@@ -121,69 +117,65 @@ interface RepeatableFieldItem {
 }
 ```
 
+`move(fromIndex, toIndex)` reorders items — wire it to drag-and-drop or up/down buttons:
+
+```tsx
+import { useRepeatableField } from '@rilaykit/forms/react';
+
+function ReorderableList() {
+  const { items, move } = useRepeatableField('items');
+
+  return items.map((item, index) => (
+    <div key={item.key}>
+      {/* fields... */}
+      <button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>
+        Up
+      </button>
+      <button
+        type="button"
+        disabled={index === items.length - 1}
+        onClick={() => move(index, index + 1)}
+      >
+        Down
+      </button>
+    </div>
+  ));
+}
+```
+
 ## Default Values
 
-When providing default values for a form with repeatables, pass arrays at the top level. RilayKit handles the internal flat-to-nested conversion automatically.
+Pass arrays at the top level of `defaults` — RilayKit handles the flat-to-nested conversion both ways, so `onSubmit` receives the same nested shape back:
 
 ```tsx
 <Form
-  formConfig={orderForm}
-  defaultValues={{
+  of={orderForm}
+  defaults={{
     customerName: 'Acme Corp',
     items: [
       { name: 'Widget', qty: 5 },
       { name: 'Gadget', qty: 2 },
     ],
   }}
-  onSubmit={handleSubmit}
+  onSubmit={handleSubmit} // receives { customerName, items: [...] }
 >
   {/* ... */}
 </Form>
 ```
 
-The `onSubmit` callback receives structured data with the same nested format:
-
-```ts
-// onSubmit receives:
-{
-  customerName: 'Acme Corp',
-  items: [
-    { name: 'Widget', qty: 5 },
-    { name: 'Gadget', qty: 2 },
-  ]
-}
-```
-
 ## Validation
 
-### Per-Field Validation
+Fields inside a repeatable validate like static fields, independently per item. Timing follows the form-level `.setValidation({ mode, reValidateMode })` configuration — see [Validation](/docs/forms/validation).
 
-Fields within a repeatable group support the same validation as static fields. Validation is applied to each instance independently.
+If the item count is below `min`, validation produces an error with code `REPEATABLE_MIN_COUNT`. At runtime, `canAdd` / `canRemove` reflect the constraints so you can disable buttons before validation runs.
 
-```tsx
-.addRepeatable('contacts', (r) => r
-  .add({
-    id: 'email',
-    type: 'email',
-    props: { label: 'Email' },
-    validation: {
-      validate: [required(), email('Invalid email')],
-      validateOnBlur: true,
-    },
-  })
-  .min(1)
-)
-```
-
-### Min/Max Constraints
-
-The `min` and `max` constraints are enforced at validation time. If the number of items is below `min`, a validation error with code `REPEATABLE_MIN_COUNT` is produced.
-
-At runtime, the `canAdd` and `canRemove` booleans from `useRepeatableField` reflect these constraints, so you can disable add/remove buttons accordingly.
+<Callout>
+Cross-field (form-level) rules that target repeatable fields by dot path (`items.0.price`) never match the composite ids (`items[k0].price`) — their issues land in the `__form__` bucket, readable via `useFormErrors()`.
+</Callout>
 
 ## Conditions
 
-Fields within repeatable groups support [conditional behavior](/docs/core-concepts/conditions). Conditions are automatically scoped to the current item instance, meaning a condition on `email` within a repeatable will reference that specific item's `email` value, not another item's.
+[Conditions](/docs/core-concepts/conditions) inside a repeatable are scoped to the current item: `when('type')` reads that item's `type`, not another item's.
 
 ```tsx
 import { when } from '@rilaykit/core';
@@ -195,84 +187,14 @@ import { when } from '@rilaykit/core';
       id: 'email',
       type: 'email',
       props: { label: 'Email' },
-      conditions: {
-        visible: when('type').equals('email'),
-      },
+      conditions: { visible: when('type').equals('email') },
     },
     {
       id: 'phone',
       type: 'tel',
       props: { label: 'Phone' },
-      conditions: {
-        visible: when('type').equals('phone'),
-      },
+      conditions: { visible: when('type').equals('phone') },
     },
   )
 )
 ```
-
-## Reordering
-
-The `move(fromIndex, toIndex)` function from `useRepeatableField` allows reordering items. This is useful for drag-and-drop implementations or simple up/down buttons.
-
-```tsx
-function ReorderableList() {
-  const { items, move } = useRepeatableField('items');
-
-  return items.map((item, index) => (
-    <div key={item.key}>
-      {/* fields... */}
-      <button
-        type="button"
-        disabled={index === 0}
-        onClick={() => move(index, index - 1)}
-      >
-        Move Up
-      </button>
-      <button
-        type="button"
-        disabled={index === items.length - 1}
-        onClick={() => move(index, index + 1)}
-      >
-        Move Down
-      </button>
-    </div>
-  ));
-}
-```
-
-## Custom Renderers
-
-You can register custom renderers for repeatable fields on your `ril` instance:
-
-```tsx
-const rilay = ril
-  .create()
-  .addComponent('text', { /* ... */ })
-  .configure({
-    repeatableRenderer: ({ repeatableId, items, canAdd, onAdd, min, max, children }) => (
-      <div className="space-y-4">
-        {children}
-        {canAdd && (
-          <button type="button" onClick={onAdd} className="btn-outline">
-            + Add another
-          </button>
-        )}
-      </div>
-    ),
-    repeatableItemRenderer: ({ item, onRemove, canRemove, onMoveUp, onMoveDown, children }) => (
-      <div className="border rounded p-4 flex gap-2">
-        <div className="flex-1">{children}</div>
-        <div className="flex flex-col gap-1">
-          <button type="button" onClick={onMoveUp}>↑</button>
-          <button type="button" onClick={onMoveDown}>↓</button>
-          {canRemove && <button type="button" onClick={onRemove}>×</button>}
-        </div>
-      </div>
-    ),
-  });
-```
-
-<Callout>
-Nested repeatables (a repeatable inside another repeatable) are not supported. Attempting to nest them will throw an error at build time.
-</Callout>

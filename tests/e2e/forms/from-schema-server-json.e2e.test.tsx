@@ -39,6 +39,7 @@ describe('Flagship — server JSON becomes a live validated form', () => {
     // ---- The payload a backend would send: a STRING, parsed to data-only JSON.
     const jsonString = `{
       "id": "subscription-signup",
+      "validation": { "mode": "onChange" },
       "rows": [
         {
           "kind": "fields",
@@ -48,8 +49,7 @@ describe('Flagship — server JSON becomes a live validated form', () => {
               "type": "text",
               "props": { "label": "Work email" },
               "validation": {
-                "rules": ["required", { "type": "uniqueEmail", "message": "Email already registered" }],
-                "validateOnChange": true
+                "rules": ["required", { "type": "uniqueEmail", "message": "Email already registered" }]
               }
             },
             {

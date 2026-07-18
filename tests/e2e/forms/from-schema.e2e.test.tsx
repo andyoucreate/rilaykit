@@ -326,7 +326,7 @@ describe('fromSchema e2e — validation', () => {
     });
   });
 
-  it('validates on blur when validateOnBlur is set', async () => {
+  it('validates on blur (onTouched is the default)', async () => {
     renderSchema(
       {
         id: 'val-blur',
@@ -334,7 +334,7 @@ describe('fromSchema e2e — validation', () => {
           {
             id: 'name',
             type: 'text',
-            validation: { rules: 'required', validateOnBlur: true },
+            validation: { rules: 'required' },
           },
         ],
       },

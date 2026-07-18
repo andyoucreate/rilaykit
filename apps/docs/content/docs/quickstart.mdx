@@ -3,11 +3,10 @@ title: Quick Start
 description: Get up and running with RilayKit in 5 minutes. Perfect for developers who want to jump straight into code.
 ---
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { Callout } from 'fumadocs-ui/components/callout';
 
 # Quick Start
 
-Get a working form in 5 minutes. This guide skips explanations and focuses on getting you productive fast.
+A working, validated form in 5 minutes.
 
 ## 1. Install
 
@@ -29,10 +28,12 @@ Get a working form in 5 minutes. This guide skips explanations and focuses on ge
   </Tab>
 </Tabs>
 
-## 2. Create Components
+## 2. Create a Component
+
+A renderer receives a `ComponentRenderContext`: your `props`, plus a `field` binding (`value`, `onChange`, `onBlur`, `error`, `touched`).
 
 ```tsx title="components/Input.tsx"
-import { ComponentRenderer } from 'rilaykit';
+import type { ComponentRenderContext } from 'rilaykit';
 
 interface InputProps {
   label: string;
@@ -40,41 +41,44 @@ interface InputProps {
   placeholder?: string;
 }
 
-export const Input: ComponentRenderer<InputProps> = ({
-  id, value, onChange, onBlur, error, props
-}) => (
-  <div className="mb-4">
-    <label htmlFor={id} className="block text-sm font-medium mb-1">
-      {props.label}
-    </label>
-    <input
-      id={id}
-      type={props.type || 'text'}
-      value={value || ''}
-      onChange={(e) => onChange?.(e.target.value)}
-      onBlur={onBlur}
-      placeholder={props.placeholder}
-      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-    />
-    {error && <p className="text-red-500 text-sm mt-1">{error[0].message}</p>}
-  </div>
-);
+export function Input({ id, props, field }: ComponentRenderContext<InputProps>) {
+  return (
+    <div className="mb-4">
+      <label htmlFor={id} className="block text-sm font-medium mb-1">
+        {props.label}
+      </label>
+      <input
+        id={id}
+        type={props.type ?? 'text'}
+        value={(field?.value as string) ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={field?.onBlur}
+        placeholder={props.placeholder}
+        className="w-full p-2 border rounded"
+      />
+      {field?.error && (
+        <p role="alert" className="text-red-500 text-sm mt-1">
+          {field.error[0].message}
+        </p>
+      )}
+    </div>
+  );
+}
 ```
 
-## 3. Configure RilayKit
+## 3. Register Components
 
 ```tsx title="lib/rilay.ts"
 import { ril } from 'rilaykit';
 import { Input } from '../components/Input';
 
-export const rilay = ril.create()
-  .addComponent('input', { renderer: Input });
+export const rilay = ril.create().component('input', { renderer: Input });
 ```
 
-## 4. Build Form
+## 4. Build the Form
 
 ```tsx title="forms/login.ts"
-import { required, email } from 'rilaykit';
+import { email, required } from 'rilaykit';
 import { rilay } from '../lib/rilay';
 
 export const loginForm = rilay.form('login')
@@ -93,107 +97,52 @@ export const loginForm = rilay.form('login')
   .build();
 ```
 
-## 5. Render Form
+By default fields validate on first blur, then re-validate on every keystroke. Tune with `.setValidation({ mode, reValidateMode })`.
+
+## 5. Render It
+
+Components and hooks import from `rilaykit/react`:
 
 ```tsx title="components/LoginForm.tsx"
-import { Form, FormField } from 'rilaykit';
+import { Form, FormField } from 'rilaykit/react';
 import { loginForm } from '../forms/login';
 
 export function LoginForm() {
-  const handleSubmit = (data: { email: string; password: string }) => {
-    console.log('Login:', data);
-    // Handle login logic
-  };
-
   return (
-    <Form formConfig={loginForm} onSubmit={handleSubmit}>
-      <FormField fieldId="email" />
-      <FormField fieldId="password" />
-      <button 
-        type="submit" 
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-      >
-        Sign In
-      </button>
+    <Form of={loginForm} onSubmit={(data) => console.log('Login:', data)}>
+      <FormField id="email" />
+      <FormField id="password" />
+      <button type="submit">Sign In</button>
     </Form>
   );
 }
 ```
 
-## 6. Use Anywhere
-
-```tsx title="pages/login.tsx"
-import { LoginForm } from '../components/LoginForm';
-
-export default function LoginPage() {
-  return (
-    <div className="max-w-md mx-auto mt-8">
-      <h1 className="text-2xl font-bold mb-6">Sign In</h1>
-      <LoginForm />
-    </div>
-  );
-}
-```
-
-## Done
-
-You now have a fully functional, validated login form. 
-
-## What's Next?
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">Style It</h3>
-    <p className="text-sm text-gray-600">Integrate with your UI library</p>
-    <a href="/examples" className="text-blue-600 text-sm">View Examples →</a>
-  </div>
-  
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">Add Logic</h3>
-    <p className="text-sm text-gray-600">Conditional fields, async validation</p>
-    <a href="/forms/advanced-forms" className="text-blue-600 text-sm">Learn More →</a>
-  </div>
-  
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">Multi-Step</h3>
-    <p className="text-sm text-gray-600">Complex workflows and wizards</p>
-    <a href="/workflow/building-workflows" className="text-blue-600 text-sm">Explore Workflows →</a>
-  </div>
-  
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">Validate</h3>
-    <p className="text-sm text-gray-600">Zod, Yup, Joi integration</p>
-    <a href="/core-concepts/validation" className="text-blue-600 text-sm">See Validation →</a>
-  </div>
-</div>
+Done — mount `<LoginForm />` anywhere.
 
 ## Common Patterns
 
 ### Multiple Input Types
 
 ```tsx
-// Support different input types with one component
 export const rilay = ril.create()
-  .addComponent('input', { renderer: Input })
-  .addComponent('textarea', { 
-    renderer: Input,
-    defaultProps: { multiline: true }
-  })
-  .addComponent('select', { renderer: SelectInput });
+  .component('input', { renderer: Input })
+  .component('textarea', { renderer: TextareaInput })
+  .component('select', { renderer: SelectInput });
 ```
 
 ### Validation with Zod
 
+Any Standard Schema library works directly — no adapter:
+
 ```tsx
-import { z } from 'zod'; // Zod 3.24+ supports Standard Schema natively
+import { z } from 'zod';
 
 const userForm = rilay.form('user')
   .add({
     id: 'email',
     type: 'input',
-    validation: {
-      validate: z.string().email(), // Use Zod directly — no adapter needed
-    },
+    validation: { validate: z.string().email() },
   });
 ```
 
@@ -206,70 +155,41 @@ const accountForm = rilay.form('account')
   .add({
     id: 'accountType',
     type: 'select',
-    props: { options: [{ value: 'business', label: 'Business' }] }
+    props: { options: [{ value: 'business', label: 'Business' }] },
   })
   .add({
     id: 'companyName',
     type: 'input',
-    conditions: { visible: when('accountType').equals('business') }
+    conditions: { visible: when('accountType').equals('business') },
   });
 ```
 
-### Custom Validator
+### Cross-Field Validation
+
+Form-level rules run on the same cadence as field validation. An issue whose `path` names a field attaches to that field; pathless issues land in the `__form__` bucket, read via `useFormErrors()`:
 
 ```tsx
-import { custom } from 'rilaykit';
+import { z } from 'zod';
 
-const passwordMatch = custom(
-  (value, context) => value === context?.formData?.password,
-  'Passwords do not match'
-);
-
-// Usage
-.add({
-  id: 'confirmPassword',
-  type: 'input',
-  validation: { validate: [required(), passwordMatch] },
-})
+const signupForm = rilay.form('signup')
+  .add({ id: 'password', type: 'input', props: { label: 'Password', type: 'password' } })
+  .add({ id: 'confirmPassword', type: 'input', props: { label: 'Confirm', type: 'password' } })
+  .setValidation({
+    validate: z
+      .object({ password: z.string(), confirmPassword: z.string() })
+      .refine((d) => d.password === d.confirmPassword, {
+        message: 'Passwords do not match',
+        path: ['confirmPassword'],
+      }),
+  })
+  .build();
 ```
 
-<Callout type="info">
-**Pro tip**: Save the examples above as code snippets in your editor for faster development.
-</Callout>
+## What's Next?
 
-## Templates
-
-Clone ready-to-use templates:
-
-<Tabs items={['Next.js', 'Vite', 'Remix']}>
-  <Tab value="Next.js">
-    ```bash
-    npx create-next-app@latest my-app --typescript
-    cd my-app
-    pnpm add rilaykit
-    ```
-  </Tab>
-  <Tab value="Vite">
-    ```bash
-    npm create vite@latest my-app -- --template react-ts
-    cd my-app
-    pnpm add rilaykit
-    ```
-  </Tab>
-  <Tab value="Remix">
-    ```bash
-    npx create-remix@latest my-app --typescript
-    cd my-app
-    pnpm add rilaykit
-    ```
-  </Tab>
-</Tabs>
-
-For complete project templates, visit our [GitHub templates](https://github.com/andyoucreate/rilay-templates).
-
-## Need Help?
-
-- [Full Tutorial](/getting-started/your-first-form) — Step-by-step with explanations
-- [Examples Gallery](/examples) — Real-world examples
-- [API Reference](/api) — Complete documentation
-- [Discord Community](https://discord.gg/rilay) — Get help from the community
+- [Your First Form](/getting-started/your-first-form) — step-by-step tutorial
+- [Validation](/core-concepts/validation) — timing modes, Standard Schema, async
+- [Advanced Forms](/forms/advanced-forms) — conditions, effects, repeatables
+- [Workflows](/workflow/building-workflows) — multi-step flows and wizards
+- [Examples](/examples) — real-world patterns
+- [Discord](https://discord.gg/rilay) — get help from the community

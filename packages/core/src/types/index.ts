@@ -79,10 +79,34 @@ export interface FieldValidationConfig<T = any> {
    * validate: [z.string(), required(), customValidator()]
    */
   readonly validate?: StandardSchema<T> | StandardSchema<T>[];
-  readonly validateOnChange?: boolean;
-  readonly validateOnBlur?: boolean;
+  /**
+   * Per-field async cost control: defer change-triggered validation until the
+   * user stops typing for `debounceMs`. Orthogonal to the form-level validation
+   * timing model (`FormValidationConfig.mode` / `reValidateMode`) — blur and
+   * submit always validate immediately, unaffected by this.
+   */
   readonly debounceMs?: number;
 }
+
+/**
+ * When a field FIRST validates, mirroring React Hook Form's `mode`:
+ * - `onSubmit`: only on submit.
+ * - `onBlur`: on the field's first blur.
+ * - `onChange`: from the first keystroke.
+ * - `onTouched` (RilayKit default): on the first blur, then live.
+ * - `all`: on both change and blur.
+ *
+ * NOTE: RilayKit defaults to `onTouched` (its established behavior), whereas
+ * React Hook Form's own default is `onSubmit`. The value names are identical.
+ */
+export type FormValidationMode = 'onSubmit' | 'onBlur' | 'onChange' | 'onTouched' | 'all';
+
+/**
+ * How a field RE-validates once it has errored at least once, mirroring React
+ * Hook Form's `reValidateMode` exactly. Default `onChange`, so an error clears
+ * live as the user types the fix.
+ */
+export type FormReValidateMode = 'onChange' | 'onBlur' | 'onSubmit';
 
 export interface FormValidationConfig<T extends Record<string, any> = Record<string, any>> {
   /**
@@ -95,7 +119,16 @@ export interface FormValidationConfig<T extends Record<string, any> = Record<str
    * validate: customFormValidator()
    */
   readonly validate?: StandardSchema<T> | StandardSchema<T>[];
-  readonly validateOnSubmit?: boolean;
+  /**
+   * When each field FIRST validates. Defaults to `'onTouched'` (RilayKit's
+   * established behavior). Mirrors React Hook Form's `mode` value names.
+   */
+  readonly mode?: FormValidationMode;
+  /**
+   * When a field RE-validates after it has errored once. Defaults to
+   * `'onChange'`. Mirrors React Hook Form's `reValidateMode`.
+   */
+  readonly reValidateMode?: FormReValidateMode;
   readonly validateOnStepChange?: boolean;
 }
 

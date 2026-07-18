@@ -116,6 +116,14 @@ export function usePassedSteps(): Set<string> {
 }
 
 /**
+ * Select skipped steps
+ */
+export function useSkippedSteps(): Set<string> {
+  const store = useFlowStore();
+  return useStore(store, (state) => state.skippedSteps);
+}
+
+/**
  * Check if a specific step is visited
  */
 export function useIsStepVisited(stepId: string): boolean {
@@ -129,6 +137,14 @@ export function useIsStepVisited(stepId: string): boolean {
 export function useIsStepPassed(stepId: string): boolean {
   const store = useFlowStore();
   return useStore(store, (state) => state.passedSteps.has(stepId));
+}
+
+/**
+ * Check if a specific step is skipped
+ */
+export function useIsStepSkipped(stepId: string): boolean {
+  const store = useFlowStore();
+  return useStore(store, (state) => state.skippedSteps.has(stepId));
 }
 
 /**
@@ -177,6 +193,7 @@ export interface UseFlowActionsResult {
   setInitializing: (isInitializing: boolean) => void;
   markStepVisited: (stepId: string) => void;
   markStepPassed: (stepId: string) => void;
+  markStepSkipped: (stepId: string) => void;
   reset: () => void;
   loadPersistedState: (state: Partial<WorkflowStoreState>) => void;
 }
@@ -204,6 +221,7 @@ export function useFlowActions(): UseFlowActionsResult {
     setInitializing: (isInitializing) => store.getState()._setInitializing(isInitializing),
     markStepVisited: (stepId) => store.getState()._markStepVisited(stepId),
     markStepPassed: (stepId) => store.getState()._markStepPassed(stepId),
+    markStepSkipped: (stepId) => store.getState()._markStepSkipped(stepId),
     reset: () => store.getState()._reset(),
     loadPersistedState: (state) => store.getState()._loadPersistedState(state),
   };

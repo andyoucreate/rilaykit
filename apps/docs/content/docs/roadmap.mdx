@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 # Roadmap
 
-This is the public roadmap for RilayKit. It reflects our current priorities and may evolve based on community feedback. Features are organized by phase, roughly in the order we plan to ship them.
+Public roadmap, organized by phase. Priorities may shift with community feedback. Code samples in unshipped phases are proposals, not final APIs.
 
 <Callout type="info">
 Want to influence the roadmap? [Open a discussion](https://github.com/andyoucreate/rilaykit/discussions) or upvote existing proposals.
@@ -18,17 +18,15 @@ Want to influence the roadmap? [Open a discussion](https://github.com/andyoucrea
 
 **Status:** Next up
 
-Leverage the schema-first architecture to let LLMs intelligently pre-fill forms from unstructured text. Since RilayKit forms are data, the AI has full knowledge of every field's type, constraints, and validation rules.
+The foundation shipped: `@rilaykit/agent` lets an LLM *render* forms and flows as chat tools (`show_form`, `show_flow`, `show_component`) with AI SDK and Anthropic adapters. Next: letting an LLM *fill* an existing form from unstructured text. Since RilayKit forms are data, the AI knows every field's type, constraints, and validation rules.
 
 ### `useAIFormFill()` — Text-to-Form Mapping
 
 ```tsx
 const { fillFromText, isProcessing } = useAIFormFill(formConfig, {
   provider: 'openai', // or 'anthropic', 'custom'
-  model: 'gpt-4o-mini',
 });
 
-// User pastes unstructured text
 await fillFromText(
   "My name is Karl, I live in Paris, my email is karl@example.com"
 );
@@ -37,15 +35,10 @@ await fillFromText(
 // → setValue('email', 'karl@example.com')
 ```
 
-**What this unlocks:**
-- Paste-to-fill from emails, documents, or chat transcripts
-- Voice-to-form via speech-to-text + AI mapping
-- Bulk data import from unstructured sources
-- Intelligent defaults based on context
-- Accessibility improvement for complex forms
+Unlocks paste-to-fill from emails or transcripts, voice-to-form via speech-to-text, and bulk import from unstructured sources.
 
 <Callout type="warn">
-This feature will be opt-in and provider-agnostic. RilayKit will not bundle any AI SDK — you bring your own provider.
+Opt-in and provider-agnostic — RilayKit will not bundle an AI SDK.
 </Callout>
 
 ---
@@ -54,7 +47,7 @@ This feature will be opt-in and provider-agnostic. RilayKit will not bundle any 
 
 **Status:** Planned
 
-A declarative transform layer that processes form data before and after submission. No more boilerplate in `onSubmit` handlers.
+Declarative transforms around submission — sanitization, field exclusion, reshaping — without `onSubmit` boilerplate.
 
 ### `transform()` — Pre/Post Submission Hooks
 
@@ -71,26 +64,20 @@ form.create(r, 'register')
   .build();
 ```
 
-**What this unlocks:**
-- Data sanitization (trim, lowercase, format)
-- Field exclusion (remove internal-only fields before API call)
-- Shape transformation (flatten nested objects, rename keys)
-- Serialization pipeline (dates, files, enums)
-
 ---
 
 ## Phase 3 — Cross-Step Workflow Validation
 
 **Status:** Planned
 
-Validation rules that span across multiple workflow steps. Today, each step validates independently — but real-world workflows need constraints that reference data from previous steps.
+Form-level cross-field validation already shipped (`setValidation({ validate })`, path-routed errors, `useFormErrors()`), but each workflow step still validates independently. This phase adds rules that span steps, reusing the same path-keyed error routing.
 
 ### `crossValidate()` — Multi-Step Validation Rules
 
 ```tsx
 flow.create(r, 'checkout', 'Checkout')
-  .step({ id: 'shipping', formConfig: shippingForm })
-  .step({ id: 'billing', formConfig: billingForm })
+  .step({ id: 'shipping', title: 'Shipping', formConfig: shippingForm })
+  .step({ id: 'billing', title: 'Billing', formConfig: billingForm })
   .crossValidate({
     validate: (allData) => {
       const errors: Record<string, string> = {};
@@ -104,19 +91,13 @@ flow.create(r, 'checkout', 'Checkout')
   .build();
 ```
 
-**What this unlocks:**
-- Cross-step dependency validation (billing depends on shipping)
-- Final review step that validates the entire workflow
-- Business rules that span multiple data sources
-- Pre-completion integrity checks
-
 ---
 
 ## Phase 6 — DevTools
 
 **Status:** Planned
 
-A visual inspector panel (similar to React Query DevTools) that surfaces the entire form and workflow state in real time.
+A visual inspector panel (similar to React Query DevTools) surfacing form and workflow state in real time.
 
 ### `<RilayDevTools />` — Visual Inspector
 
@@ -128,16 +109,11 @@ A visual inspector panel (similar to React Query DevTools) that surfaces the ent
 ```
 
 **Planned capabilities:**
-- **Field Inspector** — live view of every field's value, errors, touched state, and active conditions
-- **Condition Graph** — visual dependency graph showing which fields affect which conditions
-- **Validation Timeline** — trace of all validation runs with timing and results
-- **Workflow Navigator** — step state, visited/passed steps, accumulated data across steps
-- **Performance Panel** — render counts, validation durations, re-render hotspots (powered by the existing monitoring system)
-- **State Diff** — highlight what changed between renders
-
-<Callout type="info">
-The monitoring system in `@rilaykit/core` already tracks events, performance metrics, and errors. DevTools will be a visual layer on top of this existing infrastructure.
-</Callout>
+- **Field Inspector** — live values, errors, touched state, active conditions
+- **Condition Graph** — which fields affect which conditions
+- **Validation Timeline** — validation runs with timing and results
+- **Workflow Navigator** — step state, visited/passed steps, accumulated data
+- **Performance Panel** — render counts and hotspots, powered by the existing monitoring system in `@rilaykit/core`
 
 ---
 
@@ -145,7 +121,7 @@ The monitoring system in `@rilaykit/core` already tracks events, performance met
 
 **Status:** Exploring
 
-A first-class plugin architecture for extending form and workflow behavior without modifying core code. The `WorkflowPlugin` type already exists internally — this phase promotes it to a public, documented API.
+A public plugin API for extending form and workflow behavior. The `WorkflowPlugin` type already exists internally — this phase promotes and documents it.
 
 ### `createPlugin()` — Lifecycle Hooks
 
@@ -160,9 +136,6 @@ const autosavePlugin = createPlugin({
   onStepComplete: (stepId, stepData) => {
     analytics.track('step_completed', { stepId });
   },
-  onWorkflowComplete: (workflowId, allData) => {
-    analytics.track('workflow_completed', { workflowId });
-  },
 });
 
 flow.create(r, 'onboarding', 'Onboarding')
@@ -170,18 +143,13 @@ flow.create(r, 'onboarding', 'Onboarding')
   .build();
 ```
 
-**Plugin ideas for the community:**
-- `@rilaykit/plugin-autosave` — auto-save drafts to localStorage or server
-- `@rilaykit/plugin-analytics` — track field interactions, drop-off rates
-- `@rilaykit/plugin-ab-testing` — serve different form variants
-- `@rilaykit/plugin-feature-flags` — toggle fields/steps based on feature flags
-- `@rilaykit/plugin-undo` — undo/redo for form state
+Community plugin ideas: autosave, analytics, A/B testing, feature flags, undo/redo.
 
 ---
 
 ## Completed
 
-Features already shipped in the current release:
+Shipped in the current release:
 
 | Feature | Package | Status |
 |---------|---------|--------|
@@ -192,17 +160,21 @@ Features already shipped in the current release:
 | Form builder with type-safe field config | `@rilaykit/forms` | Shipped |
 | Granular Zustand store selectors | `@rilaykit/forms` | Shipped |
 | Repeatable fields with min/max | `@rilaykit/forms` | Shipped |
-| Async field validation | `@rilaykit/forms` | Shipped |
+| Async field validation with `debounceMs` | `@rilaykit/forms` | Shipped |
+| Validation timing — `mode` / `reValidateMode` (RHF model) | `@rilaykit/forms` | Shipped |
+| Path-keyed error map + `useFormErrors()` form-level bucket | `@rilaykit/forms` | Shipped |
 | Multi-step workflow builder | `@rilaykit/workflow` | Shipped |
 | Step navigation with validation guards | `@rilaykit/workflow` | Shipped |
-| Workflow persistence (LocalStorage) | `@rilaykit/workflow` | Shipped |
+| Workflow persistence (LocalStorage, type-faithful serialization) | `@rilaykit/workflow` | Shipped |
+| Completion meta — `onComplete(data, meta)` with visited/skipped/passed steps | `@rilaykit/workflow` | Shipped |
 | Workflow analytics hooks | `@rilaykit/workflow` | Shipped |
-| Step conditions (visible, skipable) | `@rilaykit/workflow` | Shipped |
+| Step conditions (visible, skippable) | `@rilaykit/workflow` | Shipped |
 | All-in-one `rilaykit` package with `.form()` / `.flow()` | `rilaykit` | Shipped |
-| Field effects with `onChange()` — cascading values, dynamic props, calculated fields | `@rilaykit/core` + `@rilaykit/forms` | Shipped |
-| EffectEngine with cascade protection & async abort | `@rilaykit/forms` | Shipped |
+| Field effects with `onChange()` — cascades, dynamic props, calculated fields | `@rilaykit/core` + `@rilaykit/forms` | Shipped |
 | `useFieldProps` hook for dynamic field props | `@rilaykit/forms` | Shipped |
-| Server-driven forms with `fromSchema()` — JSON to FormConfig | `@rilaykit/forms` | Shipped |
-| Schema validation (`validateSchema`) and type guard (`isFormSchema`) | `@rilaykit/forms` | Shipped |
-| Schema registry for custom validators and effect handlers | `@rilaykit/forms` | Shipped |
-| Flat and row-based schema layouts with repeatable support | `@rilaykit/forms` | Shipped |
+| Server-driven forms — `fromSchema()`, `compileForm`, `validateSchema`, `isFormSchema` | `@rilaykit/forms` | Shipped |
+| Server-driven flows — `compileFlow` | `@rilaykit/workflow` | Shipped |
+| Agent chat tools — `show_form` / `show_flow` / `show_component` with human-in-the-loop resolution | `@rilaykit/agent` | Shipped |
+| `manifest()` — catalog to Markdown for system prompts | `@rilaykit/agent` | Shipped |
+| AI SDK & Anthropic adapters (`rilaykit/ai-sdk`, `rilaykit/anthropic`) | `rilaykit` | Shipped |
+| RSC-safe isomorphic entries (React-free mains, `/react` client entries) | all packages | Shipped |

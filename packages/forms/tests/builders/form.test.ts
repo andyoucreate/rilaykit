@@ -15,8 +15,7 @@ describe('Form Builder', () => {
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', placeholder: 'Enter text' },
         validation: {
-          validateOnChange: true,
-          validators: [],
+          debounceMs: 200,
         },
       })
       .component('email', {
@@ -24,8 +23,7 @@ describe('Form Builder', () => {
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', required: false },
         validation: {
-          validateOnChange: true,
-          validators: [email()],
+          validate: email(),
         },
       })
       .component('password', {
@@ -33,8 +31,7 @@ describe('Form Builder', () => {
         renderer: () => React.createElement('input'),
         defaultProps: { label: '', minLength: 8 },
         validation: {
-          validateOnBlur: true,
-          validators: [required(), minLength(8)],
+          validate: [required(), minLength(8)],
         },
       })
       .component('number', {
@@ -151,8 +148,6 @@ describe('Form Builder', () => {
           type: 'text',
           props: { label: 'Required Field' },
           validation: {
-            validateOnChange: false,
-            validateOnBlur: true,
             debounceMs: 500,
             validate: customValidator, // New unified API!
           },
@@ -162,8 +157,7 @@ describe('Form Builder', () => {
         const field = config.allFields[0];
 
         expect(field.validation).toBeDefined();
-        expect(field.validation?.validateOnChange).toBe(false);
-        expect(field.validation?.validateOnBlur).toBe(true);
+        // Field-level debounceMs overrides the component's default (200)
         expect(field.validation?.debounceMs).toBe(500);
         expect(field.validation?.validate).toBeDefined();
       });
@@ -588,7 +582,7 @@ describe('Form Builder', () => {
 
       // Should still have component validation
       expect(config.allFields[0].validation).toBeDefined();
-      expect(config.allFields[0].validation?.validateOnChange).toBe(true);
+      expect(config.allFields[0].validation?.debounceMs).toBe(200);
     });
 
     it('should handle field with empty validation object', () => {

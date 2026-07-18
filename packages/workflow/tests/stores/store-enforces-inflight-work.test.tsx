@@ -237,6 +237,7 @@ const SETTLE_DOORS: Record<string, ((store: WorkflowStore) => void) | null> = {
   _setInitializing: (store) => store.getState()._setInitializing(false),
   _markStepVisited: (store) => store.getState()._markStepVisited(ALPHA),
   _markStepPassed: (store) => store.getState()._markStepPassed(ALPHA),
+  _markStepSkipped: (store) => store.getState()._markStepSkipped(ALPHA),
   _reset: null,
   _loadPersistedState: null,
 };

@@ -1,29 +1,14 @@
 # @rilaykit/core
 
-The foundation of [RilayKit](https://rilay.dev) — a schema-first, headless form library for React.
-
-`@rilaykit/core` provides the component registry, type system, validation engine, condition system, and monitoring infrastructure that powers the entire RilayKit ecosystem.
+The foundation of [RilayKit](https://rilay.dev) — a schema-first, headless form library for React. Provides the component registry, type system, validation engine, condition system, and monitoring infrastructure.
 
 ## Installation
 
 ```bash
-# pnpm (recommended)
-pnpm add @rilaykit/core
-
-# npm
-npm install @rilaykit/core
-
-# yarn
-yarn add @rilaykit/core
-
-# bun
-bun add @rilaykit/core
+pnpm add @rilaykit/core   # or npm / yarn / bun
 ```
 
-### Requirements
-
-- React >= 18
-- TypeScript >= 5
+Requires React >= 18 and TypeScript >= 5.
 
 ## Quick Start
 
@@ -67,13 +52,13 @@ const rilay = ril.create()
   .component('select', { renderer: Select });
 ```
 
-Each `.component()` call returns a new typed instance — TypeScript tracks registered types and propagates component prop types through the entire builder chain.
+Each `.component()` call returns a new typed instance — registered types and their props propagate through the builder chain.
 
 ## Features
 
 ### Unified Catalog
 
-An immutable, type-safe catalog with three namespaces — components, tools, and message parts — plus plugins and late renderer attachment.
+Immutable, type-safe catalog with three namespaces — components, tools, and message parts — plus plugins and late renderer attachment.
 
 ```tsx
 const rilay = ril.create()
@@ -83,42 +68,35 @@ const rilay = ril.create()
   .use(myPlugin)
   .renderers({ tools: { confirm_order: ConfirmOrderTool } });
 
-// TypeScript knows exactly which component types are valid
-// and narrows props from each propsSchema
+// Props are narrowed from each propsSchema
 rilay.validateProps('input', { label: 'Email' }); // { success: true, value: ... }
 ```
 
-Duplicate registrations throw `DuplicateError` (pass `replace: true` to swap an entry); unknown keys throw `NotFoundError`. Every error is a typed `RilayError` with a `code` (`VALIDATION | DUPLICATE | NOT_FOUND | INVALID_SCHEMA | CONFIGURATION`).
+Duplicate registrations throw `DuplicateError` (pass `replace: true` to swap an entry); unknown keys throw `NotFoundError`. Every error is a typed `RilayError` with a `code` (`VALIDATION | DUPLICATE | NOT_FOUND | INVALID_SCHEMA | CONFIGURATION | MAX_DEPTH`).
 
 ### Validation Engine
 
-Universal validation based on [Standard Schema](https://standardschema.dev). Use built-in validators, any Standard Schema compatible library (Zod, Valibot, ArkType, Yup...), or write custom validators — no adapters needed.
+Universal validation based on [Standard Schema](https://standardschema.dev): built-in validators, any Standard Schema library (Zod, Valibot, ArkType...), or custom validators — no adapters, mix them freely.
 
 ```tsx
-import { required, email, minLength, custom } from '@rilaykit/core';
-
-// Built-in validators
-validation: { validate: [required(), email()] }
-
-// Zod (or any Standard Schema library) — no adapter
+import { required, custom } from '@rilaykit/core';
 import { z } from 'zod';
-validation: { validate: z.string().email() }
 
-// Custom validators
 const strongPassword = custom(
   (value) => /(?=.*[A-Z])(?=.*\d)/.test(value),
   'Must contain uppercase and number'
 );
 
-// Mix them freely
 validation: { validate: [required(), z.string().min(8), strongPassword] }
 ```
 
-**Built-in validators:** `required`, `email`, `url`, `pattern`, `min`, `max`, `minLength`, `maxLength`, `number`, `custom`, `async`, `combine`
+Validation timing is configured at the form level via `.setValidation({ mode, reValidateMode })` in `@rilaykit/forms` — see the [validation docs](https://rilay.dev/core-concepts/validation).
+
+**Built-in validators** — `required`, `email`, `url`, `pattern`, `min`, `max`, `minLength`, `maxLength`, `number`, `custom`, `async`, `combine`
 
 ### Condition System
 
-Declarative conditional logic with the `when()` builder. No `useEffect`, no imperative state management.
+Declarative conditional logic with the `when()` builder — no `useEffect`, no imperative state.
 
 ```tsx
 import { when } from '@rilaykit/core';
@@ -137,16 +115,13 @@ conditions: {
 
 ### Monitoring
 
-Pluggable monitoring system with event buffering, performance profiling, and automatic alerts.
+Pluggable monitoring with event buffering, performance profiling, and automatic alerts.
 
 ```tsx
 import { initializeMonitoring } from '@rilaykit/core';
 
-const monitor = initializeMonitoring({
-  adapters: [myAdapter],
-  bufferSize: 100,
-  flushInterval: 5000,
-});
+const monitor = initializeMonitoring({ enabled: true, bufferSize: 100, flushInterval: 5000 });
+monitor.addAdapter(myAdapter);
 ```
 
 ## API Overview
@@ -154,16 +129,17 @@ const monitor = initializeMonitoring({
 | Export | Description |
 |--------|-------------|
 | `ril` | Unified catalog builder (`.component()` / `.tool()` / `.part()` / `.use()` / `.renderers()`) with type accumulation |
-| `RilayError`, `ValidationError`, `DuplicateError`, `NotFoundError`, `InvalidSchemaError`, `ConfigurationError` | Typed error hierarchy |
+| `RilayError`, `ValidationError`, `DuplicateError`, `NotFoundError`, `InvalidSchemaError`, `ConfigurationError`, `MaxDepthExceededError` | Typed error hierarchy |
 | `when` | Condition builder for declarative field logic |
 | `required`, `email`, `url`, `pattern`, `min`, `max`, `minLength`, `maxLength`, `number` | Built-in validators |
 | `custom`, `async`, `combine` | Custom and composite validators |
 | `initializeMonitoring`, `RilayMonitor` | Monitoring system |
 | `evaluateCondition`, `ConditionDependencyGraph` | Condition evaluation utilities |
+| `FORM_LEVEL_ERROR_KEY`, `FORM_LEVEL_ERROR_CODE` | Constants for the `__form__` error bucket (cross-field errors) |
 
 ## Architecture
 
-`@rilaykit/core` is the foundation layer with no React rendering dependency. It can run in Node, in tests, and in build scripts. The other RilayKit packages build on top of it:
+`@rilaykit/core` is the foundation layer with no React rendering dependency — it runs in Node, tests, and build scripts. The other packages build on top of it:
 
 ```
 @rilaykit/core          ← you are here
@@ -171,6 +147,8 @@ const monitor = initializeMonitoring({
 @rilaykit/forms         (form builder + React components)
     ↑
 @rilaykit/workflow      (multi-step workflows)
+    ↑
+@rilaykit/agent         (AI tool calling: show_form / show_flow / show_component)
 ```
 
 ## Documentation

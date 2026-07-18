@@ -18,7 +18,7 @@ const conditionalForm = r
         { label: 'Business', value: 'business' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'companyName',
@@ -27,7 +27,7 @@ const conditionalForm = r
     conditions: {
       visible: when('accountType').equals('business').build(),
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'contactMethod',
@@ -40,7 +40,7 @@ const conditionalForm = r
         { label: 'Both', value: 'both' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({
     id: 'contactEmail',
@@ -49,7 +49,7 @@ const conditionalForm = r
     conditions: {
       visible: when('contactMethod').in(['email', 'both']).build(),
     },
-    validation: { validate: [required(), email()], validateOnBlur: true },
+    validation: { validate: [required(), email()] },
   })
   .add({
     id: 'contactPhone',
@@ -58,7 +58,7 @@ const conditionalForm = r
     conditions: {
       visible: when('contactMethod').in(['phone', 'both']).build(),
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .build();
 

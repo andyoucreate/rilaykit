@@ -225,13 +225,16 @@ describe('Flagship — quote flow (every subsystem at once)', () => {
 
     // EXACT payload: namespaced by step id; repeatable seats is a STRUCTURED
     // array of objects (never flat composite keys); prefill survived across steps.
-    expect(onComplete).toHaveBeenCalledWith({
-      plan: { plan: 'pro', coupon: 'SAVE10' },
-      details: {
-        contactName: 'Hi pro',
-        seats: [{ name: 'Alice' }, { name: 'Bob' }],
+    expect(onComplete).toHaveBeenCalledWith(
+      {
+        plan: { plan: 'pro', coupon: 'SAVE10' },
+        details: {
+          contactName: 'Hi pro',
+          seats: [{ name: 'Alice' }, { name: 'Bob' }],
+        },
+        review: { signature: 'Neo' },
       },
-      review: { signature: 'Neo' },
-    });
+      expect.objectContaining({ skippedSteps: [] })
+    );
   });
 });

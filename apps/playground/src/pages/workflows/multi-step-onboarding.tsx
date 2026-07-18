@@ -17,20 +17,20 @@ const personalInfoForm = r
       id: 'firstName',
       type: 'text',
       props: { label: 'First Name', placeholder: 'John' },
-      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(2)] },
     },
     {
       id: 'lastName',
       type: 'text',
       props: { label: 'Last Name', placeholder: 'Doe' },
-      validation: { validate: [required(), minLength(2)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(2)] },
     }
   )
   .add({
     id: 'email',
     type: 'email',
     props: { label: 'Email' },
-    validation: { validate: [required(), email()], validateOnBlur: true },
+    validation: { validate: [required(), email()] },
   })
   .build();
 
@@ -40,20 +40,20 @@ const accountSetupForm = r
     id: 'username',
     type: 'text',
     props: { label: 'Username', placeholder: 'johndoe' },
-    validation: { validate: [required(), minLength(3)], validateOnBlur: true },
+    validation: { validate: [required(), minLength(3)] },
   })
   .add(
     {
       id: 'password',
       type: 'text',
       props: { label: 'Password', placeholder: '••••••••' },
-      validation: { validate: [required(), minLength(8)], validateOnBlur: true },
+      validation: { validate: [required(), minLength(8)] },
     },
     {
       id: 'confirmPassword',
       type: 'text',
       props: { label: 'Confirm Password' },
-      validation: { validate: [required()], validateOnBlur: true },
+      validation: { validate: [required()] },
     }
   )
   .build();
@@ -71,7 +71,7 @@ const preferencesForm = r
         { label: 'System', value: 'system' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .add({ id: 'notifications', type: 'switch', props: { label: 'Enable notifications' } })
   .add({
@@ -86,7 +86,7 @@ const preferencesForm = r
         { label: 'Spanish', value: 'es' },
       ],
     },
-    validation: { validate: [required()], validateOnBlur: true },
+    validation: { validate: [required()] },
   })
   .build();
 

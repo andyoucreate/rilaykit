@@ -4,112 +4,91 @@ description: Explore advanced features of the Form Builder like dynamic updates 
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 
-The form builder is more than just a one-time configuration tool. It provides a powerful API to dynamically manage, inspect, and even serialize your form definitions.
+Beyond one-time configuration, the form builder can inspect, modify, clone, and serialize form definitions.
 
 ## Dynamic Form Management
 
-You can modify a form configuration *after* it has been created. This is useful for building dynamic UIs where the form structure changes based on user interaction.
+Modify a form configuration after creation:
 
-The builder instance provides several methods for this:
-
-- **`.updateField(fieldId, updates)`**: Modifies an existing field's configuration.
-- **`.removeField(fieldId)`**: Removes a field from the form entirely.
-- **`.getField(fieldId)`**: Retrieves the configuration for a specific field.
-- **`.getFields()`**: Returns a flat array of all field configurations.
-- **`.getRows()`**: Returns the array of all row configurations.
-- **`.clear()`**: Removes all fields and rows from the configuration.
+| Method | Description |
+| --- | --- |
+| `.updateField(fieldId, updates)` | Modifies an existing field's configuration |
+| `.removeField(fieldId)` | Removes a field |
+| `.getField(fieldId)` | Returns a field's configuration, or `undefined` |
+| `.getFields()` | Returns a flat array of all field configurations |
+| `.getRows()` | Returns all row configurations |
+| `.clear()` | Removes all fields and rows |
 
 ```tsx
 import { rilay } from '@/lib/rilay';
-    import { form } from '@rilaykit/forms';
+import { form } from '@rilaykit/forms';
 
-// Start with a base configuration
 const myDynamicForm = form.create(rilay, 'dynamic-form')
   .add({ id: 'username', type: 'text', props: { label: 'Username' } });
 
-// Later, based on some condition...
 if (shouldAddEmail) {
   myDynamicForm.add({ id: 'email', type: 'email', props: { label: 'Email' } });
 }
 
-// Or update a field
 myDynamicForm.updateField('username', {
   props: { label: 'Please enter your desired username' }
 });
 
-// Finally, build the config to pass to the <Form> component
 const formConfig = myDynamicForm.build();
 ```
 
 <Callout>
-Remember that the builder methods mutate the builder instance itself. If you need to create multiple variations, use the `.clone()` method first.
+Builder methods mutate the builder instance. To create variations, use `.clone()` first.
 </Callout>
 
 ## Cloning
 
-The `.clone(newFormId?)` method creates a deep copy of the builder instance, allowing you to create variations of a form without affecting the original.
+`.clone(newFormId?)` deep-copies the builder so variations don't affect the original.
 
 ```tsx
 const baseForm = form.create(rilay, 'base-form')
   .add({ id: 'name', type: 'text', props: { label: 'Name' } });
 
-// Create a version for admins
 const adminForm = baseForm.clone('admin-form')
   .add({ id: 'adminNotes', type: 'textarea', props: { label: 'Admin Notes' } });
 
-// The original `baseForm` is unaffected
-const baseFormConfig = baseForm.build();
-const adminFormConfig = adminForm.build();
+// baseForm is unaffected
 ```
 
 ## Serialization (JSON Import/Export)
 
-Form configurations can be serialized to and from JSON. This is an incredibly powerful feature for:
-- Storing form definitions in a database.
-- Building visual form builders where the UI generates a JSON definition.
-- Transmitting form structures over the network.
-
-- **`.toJSON()`**: Exports the current form structure as a JSON-serializable object.
-- **`.fromJSON(json)`**: Populates a builder instance from a JSON object.
+`.toJSON()` exports the form structure as a JSON-serializable object; `.fromJSON(json)` populates a builder from one. Use this to store definitions in a database, drive a visual form builder, or send structures over the network.
 
 ```tsx
-import { rilay } from '@/lib/rilay';
-
-// 1. Define a form
 const originalForm = form.create(rilay, 'question-form')
   .add({ id: 'question', type: 'text', props: { label: 'Your Question' } });
 
-// 2. Serialize it to JSON
-const jsonDefinition = originalForm.toJSON();
-// -> { id: '...', rows: [...] }
-const jsonString = JSON.stringify(jsonDefinition);
+const jsonString = JSON.stringify(originalForm.toJSON());
 
-// 3. Later, or in another environment, rehydrate it
-const newJson = JSON.parse(jsonString);
-const rehydratedForm = form.create(rilay).fromJSON(newJson);
-
+// Later, or in another environment
+const rehydratedForm = form.create(rilay).fromJSON(JSON.parse(jsonString));
 const formConfig = rehydratedForm.build();
 ```
-<Callout>
-Note: The `fromJSON` method populates an *existing* builder. It's best practice to create a new form builder before calling `.fromJSON()` to avoid mutating a shared builder instance.
-</Callout>
 
+<Callout>
+`fromJSON` replaces the content of an existing builder — call it on a freshly created builder to avoid mutating a shared instance.
+</Callout>
 
 ## Introspection
 
-The `.getStats()` method provides a quick overview of the form's structure.
+`.getStats()` returns a structural overview, useful for debugging:
 
 ```ts
 const stats = myFormBuilder.getStats();
-console.log(stats);
 /*
 {
   totalFields: 5,
   totalRows: 4,
   averageFieldsPerRow: 1.25,
   maxFieldsInRow: 2,
-  minFieldsInRow: 1
+  minFieldsInRow: 1,
+  totalRepeatables: 0,
+  totalRepeatableFields: 0
 }
 */
 ```
-This is useful for debugging or analyzing the complexity of your forms. 

@@ -292,26 +292,23 @@ describe('resolveFieldValidation', () => {
     expect((config.validate as any[]).length).toBe(2);
   });
 
-  it('passes through validateOnChange, validateOnBlur, debounceMs', () => {
+  it('passes through debounceMs alongside the resolved validate', () => {
     const config = resolveFieldValidation({
       rules: 'required',
-      validateOnChange: true,
-      validateOnBlur: false,
       debounceMs: 300,
     });
 
-    expect(config.validateOnChange).toBe(true);
-    expect(config.validateOnBlur).toBe(false);
     expect(config.debounceMs).toBe(300);
+    expect(config.validate).toBeDefined();
   });
 
   it('no rules returns config without validate property', () => {
     const config = resolveFieldValidation({
-      validateOnChange: true,
+      debounceMs: 200,
     });
 
     expect(config.validate).toBeUndefined();
-    expect(config.validateOnChange).toBe(true);
+    expect(config.debounceMs).toBe(200);
   });
 
   it('registry validators work within resolveFieldValidation', () => {

@@ -48,10 +48,10 @@ function buildFlow() {
           props: {},
           validation: {
             validate: [required('Email is required'), z.string().email('Invalid email')],
-            validateOnChange: true,
           },
         })
-        .add({ id: 'other', type: 'text', props: {} }),
+        .add({ id: 'other', type: 'text', props: {} })
+        .setValidation({ mode: 'onChange' }),
     })
     .build();
 }

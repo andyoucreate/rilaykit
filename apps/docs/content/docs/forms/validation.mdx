@@ -3,203 +3,77 @@ title: Universal Validation with Standard Schema
 description: Learn how to use validation with any Standard Schema compatible library.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-RilayKit features a universal validation system built on [Standard Schema](https://standardschema.dev), allowing you to use **any** Standard Schema compatible validation library directly - including Zod, Yup, Joi, Valibot, ArkType, and more.
+RilayKit validates with any [Standard Schema](https://standardschema.dev) compatible library — Zod (3.24+), Yup (1.7+), Joi (18+), Valibot (1.0+), ArkType (2.0+) — no adapters needed.
 
-## Universal Validation API
+## Field Validation
 
-RilayKit uses a single, unified `validate` property that accepts any Standard Schema compatible validation. This means you can use external libraries directly without adapters.
+Each field's `validation` object accepts:
 
-The `validation` property accepts:
+| Property | Description |
+|----------|-------------|
+| `validate` | A Standard Schema validator, or an array of them |
+| `debounceMs` | Debounce validation runs (async cost control); blur and submit always validate immediately |
 
-- `validate`: A Standard Schema compatible validator (single or array)
-- `validateOnChange`: Validate the field whenever its value changes
-- `validateOnBlur`: Validate the field when the user leaves it (on blur)
-- `debounceMs`: Debounce validation by a specified number of milliseconds
+Built-ins and external schemas mix freely in the same array:
 
-<Tabs items={['Zod', 'RilayKit Built-ins', 'Mixed Validation']}>
-  <Tab value="Zod">
-    ```tsx
-    import { z } from 'zod';
-    import { rilay } from '@/lib/rilay';
-    import { form } from '@rilaykit/forms';
+```tsx
+import { z } from 'zod';
+import { rilay } from '@/lib/rilay';
+import { form } from '@rilaykit/forms';
+import { required } from '@rilaykit/core';
 
-    const registrationForm = form.create(rilay, 'registration')
-      .add({
-        id: 'email',
-        type: 'email',
-        props: { label: 'Email Address' },
-        validation: {
-          validate: z.string().email('Please enter a valid email'),
-          validateOnBlur: true,
-        },
-      })
-      .add({
-        id: 'password',
-        type: 'password',
-        props: { label: 'Password' },
-        validation: {
-          validate: z.string().min(8, 'Password too short'),
-          validateOnChange: true,
-        },
-      });
-    ```
-  </Tab>
-  <Tab value="RilayKit Built-ins">
-    ```tsx
-    import { rilay } from '@/lib/rilay';
-    import { required, minLength, email } from '@rilaykit/core';
+const registrationForm = form.create(rilay, 'registration')
+  .add({
+    id: 'email',
+    type: 'email',
+    props: { label: 'Email Address' },
+    validation: {
+      validate: [
+        required('Email is required'),            // RilayKit built-in
+        z.string().email('Invalid email format'), // Zod schema
+      ],
+    },
+  })
+  .add({
+    id: 'password',
+    type: 'password',
+    props: { label: 'Password' },
+    validation: {
+      validate: z.string().min(8, 'Password too short'),
+    },
+  });
+```
 
-    const registrationForm = form.create(rilay, 'registration')
-      .add({
-        id: 'email',
-        type: 'email',
-        props: { label: 'Email Address' },
-        validation: {
-          validate: [required(), email('Please enter a valid email')],
-          validateOnBlur: true,
-        },
-      })
-      .add({
-        id: 'password',
-        type: 'password',
-        props: { label: 'Password' },
-        validation: {
-          validate: [required(), minLength(8)],
-          validateOnChange: true,
-        },
-      });
-    ```
-  </Tab>
-  <Tab value="Mixed Validation">
-    ```tsx
-    import { z } from 'zod';
-    import { rilay } from '@/lib/rilay';
-    import { required } from '@rilaykit/core';
+## Validation Timing
 
-    const registrationForm = form.create(rilay, 'registration')
-      .add({
-        id: 'email',
-        type: 'email',
-        props: { label: 'Email Address' },
-        validation: {
-          validate: [
-            required('Email is required'),           // RilayKit built-in
-            z.string().email('Invalid email format'), // Zod schema
-            z.string().min(5, 'Email too short'),     // Another Zod rule
-          ],
-          validateOnBlur: true,
-        },
-      });
-    ```
-  </Tab>
-</Tabs>
+Timing is configured form-wide via `.setValidation({ mode, reValidateMode })`, mirroring React Hook Form:
 
-## Standard Schema Compatible Libraries
+| Option | Values | Default | Meaning |
+|--------|--------|---------|---------|
+| `mode` | `'onSubmit'` \| `'onBlur'` \| `'onChange'` \| `'onTouched'` \| `'all'` | `'onTouched'` | When a field validates for the first time |
+| `reValidateMode` | `'onChange'` \| `'onBlur'` \| `'onSubmit'` | `'onChange'` | When an errored field re-validates |
 
-RilayKit works with any validation library that implements the [Standard Schema](https://standardschema.dev) interface:
+```tsx
+const strictForm = form.create(rilay, 'strict')
+  .add({ id: 'email', type: 'email', validation: { validate: email() } })
+  .setValidation({ mode: 'onBlur', reValidateMode: 'onChange' });
+```
 
-| Library | Version | Standard Schema Support |
-|---------|---------|-------------------------|
-| **Zod** | 3.24.0+ | ✅ Native support |
-| **Yup** | 1.7.0+ | ✅ Native support |
-| **Joi** | 18.0.0+ | ✅ Native support |
-| **Valibot** | 1.0+ | ✅ Native support |
-| **ArkType** | 2.0+ | ✅ Native support |
+<Callout type="info">
+The default `'onTouched'` validates a field on its first blur, then live. Submit always validates everything and marks errored fields `touched`, so touched-gated renderers show submit errors — and they clear live as the user types.
+</Callout>
 
-### RilayKit Built-in Validators
+## Built-in Validators
 
-RilayKit provides Standard Schema compatible validators out of the box:
+All from `@rilaykit/core`, all Standard Schema compatible:
 
-- `required(message?)`: Ensures the field is not empty
-- `email(message?)`: Validates email format
-- `url(message?)`: Validates URL format
-- `minLength(min, message?)`: Minimum string length
-- `maxLength(max, message?)`: Maximum string length
-- `pattern(regex, message?)`: Regular expression validation
-- `number(message?)`: Valid number check
-- `min(value, message?)`: Minimum numeric value
-- `max(value, message?)`: Maximum numeric value
-- `custom(fn, message?)`: Custom synchronous validator
-- `async(fn, message?)`: Custom asynchronous validator
-- `combine(...validators)`: Combine multiple validators
+- `required(message?)`, `email(message?)`, `url(message?)`
+- `minLength(min, message?)`, `maxLength(max, message?)`, `pattern(regex, message?)`
+- `number(message?)`, `min(value, message?)`, `max(value, message?)`
+- `custom(fn, message?)`, `async(fn, message?)`, `combine(...validators)`
 
-All built-in validators implement Standard Schema and can be mixed with external libraries.
-
-### Using External Libraries
-
-<Tabs items={['Zod', 'Yup', 'Joi']}>
-  <Tab value="Zod">
-    ```tsx
-    import { z } from 'zod';
-
-    const userForm = form.create(rilay, 'user')
-      .add({
-        id: 'email',
-        type: 'input',
-        validation: {
-          validate: z.string()
-            .email('Invalid email format')
-            .min(5, 'Email too short'),
-        },
-      })
-      .add({
-        id: 'age',
-        type: 'input',
-        validation: {
-          validate: z.string()
-            .refine(val => {
-              const num = parseInt(val);
-              return !isNaN(num) && num >= 18;
-            }, 'Must be 18 or older'),
-        },
-      });
-    ```
-  </Tab>
-  <Tab value="Yup">
-    ```tsx
-    import * as yup from 'yup';
-
-    const userForm = form.create(rilay, 'user')
-      .add({
-        id: 'email',
-        type: 'input',
-        validation: {
-          validate: yup.string()
-            .email('Invalid email format')
-            .min(5, 'Email too short')
-            .required(),
-        },
-      });
-    ```
-  </Tab>
-  <Tab value="Joi">
-    ```tsx
-    import Joi from 'joi';
-
-    const userForm = form.create(rilay, 'user')
-      .add({
-        id: 'email',
-        type: 'input',
-        validation: {
-          validate: Joi.string()
-            .email()
-            .min(5)
-            .required()
-            .messages({
-              'string.email': 'Invalid email format',
-              'string.min': 'Email too short',
-            }),
-        },
-      });
-    ```
-  </Tab>
-</Tabs>
-
-### Creating Custom Standard Schema Validators
-
-You can create your own Standard Schema compatible validators:
+## Creating Custom Standard Schema Validators
 
 ```ts
 import type { StandardSchemaV1 } from '@standard-schema/spec';
@@ -218,90 +92,61 @@ export function containsRilay(message = 'Value must contain "rilay"'): StandardS
     },
   };
 }
-
-// Use it like any other validator
-const userForm = form.create(rilay, 'custom')
-  .add({
-    id: 'username',
-    type: 'input',
-    validation: {
-      validate: [required(), containsRilay()]
-    }
-  });
 ```
+
+Use it like any other validator: `validation: { validate: [required(), containsRilay()] }`.
 
 ## Form-Level Validation
 
-For cross-field validation, use Standard Schema object schemas with the `setValidation` method:
-
-<Tabs items={['Zod Object Schema', 'Yup Object Schema', 'Custom Form Validator']}>
-  <Tab value="Zod Object Schema">
-    ```tsx
-    import { z } from 'zod';
-
-    const userSchema = z.object({
-      password: z.string().min(8, 'Password too short'),
-      confirmPassword: z.string(),
-    }).refine(data => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
-      path: ['confirmPassword'],
-    });
-
-    const changePasswordForm = form.create(rilay, 'change-password')
-      .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
-      .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
-      .setValidation({
-        validate: userSchema, // Zod object schema for cross-field validation
-      });
-    ```
-  </Tab>
-  <Tab value="Yup Object Schema">
-    ```tsx
-    import * as yup from 'yup';
-
-    const userSchema = yup.object({
-      password: yup.string().min(8, 'Password too short').required(),
-      confirmPassword: yup.string()
-        .oneOf([yup.ref('password')], 'Passwords must match')
-        .required(),
-    });
-
-    const changePasswordForm = form.create(rilay, 'change-password')
-      .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
-      .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
-      .setValidation({
-        validate: userSchema, // Yup object schema
-      });
-    ```
-  </Tab>
-  <Tab value="Custom Form Validator">
-    ```tsx
-    import { custom } from '@rilaykit/core';
-
-    const passwordMatchValidator = custom(
-      (formData: any) => formData.password === formData.confirmPassword,
-      "Passwords don't match"
-    );
-
-    const changePasswordForm = form.create(rilay, 'change-password')
-      .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
-      .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
-      .setValidation({
-        validate: passwordMatchValidator,
-      });
-    ```
-  </Tab>
-</Tabs>
-
-## Advanced Validation Patterns
-
-### Async Validation
-
-Standard Schema supports asynchronous validation out of the box:
+For cross-field rules, pass an object schema (or a `custom` validator over the form data) to `.setValidation`:
 
 ```tsx
 import { z } from 'zod';
 
+const userSchema = z.object({
+  password: z.string().min(8, 'Password too short'),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+const changePasswordForm = form.create(rilay, 'change-password')
+  .add({ type: 'password', id: 'password', props: { label: 'New Password' } })
+  .add({ type: 'password', id: 'confirmPassword', props: { label: 'Confirm Password' } })
+  .setValidation({ validate: userSchema });
+```
+
+Form-level issues are routed by `issue.path`:
+
+- A path naming a known field attaches the error to that field — `useFieldErrors(id)` receives it alongside the field's own errors.
+- An empty or unmatched path lands in a reserved `__form__` bucket, read via `useFormErrors()`:
+
+```tsx
+import { useFormErrors } from 'rilaykit/react';
+
+function FormErrorBanner() {
+  const errors = useFormErrors();
+  if (errors.length === 0) return null;
+  return (
+    <div role="alert">
+      {errors.map(e => <p key={e.message}>{e.message}</p>)}
+    </div>
+  );
+}
+```
+
+Form-level rules re-run on the same `mode`/`reValidateMode` cadence as field rules and on repeatable row changes, so cross-field errors appear and clear live — no resubmit needed. `isValid` counts the whole error map, `__form__` included.
+
+<Callout type="warn">
+Repeatable fields use composite ids (`items[k0].price`) that never match a schema's dot path (`items.0.price`): cross-field issues over repeatable rows land in `__form__`.
+</Callout>
+
+## Async Validation
+
+Standard Schema supports async validators; pair them with `debounceMs` to limit API calls:
+
+```tsx
 const emailField = {
   id: 'email',
   type: 'email',
@@ -310,67 +155,11 @@ const emailField = {
     validate: z.string()
       .email('Invalid email format')
       .refine(async (email) => {
-        // API call to check if email is unique
         const response = await fetch(`/api/check-email?email=${email}`);
         const { isUnique } = await response.json();
         return isUnique;
       }, 'Email is already taken'),
-    validateOnBlur: true,
-    debounceMs: 500, // Debounce async validation
+    debounceMs: 500,
   },
 };
 ```
-
-### Combining Multiple Libraries
-
-Mix and match validation libraries as needed:
-
-```tsx
-import { z } from 'zod';
-import * as yup from 'yup';
-import { required, email } from '@rilaykit/core';
-
-const userForm = form.create(rilay, 'mixed')
-  .add({
-    id: 'email',
-    type: 'input',
-    validation: {
-      validate: [
-        required('Email is required'),          // RilayKit
-        z.string().min(5, 'Too short'),         // Zod
-        yup.string().max(100, 'Too long'),      // Yup
-        email('Invalid format'),                // RilayKit
-      ]
-    }
-  });
-```
-
-### Conditional Validation
-
-Use form-level schemas for complex conditional validation:
-
-```tsx
-import { z } from 'zod';
-
-const userSchema = z.object({
-  userType: z.enum(['personal', 'business']),
-  email: z.string().email(),
-  companyName: z.string().optional(),
-}).refine(data => {
-  if (data.userType === 'business' && !data.companyName) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Company name is required for business users',
-  path: ['companyName'],
-});
-
-const userForm = form.create(rilay, 'conditional')
-  .add({ id: 'userType', type: 'select', /* ... */ })
-  .add({ id: 'email', type: 'input', /* ... */ })
-  .add({ id: 'companyName', type: 'input', /* ... */ })
-  .setValidation({
-    validate: userSchema,
-  });
-``` 

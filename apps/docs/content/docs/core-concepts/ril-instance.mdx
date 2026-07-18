@@ -4,143 +4,81 @@ description: Understanding the central configuration hub of RilayKit - the found
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
 
-The `ril` instance is the **heart of every RilayKit application**. It serves as a central configuration hub for all your form and workflow configurations, providing type safety and component reusability across your entire application.
+The `ril` instance is RilayKit's central catalog: it registers components, tools, and message parts, and creates type-safe `form` and `flow` builders that inherit its configuration.
 
 <Callout type="info">
-**Best Practice**: Create a single, shared `ril` instance for your application and export it from a central file (e.g., `lib/rilay.ts`).
+Create one shared instance and export it from a central file (e.g. `lib/rilay.ts`).
 </Callout>
-
-## Core Responsibilities
-
-The `ril` instance has two primary roles:
-
-1. **Component Registry**: Stores your component configurations and custom renderers
-2. **Builder Factory**: Creates type-safe `form` and `workflow` builders that inherit its configuration
 
 ## Creating and Configuring
 
-You create an instance by calling `ril.create()` and then chain configuration methods to it.
+Call `ril.create()` and chain registrations. Every method is **immutable** — it returns a new instance, so keep the final result of the chain.
 
 ```tsx title="lib/rilay.ts"
 import { ril } from 'rilaykit';
-import { MyTextInput } from '@/components/MyTextInput';
-import { myRowRenderer, mySubmitButtonRenderer, myBodyRenderer } from '@/renderers';
+import { TextInput } from '@/components/TextInput';
 
 export const rilay = ril
   .create()
   // Register a component type named 'text'
-  .addComponent('text', {
+  .component('text', {
     name: 'Text Input',
-    renderer: MyTextInput,
+    renderer: TextInput,
   })
-  // Configure all renderers at once
-  .configure({
-    bodyRenderer: myBodyRenderer,
-    rowRenderer: myRowRenderer,
-    submitButtonRenderer: mySubmitButtonRenderer,
-  });
+  // Register an agent tool and a message-part renderer (optional)
+  .tool('search_flights', { description: 'Search flights', inputSchema: flightSchema })
+  .part('text', { renderer: TextPart });
 ```
 
-This configured `rilay` instance is now ready to be used to create builders.
+A component entry accepts `name`, `description`, `renderer`, `propsSchema` (Standard Schema, validated via `validateProps`), `defaultProps`, `validation`, `meta`, and `replace` (allow overwriting — otherwise a duplicate id throws).
 
-## Management API
+Two more chaining methods:
 
-The `ril` instance is not just a write-only configuration object. It also provides a rich API for managing and inspecting its state, which can be useful for debugging, testing, or building developer tools.
-
-### Component Management
-
-You can dynamically manage the component registry.
-
-- **`getComponent(id: string)`**: Retrieves a component's configuration.
-- **`getAllComponents()`**: Returns an array of all registered components.
-- **`hasComponent(id: string)`**: Checks for the existence of a component type.
-- **`removeComponent(id: string)`**: Removes a component from the registry.
-- **`clear()`**: Removes all registered components.
-
-```tsx
-// Check if a 'text' component is registered
-if (rilay.hasComponent('text')) {
-  console.log('Text component is ready.');
-}
-
-// Get all component names
-const componentNames = rilay.getAllComponents().map(c => c.name);
-// -> ['Text Input']
-```
+- **`use(plugin)`** — applies a `RilayPlugin` (a function that registers entries and returns the extended instance).
+- **`renderers({ components, tools, parts })`** — attaches or overrides renderers on already-registered entries; schemas and metadata are preserved.
 
 ## Builder Methods
 
-When using the `rilaykit` package, the `ril` instance has convenience methods to create builders directly:
+With the all-in-one `rilaykit` package, the instance creates builders directly:
 
 ```tsx
-import { ril } from 'rilaykit';
-
-const rilay = ril.create()
-  .addComponent('text', { name: 'Text', renderer: MyTextInput });
-
-// Create a form builder directly from the ril instance
 const myForm = rilay.form('my-form')
   .add({ type: 'text', props: { label: 'Name' } });
 
-// Create a workflow builder directly from the ril instance
 const myWorkflow = rilay.flow('my-workflow', 'My Workflow')
   .step({ title: 'Step 1', formConfig: myForm });
 ```
 
-### `.form(formId?)`
-
-Creates a new form builder bound to this `ril` instance. Equivalent to `form.create(rilay, formId)`.
-
-### `.flow(workflowId?, name?, description?)`
-
-Creates a new workflow builder bound to this `ril` instance. Equivalent to `flow.create(rilay, workflowId, name, description)`.
+- **`.form(formId?)`** — equivalent to `form.create(rilay, formId)`
+- **`.flow(workflowId?, name?, description?)`** — equivalent to `flow.create(rilay, workflowId, name, description)`
 
 <Callout>
-When using the modular packages (`@rilaykit/core`, `@rilaykit/forms`, `@rilaykit/workflow`), use `form.create(rilay)` and `flow.create(rilay)` instead.
+With the modular packages (`@rilaykit/forms`, `@rilaykit/workflow`), use `form.create(rilay)` and `flow.create(rilay)` instead.
 </Callout>
+
+## Catalog API
+
+| Method | Returns |
+| --- | --- |
+| `getComponent(id)` / `getTool(name)` / `getPart(type)` | The entry, or `undefined` |
+| `getAllComponents()` / `getAllTools()` / `getAllParts()` | All entries of that kind |
+| `hasComponent(id)` | `boolean` |
+| `validateProps(type, props)` | Success/failure result against the component's `propsSchema` |
+| `removeComponent(id)` | New instance without the component |
+| `clear()` | New instance with an empty catalog |
+| `clone()` | Copy of the instance |
 
 ## Introspection & Debugging
 
-Two methods are particularly useful for understanding the state of your configuration.
-
 ### `getStats()`
 
-The `.getStats()` method returns a snapshot of the current configuration, including the number of components and which custom renderers have been set.
+Entry counts by kind:
 
 ```ts
-const stats = rilay.getStats();
-console.log(stats);
-
-/* Output:
-{
-  total: 1,
-  byType: { text: 1 },
-  hasCustomRenderers: {
-    row: true,
-    body: false,
-    submitButton: false,
-    field: false,
-    stepper: false,
-    workflowNextButton: false,
-    workflowPreviousButton: false,
-    workflowSkipButton: false
-  }
-}
-*/
+rilay.getStats();
+// { total: 3, components: 1, tools: 1, parts: 1 }
 ```
 
-### `validate()`
+### `validate()` and `validateAsync()`
 
-The `.validate()` method performs an internal check of your configuration to find common errors, like duplicate component IDs or components without a renderer.
-
-```ts
-const errors = rilay.validate();
-
-if (errors.length > 0) {
-  console.error('Rilay configuration errors:', errors);
-}
-```
-
-<Callout>
-These management and introspection APIs make the `ril` instance a powerful and transparent tool, not just a black box.
-</Callout> 
+`validate()` returns an array of error strings (e.g. duplicate component types) — empty means valid. `validateAsync()` additionally reports warnings such as renderer-less components, and throws a `ValidationError` when errors are found.

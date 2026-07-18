@@ -5,7 +5,7 @@ import type {
   RepeatableFieldItem,
 } from '@rilaykit/core';
 import { getOwn } from '@rilaykit/core';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useForm } from '../components/FormProvider';
 import { useFormStore, useRepeatableKeys } from '../stores';
 import { buildCompositeKey } from '../utils/repeatable-data';
@@ -61,7 +61,7 @@ export interface UseRepeatableFieldReturn {
  */
 export function useRepeatableField(repeatableId: string): UseRepeatableFieldReturn {
   const store = useFormStore();
-  const { formConfig } = useForm();
+  const { formConfig, validateFormLevel } = useForm();
   const orderedKeys = useRepeatableKeys(repeatableId);
 
   // Get the repeatable config from the form config
@@ -73,11 +73,46 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
     return new Set(repeatableConfig.allFields.map((f) => f.id));
   }, [repeatableConfig]);
 
+  // Per-row identity cache: `orderedKeys` is a fresh array on any add/remove/
+  // move, so rebuilding every item would give each row's scoped config new
+  // identity and break FormListItem/FormField memoization — re-rendering all N
+  // rows for a single-row edit. A row whose (key, index) is unchanged (e.g.
+  // every surviving row on an APPEND) reuses its cached item, so only the
+  // genuinely-changed rows re-render. The cache is tied to the TEMPLATE
+  // (`repeatableConfig`): when the template itself changes — a field added or
+  // retyped mid-stream — every row's scoped columns change, so the cache is
+  // discarded and all rows rebuild. Removed keys drop out of the cache below.
+  const itemCacheRef = useRef<{
+    template: RepeatableFieldConfig | undefined;
+    repeatableId: string;
+    items: Map<string, RepeatableFieldItem>;
+  }>({ template: undefined, repeatableId, items: new Map() });
+
   // Derive items from ordered keys + template
   const items = useMemo((): RepeatableFieldItem[] => {
-    if (!repeatableConfig) return [];
+    if (!repeatableConfig) {
+      itemCacheRef.current = { template: undefined, repeatableId, items: new Map() };
+      return [];
+    }
 
-    return orderedKeys.map((key, index) => {
+    // Only reuse cached items when the TEMPLATE and the repeatable id are both
+    // identical — a changed template invalidates every row's scoped columns, and
+    // a changed id changes every scoped composite key.
+    const previousCache =
+      itemCacheRef.current.template === repeatableConfig &&
+      itemCacheRef.current.repeatableId === repeatableId
+        ? itemCacheRef.current.items
+        : new Map<string, RepeatableFieldItem>();
+    const nextCache = new Map<string, RepeatableFieldItem>();
+
+    const result = orderedKeys.map((key, index) => {
+      // Reuse a survivor's item verbatim when its position is unchanged — its
+      // scoped fields/rows/conditions depend only on (key, index, template).
+      const cached = previousCache.get(key);
+      if (cached && cached.index === index) {
+        nextCache.set(key, cached);
+        return cached;
+      }
       // Scope fields: prefix IDs with composite key
       const scopedFields: FormFieldConfig[] = repeatableConfig.allFields.map((templateField) => {
         const scopedId = buildCompositeKey(repeatableId, key, templateField.id);
@@ -109,13 +144,18 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
         }),
       }));
 
-      return {
+      const item: RepeatableFieldItem = {
         key,
         index,
         rows: scopedRows,
         allFields: scopedFields,
       };
+      nextCache.set(key, item);
+      return item;
     });
+
+    itemCacheRef.current = { template: repeatableConfig, repeatableId, items: nextCache }; // drops removed keys
+    return result;
   }, [repeatableId, orderedKeys, repeatableConfig, templateFieldIds]);
 
   // Constraints
@@ -131,26 +171,34 @@ export function useRepeatableField(repeatableId: string): UseRepeatableFieldRetu
     return orderedKeys.length > min;
   }, [repeatableConfig, orderedKeys.length]);
 
-  // Stable actions
+  // Stable actions. A structural edit (add / remove / reorder rows) changes the
+  // data a cross-field rule sums over, so it re-runs form-level validation — a
+  // "totals must equal 100%" banner clears the instant the user fixes it by
+  // DELETING a row, not only on the next field event. `validateFormLevel`
+  // early-returns when the form declares no form-level rule, so this is a no-op
+  // for the common case.
   const append = useCallback(
     (defaultValue?: Record<string, unknown>) => {
       store.getState()._appendRepeatableItem(repeatableId, defaultValue);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   const remove = useCallback(
     (key: string) => {
       store.getState()._removeRepeatableItem(repeatableId, key);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   const move = useCallback(
     (fromIndex: number, toIndex: number) => {
       store.getState()._moveRepeatableItem(repeatableId, fromIndex, toIndex);
+      void validateFormLevel();
     },
-    [store, repeatableId]
+    [store, repeatableId, validateFormLevel]
   );
 
   return {

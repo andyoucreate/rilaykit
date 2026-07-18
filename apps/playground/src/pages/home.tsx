@@ -1,10 +1,14 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  Bot,
+  Calculator,
+  Database,
   FileText,
   GitBranch,
   Layers,
   Repeat,
+  ScrollText,
   Server,
   ShieldCheck,
   Sparkles,
@@ -17,7 +21,7 @@ interface DemoCard {
   description: string;
   href: string;
   icon: React.ReactNode;
-  category: 'Forms' | 'Workflows';
+  category: 'Forms' | 'Workflows' | 'Agent';
 }
 
 const DEMOS: DemoCard[] = [
@@ -51,6 +55,14 @@ const DEMOS: DemoCard[] = [
     category: 'Forms',
   },
   {
+    title: 'Global-watch Fan-out',
+    description:
+      'Invoice lines whose totals all recompute when one shared tax rate changes — a per-row effect watching a global field.',
+    href: '/forms/invoice-fanout',
+    icon: <Calculator className="size-5" />,
+    category: 'Forms',
+  },
+  {
     title: 'Cross-field Validation',
     description: 'Form-level rules — password match, date ordering, "at least one" constraints.',
     href: '/forms/cross-validation',
@@ -79,6 +91,46 @@ const DEMOS: DemoCard[] = [
     href: '/workflows/conditional',
     icon: <GitBranch className="size-5" />,
     category: 'Workflows',
+  },
+  {
+    title: 'Persistence: Special Values',
+    description:
+      'Date, NaN, Infinity, and BigInt survive a save→load round trip through the persistence adapter — values plain JSON would corrupt.',
+    href: '/workflows/special-values',
+    icon: <Database className="size-5" />,
+    category: 'Workflows',
+  },
+  {
+    title: 'Agent UI (simulated)',
+    description:
+      'An assistant transcript rendered through <Parts>/<Catalog>. A show_form tool mounts a real form and resolves through the HITL loop — no LLM needed.',
+    href: '/agent/assistant',
+    icon: <Bot className="size-5" />,
+    category: 'Agent',
+  },
+  {
+    title: 'Manifest / System Prompt',
+    description:
+      'What manifest(catalog) feeds the model, and the AI SDK tool set tools(catalog) emits for streamText().',
+    href: '/agent/manifest',
+    icon: <ScrollText className="size-5" />,
+    category: 'Agent',
+  },
+  {
+    title: 'Agentic KYC (show_flow)',
+    description:
+      'The assistant emits one show_flow whose schema is a full KYC flow — conditional steps, conditional fields, a repeatable of beneficial owners with a PEP field, validation — compiled to a live workflow and driven through HITL.',
+    href: '/agent/kyc',
+    icon: <ShieldCheck className="size-5" />,
+    category: 'Agent',
+  },
+  {
+    title: 'Multi-turn conversation',
+    description:
+      'A real agentic loop: show_form → the user submits → the agent appends its next turn (a show_flow) to the same transcript. Resolves stay isolated per toolCallId.',
+    href: '/agent/multi-turn',
+    icon: <Sparkles className="size-5" />,
+    category: 'Agent',
   },
 ];
 

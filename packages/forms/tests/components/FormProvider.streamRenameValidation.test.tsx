@@ -55,15 +55,17 @@ describe('an in-flight async validation racing a torn-id rename does not wedge t
       },
     };
 
-    const validation = { rules: [{ type: 'slow' }], validateOnChange: true };
+    const validation = { rules: [{ type: 'slow' }] };
     const tornChunk: FormSchema = {
       version: 1,
       id: 'contact-form',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'na', type: 'text', props: {}, validation }],
     };
     const completedChunk: FormSchema = {
       version: 1,
       id: 'contact-form',
+      validation: { mode: 'onChange' },
       fields: [{ id: 'name', type: 'text', props: {}, validation }],
     };
 

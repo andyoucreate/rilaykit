@@ -410,7 +410,7 @@ describe('Workflow Lifecycle — E2E', () => {
     // Assert
     await waitFor(() => {
       expect(onWorkflowComplete).toHaveBeenCalledTimes(1);
-      expect(onWorkflowComplete).toHaveBeenCalledWith(expect.any(Object));
+      expect(onWorkflowComplete).toHaveBeenCalledWith(expect.any(Object), expect.any(Object));
     });
   });
 

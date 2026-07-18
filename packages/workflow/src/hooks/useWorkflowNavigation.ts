@@ -24,6 +24,7 @@ export interface UseWorkflowNavigationProps {
   setTransitioning: (isTransitioning: boolean) => void;
   markStepVisited: (stepIndex: number, stepId: string) => void;
   markStepPassed: (stepId: string) => void;
+  markStepSkipped: (stepId: string) => void;
   setStepData: (data: Record<string, any>, stepId: string) => void;
   /**
    * Live accessor for the latest `allData`. The `workflowState` prop is a
@@ -44,6 +45,13 @@ export interface UseWorkflowNavigationProps {
    */
   pendingSkipRef: MutableRefObject<string | null>;
   onStepChange?: (fromStep: number, toStep: number, context: WorkflowContext) => void;
+  /**
+   * Routes an error through {@link useWorkflowAnalytics.trackError} so it reaches
+   * BOTH `analytics.onError` and the monitoring adapter. The guard for the
+   * optional analytics/monitor lives inside `trackError`, so navigation just
+   * calls it — no local `if (analytics?.onError)`.
+   */
+  trackError: (error: Error) => void;
 }
 
 export interface UseWorkflowNavigationReturn {
@@ -66,11 +74,13 @@ export function useWorkflowNavigation({
   setTransitioning,
   markStepVisited,
   markStepPassed,
+  markStepSkipped,
   setStepData,
   getAllData,
   getRepeatableOrders,
   pendingSkipRef,
   onStepChange,
+  trackError,
 }: UseWorkflowNavigationProps): UseWorkflowNavigationReturn {
   // Use ref to avoid recreating callbacks when onStepChange changes
   const onStepChangeRef = useRef(onStepChange);
@@ -124,8 +134,11 @@ export function useWorkflowNavigation({
       },
 
       setNextStepField: (fieldId: string, value: any) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < workflowConfig.steps.length) {
+        // The NEXT VISIBLE step — not the next declared one. A conditionally
+        // hidden step between here and the destination must not swallow the
+        // prefill (the user never sees it).
+        const nextStepIndex = findNextVisibleStepRef.current(workflowState.currentStepIndex);
+        if (nextStepIndex !== null) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
           const existingData = getAllData()[nextStepId] || {};
           const mergedData = { ...existingData, [fieldId]: value };
@@ -134,8 +147,8 @@ export function useWorkflowNavigation({
       },
 
       setNextStepFields: (fields: Record<string, any>) => {
-        const nextStepIndex = workflowState.currentStepIndex + 1;
-        if (nextStepIndex < workflowConfig.steps.length) {
+        const nextStepIndex = findNextVisibleStepRef.current(workflowState.currentStepIndex);
+        if (nextStepIndex !== null) {
           const nextStepId = workflowConfig.steps[nextStepIndex].id;
           // Only get existing data for the next step, don't propagate current step data
           const existingData = getAllData()[nextStepId] || {};
@@ -239,9 +252,7 @@ export function useWorkflowNavigation({
         return true;
       } catch (error) {
         log.error('Step transition failed:', error);
-        if (workflowConfig.analytics?.onError) {
-          workflowConfig.analytics.onError(error as Error, workflowContext);
-        }
+        trackError(error as Error);
         return false;
       } finally {
         setTransitioning(false);
@@ -249,7 +260,7 @@ export function useWorkflowNavigation({
     },
     [
       workflowConfig.steps,
-      workflowConfig.analytics,
+      trackError,
       isStepVisibleLive,
       workflowState.currentStepIndex,
       getAllData,
@@ -273,6 +284,14 @@ export function useWorkflowNavigation({
     },
     [workflowConfig.steps.length, isStepVisibleLive]
   );
+
+  // A render-updated mirror so `createStepDataHelper` (defined ABOVE this, to
+  // keep the helper next to the other data helpers) can resolve the next VISIBLE
+  // step without taking `findNextVisibleStep` — declared later — as a dependency,
+  // which would be a temporal-dead-zone reference in that earlier callback's dep
+  // array. The helper reads `.current` only at call time, long after this runs.
+  const findNextVisibleStepRef = useRef(findNextVisibleStep);
+  findNextVisibleStepRef.current = findNextVisibleStep;
 
   // Helper function to find the previous visible step
   const findPreviousVisibleStep = useCallback(
@@ -307,9 +326,7 @@ export function useWorkflowNavigation({
         await currentStep.onAfterValidation(liveStepData, helper, workflowContext);
       } catch (error) {
         log.error('onAfterValidation failed:', error);
-        if (workflowConfig.analytics?.onError) {
-          workflowConfig.analytics.onError(error as Error, workflowContext);
-        }
+        trackError(error as Error);
         return false;
       }
     }
@@ -331,7 +348,7 @@ export function useWorkflowNavigation({
     createStepDataHelper,
     readStructuredSlice,
     workflowContext,
-    workflowConfig.analytics,
+    trackError,
     workflowState.currentStepIndex,
     findNextVisibleStep,
     goToStep,
@@ -376,6 +393,16 @@ export function useWorkflowNavigation({
       workflowConfig.analytics.onStepSkip(currentStep.id, 'user_skip', workflowContext);
     }
 
+    // The skip is now committed — past the skippability guard and the
+    // re-entrancy latch, and the analytics signal has fired. Record it in the
+    // persistent skipped set so the completion payload drops this step's
+    // (unanswered) slice and `meta.skippedSteps` carries its id. Marked HERE,
+    // not only on the forward transition, so a TERMINAL skip (which completes
+    // via the submission hook without navigating) is dropped too. Navigating
+    // back onto this step and passing it clears the mark (`_markStepPassed`),
+    // so a skip-then-return-and-fill ships the step's answers.
+    markStepSkipped(currentStep.id);
+
     // A skip is NOT a completion: it explicitly bypasses validation, so it must
     // not run onAfterValidation, must not mark the step passed, and must not
     // emit onStepComplete. Signal the analytics hook to suppress completion for
@@ -395,8 +422,15 @@ export function useWorkflowNavigation({
     const didTransition = await goToStep(nextStepIndex);
     if (!didTransition) {
       pendingSkipRef.current = null;
-      skipInFlightRef.current = null;
     }
+    // Release the latch once the transition has settled, either way. It exists
+    // to gate a second SYNCHRONOUS call, which arrives before this await
+    // resolves — so clearing it here preserves that guarantee. Holding it past
+    // the transition made the step un-skippable for the rest of the mount:
+    // navigate BACK onto a step you had skipped and the Skip button — still
+    // rendered enabled, since `canSkipCurrentStep` knows nothing about this
+    // latch — accepted the click and silently did nothing.
+    skipInFlightRef.current = null;
     return didTransition;
   }, [
     canSkipCurrentStep,
@@ -406,6 +440,7 @@ export function useWorkflowNavigation({
     workflowState.currentStepIndex,
     findNextVisibleStep,
     goToStep,
+    markStepSkipped,
     pendingSkipRef,
   ]);
 

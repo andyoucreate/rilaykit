@@ -40,6 +40,13 @@ export interface PersistedWorkflowData {
   visitedSteps: string[];
   /** Set of passed/validated step IDs */
   passedSteps?: string[];
+  /**
+   * Set of explicitly SKIPPED step IDs. Restored so a reloaded session keeps a
+   * skipped step out of the completion payload, exactly as the live session
+   * would. Optional: a snapshot written before this field existed restores with
+   * no skips.
+   */
+  skippedSteps?: string[];
   /** When this data was last saved */
   lastSaved: number;
   /** Optional metadata for custom persistence needs */
