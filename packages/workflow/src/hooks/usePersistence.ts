@@ -89,6 +89,11 @@ export function usePersistence({
   // Flipped false on unmount so a flushed save does not set React state on a
   // torn-down hook.
   const isMountedRef = useRef(true);
+  // The load path's "settle" timer (see loadPersistedData's finally). Tracked so
+  // the unmount cleanup can cancel it — left running, it fired after teardown
+  // and set React state on a dead hook (in CI the jsdom env itself was already
+  // gone: "window is not defined").
+  const loadSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenceStateRef = useRef<{
     lastSavedState?: WorkflowState;
     hasPendingChanges: boolean;
@@ -258,8 +263,12 @@ export function usePersistence({
       handleError(error as Error, 'Load');
       return null;
     } finally {
-      // Clear loading flag after a short delay to avoid immediate auto-save
-      setTimeout(() => setIsLoadingPersisted(false), 100);
+      // Clear loading flag after a short delay to avoid immediate auto-save.
+      // Tracked + mount-guarded: unmounting inside the window cancels it.
+      loadSettleTimerRef.current = setTimeout(() => {
+        loadSettleTimerRef.current = null;
+        if (isMountedRef.current) setIsLoadingPersisted(false);
+      }, 100);
     }
   }, [storageKey, clearError, handleError]);
 
@@ -343,6 +352,10 @@ export function usePersistence({
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (loadSettleTimerRef.current !== null) {
+        clearTimeout(loadSettleTimerRef.current);
+        loadSettleTimerRef.current = null;
+      }
       debouncedSave.current.flush();
     };
   }, []);

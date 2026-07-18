@@ -44,7 +44,8 @@
     "size": "pnpm build && pnpm analyze-size",
     "benchmark": "node scripts/performance-benchmark.js",
     "benchmark:monitoring": "node scripts/performance-benchmark.js",
-    "test:performance": "pnpm benchmark && pnpm test"
+    "test:performance": "pnpm benchmark && pnpm test",
+    "version-ci": "changeset version && biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
