@@ -638,4 +638,65 @@ describe('LEAK — workflow persistence debounced save on unmount', () => {
     await wait(400);
     expect(adapter.save).toHaveBeenCalledTimes(1);
   });
+
+  it('7c: clears the load-settle timer on unmount (no post-teardown setState)', async () => {
+    // loadPersistedData's finally schedules `setTimeout(() => setIsLoadingPersisted
+    // (false), 100)` (usePersistence.ts). Unmounting inside that 100ms window let
+    // the timer fire against the torn-down hook — in CI the whole jsdom env was
+    // already gone and React crashed with "window is not defined". The timer must
+    // be cleared by the unmount cleanup, like the debounce timer it sits beside.
+    const loadDeferred: { resolve: (v: null) => void } = { resolve: () => {} };
+    const adapter: WorkflowPersistenceAdapter = {
+      save: () => Promise.resolve(),
+      load: () =>
+        new Promise((resolve) => {
+          loadDeferred.resolve = resolve as (v: null) => void;
+        }),
+      remove: () => Promise.resolve(),
+      exists: () => Promise.resolve(false),
+    };
+
+    const scheduled: number[] = [];
+    const cleared: number[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    const setSpy = vi
+      .spyOn(globalThis, 'setTimeout')
+      .mockImplementation((fn: never, delay?: number, ...rest: never[]) => {
+        const id = (realSetTimeout as never as typeof setTimeout)(fn, delay, ...rest);
+        if (delay === 100) scheduled.push(id as unknown as number);
+        return id as never;
+      });
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout').mockImplementation((id?: never) => {
+      if (id !== undefined) cleared.push(id as unknown as number);
+      return (realClearTimeout as never as typeof clearTimeout)(id);
+    });
+
+    try {
+      const { unmount } = render(
+        <WorkflowProvider workflowConfig={buildPersistedFlow(adapter, 60)}>
+          <FlowBody />
+        </WorkflowProvider>
+      );
+      await waitFor(() => expect(screen.getByTestId('input-name')).toBeInTheDocument());
+
+      // Resolve the pending load NOW — its finally schedules the 100ms settle
+      // timer; unmount immediately after, deterministically inside the window.
+      const before = scheduled.length;
+      await act(async () => {
+        loadDeferred.resolve(null);
+      });
+      await waitFor(() => expect(scheduled.length).toBeGreaterThan(before));
+      const settleId = scheduled[scheduled.length - 1];
+
+      unmount();
+
+      // The pending settle timer must be cleared by the unmount cleanup.
+      expect(cleared).toContain(settleId);
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+    }
+    expect(reactLifecycleWarnings()).toEqual([]);
+  });
 });
