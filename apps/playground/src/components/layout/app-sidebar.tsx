@@ -8,6 +8,7 @@ import {
   Home,
   Layers,
   List,
+  MessagesSquare,
   Repeat,
   ScrollText,
   Server,
@@ -89,6 +90,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Agent',
     items: [
       { title: 'Agent UI', href: '/agent/assistant', icon: <Bot className="size-4" /> },
+      { title: 'Agentic KYC', href: '/agent/kyc', icon: <ShieldCheck className="size-4" /> },
+      {
+        title: 'Multi-turn',
+        href: '/agent/multi-turn',
+        icon: <MessagesSquare className="size-4" />,
+      },
       { title: 'Manifest', href: '/agent/manifest', icon: <ScrollText className="size-4" /> },
     ],
   },

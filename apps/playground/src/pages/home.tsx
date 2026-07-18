@@ -116,6 +116,22 @@ const DEMOS: DemoCard[] = [
     icon: <ScrollText className="size-5" />,
     category: 'Agent',
   },
+  {
+    title: 'Agentic KYC (show_flow)',
+    description:
+      'The assistant emits one show_flow whose schema is a full KYC flow — conditional steps, conditional fields, a repeatable of beneficial owners with a PEP field, validation — compiled to a live workflow and driven through HITL.',
+    href: '/agent/kyc',
+    icon: <ShieldCheck className="size-5" />,
+    category: 'Agent',
+  },
+  {
+    title: 'Multi-turn conversation',
+    description:
+      'A real agentic loop: show_form → the user submits → the agent appends its next turn (a show_flow) to the same transcript. Resolves stay isolated per toolCallId.',
+    href: '/agent/multi-turn',
+    icon: <Sparkles className="size-5" />,
+    category: 'Agent',
+  },
 ];
 
 export function HomePage() {

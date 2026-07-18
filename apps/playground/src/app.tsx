@@ -1,7 +1,9 @@
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { InspectorPanel } from '@/components/shared/inspector-panel';
+import { AgentKycPage } from '@/pages/agent/agentic-kyc';
 import { AgentAssistantPage } from '@/pages/agent/assistant';
 import { AgentManifestPage } from '@/pages/agent/manifest';
+import { AgentMultiTurnPage } from '@/pages/agent/multi-turn';
 import { ConditionalFieldsPage } from '@/pages/forms/conditional-fields';
 import { CrossFieldValidationPage } from '@/pages/forms/cross-field-validation';
 import { FieldEffectsPage } from '@/pages/forms/field-effects';
@@ -34,6 +36,8 @@ export function App() {
             <Route path="/workflows/conditional" element={<ConditionalStepsPage />} />
             <Route path="/workflows/special-values" element={<SpecialValuesPage />} />
             <Route path="/agent/assistant" element={<AgentAssistantPage />} />
+            <Route path="/agent/kyc" element={<AgentKycPage />} />
+            <Route path="/agent/multi-turn" element={<AgentMultiTurnPage />} />
             <Route path="/agent/manifest" element={<AgentManifestPage />} />
           </Routes>
         </main>
