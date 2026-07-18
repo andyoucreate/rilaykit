@@ -3,96 +3,17 @@ title: TypeScript Support
 description: How RilayKit's type propagation system provides full autocompletion and compile-time safety from component registry to rendered fields.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-Type safety is not an afterthought in RilayKit — it is the core design principle. The entire API is built around **type propagation**: types flow from your component definitions through form configurations to rendered fields, catching errors before your code ever runs.
-
-## Before and After
-
-To understand the difference, compare building a form with manual typing versus RilayKit's type propagation.
-
-<Tabs items={['Traditional Approach', 'RilayKit Approach']}>
-  <Tab value="Traditional Approach">
-    ```tsx
-    // Types are disconnected from usage
-    interface FormData {
-      email: string;
-      password: string;
-    }
-
-    function LoginForm() {
-      const [values, setValues] = useState<FormData>({ email: '', password: '' });
-      const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
-
-      const validate = () => {
-        const newErrors: typeof errors = {};
-        if (!values.email) newErrors.email = 'Required';
-        if (!values.email.includes('@')) newErrors.email = 'Invalid email';
-        if (!values.password) newErrors.password = 'Required';
-        if (values.password.length < 8) newErrors.password = 'Too short';
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-      };
-
-      return (
-        <form onSubmit={() => validate() && handleSubmit(values)}>
-          {/* No connection between field IDs and types */}
-          <input value={values.email} onChange={e => setValues(v => ({ ...v, email: e.target.value }))} />
-          {errors.email && <span>{errors.email}</span>}
-          <input value={values.password} onChange={e => setValues(v => ({ ...v, password: e.target.value }))} />
-          {errors.password && <span>{errors.password}</span>}
-        </form>
-      );
-    }
-    ```
-
-    Issues: types are manually defined and disconnected from validation, no autocompletion for field IDs, component props are unchecked, validation logic is duplicated.
-  </Tab>
-  <Tab value="RilayKit Approach">
-    ```tsx
-    import { ril, required, email, minLength } from '@rilaykit/core';
-    import { Form, FormField } from '@rilaykit/forms';
-
-    // Types flow automatically from component registration
-    const rilay = ril.create()
-      .addComponent('input', { renderer: TextInput });
-
-    const loginForm = form.create(rilay, 'login')
-      .add({
-        id: 'email',
-        type: 'input',         // Autocompleted from registry
-        props: { label: 'Email' },  // Typed as TextInputProps
-        validation: { validate: [required(), email()] },
-      })
-      .add({
-        id: 'password',
-        type: 'input',
-        props: { label: 'Password', type: 'password' },
-        validation: { validate: [required(), minLength(8)] },
-      });
-
-    // Render — fieldId autocompletes to 'email' | 'password'
-    <Form formConfig={loginForm} onSubmit={handleLogin}>
-      <FormField fieldId="email" />
-      <FormField fieldId="password" />
-    </Form>
-    ```
-
-    Every piece is connected: component types, props, field IDs, and validation are all verified at compile time.
-  </Tab>
-</Tabs>
+RilayKit is built around **type propagation**: each registered component extends the catalog's `{ type → props }` map on the `ril` generic, so form definitions are checked against your components at compile time.
 
 ## Type Propagation
 
-Type propagation is the mechanism by which TypeScript tracks your registered components and enforces their types throughout the API. It works through **generic type accumulation** on the `ril` instance.
-
 ### Step 1: Component Registration
 
-Each call to `.addComponent()` extends the generic type parameter of the `ril` instance:
+Each `.component()` call extends the generic. `TProps` is inferred from the renderer's `ComponentRenderContext<TProps>` parameter (or from `propsSchema`):
 
 ```tsx title="lib/rilay.ts"
-import { ril } from '@rilaykit/core';
-import { TextInput, SelectInput } from '@/components';
+import { ril, type ComponentRenderContext } from 'rilaykit';
 
 interface TextInputProps {
   label: string;
@@ -102,188 +23,90 @@ interface TextInputProps {
 interface SelectInputProps {
   label: string;
   options: Array<{ value: string; label: string }>;
-  multiple?: boolean;
 }
 
-// Each .addComponent() call extends the type
+function TextInput(ctx: ComponentRenderContext<TextInputProps>) { /* ... */ }
+function SelectInput(ctx: ComponentRenderContext<SelectInputProps>) { /* ... */ }
+
 export const rilay = ril
   .create()
-  .addComponent('text', {
-    name: 'Text Input',
-    renderer: TextInput,
-  })
-  .addComponent('select', {
-    name: 'Select Input',
-    renderer: SelectInput,
-  });
+  .component('text', { name: 'Text Input', renderer: TextInput })
+  .component('select', { name: 'Select Input', renderer: SelectInput });
 
-// rilay is now typed as ril<{ text: TextInputProps; select: SelectInputProps }>
+// rilay: ril<{ text: TextInputProps; select: SelectInputProps }>
 ```
 
 ### Step 2: Form Building
 
-When building forms, the accumulated types flow into `.add()`:
+In `.add()`, `type` autocompletes from the registered keys and `props` narrows to that component's own props — per argument, so a variadic `.add(a, b)` checks each field against its own `type`:
 
 ```tsx
-const userForm = form.create(rilay, 'user-form')
+import { form, required, email } from 'rilaykit';
+import { rilay } from '@/lib/rilay';
+
+const loginForm = form.create(rilay, 'login')
   .add({
-    id: 'username',
-    type: 'text',  // Autocompletes: 'text' | 'select'
-    props: {
-      label: 'Username',
-      placeholder: 'Enter your username',  // Valid TextInputProps
-    },
+    id: 'email',
+    type: 'text',                 // autocompletes: 'text' | 'select'
+    props: { label: 'Email' },    // checked against Partial<TextInputProps>
+    validation: { validate: [required(), email()] },
   });
 ```
 
-### Step 3: Props Inference
-
-Once you select a component type, the `props` object is automatically typed to match that component's interface:
-
-```tsx
-.add({
-  id: 'country',
-  type: 'select',
-  props: {
-    label: 'Country',
-    options: [{ value: 'us', label: 'United States' }],  // Required for SelectInputProps
-    multiple: true,   // Available on SelectInputProps
-  },
-})
-```
+<Callout type="info">
+`props` is typed `Partial<TProps>`: unknown keys and wrong value types are compile errors, but a *missing* required prop is not. Register a `propsSchema` on the component to catch that at runtime (`rilay.validateProps(type, props)`, or `compileForm(..., { validateProps: true })`).
+</Callout>
 
 ## Error Prevention at Compile Time
-
-RilayKit catches entire categories of bugs before your code runs.
-
-### Invalid Component Type
 
 ```tsx
 form.create(rilay, 'test').add({
   type: 'checkbox',
-  // Error: Type '"checkbox"' is not assignable to type '"text" | "select"'
+  // Error: '"checkbox"' is not assignable to '"text" | "select"'
   props: { label: 'Accept' },
 });
-```
 
-**Fix:** Register the component first with `.addComponent('checkbox', { renderer: ... })`.
-
-### Invalid Props for Component Type
-
-```tsx
 form.create(rilay, 'test').add({
   id: 'email',
   type: 'text',
   props: {
     label: 'Email',
-    options: [],       // Error: 'options' does not exist on TextInputProps
-    multiple: false,   // Error: 'multiple' does not exist on TextInputProps
+    options: [],  // Error: 'options' does not exist on Partial<TextInputProps>
   },
 });
-```
-
-**Fix:** Use props that match the component's interface, or use `type: 'select'` which accepts `options`.
-
-### Missing Required Props
-
-```tsx
-form.create(rilay, 'test').add({
-  id: 'category',
-  type: 'select',
-  props: {
-    label: 'Category',
-    // Error: Property 'options' is missing in type
-  },
-});
-```
-
-**Fix:** Provide all required props defined in the component's interface.
-
-### Unused Return Value
-
-```tsx
-const base = ril.create();
-base.addComponent('text', { renderer: TextInput });
-// 'base' still has no components — addComponent returns a NEW instance
-
-form.create(base, 'test').add({
-  type: 'text',  // Error: no component 'text' registered
-});
-```
-
-**Fix:** Always chain calls or assign the return value:
-```tsx
-const rilay = ril.create().addComponent('text', { renderer: TextInput });
 ```
 
 ## Immutable API
 
-The `ril` instance is immutable — each `.addComponent()` returns a **new** instance with an extended type. This ensures type safety across your application:
+`ril` is immutable — `.component()` returns a **new** instance with an extended type. Chain calls or assign the result; a discarded return value registers nothing:
 
 ```tsx
 const base = ril.create();
-// base is ril<Record<string, never>> — no components
+base.component('text', { renderer: TextInput });
+// base is unchanged — 'text' was registered on a discarded instance
 
-const withText = base.addComponent('text', { renderer: TextInput });
-// withText is ril<{ text: TextInputProps }>
-
-const withBoth = withText.addComponent('select', { renderer: SelectInput });
-// withBoth is ril<{ text: TextInputProps; select: SelectInputProps }>
-```
-
-<Callout type="info">
-Because the API is immutable, always chain your `.addComponent()` calls or assign the final result. Calling `.addComponent()` without using the return value has no effect.
-</Callout>
-
-## Multi-Field Rows
-
-Type safety is maintained when adding multiple fields to the same row:
-
-```tsx
-const registrationForm = form.create(rilay, 'registration')
-  .add(
-    {
-      id: 'firstName',
-      type: 'text',       // Typed as TextInputProps
-      props: { label: 'First Name' },
-    },
-    {
-      id: 'lastName',
-      type: 'text',       // Typed as TextInputProps
-      props: { label: 'Last Name' },
-    }
-  );
+const rilay = ril.create().component('text', { renderer: TextInput });
+// rilay: ril<{ text: TextInputProps }>
 ```
 
 ## Workflows
 
-Type safety extends to workflows. When building steps, the `formConfig` accepts both a `FormConfiguration` and a `form` builder instance:
+Step definitions are type-checked too — `formConfig` accepts a built `FormConfiguration` or a `form` builder:
 
 ```tsx
-const step1Form = form.create(rilay, 'personal-info')
-  .add({ id: 'name', type: 'text', props: { label: 'Name' } });
+import { flow } from 'rilaykit';
 
 const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
   .step({
     id: 'personal',
     title: 'Personal Information',
-    formConfig: step1Form,  // Type-checked
+    formConfig: loginForm,  // type-checked
   });
 ```
 
-## IDE Experience
-
-With RilayKit's type propagation system, your IDE provides:
-
-- **Autocompletion** for component types, props, and field IDs
-- **Inline error highlighting** for invalid types or props before running code
-- **Go to definition** navigation from `type: 'text'` to the `TextInputProps` interface
-- **Rename refactoring** — rename component types safely across the entire codebase
-
 ## Best Practices
 
-- Define explicit prop interfaces for each component — this gives the best autocompletion and documentation
-- Use a single shared `rilay` instance exported from a central file (e.g., `lib/rilay.ts`)
-- Let TypeScript infer the generic types — avoid manually specifying them
-- Use TypeScript 5.0+ for the best type inference performance
-- Enable `strict` mode in your `tsconfig.json` for complete type safety
+- Define an explicit props interface per component and annotate the renderer's `ComponentRenderContext<TProps>` — inference flows from there
+- Export a single shared `rilay` instance from a central file (e.g. `lib/rilay.ts`)
+- Let TypeScript infer the generics — don't specify them manually
+- Enable `strict` mode in `tsconfig.json`

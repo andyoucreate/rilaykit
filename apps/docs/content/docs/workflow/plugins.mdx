@@ -3,27 +3,20 @@ title: Plugins
 description: Extend workflow behavior with the plugin system.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
-The Rilaykit workflow plugin system lets you encapsulate reusable behavior and inject it into any workflow. Plugins receive the `flow` builder instance during installation, giving them full access to add steps, configure analytics, modify existing steps, and more.
+A plugin encapsulates reusable workflow behavior. It receives the `flow` builder during installation and can call any builder method: `addStep`, `configure`, `updateStep`, `addStepConditions`, etc.
 
 ## WorkflowPlugin Interface
-
-A plugin is a plain object that implements the `WorkflowPlugin` interface:
 
 ```ts
 interface WorkflowPlugin {
   /** Unique name identifying the plugin */
   name: string;
-
-  /** Semantic version (for dependency resolution and debugging) */
+  /** Semantic version (for debugging) */
   version?: string;
-
   /** Names of plugins that must be installed before this one */
   dependencies?: string[];
-
-  /** Called with the flow builder instance when the plugin is installed */
+  /** Called with the flow builder instance on installation */
   install(builder: flow): void;
 }
 ```
@@ -32,50 +25,25 @@ interface WorkflowPlugin {
 
 ## Using Plugins
 
-Install a plugin by calling `.use()` on the `flow` builder. Plugins are installed immediately and have access to the builder at the point of installation.
-
-```tsx
-import { rilay } from '@/lib/rilay';
-
-const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
-  .use(myPlugin)
-  .step({
-    id: 'personal-info',
-    title: 'Personal Info',
-    formConfig: personalInfoForm,
-  })
-  .step({
-    id: 'preferences',
-    title: 'Preferences',
-    formConfig: preferencesForm,
-  })
-  .build();
-```
-
-You can chain multiple `.use()` calls:
+Install with `.use()`. Chain multiple calls; they run in order.
 
 ```tsx
 const workflow = flow.create(rilay, 'checkout', 'Checkout')
+  .step({ id: 'personal-info', title: 'Personal Info', formConfig: personalInfoForm })
   .use(loggingPlugin)
-  .use(validationPlugin)
   .use(analyticsPlugin)
-  .step(...)
   .build();
 ```
 
-<Callout>
-Plugins are called in the order they are installed. If plugin B depends on modifications made by plugin A, install A first.
+<Callout type="warn">
+`install` runs immediately at the `.use()` call, so the plugin only sees steps added **before** it. To affect all steps, install after the last `.step()`.
 </Callout>
 
 ---
 
 ## Creating a Plugin
 
-A plugin's `install` method receives the `flow` builder instance. You can call any builder method inside it: `addStep`, `configure`, `updateStep`, `addStepConditions`, etc.
-
-### Example: Logging Plugin
-
-This plugin adds an `onAfterValidation` callback to every existing step that logs the step data:
+This plugin wraps every step's `onAfterValidation` to log validated data:
 
 ```tsx
 import type { WorkflowPlugin } from '@rilaykit/core';
@@ -85,20 +53,14 @@ const loggingPlugin: WorkflowPlugin = {
   version: '1.0.0',
 
   install(builder) {
-    // Get all steps that have been added so far
-    const steps = builder.getSteps();
-
-    for (const step of steps) {
+    for (const step of builder.getSteps()) {
       const existingCallback = step.onAfterValidation;
 
       builder.updateStep(step.id, {
         onAfterValidation: async (stepData, helper, context) => {
           console.log(`[step-logger] Step "${step.id}" validated:`, stepData);
-
-          // Call the original callback if it existed
-          if (existingCallback) {
-            await existingCallback(stepData, helper, context);
-          }
+          // Preserve the original callback
+          await existingCallback?.(stepData, helper, context);
         },
       });
     }
@@ -106,187 +68,65 @@ const loggingPlugin: WorkflowPlugin = {
 };
 ```
 
-Usage:
+For configurable plugins, use a factory function:
 
 ```tsx
-const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
-  .step({
-    id: 'personal-info',
-    title: 'Personal Info',
-    formConfig: personalInfoForm,
-  })
-  .step({
-    id: 'preferences',
-    title: 'Preferences',
-    formConfig: preferencesForm,
-  })
-  .use(loggingPlugin) // Install AFTER adding steps so getSteps() returns them
-  .build();
-```
-
-<Callout type="warn">
-Since `install` is called immediately, the plugin only sees steps that have been added **before** `.use()` is called. If you need the plugin to affect all steps, install it after all `.step()` calls.
-</Callout>
-
-### Example: Analytics Integration Plugin
-
-A plugin that adds analytics tracking to the workflow:
-
-```tsx
-import type { WorkflowPlugin } from '@rilaykit/core';
-
 function createAnalyticsPlugin(trackFn: (event: string, data: any) => void): WorkflowPlugin {
   return {
     name: 'analytics-tracker',
-    version: '1.0.0',
-
     install(builder) {
       builder.configure({
         analytics: {
-          onWorkflowStart: (id) => {
-            trackFn('workflow_started', { workflowId: id });
-          },
-          onStepComplete: (stepId, duration, stepData) => {
-            trackFn('step_completed', { stepId, duration });
-          },
-          onWorkflowComplete: (id, totalTime) => {
-            trackFn('workflow_completed', {
-              workflowId: id,
-              totalTimeSeconds: Math.round(totalTime / 1000),
-            });
-          },
-          onError: (error) => {
-            trackFn('workflow_error', { message: error.message });
-          },
+          onWorkflowStart: (id) => trackFn('workflow_started', { workflowId: id }),
+          onStepComplete: (stepId, duration) => trackFn('step_completed', { stepId, duration }),
+          onWorkflowComplete: (id, duration, data) => trackFn('workflow_completed', { workflowId: id, duration }),
+          onError: (error) => trackFn('workflow_error', { message: error.message }),
         },
       });
     },
   };
 }
 
-// Usage
 const workflow = flow.create(rilay, 'checkout', 'Checkout')
   .step(...)
   .use(createAnalyticsPlugin(posthog.capture))
   .build();
 ```
 
-### Example: Conditional Step Plugin
-
-A plugin that adds visibility conditions to specific steps:
-
-```tsx
-import type { WorkflowPlugin } from '@rilaykit/core';
-import { when } from '@rilaykit/core';
-
-const premiumStepsPlugin: WorkflowPlugin = {
-  name: 'premium-steps',
-  version: '1.0.0',
-
-  install(builder) {
-    // Make the "advanced-settings" step visible only for premium users
-    try {
-      builder.stepConditions('advanced-settings', {
-        visible: when('userPlan').equals('premium').build(),
-      });
-    } catch {
-      // Step may not exist in all workflows using this plugin
-      console.warn('[premium-steps] Step "advanced-settings" not found, skipping.');
-    }
-  },
-};
-```
+Plugins targeting specific step IDs (`updateStep`, `addStepConditions`) throw if the step is missing — wrap in `try/catch` when the plugin must work across workflows with different steps.
 
 ---
 
 ## Plugin Dependencies
 
-The `dependencies` array declares which plugins must be installed before the current one. The builder validates this at installation time and throws if any dependency is missing.
+`dependencies` lists plugin names that must already be installed. `.use()` validates this and throws with the missing names:
 
 ```tsx
 const enhancedLoggingPlugin: WorkflowPlugin = {
   name: 'enhanced-logger',
-  version: '1.0.0',
-  dependencies: ['step-logger'], // Requires the base logging plugin
-
-  install(builder) {
-    // This plugin extends the base logger with more detail
-    const steps = builder.getSteps();
-
-    for (const step of steps) {
-      const existingCallback = step.onAfterValidation;
-
-      builder.updateStep(step.id, {
-        onAfterValidation: async (stepData, helper, context) => {
-          console.log(`[enhanced-logger] Step "${step.id}" context:`, {
-            currentIndex: context.currentStepIndex,
-            totalSteps: context.totalSteps,
-            visitedSteps: Array.from(context.visitedSteps),
-          });
-
-          if (existingCallback) {
-            await existingCallback(stepData, helper, context);
-          }
-        },
-      });
-    }
-  },
+  dependencies: ['step-logger'],
+  install(builder) { /* extends the base logger */ },
 };
-```
 
-### Dependency Resolution
-
-<Steps>
-<Step>
-### Install dependencies first
-
-Plugins are checked against the list of already-installed plugins. If a dependency is missing, an error is thrown immediately.
-</Step>
-<Step>
-### Install the dependent plugin
-
-Once all dependencies are satisfied, the plugin's `install` method is called.
-</Step>
-</Steps>
-
-```tsx
-// This works -- step-logger is installed before enhanced-logger
+// Works -- step-logger is installed first
 flow.create(rilay, 'test', 'Test')
   .use(loggingPlugin)          // name: 'step-logger'
-  .use(enhancedLoggingPlugin)  // depends on 'step-logger'
+  .use(enhancedLoggingPlugin)
   .build();
 
-// This throws -- enhanced-logger's dependency is not satisfied
+// Throws: Plugin "enhanced-logger" requires missing dependencies: step-logger
 flow.create(rilay, 'test', 'Test')
-  .use(enhancedLoggingPlugin)  // Error: Plugin "enhanced-logger" requires missing dependencies: step-logger
+  .use(enhancedLoggingPlugin)
   .build();
 ```
-
-<Callout type="warn">
-The error message includes the names of all missing dependencies so you know exactly what to install first.
-</Callout>
 
 ---
 
 ## Removing Plugins
 
-Use `.removePlugin(pluginName)` to remove a plugin from the builder. Note that this only removes the plugin from the internal registry -- any modifications the plugin made during `install` (added steps, configured analytics, etc.) are **not** rolled back.
+`.removePlugin(name)` removes a plugin from the registry — it does **not** roll back changes the plugin made during `install`. Mainly useful when cloning:
 
 ```tsx
-const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
-  .use(loggingPlugin)
-  .step(...)
-  .removePlugin('step-logger')
-  .build();
-```
-
-This is primarily useful when cloning a workflow and wanting to swap plugins:
-
-```tsx
-const baseWorkflow = flow.create(rilay, 'base', 'Base Workflow')
-  .use(productionAnalytics)
-  .step(...);
-
 const testWorkflow = baseWorkflow
   .clone('test', 'Test Workflow')
   .removePlugin('production-analytics')
@@ -297,25 +137,18 @@ const testWorkflow = baseWorkflow
 
 ## Validation
 
-The `.validate()` method on the builder checks plugin dependencies as part of its validation pass. If a plugin lists a dependency that is no longer installed (e.g., after `removePlugin`), validation reports it.
+`.validate()` returns dependency errors (e.g. after `removePlugin`); `.build()` runs it automatically and throws on failure.
 
 ```tsx
 const errors = workflow.validate();
-// ["Plugin "enhanced-logger" requires missing dependencies: step-logger"]
+// ['Plugin "enhanced-logger" requires missing dependencies: step-logger']
 ```
-
-This is also checked automatically when calling `.build()`, which throws if validation fails.
 
 ---
 
 ## Best Practices
 
-1. **Name plugins clearly** -- Use descriptive names like `analytics-posthog` or `conditional-premium-steps` so dependency errors are easy to understand.
-
-2. **Install after addStep when accessing steps** -- If your plugin calls `getSteps()` or `updateStep()`, install it after all steps have been added.
-
-3. **Preserve existing callbacks** -- When wrapping `onAfterValidation`, always call the original callback to avoid breaking other plugins or user-defined logic.
-
-4. **Handle missing steps gracefully** -- Not every workflow will have the same steps. Use `try/catch` around `updateStep` and `addStepConditions` calls that target specific step IDs.
-
-5. **Use factory functions** -- When plugins need configuration, wrap them in a factory function that returns a `WorkflowPlugin` object. This makes them reusable across workflows with different settings.
+- **Name plugins clearly** (`analytics-posthog`) so dependency errors are readable.
+- **Install after `.step()` calls** when the plugin reads or updates steps.
+- **Preserve existing callbacks** when wrapping step hooks like `onAfterValidation`.
+- **Use factory functions** for plugins that need configuration.

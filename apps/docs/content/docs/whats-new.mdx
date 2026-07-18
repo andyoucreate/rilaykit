@@ -1,0 +1,85 @@
+---
+title: What's New
+description: RilayKit P3 — the agent package, two-phase validation timing, path-keyed errors, projected completion payloads, and hardening across persistence, observability, and rendering.
+---
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# What's New
+
+P3 ships the agent package, an honest forms API, and reliability work across the stack.
+
+## Agent package
+
+`@rilaykit/agent` (re-exported by `rilaykit`) lets a model emit real RilayKit forms and flows as tool calls, and lets your users answer them — human-in-the-loop, typed end to end.
+
+- `manifest(catalog)` renders your catalog as Markdown for the system prompt.
+- `uiTools()` registers `show_form` / `show_flow` / `show_component` — schema-only tools, no `execute`.
+- Adapters: `rilaykit/ai-sdk` and `rilaykit/anthropic`. `tools(catalog)` is assignable to the SDK's tool type with no cast; `toParts(message)` maps real message parts, all tool states covered. Verified against `ai@5.0.215` and `@anthropic-ai/sdk@0.112.1`.
+- Standard Schema is vendor-neutral: zod, valibot, arktype. Tool JSON schema comes from `~standard.jsonSchema.output` or a manual `inputJsonSchema`; a tool with neither is dropped and logged.
+- Mains are React-free (RSC/server-safe). Components and hooks come from `/react`.
+
+```tsx
+// server
+import { manifest } from 'rilaykit';
+import { tools } from 'rilaykit/ai-sdk';
+
+streamText({ model, system: manifest(catalog), tools: tools(catalog) });
+
+// client — show_form resolves { status: 'submitted', values } exactly once
+<Catalog value={catalog}>
+  <Parts parts={toParts(message)} onResolve={(toolCallId, output) => addToolResult(output)} />
+</Catalog>
+```
+
+<Callout type="info">
+Built-in `ShowFlow` renders binding-free schemas (built-in validators, conditions, repeatables). For custom logic or persistence, plug a host renderer via `.renderers({ tools: {…} })`. Hosts must register `.part('text', …)` — there is no default text renderer.
+</Callout>
+
+## Honest API refactor
+
+### Two-phase validation timing
+
+Per-field timing flags are gone. One form-level call controls when a field first validates and how it re-validates after an error:
+
+```ts
+form.setValidation({ mode: 'onTouched', reValidateMode: 'onChange' });
+```
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `mode` | `'onSubmit' \| 'onBlur' \| 'onChange' \| 'onTouched' \| 'all'` | `'onTouched'` |
+| `reValidateMode` | `'onChange' \| 'onBlur' \| 'onSubmit'` | `'onChange'` |
+
+Default behavior: validate on first blur, then live. Submit always validates and marks errored fields `touched`. Per-field `debounceMs` stays for async cost control; blur and submit always validate immediately.
+
+### Path-keyed error map
+
+Cross-field issues now route by `issue.path`: a path naming a known field attaches to that field; empty or unmatched paths land in the reserved `__form__` bucket. The new `useFormErrors()` hook (from `rilaykit/react`) returns that bucket — use it for a form-level error banner. `isValid` counts the whole map. Form-level rules re-run on the same `mode`/`reValidateMode` cadence as fields, and on repeatable row add/remove/move — cross-field errors appear and clear live, no resubmit.
+
+### Completion payload projection
+
+`onComplete(data, meta)` — `data` contains only answered visible steps. A skipped or never-visible step is absent, not an `{}` placeholder. The new `meta` argument carries `{ visitedSteps, skippedSteps, passedSteps }`. Additive: existing `onComplete(data)` callers keep working.
+
+## Reliability & performance
+
+| Area | Change |
+| --- | --- |
+| Persistence | `Date`, `NaN`, `±Infinity`, `-0`, `BigInt` survive save→load byte-faithfully; a pending debounced autosave is flushed on unmount; completion clears persisted data; corrupted blobs degrade to a fresh start (`LOAD_FAILED` on `persistenceError`). |
+| Observability | Every workflow error path routes through `trackError` → both `analytics.onError(error, workflowContext)` and the monitoring adapter: step transitions, `onAfterValidation` throws, submission throws, persistence failures. |
+| Render isolation | A keystroke re-renders only the typed field — O(1) even at 200 fields with conditionals. Appending a repeatable row does not re-render surviving rows. |
+
+## Breaking changes
+
+| Removed | Replacement |
+| --- | --- |
+| Per-field `validateOnChange` / `validateOnBlur` | Form-level `mode` |
+| Form-level `validateOnSubmit` | `mode` + `reValidateMode` |
+| `next.skip()` / `workflow.goto()` (never-implemented stubs) | — |
+
+Migration — per-field `validate` is unchanged; only the timing flags move:
+
+```diff
+- .validation({ validateOnChange: true, validateOnBlur: true, validate: schema })
++ .validation({ validate: schema })
++ form.setValidation({ mode: 'onChange', reValidateMode: 'onChange' });
+```

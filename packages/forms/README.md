@@ -1,49 +1,26 @@
 # @rilaykit/forms
 
-The form builder and React rendering layer for [RilayKit](https://rilay.dev) — build type-safe, headless forms from declarative schemas.
-
-`@rilaykit/forms` provides a fluent builder API to define form configurations and headless React components to render them. State management is powered by Zustand with granular selectors for optimal re-render performance.
+Form builder and React rendering layer for [RilayKit](https://rilay.dev) — type-safe, headless forms from declarative schemas, powered by a per-form Zustand store with granular selectors.
 
 ## Installation
 
 ```bash
-# pnpm (recommended)
 pnpm add @rilaykit/core @rilaykit/forms
-
-# npm
-npm install @rilaykit/core @rilaykit/forms
-
-# yarn
-yarn add @rilaykit/core @rilaykit/forms
-
-# bun
-bun add @rilaykit/core @rilaykit/forms
 ```
 
-> `@rilaykit/core` is a required peer dependency.
+`@rilaykit/core` is a required peer dependency. Requires React >= 18.
 
-### Requirements
-
-- React >= 18
-- React DOM >= 18
+The main entry is React-free (safe in React Server Components). Import components and hooks from `@rilaykit/forms/react`.
 
 ## Quick Start
 
-### 1. Create Your Catalog
-
 ```tsx
-import { ril } from '@rilaykit/core';
+// Catalog + form definition (isomorphic — no React)
+import { ril, required, email } from '@rilaykit/core';
+import { form } from '@rilaykit/forms';
 import { Input } from './components/Input';
 
-const rilay = ril.create()
-  .component('input', { renderer: Input });
-```
-
-### 2. Build a Form
-
-```tsx
-import { form } from '@rilaykit/forms';
-import { required, email } from '@rilaykit/core';
+const rilay = ril.create().component('input', { renderer: Input });
 
 const loginForm = form
   .create(rilay, 'login')
@@ -61,18 +38,13 @@ const loginForm = form
   });
 ```
 
-### 3. Render It
-
 ```tsx
-import { Form } from '@rilaykit/forms';
+'use client';
+import { Form } from '@rilaykit/forms/react';
 
 function LoginForm() {
-  const handleSubmit = (data: Record<string, unknown>) => {
-    login(data);
-  };
-
   return (
-    <Form of={loginForm} onSubmit={handleSubmit}>
+    <Form of={loginForm} onSubmit={(data) => login(data)}>
       <Form.Field id="email" />
       <Form.Field id="password" />
       <Form.Submit>Sign In</Form.Submit>
@@ -81,62 +53,13 @@ function LoginForm() {
 }
 ```
 
-Prefer full control over the markup? Use the `Form.Body` render prop:
-
-```tsx
-<Form of={loginForm} defaults={{ email: 'neo@matrix.io' }} onSubmit={handleSubmit}>
-  <Form.Body>
-    {({ rows }) =>
-      rows.map((row) =>
-        row.kind === 'fields' ? (
-          <section key={row.id} className="row">
-            {row.fields.map((field) => (
-              <Form.Field key={field.id} id={field.id} />
-            ))}
-          </section>
-        ) : (
-          <Form.List key={row.id} id={row.repeatable.id} />
-        )
-      )
-    }
-  </Form.Body>
-  <Form.Submit>{({ submitting, submit }) => (
-    <button type="button" disabled={submitting} onClick={submit}>Sign In</button>
-  )}</Form.Submit>
-</Form>
-```
+`Form.Body`, `Form.Submit`, and `Form.List` also accept render props for full markup control.
 
 ## Features
 
-### Fluent Form Builder
-
-Construct forms with a chainable, type-safe API. Each field type and its props are validated at compile time.
-
-```tsx
-import { form } from '@rilaykit/forms';
-
-const contactForm = form
-  .create(rilay, 'contact')
-  .add(
-    { id: 'firstName', type: 'input', props: { label: 'First Name' } },
-    { id: 'lastName', type: 'input', props: { label: 'Last Name' } },
-  )
-  .add({
-    id: 'message',
-    type: 'textarea',
-    props: { label: 'Message', rows: 5 },
-    validation: { validate: [required()] },
-  });
-
-// Serialize, clone, inspect
-const json = contactForm.toJSON();
-const variant = contactForm.clone('contact-v2');
-const stats = contactForm.getStats();
-```
-
 ### Headless React Components
 
-Zero HTML, zero CSS. You provide the renderers, RilayKit handles state, validation, and orchestration.
+Zero HTML, zero CSS — you provide the renderers, RilayKit handles state, validation, and orchestration.
 
 | Component | Description |
 |-----------|-------------|
@@ -151,21 +74,10 @@ Bare defaults ship styleable data attributes: `[data-form-body]`, `[data-form-ro
 
 ### Zustand-Powered Store
 
-Each form instance gets its own Zustand store with granular selectors — only the fields that change trigger re-renders.
+Each form instance gets its own store with granular selectors — only the fields that change re-render. A keystroke re-renders one field, even at 200 fields.
 
 ```tsx
-import {
-  useFieldValue,
-  useFieldErrors,
-  useFieldTouched,
-  useFieldState,
-  useFormValues,
-  useFormValid,
-  useFormDirty,
-  useFormSubmitting,
-  useFieldActions,
-  useFormActions,
-} from '@rilaykit/forms';
+import { useFieldValue, useFieldErrors, useFieldActions } from '@rilaykit/forms/react';
 
 function CustomField({ fieldId }: { fieldId: string }) {
   const value = useFieldValue(fieldId);
@@ -177,7 +89,7 @@ function CustomField({ fieldId }: { fieldId: string }) {
 
 ### Conditional Fields
 
-Combined with `@rilaykit/core`'s condition system, fields show/hide reactively based on other field values.
+Fields show/hide reactively based on other field values via `@rilaykit/core`'s condition system.
 
 ```tsx
 import { when } from '@rilaykit/core';
@@ -198,17 +110,26 @@ form.create(rilay, 'account')
 
 ### Validation
 
-Supports built-in validators, Standard Schema libraries (Zod, Valibot, Yup...), and custom validators — all in the same field.
+Mix built-in validators, Standard Schema libraries (Zod, Valibot, ArkType…), and custom validators in the same field. Timing is form-level, mirroring React Hook Form:
 
 ```tsx
 import { z } from 'zod';
 import { required } from '@rilaykit/core';
 
-validation: {
-  validate: [required(), z.string().email()],
-  validateOnBlur: true,
-}
+form.create(rilay, 'checkout')
+  .add({
+    id: 'email',
+    type: 'input',
+    props: { label: 'Email' },
+    validation: { validate: [required(), z.string().email()], debounceMs: 300 },
+  })
+  .setValidation({
+    mode: 'onTouched', // when a field FIRST validates (default: 'onTouched')
+    reValidateMode: 'onChange', // re-validation after an error (default: 'onChange')
+  });
 ```
+
+Per-field `debounceMs` throttles async validators (blur and submit always validate immediately). Cross-field issues route by `issue.path` to the matching field, or to the `__form__` bucket read by `useFormErrors()` — ideal for a form-level error banner.
 
 ## API Overview
 
@@ -221,7 +142,7 @@ validation: {
 | `.addSeparateRows(fields)` | Each field on its own row |
 | `.updateField(id, updates)` | Update a field definition |
 | `.removeField(id)` | Remove a field |
-| `.setValidation(config)` | Set form-level validation |
+| `.setValidation(config)` | Form-level validation: `mode`, `reValidateMode`, cross-field `validate` |
 | `.addFieldConditions(id, conditions)` | Add conditional logic |
 | `.build()` | Produce the final `FormConfiguration` |
 | `.toJSON()` / `.fromJSON(json)` | Serialize / deserialize |
@@ -229,19 +150,22 @@ validation: {
 
 ### Hooks
 
+From `@rilaykit/forms/react`:
+
 | Hook | Description |
 |------|-------------|
 | `useFieldValue(id)` | Current field value |
-| `useFieldErrors(id)` | Field validation errors |
+| `useFieldErrors(id)` | Field validation errors (including routed cross-field issues) |
 | `useFieldTouched(id)` | Whether field has been touched |
 | `useFieldState(id)` | Combined field state |
 | `useFieldActions(id)` | `setValue`, `setTouched`, etc. |
 | `useFieldConditions(id)` | Evaluated condition results |
 | `useFormValues()` | All form values |
+| `useFormErrors()` | Form-level (`__form__`) errors |
 | `useFormValid()` | Whether form is valid |
 | `useFormDirty()` | Whether form has unsaved changes |
 | `useFormSubmitting()` | Whether form is submitting |
-| `useFormActions()` | `submit`, `reset`, `validate`, etc. |
+| `useFormActions()` | `submit`, `reset(values?, repeatableOrder?)`, `validate`, etc. |
 
 ## Architecture
 
@@ -258,7 +182,8 @@ validation: {
 Generate forms from JSON schemas sent by the backend — no frontend redeployment needed.
 
 ```tsx
-import { Form, compileForm } from '@rilaykit/forms';
+import { compileForm } from '@rilaykit/forms';
+import { Form } from '@rilaykit/forms/react';
 import type { Bindings, FormSchema } from '@rilaykit/forms';
 
 const schema: FormSchema = await fetch('/api/forms/onboarding').then(r => r.json());
@@ -277,20 +202,14 @@ const { formConfig, defaultValues } = compileForm(schema, rilConfig, { bindings 
 </Form>
 ```
 
-The payload is data only. A field names its component `type`, its `props`, an
-optional inline `default`, `validation.rules` (built-in names like `"required"`
-/ `"email"`, or a key from `bindings.validators`), `conditions`, and `effects`
-(a key from `bindings.effects`). Use `rows` instead of `fields` for multi-field
-rows and repeatable groups.
+The payload is data only. A field names its component `type`, its `props`, an optional inline `default`, `validation.rules` (built-in names like `"required"` / `"email"`, or a key from `bindings.validators`), `conditions`, and `effects` (a key from `bindings.effects`). Form-level timing lives in `validation: { mode, reValidateMode, rules }`. Use `rows` instead of `fields` for multi-field rows and repeatable groups.
 
 | Option | Effect |
 | --- | --- |
 | `bindings` | Resolves the schema's validator / effect string references |
 | `validateProps` | Also checks each field's `props` against its component's `propsSchema`. Checks only — props are never rewritten |
 
-A structural defect throws `SchemaValidationError`, whose `issues[]` carry a
-JSON `path`, a `message`, and (for prop issues) the component's `expectedKeys`
-— enough for a producer to correct its own emission.
+A structural defect throws `SchemaValidationError`, whose `issues[]` carry a JSON `path`, a `message`, and (for prop issues) the component's `expectedKeys`.
 
 > `fromSchema` remains as a deprecated alias for `compileForm`, and `SchemaRegistry` for `Bindings`.
 

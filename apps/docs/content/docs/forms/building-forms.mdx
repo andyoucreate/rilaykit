@@ -2,190 +2,81 @@
 title: Building Forms
 description: How to use the fluent API to build form configurations.
 ---
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-Building a form configuration starts from your central `rilay` instance. By calling `rilay.form()` (or `form.create(rilay)` with modular packages), you get a form builder that has access to all your pre-configured components and renderers.
+`rilay.form(id)` (or `form.create(rilay, id)` with modular packages) returns a form builder wired to your component registry. This page covers adding fields, submit options, and field effects — it assumes a configured `rilay` instance ([Your First Form](/docs/getting-started/your-first-form)).
 
-<Callout>
-Before proceeding, make sure you have created and configured a shared `rilay` instance as shown in the [Your First Form](/docs/getting-started/your-first-form) guide.
-</Callout>
+## Adding Fields
 
-## The Form Building Process
+`.add()` is polymorphic:
 
-<Steps>
-<Step>
-### 1. Start with `.form()`
-
-Call `.form()` on your `rilay` instance to begin a new form definition. You should provide a unique ID for your form.
-
-```tsx
-import { rilay } from '@/lib/rilay';
-
-const loginForm = rilay.form('login');
-```
-</Step>
-<Step>
-### 2. Add Fields and Rows
-
-The builder provides a powerful polymorphic `.add()` method that handles multiple use cases:
-
-- **Single field**: `.add(fieldConfig)` - Adds a field on its own row
-- **Multiple fields**: `.add(field1, field2, field3)` - Adds multiple fields on the same row (max 3)
-- **Array syntax**: `.add([field1, field2], options)` - Explicit row control with options
+- `.add(field)` — one field on its own row
+- `.add(field1, field2)` — multiple fields on the same row
+- `.add([field1, field2])` — equivalent array syntax
 
 ```tsx
 import { rilay } from '@/lib/rilay';
 
 const registrationForm = rilay
   .form('registration')
-  // Add multiple fields on the same row
+  // Two fields on the same row
   .add(
-    {
-      id: 'firstName',
-      type: 'text', // This type must exist in your component registry
-      props: { label: 'First Name' },
-    },
-    {
-      id: 'lastName',
-      type: 'text',
-      props: { label: 'Last Name' },
-    }
+    { id: 'firstName', type: 'text', props: { label: 'First Name' } },
+    { id: 'lastName', type: 'text', props: { label: 'Last Name' } }
   )
-  // Add a single field on its own row
-  .add({
-    id: 'email',
-    type: 'email', // Assumes an 'email' type is registered
-    props: { label: 'Email Address' },
-  });
+  // One field on its own row
+  .add({ id: 'email', type: 'email', props: { label: 'Email Address' } });
 ```
 
-You can also use the array syntax for explicit control over row options:
+`type` must exist in your component registry. `addSeparateRows([...])` places each field of an array on its own row.
 
-```tsx
-import { rilay } from '@/lib/rilay';
+## Field Configuration
 
-const formWithOptions = rilay
-  .form('styled-form')
-  .add([
-    { id: 'field1', type: 'text', props: { label: 'Field 1' } },
-    { id: 'field2', type: 'text', props: { label: 'Field 2' } },
-  ], {
-    spacing: 'loose',
-    alignment: 'center'
-  });
-```
-</Step>
-
-</Steps>
-
-## Auto-Generated IDs
-
-One of the key improvements in the new API is automatic ID generation. If you don't provide an `id` field, one will be generated for you:
-
-```tsx
-import { rilay } from '@/lib/rilay';
-
-const quickForm = rilay
-  .form('quick-form')
-  .add(
-    { type: 'text', props: { label: 'Name' } }, // Will get id: 'field-1'
-    { type: 'email', props: { label: 'Email' } }, // Will get id: 'field-2'
-    { type: 'text', props: { label: 'Phone' } } // Will get id: 'field-3'
-  );
+```ts
+interface FieldConfig {
+  id?: string; // Auto-generated ('field-1', 'field-2', …) if omitted
+  type: string; // Component type from your registry
+  props?: Record<string, any>; // Passed to your component renderer
+  validation?: FieldValidationConfig; // { validate?, debounceMs? } — see Validation
+  conditions?: ConditionalBehavior; // visible/required/disabled/readonly — see Conditions
+  effects?: FieldEffect[]; // Reactive side effects (below)
+}
 ```
 
 ## When to use `.build()`
 
-You may have noticed we don't always call `.build()` in our examples. This is because components like `<Form>` and workflow steps are smart enough to build the configuration for you.
-
-However, you should call `.build()` manually when you need the final, serializable `FormConfiguration` object. For instance:
-
-- To serialize the form and save it as JSON.
-- To pass the configuration to a custom function or a third-party tool.
-- For debugging purposes, to inspect the generated configuration.
+`<Form>` and workflow steps build the configuration for you. Call `.build()` only when you need the final serializable `FormConfiguration` — to save it as JSON, pass it to a third-party tool, or inspect it while debugging.
 
 ```tsx
-import { rilay } from '@/lib/rilay';
-
-const formConfig = rilay
-  .form('my-form')
-  .add({ id: 'field1', type: 'text' })
-  .build(); // Manually build the config
-
+const formConfig = rilay.form('my-form').add({ id: 'field1', type: 'text' }).build();
 console.log(formConfig.allFields);
-```
-
-## Field Configuration
-
-The `fieldConfig` object you pass to `.add()` has the following shape:
-
-```ts
-interface FieldConfig {
-  id?: string; // Optional - auto-generated if not provided
-  type: string; // The component type to render from your registry
-  props?: Record<string, any>; // Props passed to your component renderer
-  effects?: FieldEffect[]; // Reactive side effects (see below)
-}
 ```
 
 ## Submit Options
 
-You can configure default submission behavior at the builder level using `.setSubmitOptions()`. These options control how validation interacts with form submission.
-
-```tsx
-import { required } from 'rilaykit';
-import { rilay } from '@/lib/rilay';
-
-const draftForm = rilay
-  .form('draft-form')
-  .add({ id: 'title', type: 'text', props: { label: 'Title' } })
-  .add({
-    id: 'content',
-    type: 'textarea',
-    props: { label: 'Content' },
-    validation: { validate: required() },
-  })
-  .setSubmitOptions({ skipInvalid: true });
-```
-
-Two options are available:
+`.setSubmitOptions()` sets default submission behavior:
 
 | Option | Behavior |
 |--------|----------|
-| `force` | Bypass validation entirely and submit all current values as-is. Useful for "save draft" scenarios. |
-| `skipInvalid` | Run validation (errors are still shown in the UI) but exclude invalid fields from the data passed to `onSubmit`. |
+| `force` | Bypass validation entirely and submit all current values as-is (e.g. "save draft"). |
+| `skipInvalid` | Run validation (errors still show in the UI) but exclude invalid fields from the `onSubmit` data. |
 
-These defaults can be overridden at submit-time:
+When both are set, `force` wins. Defaults can be overridden at submit time via the `useForm()` hook (from `rilaykit/react`):
 
 ```tsx
-const { submit } = useFormConfigContext();
+import { useForm } from 'rilaykit/react';
 
-await submit({ force: true });      // Bypass validation
-await submit({ skipInvalid: true }); // Submit without invalid fields
+const { submit } = useForm();
+await submit({ force: true });
 ```
-
-<Callout>
-When both `force` and `skipInvalid` are set, `force` takes priority (validation is skipped entirely).
-</Callout>
-
----
 
 ## Field Effects
 
-Field effects let you declare reactive side effects directly in your field configuration. No `useEffect` needed — RilayKit handles subscriptions, cascading, and cleanup automatically.
-
-Use the `onChange()` helper from `@rilaykit/core` (or `rilaykit`) to create effects:
+Effects declare reactive side effects in the field configuration — no `useEffect`. RilayKit handles subscriptions, cascading, and cleanup. Create them with the `onChange()` helper from `rilaykit`:
 
 ```tsx
 import { onChange } from 'rilaykit';
-```
 
-### Cascading Dropdowns
-
-The most common use case: when a parent field changes, reset and reload a child field's options.
-
-```tsx
 const addressForm = rilay
   .form('address')
   .add({
@@ -194,124 +85,27 @@ const addressForm = rilay
     props: { label: 'Country', options: countries },
     effects: [
       onChange('country', async (value, { setValue, setProps }) => {
-        // Reset city when country changes
-        setValue('city', '');
-        // Load new options dynamically
-        const cities = await fetchCities(value);
-        setProps('city', { options: cities });
-      })
-    ]
+        setValue('city', ''); // reset the child
+        setProps('city', { options: await fetchCities(value) }); // reload its options
+      }),
+    ],
   })
-  .add({
-    id: 'city',
-    type: 'select',
-    props: { label: 'City', options: [] },
-  });
+  .add({ id: 'city', type: 'select', props: { label: 'City', options: [] } });
 ```
 
-### Calculated Fields
-
-Derive a field's value from other fields:
-
-```tsx
-const invoiceForm = rilay
-  .form('invoice')
-  .add({ id: 'price', type: 'number', props: { label: 'Price' } })
-  .add({ id: 'quantity', type: 'number', props: { label: 'Quantity' } })
-  .add({
-    id: 'total',
-    type: 'number',
-    props: { label: 'Total', readOnly: true },
-    effects: [
-      onChange('price', (value, { setValue, getFieldValue }) => {
-        const qty = getFieldValue('quantity') as number ?? 0;
-        setValue('total', (value as number ?? 0) * qty);
-      }),
-      onChange('quantity', (value, { setValue, getFieldValue }) => {
-        const price = getFieldValue('price') as number ?? 0;
-        setValue('total', price * (value as number ?? 0));
-      }),
-    ]
-  });
-```
-
-### Cross-Field Watch
-
-The `fieldId` in `onChange()` is the field being **watched**, not the field the effect is declared on. This lets you place effects on the target field that react to changes on a source field:
-
-```tsx
-.add({
-  id: 'total',
-  type: 'number',
-  effects: [
-    // This effect is on 'total' but watches 'price'
-    onChange('price', (priceValue, { setValue, getFieldValue }) => {
-      const qty = getFieldValue('quantity') as number;
-      setValue('total', (priceValue as number) * qty);
-    })
-  ]
-})
-```
-
-### Default Values & Initial Effects
-
-Effects are automatically executed at mount for fields that have non-undefined default values. This enables initial data loading:
-
-```tsx
-<Form
-  formConfig={addressForm}
-  defaultValues={{ country: 'France' }}
-  onSubmit={handleSubmit}
->
-  {/* The country effect fires at mount, loading cities for France */}
-  <FormBody />
-</Form>
-```
+The first argument of `onChange()` names the field being **watched**, not the field the effect is declared on — you can attach an effect to a `total` field that watches `price`. Effects also run at mount for fields with non-undefined `defaultValues`, so the example above loads cities immediately when `defaultValues={{ country: 'France' }}`.
 
 ### Context API
 
-Every effect handler receives the current value and a context object:
+Each handler receives the new value and a context:
 
 | Method | Description |
 |--------|-------------|
 | `setValue(fieldId, value)` | Set another field's value |
 | `setProps(fieldId, props)` | Merge dynamic props into a field |
-| `getValues()` | Get all current form values |
-| `getFieldValue(fieldId)` | Get a specific field's value |
+| `getValues()` | Snapshot of all current form values |
+| `getFieldValue(fieldId)` | Get a single field's value |
 
 <Callout type="warn">
-The effect engine includes built-in protections: cascade depth limit (10 levels), cycle detection, and async abort on rapid changes. You don't need to handle these manually.
+The engine has built-in protections — cascade depth limit (10), cycle detection, async abort on rapid changes. Don't handle these manually.
 </Callout>
-
----
-
-## Complete Example: Login Form
-
-Let's tie everything together. Here is how you would build a complete login form configuration, assuming you have a configured `rilay` instance. This definition can be passed directly to the `<Form>` component.
-
-```tsx
-import { rilay } from '@/lib/rilay';
-
-export const loginForm = rilay
-  .form('login-form')
-  .add(
-    {
-      id: 'email',
-      type: 'email',
-      props: {
-        label: 'Email Address',
-        placeholder: 'Enter your email',
-      },
-    },
-    {
-      id: 'password',
-      type: 'password',
-      props: {
-        label: 'Password',
-        placeholder: 'Enter your password',
-      },
-    }
-  );
-```
-
-This `loginForm` builder instance is now ready to be passed to your `<Form>` component. 

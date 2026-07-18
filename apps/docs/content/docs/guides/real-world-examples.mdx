@@ -8,32 +8,34 @@ import { Steps, Step } from 'fumadocs-ui/components/steps';
 
 # Real-World Examples
 
-These examples demonstrate how RilayKit handles production scenarios end to end. Each one includes the complete configuration -- form and workflow definitions, conditional logic, validation rules, persistence, and analytics -- so you can adapt them directly to your own applications.
+Three production scenarios end to end — forms, workflow wiring, conditional logic, validation, persistence, and analytics. All three share one instance:
+
+```tsx title="lib/rilay.ts"
+import { ril } from 'rilaykit';
+import { Checkbox, Input, Select, Textarea } from '@/components';
+
+export const rilay = ril.create()
+  .component('input', { renderer: Input })
+  .component('select', { renderer: Select })
+  .component('textarea', { renderer: Textarea })
+  .component('checkbox', { renderer: Checkbox });
+```
 
 ---
 
 ## SaaS Onboarding Flow
 
-A 4-step onboarding workflow that collects account credentials, company information, team setup, and billing preferences. It uses persistence to save progress across sessions and analytics to track funnel completion.
+Four steps — account, company, team (skippable), billing — with progress saved to localStorage and funnel analytics.
 
 <Steps>
 <Step>
-### Define the forms for each step
-
-Each step has its own form configuration with validation and conditions.
+### Define the forms
 
 ```tsx title="config/onboarding-forms.ts"
-import { ril, required, email, minLength, when } from '@rilaykit/core';
-    import { form } from '@rilaykit/forms';
+import { email, minLength, required, when } from 'rilaykit';
+import { rilay } from '@/lib/rilay';
 
-// Assumes components are registered on the ril instance
-const rilay = ril.create()
-  .addComponent('input', { renderer: Input })
-  .addComponent('select', { renderer: Select })
-  .addComponent('textarea', { renderer: Textarea });
-
-// Step 1 - Account Setup
-const accountForm = form.create(rilay, 'onboarding-account')
+export const accountForm = rilay.form('onboarding-account')
   .add({
     id: 'name',
     type: 'input',
@@ -43,7 +45,7 @@ const accountForm = form.create(rilay, 'onboarding-account')
   .add({
     id: 'email',
     type: 'input',
-    props: { label: 'Email Address', type: 'email', placeholder: 'jane@acme.com' },
+    props: { label: 'Email Address', type: 'email' },
     validation: { validate: [required(), email()] },
   })
   .add({
@@ -53,12 +55,11 @@ const accountForm = form.create(rilay, 'onboarding-account')
     validation: { validate: [required(), minLength(8)] },
   });
 
-// Step 2 - Company Details
-const companyForm = form.create(rilay, 'onboarding-company')
+export const companyForm = rilay.form('onboarding-company')
   .add({
     id: 'companyName',
     type: 'input',
-    props: { label: 'Company Name', placeholder: 'Acme Inc.' },
+    props: { label: 'Company Name' },
     validation: { validate: [required()] },
   })
   .add({
@@ -69,29 +70,13 @@ const companyForm = form.create(rilay, 'onboarding-company')
       options: [
         { value: '1-10', label: '1-10 employees' },
         { value: '11-50', label: '11-50 employees' },
-        { value: '51-200', label: '51-200 employees' },
-        { value: '200+', label: '200+ employees' },
-      ],
-    },
-    validation: { validate: [required()] },
-  })
-  .add({
-    id: 'industry',
-    type: 'select',
-    props: {
-      label: 'Industry',
-      options: [
-        { value: 'technology', label: 'Technology' },
-        { value: 'finance', label: 'Finance' },
-        { value: 'healthcare', label: 'Healthcare' },
-        { value: 'other', label: 'Other' },
+        { value: '51+', label: '51+ employees' },
       ],
     },
     validation: { validate: [required()] },
   });
 
-// Step 3 - Team Configuration
-const teamForm = form.create(rilay, 'onboarding-team')
+export const teamForm = rilay.form('onboarding-team')
   .add({
     id: 'teamName',
     type: 'input',
@@ -101,26 +86,10 @@ const teamForm = form.create(rilay, 'onboarding-team')
   .add({
     id: 'inviteEmails',
     type: 'textarea',
-    props: {
-      label: 'Invite Team Members',
-      placeholder: 'alice@acme.com, bob@acme.com',
-    },
-  })
-  .add({
-    id: 'role',
-    type: 'select',
-    props: {
-      label: 'Default Role',
-      options: [
-        { value: 'admin', label: 'Admin' },
-        { value: 'member', label: 'Member' },
-        { value: 'viewer', label: 'Viewer' },
-      ],
-    },
+    props: { label: 'Invite Team Members', placeholder: 'alice@acme.com, bob@acme.com' },
   });
 
-// Step 4 - Billing
-const billingForm = form.create(rilay, 'onboarding-billing')
+export const billingForm = rilay.form('onboarding-billing')
   .add({
     id: 'plan',
     type: 'select',
@@ -137,7 +106,7 @@ const billingForm = form.create(rilay, 'onboarding-billing')
   .add({
     id: 'cardNumber',
     type: 'input',
-    props: { label: 'Card Number', placeholder: '4242 4242 4242 4242' },
+    props: { label: 'Card Number' },
     validation: { validate: [required('Card number is required for paid plans')] },
     conditions: {
       visible: when('plan').notEquals('free'),
@@ -148,104 +117,64 @@ const billingForm = form.create(rilay, 'onboarding-billing')
 <Step>
 ### Build the workflow with persistence and analytics
 
-Chain the steps together and configure persistence to save progress in localStorage. Analytics callbacks track each step of the funnel.
-
 ```tsx title="config/onboarding-workflow.ts"
-import { LocalStorageAdapter } from '@rilaykit/workflow';
+import { LocalStorageAdapter } from 'rilaykit';
+import { rilay } from '@/lib/rilay';
+import { accountForm, billingForm, companyForm, teamForm } from './onboarding-forms';
 
-const onboarding = flow.create(rilay, 'saas-onboarding', 'SaaS Onboarding')
-  .step({
-    id: 'account',
-    title: 'Account Setup',
-    description: 'Create your account credentials',
-    formConfig: accountForm,
-  })
-  .step({
-    id: 'company',
-    title: 'Company Details',
-    description: 'Tell us about your organization',
-    formConfig: companyForm,
-  })
-  .step({
-    id: 'team',
-    title: 'Team',
-    description: 'Set up your first team',
-    formConfig: teamForm,
-    allowSkip: true,
-  })
-  .step({
-    id: 'billing',
-    title: 'Billing',
-    description: 'Choose a plan',
-    formConfig: billingForm,
-  })
+export const onboarding = rilay.flow('saas-onboarding', 'SaaS Onboarding')
+  .step({ id: 'account', title: 'Account Setup', formConfig: accountForm })
+  .step({ id: 'company', title: 'Company Details', formConfig: companyForm })
+  .step({ id: 'team', title: 'Team', formConfig: teamForm, allowSkip: true })
+  .step({ id: 'billing', title: 'Billing', formConfig: billingForm })
   .configure({
     persistence: {
       adapter: new LocalStorageAdapter(),
       options: { autoPersist: true, debounceMs: 500, storageKey: 'onboarding-progress' },
     },
     analytics: {
-      onStepComplete: (stepId, duration) => {
-        analytics.track('onboarding_step_complete', { step: stepId, durationMs: duration });
-      },
-      onWorkflowComplete: (id, totalTime, data) => {
-        analytics.track('onboarding_complete', {
-          workflowId: id,
-          totalTimeMs: totalTime,
-          plan: data.billing?.plan,
-        });
-      },
-      onStepSkip: (stepId, reason) => {
-        analytics.track('onboarding_step_skipped', { step: stepId, reason });
-      },
+      onStepComplete: (stepId, duration) =>
+        analytics.track('onboarding_step_complete', { step: stepId, durationMs: duration }),
+      onWorkflowComplete: (id, totalTime, data) =>
+        analytics.track('onboarding_complete', { totalTimeMs: totalTime, plan: data.billing?.plan }),
+      onStepSkip: (stepId, reason) =>
+        analytics.track('onboarding_step_skipped', { step: stepId, reason }),
     },
   });
 ```
 </Step>
 <Step>
-### Render the onboarding page
+### Render the page
 
-Use the composable workflow components to build the UI. The `<Workflow>` component accepts the builder instance directly -- no need to call `.build()`.
+`<Flow>` accepts the builder directly — no `.build()` needed. `onComplete(data, meta)` receives the answered steps plus `meta` (`visitedSteps`, `skippedSteps`, `passedSteps`).
 
 ```tsx title="pages/OnboardingPage.tsx"
-import {
-  Workflow,
-  WorkflowBody,
-  WorkflowStepper,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowSkipButton,
-} from '@rilaykit/workflow';
+import { Flow } from 'rilaykit/react';
+import { onboarding } from '../config/onboarding-workflow';
 
-function OnboardingPage() {
-  async function handleComplete(data: Record<string, unknown>) {
-    await fetch('/api/onboarding', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-  }
-
+export function OnboardingPage() {
   return (
-    <Workflow
-      workflowConfig={onboarding}
-      onWorkflowComplete={handleComplete}
+    <Flow
+      of={onboarding}
+      onComplete={async (data, meta) => {
+        await fetch('/api/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, skippedSteps: meta.skippedSteps }),
+        });
+      }}
       className="max-w-2xl mx-auto py-12"
     >
-      <WorkflowStepper className="mb-8" />
-
-      <div className="min-h-[400px]">
-        <WorkflowBody />
-      </div>
-
+      <Flow.Progress />
+      <Flow.Body />
       <div className="flex items-center justify-between mt-6 pt-4 border-t">
-        <WorkflowPreviousButton />
+        <Flow.Back />
         <div className="flex gap-3">
-          <WorkflowSkipButton />
-          <WorkflowNextButton />
+          <Flow.Skip />
+          <Flow.Next />
         </div>
       </div>
-    </Workflow>
+    </Flow>
   );
 }
 ```
@@ -253,43 +182,36 @@ function OnboardingPage() {
 </Steps>
 
 <Callout type="info">
-The `cardNumber` field is only visible (and only validated) when the selected plan is not `free`. When a field is hidden by a visibility condition, RilayKit automatically skips its validation on submit.
+`cardNumber` is visible — and validated — only while the plan is not `free`: hidden fields are excluded from validation and from the submitted data. A skipped step (here `team`) is simply absent from `data`.
 </Callout>
 
 ---
 
 ## KYC Identity Verification
 
-A 3-step verification workflow: personal details, document upload, and a final review with legal acknowledgment. This example demonstrates conditional fields based on nationality, a custom async validator for document verification, and persistence to let users resume later.
+Three steps: personal details with a nationality-dependent field, document upload with an async backend check, and a legal acknowledgment.
 
-<Tabs items={['Forms', 'Async Validator', 'Workflow', 'Component']}>
+<Tabs items={['Forms', 'Workflow', 'Page']}>
   <Tab value="Forms">
     ```tsx title="config/kyc-forms.ts"
-    import { ril, required, when, custom } from '@rilaykit/core';
+    import { async as asyncValidator, custom, required, when } from 'rilaykit';
+    import { rilay } from '@/lib/rilay';
 
-    const rilay = ril.create()
-      .addComponent('input', { renderer: Input })
-      .addComponent('select', { renderer: Select })
-      .addComponent('checkbox', { renderer: Checkbox });
+    const verifyDocumentNumber = asyncValidator(async (value: string) => {
+      const response = await fetch('/api/verify-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: value }),
+      });
+      const { valid } = await response.json();
+      return valid;
+    }, 'Invalid document number');
 
-    // Step 1 - Personal Information
-    const personalInfoForm = form.create(rilay, 'kyc-personal')
+    export const personalInfoForm = rilay.form('kyc-personal')
       .add({
-        id: 'firstName',
+        id: 'fullName',
         type: 'input',
-        props: { label: 'First Name' },
-        validation: { validate: [required()] },
-      })
-      .add({
-        id: 'lastName',
-        type: 'input',
-        props: { label: 'Last Name' },
-        validation: { validate: [required()] },
-      })
-      .add({
-        id: 'dateOfBirth',
-        type: 'input',
-        props: { label: 'Date of Birth', type: 'date' },
+        props: { label: 'Full Legal Name' },
         validation: { validate: [required()] },
       })
       .add({
@@ -300,11 +222,7 @@ A 3-step verification workflow: personal details, document upload, and a final r
           options: [
             { value: 'US', label: 'United States' },
             { value: 'GB', label: 'United Kingdom' },
-            { value: 'CA', label: 'Canada' },
-            { value: 'DE', label: 'Germany' },
             { value: 'FR', label: 'France' },
-            { value: 'JP', label: 'Japan' },
-            { value: 'AU', label: 'Australia' },
           ],
         },
         validation: { validate: [required()] },
@@ -319,8 +237,7 @@ A 3-step verification workflow: personal details, document upload, and a final r
         },
       });
 
-    // Step 2 - Document Upload
-    const documentForm = form.create(rilay, 'kyc-document')
+    export const documentForm = rilay.form('kyc-document')
       .add({
         id: 'documentType',
         type: 'select',
@@ -338,21 +255,11 @@ A 3-step verification workflow: personal details, document upload, and a final r
         id: 'documentNumber',
         type: 'input',
         props: { label: 'Document Number' },
-        validation: {
-          validate: [required(), validateDocument],
-          validateOnBlur: true,
-          debounceMs: 500,
-        },
+        validation: { validate: [required(), verifyDocumentNumber], debounceMs: 500 },
       })
-      .add({
-        id: 'expirationDate',
-        type: 'input',
-        props: { label: 'Expiration Date', type: 'date' },
-        validation: { validate: [required()] },
-      });
+      .setValidation({ mode: 'onBlur' });
 
-    // Step 3 - Review
-    const reviewForm = form.create(rilay, 'kyc-review')
+    export const reviewForm = rilay.form('kyc-review')
       .add({
         id: 'termsAccepted',
         type: 'checkbox',
@@ -360,121 +267,60 @@ A 3-step verification workflow: personal details, document upload, and a final r
         validation: {
           validate: [custom((value) => value === true, 'You must accept the terms')],
         },
-      })
-      .add({
-        id: 'certifyAccurate',
-        type: 'checkbox',
-        props: { label: 'I certify that all information provided is accurate' },
-        validation: {
-          validate: [custom((value) => value === true, 'You must certify accuracy')],
-        },
       });
     ```
-  </Tab>
-  <Tab value="Async Validator">
-    ```tsx title="config/kyc-validators.ts"
-    import { custom } from '@rilaykit/core';
 
-    const validateDocument = custom(
-      async (value, context) => {
-        const response = await fetch('/api/verify-document', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            number: value,
-            type: context?.formData?.documentType,
-          }),
-        });
-        const result = await response.json();
-        return result.valid;
-      },
-      'Invalid document number'
-    );
-    ```
-
-    The `custom()` validator receives the current form data through its `context` parameter, allowing cross-field validation. Here, the document type is sent alongside the number so the backend can apply format-specific checks (passport vs. national ID, etc.).
+    `async(fn, message)` wraps a promise-returning check into a Standard Schema validator. `debounceMs` throttles it while the user types; blur and submit always validate immediately. `.setValidation({ mode: 'onBlur' })` defers each field's first validation to blur — the default `reValidateMode: 'onChange'` then clears errors live.
   </Tab>
   <Tab value="Workflow">
     ```tsx title="config/kyc-workflow.ts"
-    import { LocalStorageAdapter } from '@rilaykit/workflow';
+    import { LocalStorageAdapter } from 'rilaykit';
+    import { rilay } from '@/lib/rilay';
+    import { documentForm, personalInfoForm, reviewForm } from './kyc-forms';
 
-    const kycWorkflow = flow.create(rilay, 'kyc-verification', 'Identity Verification')
-      .step({
-        id: 'personal',
-        title: 'Personal Information',
-        description: 'Your legal name and nationality',
-        formConfig: personalInfoForm,
-      })
-      .step({
-        id: 'document',
-        title: 'Document Upload',
-        description: 'Provide a valid identity document',
-        formConfig: documentForm,
-      })
-      .step({
-        id: 'review',
-        title: 'Review',
-        description: 'Confirm and submit',
-        formConfig: reviewForm,
-      })
+    export const kycWorkflow = rilay.flow('kyc-verification', 'Identity Verification')
+      .step({ id: 'personal', title: 'Personal Information', formConfig: personalInfoForm })
+      .step({ id: 'document', title: 'Document Upload', formConfig: documentForm })
+      .step({ id: 'review', title: 'Review', formConfig: reviewForm })
       .configure({
         persistence: {
           adapter: new LocalStorageAdapter({ maxAge: 24 * 60 * 60 * 1000 }),
           options: { autoPersist: true, storageKey: 'kyc-progress' },
         },
         analytics: {
-          onStepComplete: (stepId, duration) => {
-            analytics.track('kyc_step_complete', { step: stepId, durationMs: duration });
-          },
-          onWorkflowComplete: (id, totalTime) => {
-            analytics.track('kyc_complete', { totalTimeMs: totalTime });
-          },
-          onError: (error, context) => {
-            analytics.track('kyc_error', {
-              error: error.message,
-              step: context.currentStepIndex,
-            });
-          },
+          onError: (error, context) =>
+            analytics.track('kyc_error', { error: error.message, step: context.currentStepIndex }),
         },
       });
     ```
+
+    The `maxAge` option expires persisted progress after 24 hours. `onError` fires for every workflow error path (step transitions, submission, persistence failures) — a validation error blocking Next is not an error path.
   </Tab>
-  <Tab value="Component">
+  <Tab value="Page">
     ```tsx title="pages/KycPage.tsx"
-    import {
-      Workflow,
-      WorkflowBody,
-      WorkflowStepper,
-      WorkflowNextButton,
-      WorkflowPreviousButton,
-    } from '@rilaykit/workflow';
+    import { Flow } from 'rilaykit/react';
+    import { kycWorkflow } from '../config/kyc-workflow';
 
-    function KycPage() {
-      async function handleComplete(data: Record<string, unknown>) {
-        await fetch('/api/kyc/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-      }
-
+    export function KycPage() {
       return (
-        <Workflow
-          workflowConfig={kycWorkflow}
-          onWorkflowComplete={handleComplete}
+        <Flow
+          of={kycWorkflow}
+          onComplete={async (data) => {
+            await fetch('/api/kyc/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data),
+            });
+          }}
           className="max-w-xl mx-auto py-12"
         >
-          <WorkflowStepper className="mb-8" />
-
-          <div className="min-h-[350px]">
-            <WorkflowBody />
-          </div>
-
+          <Flow.Progress />
+          <Flow.Body />
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <WorkflowPreviousButton />
-            <WorkflowNextButton />
+            <Flow.Back />
+            <Flow.Next />
           </div>
-        </Workflow>
+        </Flow>
       );
     }
     ```
@@ -482,26 +328,22 @@ A 3-step verification workflow: personal details, document upload, and a final r
 </Tabs>
 
 <Callout>
-The `ssn` field is only shown when the user selects `US` as their nationality. Its validation is skipped entirely for non-US nationals, so the form can be submitted without it.
+The `ssn` field is shown only when nationality is `US`. Its validation is skipped entirely for other nationalities.
 </Callout>
 
 ---
 
 ## Dynamic Pricing Calculator
 
-A single-page form (not a workflow) with multiple conditional fields that adapt based on the selected service type. This pattern is common for quote generators, booking forms, and pricing pages where the visible fields depend on user choices.
+A single-page form (no workflow) whose fields adapt to the selected service type — the common shape for quote generators and booking forms.
 
-<Tabs items={['Form Definition', 'Component']}>
-  <Tab value="Form Definition">
+<Tabs items={['Form', 'Page']}>
+  <Tab value="Form">
     ```tsx title="config/pricing-form.ts"
-    import { ril, required, when, custom } from '@rilaykit/core';
+    import { custom, required, when } from 'rilaykit';
+    import { rilay } from '@/lib/rilay';
 
-    const rilay = ril.create()
-      .addComponent('input', { renderer: Input })
-      .addComponent('select', { renderer: Select })
-      .addComponent('checkbox-group', { renderer: CheckboxGroup });
-
-    const pricingForm = form.create(rilay, 'pricing-calculator')
+    export const pricingForm = rilay.form('pricing-calculator')
       .add({
         id: 'serviceType',
         type: 'select',
@@ -516,45 +358,16 @@ A single-page form (not a workflow) with multiple conditional fields that adapt 
         validation: { validate: [required()] },
       })
       .add({
-        id: 'projectScope',
-        type: 'select',
-        props: {
-          label: 'Project Scope',
-          options: [
-            { value: 'small', label: 'Small (1-2 weeks)' },
-            { value: 'medium', label: 'Medium (1-2 months)' },
-            { value: 'large', label: 'Large (3+ months)' },
-          ],
-        },
-        validation: { validate: [required()] },
-      })
-      .add({
-        id: 'timeline',
-        type: 'select',
-        props: {
-          label: 'Timeline',
-          options: [
-            { value: 'standard', label: 'Standard' },
-            { value: 'expedited', label: 'Expedited (+25%)' },
-            { value: 'rush', label: 'Rush (+50%)' },
-          ],
-        },
-        validation: { validate: [required()] },
-      })
-      .add({
         id: 'teamSize',
         type: 'input',
-        props: { label: 'Team Size', type: 'number', placeholder: 'Number of developers' },
+        props: { label: 'Team Size', type: 'number' },
         validation: {
           validate: [
             required('Team size is required for development projects'),
-            custom(
-              (value) => {
-                const num = Number(value);
-                return !isNaN(num) && num >= 1 && num <= 50;
-              },
-              'Team size must be between 1 and 50'
-            ),
+            custom((value) => {
+              const size = Number(value);
+              return Number.isFinite(size) && size >= 1 && size <= 50;
+            }, 'Team size must be between 1 and 50'),
           ],
         },
         conditions: {
@@ -564,67 +377,41 @@ A single-page form (not a workflow) with multiple conditional fields that adapt 
       .add({
         id: 'designRevisions',
         type: 'input',
-        props: { label: 'Design Revisions', type: 'number', placeholder: 'Number of revision rounds' },
+        props: { label: 'Design Revisions', type: 'number' },
         validation: {
           validate: [
             required('Number of revisions is required for design projects'),
-            custom(
-              (value) => {
-                const num = Number(value);
-                return !isNaN(num) && num >= 1 && num <= 10;
-              },
-              'Revisions must be between 1 and 10'
-            ),
+            custom((value) => {
+              const revisions = Number(value);
+              return Number.isFinite(revisions) && revisions >= 1 && revisions <= 10;
+            }, 'Revisions must be between 1 and 10'),
           ],
         },
         conditions: {
           visible: when('serviceType').equals('design'),
         },
-      })
-      .add({
-        id: 'additionalServices',
-        type: 'checkbox-group',
-        props: {
-          label: 'Additional Services',
-          options: [
-            { value: 'testing', label: 'QA & Testing' },
-            { value: 'documentation', label: 'Technical Documentation' },
-            { value: 'training', label: 'Team Training' },
-            { value: 'support', label: '30-Day Post-Launch Support' },
-          ],
-        },
       });
     ```
   </Tab>
-  <Tab value="Component">
+  <Tab value="Page">
     ```tsx title="pages/PricingPage.tsx"
-    import { Form, FormField } from '@rilaykit/forms';
+    import { Form } from 'rilaykit/react';
+    import { pricingForm } from '../config/pricing-form';
 
-    function PricingPage() {
+    export function PricingPage() {
       function handleSubmit(data: Record<string, unknown>) {
-        console.log('Pricing request:', data);
         // Send to backend for quote generation
       }
 
       return (
         <div className="max-w-lg mx-auto py-12">
           <h1 className="text-2xl font-bold mb-6">Get a Quote</h1>
-
-          <Form formConfig={pricingForm} onSubmit={handleSubmit}>
+          <Form of={pricingForm} onSubmit={handleSubmit}>
             <div className="space-y-4">
-              <FormField fieldId="serviceType" />
-              <FormField fieldId="projectScope" />
-              <FormField fieldId="timeline" />
-              <FormField fieldId="teamSize" />
-              <FormField fieldId="designRevisions" />
-              <FormField fieldId="additionalServices" />
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-              >
-                Request Quote
-              </button>
+              <Form.Field id="serviceType" />
+              <Form.Field id="teamSize" />
+              <Form.Field id="designRevisions" />
+              <Form.Submit className="w-full">Request Quote</Form.Submit>
             </div>
           </Form>
         </div>
@@ -634,10 +421,4 @@ A single-page form (not a workflow) with multiple conditional fields that adapt 
   </Tab>
 </Tabs>
 
-The `teamSize` field appears only when the service type is `development`, and `designRevisions` appears only for `design` projects. All other fields remain visible regardless of the selection. Hidden fields are excluded from validation and from the submitted data.
-
----
-
-<Callout type="info">
-These examples show configuration patterns. Adapt them to your specific business requirements and design system. For more basic examples, see the [Examples](/docs/examples) page.
-</Callout>
+`teamSize` appears only for `development`, `designRevisions` only for `design` — each with its own validation, active only while visible. For simpler starting points, see the [Examples](/docs/examples) page.

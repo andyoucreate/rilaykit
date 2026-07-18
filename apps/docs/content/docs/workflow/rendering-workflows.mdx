@@ -2,301 +2,176 @@
 title: Rendering Workflows
 description: React components for rendering multi-step workflow interfaces.
 ---
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-Rilaykit provides a set of composable React components that you assemble together to render your workflow UI. Each component handles a specific concern -- body content, navigation, progress -- and delegates its visual rendering to the renderers you registered on your `ril` instance.
+Workflow UIs are assembled from the compound `<Flow>` component family. All components are headless: they ship a bare default (plain `<button>`, `<ol>`) and expose a render prop for full control. Import them from `@rilaykit/workflow/react` (or `rilaykit/react`).
 
 ## Component Overview
 
 | Component | Purpose |
 |-----------|---------|
-| `<Workflow>` | Root wrapper. Resolves config and provides context. |
-| `<WorkflowBody>` | Renders the current step's form (or custom renderer). |
-| `<WorkflowStepper>` | Progress indicator across visible steps. |
-| `<WorkflowNextButton>` | Validates the current step and advances (or submits on the last step). |
-| `<WorkflowPreviousButton>` | Navigates back to the previous visible step. |
-| `<WorkflowSkipButton>` | Skips the current step when allowed. |
-| `<WorkflowProvider>` | Internal context provider (used by `<Workflow>` under the hood). |
+| `<Flow>` | Root wrapper. Accepts a config or builder, provides context. |
+| `<Flow.Body>` | Renders the current step's form (or custom renderer). |
+| `<Flow.Progress>` | Progress indicator across visible steps. |
+| `<Flow.Next>` | Validates the current step and advances (submits on the last step). |
+| `<Flow.Back>` | Navigates to the previous visible step. |
+| `<Flow.Skip>` | Skips the current step when allowed; renders nothing otherwise. |
+| `<WorkflowProvider>` | Internal provider used by `<Flow>`; exported for advanced composition. |
 
----
+Each sub-component is also exported standalone (`FlowBody`, `FlowProgress`, `FlowNext`, `FlowBack`, `FlowSkip`).
 
-## Workflow
+## Flow
 
-The root component that wraps your entire workflow UI. It accepts either a built `WorkflowConfig` object or a `flow` builder instance -- if you pass a builder, it calls `.build()` automatically.
-
-```tsx
-import { Workflow } from '@rilaykit/workflow';
-```
+Root component. `of` accepts a built `WorkflowConfig` or a `flow` builder instance — builders are resolved (and memoized) automatically.
 
 ### Props
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
-| `workflowConfig` | `WorkflowConfig \| flow` | Yes | The workflow configuration or builder instance. |
-| `children` | `React.ReactNode` | Yes | The layout components to render inside the workflow. |
-| `defaultValues` | `Record<string, unknown>` | No | Initial data to pre-populate across steps. |
+| `of` | `WorkflowConfig \| flow` | Yes | Workflow configuration or builder instance. |
+| `children` | `React.ReactNode` | Yes | Layout components. |
+| `defaults` | `Record<string, unknown>` | No | Initial data pre-populated across steps. |
 | `defaultStep` | `string` | No | Step ID to start on instead of the first step. |
-| `onStepChange` | `(from: number, to: number, context: WorkflowContext) => void` | No | Callback fired on every step transition. |
-| `onWorkflowComplete` | `(data: Record<string, unknown>) => void \| Promise<void>` | No | Callback fired when the last step is submitted. |
-| `className` | `string` | No | CSS class applied to the underlying `FormProvider` wrapper. |
+| `onStepChange` | `(from: number, to: number, context: WorkflowContext) => void` | No | Fired on every step transition. |
+| `onComplete` | `(data, meta: WorkflowCompletionMeta) => void \| Promise<void>` | No | Fired when the last step is submitted. |
+| `className` | `string` | No | Forwarded to the underlying `FormProvider` wrapper. |
+
+`data` contains only answered visible steps — skipped or never-visible steps are absent. `meta` is `{ visitedSteps, skippedSteps, passedSteps }` (`string[]`, insertion order); ignore it if you only need the data.
 
 ```tsx
-<Workflow
-  workflowConfig={onboardingFlow}
-  defaultValues={{ email: user.email }}
-  defaultStep="preferences"
-  onStepChange={(from, to) => console.log(`Step ${from} -> ${to}`)}
-  onWorkflowComplete={async (data) => {
+<Flow
+  of={onboardingFlow}
+  defaults={{ email: user.email }}
+  onComplete={async (data, meta) => {
     await saveOnboarding(data);
+    if (meta.skippedSteps.length) trackSkips(meta.skippedSteps);
     router.push('/dashboard');
   }}
 >
   {/* Layout goes here */}
-</Workflow>
+</Flow>
 ```
 
-<Callout>
-When you pass a `flow` builder instance, the component memoizes the `.build()` call so it only runs once. You do not need to call `.build()` yourself.
-</Callout>
+## Flow.Body
 
----
-
-## WorkflowBody
-
-Renders the main content for the current step. If the step defines a custom `renderer`, that renderer is used. Otherwise it falls back to `<FormBody />` from `@rilaykit/forms`, or renders `children` as a fallback.
-
-```tsx
-import { WorkflowBody } from '@rilaykit/workflow';
-```
-
-### Props
+Renders the current step's content.
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
-| `stepId` | `string` | No | Only render when the current step matches this ID. Returns `null` otherwise. |
-| `children` | `React.ReactNode` | No | Fallback content rendered when no custom `renderer` is defined on the step. |
+| `stepId` | `string` | No | Only render when the current step matches this ID. |
+| `children` | `ReactNode \| (ctx: { step: StepConfig }) => ReactNode` | No | Fallback content or render prop. |
 
-### Rendering Priority
-
-1. If the step has no `formConfig`, nothing is rendered.
-2. If the step has a custom `renderer`, it is called with the full `StepConfig`.
-3. Otherwise, `children` is rendered (or `<FormBody />` when no children are provided).
+Precedence: the step's custom `renderer(step)` → `children` (render prop receives `{ step }`) → `<FormBody />` from `@rilaykit/forms/react`.
 
 ```tsx
 {/* Render any step */}
-<WorkflowBody />
+<Flow.Body />
 
-{/* Render only when the "review" step is active */}
-<WorkflowBody stepId="review">
+{/* Custom layout for the "review" step only */}
+<Flow.Body stepId="review">
   <ReviewSummary />
-</WorkflowBody>
+</Flow.Body>
 ```
 
-<Callout title="Step-specific rendering">
-Use the `stepId` prop to conditionally render different layouts per step. When multiple `<WorkflowBody>` components are placed in the tree, only the one matching the current step (or the one without a `stepId`) will produce output.
-</Callout>
+When several `<Flow.Body>` components with `stepId` are in the tree, only the matching one produces output.
 
----
+## Flow.Progress
 
-## WorkflowStepper
-
-Renders a progress indicator showing all **visible** steps. Steps hidden by conditions are automatically filtered out. The component maps between visible indices and original step indices so click handlers resolve to the correct step.
-
-```tsx
-import { WorkflowStepper } from '@rilaykit/workflow';
-```
-
-### Props
+Headless progress indicator over **visible** steps — steps hidden by conditions are filtered out.
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
-| `onStepClick` | `(stepIndex: number) => void` | No | Custom click handler. Receives the **original** step index. When omitted, clicking navigates to the step. |
-| `className` | `string` | No | CSS class forwarded to the stepper renderer. |
-
-The component delegates rendering to the `stepperRenderer` registered on your `ril` instance's workflow render config. The renderer receives:
+| `children` | `(ctx: FlowStepsContext) => ReactNode` | No | Render prop. Without it, renders an `<ol data-flow-progress>` of step titles with `data-active` on the current one. |
+| `className` | `string` | No | Applied to the default `<ol>`. |
 
 ```ts
-interface WorkflowStepperRendererProps {
-  steps: StepConfig[];           // Only visible steps
-  currentStepIndex: number;      // Index within the visible steps array
-  visitedSteps: Set<string>;     // Only visited steps that are currently visible
-  onStepClick?: (index: number) => void;
-  className?: string;
+interface FlowStepsContext {
+  steps: StepConfig[];               // Visible steps only
+  currentIndex: number;              // Index within the visible steps
+  goTo: (visibleIndex: number) => void; // Maps back to the original step index
 }
 ```
 
----
-
-## WorkflowNextButton
-
-The primary action button. On intermediate steps it validates the form and advances. On the last visible step it validates and triggers `onWorkflowComplete`.
-
 ```tsx
-import { WorkflowNextButton } from '@rilaykit/workflow';
+<Flow.Progress>
+  {({ steps, currentIndex, goTo }) =>
+    steps.map((step, i) => (
+      <button key={step.id} aria-current={i === currentIndex} onClick={() => goTo(i)}>
+        {step.title}
+      </button>
+    ))
+  }
+</Flow.Progress>
 ```
 
-### Props
+## Flow.Next, Flow.Back, Flow.Skip
+
+Navigation buttons sharing the same props and render-prop context:
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
-| `isSubmitting` | `boolean` | No | Override the submitting state. When omitted, the component derives it from form and workflow state. |
-| `className` | `string` | No | CSS class forwarded to the renderer. |
-
-The component delegates rendering to `nextButtonRenderer`. The renderer receives:
+| `children` | `ReactNode \| (ctx: FlowNavContext) => ReactNode` | No | Custom label, or render prop for full control. |
+| `className` | `string` | No | Applied to the default `<button>`. |
 
 ```ts
-interface WorkflowNextButtonRendererProps {
+interface FlowNavContext {
+  go: () => void;        // Trigger the action
+  canGo: boolean;        // false during transitions or submission (Back: also on first step)
+  submitting: boolean;
   isLastStep: boolean;
-  canGoNext: boolean;
-  isSubmitting: boolean;
-  onSubmit: (event?: React.FormEvent) => void;
-  currentStep: StepConfig;
-  stepData: Record<string, unknown>;
-  allData: Record<string, unknown>;
-  context: WorkflowContext;
-  className?: string;
+  step: StepConfig;
 }
 ```
 
-`canGoNext` is `false` during transitions or when `isSubmitting` is `true`.
+- `Flow.Next` validates the current step's form, then advances — or completes the workflow on the last visible step.
+- `Flow.Back` navigates to the previous **visible** step (hidden steps are skipped over).
+- `Flow.Skip` skips without validation; it renders `null` unless the step is skippable — `allowSkip: true` (or an `allowSkip` predicate returning `true`) or a `skippable` condition evaluating to `true`.
 
----
-
-## WorkflowPreviousButton
-
-Navigates to the previous visible step. Automatically accounts for hidden steps -- if the immediately previous step is invisible, it finds the next visible one before it.
+The bare default is a plain `<button data-flow-nav="next|back|skip">` with a "Next" / "Back" / "Skip" label:
 
 ```tsx
-import { WorkflowPreviousButton } from '@rilaykit/workflow';
+<Flow.Next className="btn-primary" />
+
+<Flow.Next>
+  {({ go, canGo, isLastStep, submitting }) => (
+    <Button onClick={go} disabled={!canGo} loading={submitting}>
+      {isLastStep ? 'Finish' : 'Continue'}
+    </Button>
+  )}
+</Flow.Next>
 ```
-
-### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `isSubmitting` | `boolean` | No | Override the submitting state. |
-| `className` | `string` | No | CSS class forwarded to the renderer. |
-
-The component delegates rendering to `previousButtonRenderer`. The renderer receives:
-
-```ts
-interface WorkflowPreviousButtonRendererProps {
-  canGoPrevious: boolean;
-  isSubmitting: boolean;
-  onPrevious: (event?: React.FormEvent) => void;
-  currentStep: StepConfig;
-  stepData: Record<string, unknown>;
-  allData: Record<string, unknown>;
-  context: WorkflowContext;
-  className?: string;
-}
-```
-
-`canGoPrevious` is `false` when on the first visible step, during transitions, or when submitting.
-
----
-
-## WorkflowSkipButton
-
-Allows the user to skip the current step without validation. The button is only actionable when the step has `allowSkip: true` or a `skippable` condition that evaluates to `true`.
-
-```tsx
-import { WorkflowSkipButton } from '@rilaykit/workflow';
-```
-
-### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `isSubmitting` | `boolean` | No | Override the submitting state. |
-| `className` | `string` | No | CSS class forwarded to the renderer. |
-
-The component delegates rendering to `skipButtonRenderer`. The renderer receives:
-
-```ts
-interface WorkflowSkipButtonRendererProps {
-  canSkip: boolean;
-  isSubmitting: boolean;
-  onSkip: (event?: React.FormEvent) => void;
-  currentStep: StepConfig;
-  stepData: Record<string, unknown>;
-  allData: Record<string, unknown>;
-  context: WorkflowContext;
-  className?: string;
-}
-```
-
-`canSkip` is `true` only when the step allows skipping and no transition or submission is in progress.
-
----
 
 ## WorkflowProvider
 
-The internal context provider used by `<Workflow>`. You rarely need to use it directly, but it is exported for advanced composition patterns (e.g., wrapping with additional providers).
-
-```tsx
-import { WorkflowProvider } from '@rilaykit/workflow';
-```
-
-It manages:
-- A **Zustand store** for workflow state (current step, collected data, visited/passed steps, loading flags).
-- **FormProvider** synchronization -- re-mounts the form when the step changes, pre-populating fields with previously entered data.
-- **Persistence** loading -- if a persistence adapter is configured, it loads saved state on mount.
-- **Condition evaluation** -- determines step visibility and skip eligibility.
-- **Analytics** tracking -- fires lifecycle events through the configured analytics callbacks.
-
-### Props
-
-Same as `<Workflow>` except `workflowConfig` must be a built `WorkflowConfig` (not a builder).
-
----
+The internal provider `<Flow>` wraps. Same props except `workflowConfig` (a built `WorkflowConfig`, not a builder), `defaultValues`, and `onWorkflowComplete(data, meta)`. It manages the workflow Zustand store, `FormProvider` synchronization per step, persistence loading, condition evaluation, and analytics. Reach for it only for advanced composition; `useFlow()` reads its context.
 
 ## Complete Example
 
-Here is a full layout putting all components together:
-
 ```tsx
-import {
-  Workflow,
-  WorkflowBody,
-  WorkflowStepper,
-  WorkflowNextButton,
-  WorkflowPreviousButton,
-  WorkflowSkipButton,
-} from '@rilaykit/workflow';
+import { Flow } from '@rilaykit/workflow/react';
 
 function OnboardingPage() {
   return (
-    <Workflow
-      workflowConfig={onboardingFlow}
-      onWorkflowComplete={async (data) => {
+    <Flow
+      of={onboardingFlow}
+      onComplete={async (data) => {
         await api.completeOnboarding(data);
       }}
       className="max-w-2xl mx-auto"
     >
-      {/* Progress bar */}
-      <WorkflowStepper className="mb-8" />
+      <Flow.Progress className="mb-8" />
 
-      {/* Step content */}
       <div className="min-h-[400px]">
-        <WorkflowBody />
+        <Flow.Body />
       </div>
 
-      {/* Navigation footer */}
       <div className="flex items-center justify-between mt-6 pt-4 border-t">
-        <WorkflowPreviousButton className="px-4 py-2" />
-
+        <Flow.Back className="px-4 py-2" />
         <div className="flex gap-3">
-          <WorkflowSkipButton className="px-4 py-2 text-muted-foreground" />
-          <WorkflowNextButton className="px-6 py-2" />
+          <Flow.Skip className="px-4 py-2 text-muted-foreground" />
+          <Flow.Next className="px-6 py-2" />
         </div>
       </div>
-    </Workflow>
+    </Flow>
   );
 }
 ```
-
-<Callout title="Renderer registration">
-All navigation components (`WorkflowStepper`, `WorkflowNextButton`, `WorkflowPreviousButton`, `WorkflowSkipButton`) require that you register corresponding renderers on your `ril` instance. Without a renderer, the component will render nothing. See the [Configuration](/docs/core-concepts/configuration) guide for details.
-</Callout>

@@ -5,294 +5,150 @@ description: Build a complete contact form in under 10 minutes with validation, 
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 
-This guide walks you through building a complete contact form with RilayKit. You'll learn core concepts while creating something practical.
-
-## What You'll Build
-
-A contact form with:
-- Name, email, and message fields
-- Real-time validation
-- Conditional field visibility
-- Custom component styling
-- Full TypeScript type safety
-
-<Callout type="info">
-**Estimated time**: 10 minutes • **Prerequisites**: Basic React and TypeScript knowledge
-</Callout>
+Build a contact form with validation, a conditionally visible field, and full type safety.
 
 <Steps>
 
 <Step>
-### 1. Create Component Renderers
+### 1. Create a Component Renderer
 
-RilayKit is **headless** — it handles logic while you provide the UI components. Let's create renderers for input fields.
-
-<Callout type="info">
-A **renderer** is a React component that receives props from RilayKit (value, onChange, error, etc.) and renders your UI.
-</Callout>
+RilayKit is headless: it handles the logic, you provide the UI. A renderer is a function that receives a `ComponentRenderContext` — the field's `id`, your `props`, and a `field` binding (`value`, `onChange`, `onBlur`, `error`, `touched`) — and returns your markup.
 
 ```tsx title="lib/components.tsx"
-import { ComponentRenderer, ComponentRenderProps } from 'rilaykit';
+import type { ChangeEvent } from 'react';
+import type { ComponentRenderContext } from 'rilaykit';
 
-// Define the props interface for our input component
 interface InputProps {
   label: string;
-  type?: 'text' | 'email' | 'password' | 'number';
+  type?: 'text' | 'email';
   placeholder?: string;
   required?: boolean;
   multiline?: boolean;
   rows?: number;
 }
 
-// Create a flexible input renderer that handles different input types
-export const InputRenderer: ComponentRenderer<InputProps> = ({
-  id,
-  value,
-  onChange,
-  onBlur,
-  error,
-  props
-}) => {
-  const inputProps = {
+export function InputRenderer({ id, props, field }: ComponentRenderContext<InputProps>) {
+  const error = field?.error?.[0];
+  const shared = {
     id,
-    value: value || '',
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
-      onChange?.(e.target.value),
-    onBlur,
+    value: (field?.value as string) ?? '',
+    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      field?.onChange(e.target.value),
+    onBlur: field?.onBlur,
     placeholder: props.placeholder,
-    className: `
-      block w-full rounded-md border px-3 py-2 text-sm
-      ${error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 
-        'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}
-    `
+    className: error ? 'input input-error' : 'input',
   };
 
   return (
     <div className="space-y-1">
-      <label 
-        htmlFor={id} 
-        className="block text-sm font-medium text-gray-700"
-      >
+      <label htmlFor={id}>
         {props.label}
-        {props.required && <span className="text-red-500 ml-1">*</span>}
+        {props.required && <span aria-hidden> *</span>}
       </label>
-      
       {props.multiline ? (
-        <textarea {...inputProps} rows={props.rows || 3} />
+        <textarea {...shared} rows={props.rows ?? 3} />
       ) : (
-        <input {...inputProps} type={props.type || 'text'} />
+        <input {...shared} type={props.type ?? 'text'} />
       )}
-      
-      {error && (
-        <p className="text-sm text-red-600">{error[0].message}</p>
-      )}
+      {error && <p role="alert">{error.message}</p>}
     </div>
   );
-};
+}
 ```
 
-Now let's configure RilayKit with our renderer:
+Register it on a `ril` instance with `.component()`:
 
-```tsx title="lib/rilay.ts"
+```ts title="lib/rilay.ts"
 import { ril } from 'rilaykit';
 import { InputRenderer } from './components';
 
-// Create and configure the RilayKit instance
-export const rilay = ril
-  .create()
-  .addComponent('input', {
-    name: 'Input Field',
-    renderer: InputRenderer,
-    defaultProps: { 
-      label: 'Input Field', 
-      placeholder: 'Enter value...',
-      type: 'text'
-    }
-  });
+export const rilay = ril.create().component('input', {
+  name: 'Input Field',
+  renderer: InputRenderer,
+  defaultProps: { label: 'Input Field', type: 'text' },
+});
 ```
 </Step>
 
 <Step>
 ### 2. Build the Form Configuration
 
-Now we'll use RilayKit's **fluent API** to build our form. This declarative approach makes forms easy to read and modify.
+Each `.add()` call declares a field: its component `type`, `props` for your renderer, `validation.validate` (an array of Standard Schema validators), and optional `conditions`.
 
-```tsx title="lib/contactForm.ts"
-import { required, email, minLength, when } from 'rilaykit';
+```ts title="lib/contactForm.ts"
+import { email, minLength, required, when } from 'rilaykit';
 import { rilay } from './rilay';
 
 export const contactForm = rilay
-  .form('contact-us') // Unique form ID
+  .form('contact-us')
   .add({
     id: 'name',
     type: 'input',
-    props: {
-      label: 'Full Name',
-      placeholder: 'Enter your full name',
-      required: true,
-      type: 'text'
-    },
+    props: { label: 'Full Name', required: true },
     validation: {
-      validate: [
-        required('Name is required'),
-        minLength(2, 'Name must be at least 2 characters')
-      ]
-    }
+      validate: [required('Name is required'), minLength(2, 'At least 2 characters')],
+    },
   })
   .add({
     id: 'email',
     type: 'input',
-    props: {
-      label: 'Email Address',
-      placeholder: 'Enter your email address',
-      required: true,
-      type: 'email'
-    },
+    props: { label: 'Email Address', type: 'email', required: true },
     validation: {
-      validate: [
-        required('Email is required'),
-        email('Please enter a valid email address')
-      ]
-    }
+      validate: [required('Email is required'), email()],
+    },
   })
   .add({
     id: 'message',
     type: 'input',
-    props: {
-      label: 'Your Message',
-      placeholder: 'Tell us what\'s on your mind...',
-      required: true,
-      multiline: true,
-      rows: 4
-    },
+    props: { label: 'Your Message', required: true, multiline: true, rows: 4 },
     validation: {
-      validate: [
-        required('Message is required'),
-        minLength(10, 'Message must be at least 10 characters')
-      ]
+      validate: [required('Message is required'), minLength(10, 'At least 10 characters')],
     },
     conditions: {
-      visible: when('email').exists() // Only show after email is entered
-    }
+      visible: when('email').exists(), // only shown once email has a value
+    },
   })
   .build();
 ```
 
 <Callout type="info">
-**Key concepts:**
-- `validation`: Object with a `validate` array of Standard Schema validators
-- `conditions`: Control when fields are visible or enabled
-- `props`: Custom properties passed to your renderer component
+By default a field first validates on blur (`mode: 'onTouched'`), then errors re-check on every keystroke (`reValidateMode: 'onChange'`). Change this form-wide with `.setValidation({ mode, reValidateMode })`.
 </Callout>
 </Step>
 
 <Step>
 ### 3. Render the Form
 
-Finally, let's create a React component that renders our form using RilayKit's `<Form>` and `<FormField>` components.
+Components and hooks come from `rilaykit/react`. Pass the built config (or the builder itself) to `<Form of={...}>`.
 
 ```tsx title="components/ContactForm.tsx"
-import React from 'react';
-import { Form, FormField } from 'rilaykit';
+import { Form, FormField, FormSubmit } from 'rilaykit/react';
 import { contactForm } from '@/lib/contactForm';
 
 export function ContactForm() {
-  const handleSubmit = (data: { name: string; email: string; message: string }) => {
-    // Handle form submission - send to API, show success message, etc.
-    alert(`Thank you, ${data.name}! Your message has been received.`);
-    console.log('Form data:', data);
-  };
-
   return (
-    <div className="max-w-md mx-auto bg-white shadow-lg rounded-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Us</h2>
-      
-      <Form
-        formConfig={contactForm}
-        onSubmit={handleSubmit}
-        defaultValues={{ name: '', email: '', message: '' }}
-        className="space-y-4"
-      >
-        <FormField fieldId="name" />
-        <FormField fieldId="email" />
-        <FormField fieldId="message" />
-        
-        <button 
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-        >
-          Send Message
-        </button>
-      </Form>
-    </div>
+    <Form
+      of={contactForm}
+      onSubmit={(data) => console.log('Form data:', data)}
+      className="space-y-4"
+    >
+      <FormField id="name" />
+      <FormField id="email" />
+      <FormField id="message" />
+      <FormSubmit className="btn">Send Message</FormSubmit>
+    </Form>
   );
 }
 ```
 
-Use it anywhere in your app:
-
-```tsx title="pages/contact.tsx"
-import { ContactForm } from '@/components/ContactForm';
-
-export default function ContactPage() {
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <ContactForm />
-      </div>
-    </div>
-  );
-}
-```
+`onSubmit` only fires when every visible field passes validation. `FormSubmit` renders a submit button that disables while submitting.
 </Step>
 
 </Steps>
 
-## Congratulations
-
-You've built a complete contact form with RilayKit. Here's what you accomplished:
-
-- Created reusable component renderers that work with any UI library
-- Built a type-safe form with intelligent autocompletion
-- Added real-time validation with custom error messages
-- Implemented conditional logic (message field appears after email)
-- Handled form submission with properly typed data
-
 ## Next Steps
 
-Now that you understand the basics, explore more advanced features:
-
-- **[Examples Gallery](/examples)** - See RilayKit with different UI libraries
-- **[Advanced Forms](/forms/advanced-forms)** - Learn about dynamic fields, async validation, and complex conditions
-- **[Multi-Step Workflows](/workflow/building-workflows)** - Create onboarding flows and wizards
-- **[Validation](/core-concepts/validation)** - Standard Schema support for Zod, Yup, Joi and more
-
-## Common Questions
-
-<details>
-<summary>**How do I style the form differently?**</summary>
-
-Update your component renderers with different CSS classes or use CSS-in-JS libraries. RilayKit is completely UI-agnostic.
-
-</details>
-
-<details>
-<summary>**Can I use this with Material-UI/Chakra/Ant Design?**</summary>
-
-Absolutely! Check our [Examples Gallery](/examples) for integration examples with popular UI libraries.
-
-</details>
-
-<details>
-<summary>**How do I add more validation rules?**</summary>
-
-RilayKit includes many built-in validators, or you can create custom ones. See [Validation Guide](/forms/validation) for details.
-
-</details>
-
-<details>
-<summary>**Is this production-ready?**</summary>
-
-Yes! RilayKit is built for production use with full TypeScript support, comprehensive testing, and performance optimizations.
-
-</details> 
+- **[Advanced Forms](/forms/advanced-forms)** — dynamic fields, async validation, complex conditions
+- **[Validation](/core-concepts/validation)** — Standard Schema support (Zod, Valibot, ArkType, …)
+- **[Multi-Step Workflows](/workflow/building-workflows)** — onboarding flows and wizards
+- **[Examples Gallery](/examples)** — RilayKit with different UI libraries

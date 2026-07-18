@@ -3,135 +3,87 @@ title: Navigation
 description: Navigate between workflow steps with validation, conditions, and skip logic.
 ---
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
 
-Workflow navigation in Rilaykit is fully managed through the `useWorkflowContext` hook. It handles forward/backward movement, step skipping, validation gating, conditional visibility, and cross-step data manipulation.
+Workflow navigation lives on the `useFlow()` hook: forward/backward movement, skipping, validation gating, conditional visibility, and cross-step data.
 
 ## Navigation Methods
 
-All navigation methods are available from `useWorkflowContext()`. They return a `Promise<boolean>` indicating whether the navigation succeeded.
+All methods come from `useFlow()` and return `Promise<boolean>` (did the navigation succeed).
 
 ```tsx
-import { useWorkflowContext } from '@rilaykit/workflow';
+import { useFlow } from '@rilaykit/workflow/react';
 
 function MyNavigation() {
-  const { goNext, goPrevious, goToStep, skipStep } = useWorkflowContext();
+  const { goNext, goPrevious, goToStep, skipStep, canGoNext, canGoPrevious } = useFlow();
 
   return (
     <div className="flex gap-2">
-      <button onClick={() => goPrevious()}>Back</button>
+      <button onClick={() => goPrevious()} disabled={!canGoPrevious()}>Back</button>
       <button onClick={() => skipStep()}>Skip</button>
-      <button onClick={() => goNext()}>Next</button>
-      <button onClick={() => goToStep(0)}>Go to first step</button>
+      <button onClick={() => goNext()} disabled={!canGoNext()}>Next</button>
+      <button onClick={() => goToStep(0)}>First step</button>
     </div>
   );
 }
 ```
 
-### Method Reference
-
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `goNext()` | `() => Promise<boolean>` | Validates the current step, runs `onAfterValidation` if defined, marks the step as passed, then advances to the next **visible** step. |
-| `goPrevious()` | `() => Promise<boolean>` | Navigates to the previous **visible** step. Does not trigger validation. |
-| `goToStep(index)` | `(stepIndex: number) => Promise<boolean>` | Jumps to a specific step by its **original** index (not the visible index). Fails if the step is hidden or out of bounds. |
-| `skipStep()` | `() => Promise<boolean>` | Skips the current step without validation. Only works if `allowSkip: true` or the step's `skippable` condition evaluates to `true`. Fires `onStepSkip` analytics. |
+| `goNext()` | `() => Promise<boolean>` | Runs `onAfterValidation`, marks the step passed, then advances to the next **visible** step. |
+| `goPrevious()` | `() => Promise<boolean>` | Goes to the previous **visible** step. No validation. |
+| `goToStep(index)` | `(stepIndex: number) => Promise<boolean>` | Jumps to a step by its **original** index. Fails if hidden or out of bounds. |
+| `skipStep()` | `() => Promise<boolean>` | Skips without validation when the step is skippable. Fires `onStepSkip`. Skipping the last visible step completes the workflow. |
 
 <Callout>
-`goNext()` is the only navigation method that triggers form validation and `onAfterValidation`. All other methods move directly without validating.
+Field validation belongs to the step's form: `<FlowNext>` submits the form (validating per its `mode`/`reValidateMode`) and only calls `goNext()` on success. Calling `goNext()` directly does not run field validation.
 </Callout>
 
 ---
 
 ## Navigation Guards
 
-Guards let you check whether a navigation action is possible before attempting it. Use them to conditionally render or disable buttons.
+Guards check whether an action is possible — use them to disable buttons.
 
-```tsx
-const {
-  canGoNext,
-  canGoPrevious,
-  canGoToStep,
-  canSkipCurrentStep,
-} = useWorkflowContext();
-```
-
-| Guard | Signature | Returns `true` when |
-|-------|-----------|---------------------|
-| `canGoNext()` | `() => boolean` | There is a visible step after the current one. |
-| `canGoPrevious()` | `() => boolean` | There is a visible step before the current one. |
-| `canGoToStep(index)` | `(stepIndex: number) => boolean` | The target step is within bounds and currently visible. |
-| `canSkipCurrentStep()` | `() => boolean` | The step has `allowSkip: true` **and** the skippable condition evaluates to `true`. |
-
-```tsx
-function NavigationButtons() {
-  const { goNext, goPrevious, canGoNext, canGoPrevious } = useWorkflowContext();
-
-  return (
-    <div className="flex justify-between">
-      <button
-        onClick={() => goPrevious()}
-        disabled={!canGoPrevious()}
-      >
-        Previous
-      </button>
-      <button
-        onClick={() => goNext()}
-        disabled={!canGoNext()}
-      >
-        Next
-      </button>
-    </div>
-  );
-}
-```
+| Guard | Returns `true` when |
+|-------|---------------------|
+| `canGoNext()` | A visible step exists after the current one. |
+| `canGoPrevious()` | A visible step exists before the current one. |
+| `canGoToStep(index)` | The target step is in bounds and visible. |
+| `canSkipCurrentStep()` | `allowSkip` resolves to `true` **or** the `skippable` condition is `true`. |
 
 ---
 
 ## Automatic Step Skipping
 
-Invisible steps are **automatically skipped** during navigation. When you call `goNext()` and the next step in sequence is hidden by a condition, the workflow finds the next visible step and jumps to it. The same applies for `goPrevious()`.
+Hidden steps are skipped transparently: `goNext()` and `goPrevious()` land on the nearest visible step in their direction.
 
 ```
 Steps:  [1: visible] [2: hidden] [3: hidden] [4: visible]
 
-goNext() from step 1  -->  lands on step 4
+goNext() from step 1      -->  lands on step 4
 goPrevious() from step 4  -->  lands on step 1
 ```
 
-If the current step becomes invisible (e.g., a condition changes while viewing it), the workflow automatically relocates to the nearest visible step -- first looking forward, then backward.
+If the current step itself becomes hidden (a condition changed while viewing it), the workflow relocates to the nearest visible step — forward first, then backward.
 
 ---
 
 ## Step Conditions
 
-Step conditions control **visibility** and **skippability** dynamically based on workflow data. They use the `when()` condition builder from `@rilaykit/core`.
-
-### StepConditionalBehavior
+Conditions control **visibility** and **skippability** from workflow data, using the `when()` builder from `@rilaykit/core`.
 
 ```ts
 interface StepConditionalBehavior {
-  visible?: ConditionConfig;   // When false, the step is hidden and skipped
-  skippable?: ConditionConfig; // When true, the step can be skipped
+  visible?: ConditionConfig;   // false = hidden and skipped over
+  skippable?: ConditionConfig; // true = step can be skipped
 }
 ```
 
-### Defining Conditions
-
-Use the `when()` builder to create conditions based on data from any step in the workflow.
-
-<Tabs items={['Inline on addStep', 'With addStepConditions']}>
-<Tab value="Inline on addStep">
 ```tsx
 import { when } from '@rilaykit/core';
 
 const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
-  .step({
-    id: 'personal-info',
-    title: 'Personal Info',
-    formConfig: personalInfoForm,
-  })
+  .step({ id: 'personal-info', title: 'Personal Info', formConfig: personalInfoForm })
   .step({
     id: 'company-info',
     title: 'Company Info',
@@ -145,47 +97,33 @@ const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
     id: 'preferences',
     title: 'Preferences',
     formConfig: preferencesForm,
-    allowSkip: true,
     conditions: {
-      // Dynamically make skippable when user has existing preferences
       skippable: when('hasExistingPreferences').equals(true).build(),
     },
   });
 ```
-</Tab>
-<Tab value="With addStepConditions">
-```tsx
-const workflow = flow.create(rilay, 'onboarding', 'Onboarding')
-  .step({
-    id: 'company-info',
-    title: 'Company Info',
-    formConfig: companyInfoForm,
-  })
-  .stepConditions('company-info', {
-    visible: when('accountType').equals('business').build(),
-  });
-```
-</Tab>
-</Tabs>
+
+You can also attach conditions after the fact with `.addStepConditions(stepId, conditions)`.
 
 <Callout>
-Conditions evaluate against a **flattened** view of all workflow data across all steps. Field values from step `personal-info` are available by their field ID when evaluating conditions on step `company-info`.
+Conditions evaluate against a **flattened** view of all workflow data: fields from any step are addressable by field ID when evaluating conditions on another step.
 </Callout>
 
-### How Conditions Affect Navigation
+### Skipping rules
 
-- **`visible: false`** -- The step is excluded from the step list, the stepper, and all navigation. `goNext()` and `goPrevious()` skip over it automatically.
-- **`skippable: true`** -- Combined with `allowSkip: true`, the step can be skipped via `skipStep()` or the `<WorkflowSkipButton>`.
+A step is skippable when `allowSkip` resolves to `true` **or** its `skippable` condition does. `allowSkip` is a boolean or a predicate over the collected data:
+
+```ts
+allowSkip: ({ allData }) => allData.plan === 'free'
+```
+
+Skipped steps are absent from the completion payload and listed in `meta.skippedSteps`. Navigating back onto a skipped step lets you skip it again — or complete it, which removes it from the skipped set. `<FlowSkip>` renders only when the current step is skippable.
 
 ---
 
 ## The onAfterValidation Callback
 
-The `onAfterValidation` callback is a powerful hook that runs **after** a step's form passes validation but **before** the navigation to the next step occurs. It is the right place for:
-
-- API calls triggered by the validated data
-- Pre-filling subsequent steps with fetched data
-- Custom validation that depends on external services
+Runs **after** the step's form passes validation, **before** the transition. Use it for API calls on the validated data, pre-filling later steps, or external checks.
 
 ```tsx
 .step({
@@ -193,28 +131,23 @@ The `onAfterValidation` callback is a powerful hook that runs **after** a step's
   title: 'Business Registration',
   formConfig: registrationForm,
   onAfterValidation: async (stepData, helper, context) => {
-    // Call an API with the validated data
     const companyInfo = await fetchCompanyBySiren(stepData.siren);
 
-    // Pre-fill the next step
+    // Pre-fill the next visible step
     helper.setNextStepFields({
       companyName: companyInfo.name,
       address: companyInfo.address,
     });
 
     // Or target a specific step by ID
-    helper.setStepFields('company-details', {
-      legalForm: companyInfo.legalForm,
-    });
+    helper.setStepFields('company-details', { legalForm: companyInfo.legalForm });
   },
 })
 ```
 
 <Callout type="warn">
-If `onAfterValidation` throws an error, navigation is **cancelled** and the user stays on the current step. Use this to block progression when an API call fails.
+If `onAfterValidation` throws, navigation is **cancelled** and the user stays on the current step (the error is also reported to analytics/monitoring).
 </Callout>
-
-### Signature
 
 ```ts
 onAfterValidation?: (
@@ -228,107 +161,28 @@ onAfterValidation?: (
 
 ## StepDataHelper
 
-The `StepDataHelper` interface provides clean methods to read and modify data across steps from within `onAfterValidation`.
+Read and write data across steps from within `onAfterValidation`. The `setNextStep*` methods target the next **visible** step — a conditionally hidden step in between never swallows the prefill.
 
 ```ts
 interface StepDataHelper {
-  /** Replace all data for a specific step */
-  setStepData(stepId: string, data: Record<string, any>): void;
-
-  /** Merge specific fields into a step's existing data */
-  setStepFields(stepId: string, fields: Record<string, any>): void;
-
-  /** Read the current data for a step */
+  setStepData(stepId: string, data: Record<string, any>): void;   // replace a step's data
+  setStepFields(stepId: string, fields: Record<string, any>): void; // merge fields into a step
   getStepData(stepId: string): Record<string, any>;
-
-  /** Set a single field value on the next step */
   setNextStepField(fieldId: string, value: any): void;
-
-  /** Merge multiple field values into the next step's data */
   setNextStepFields(fields: Record<string, any>): void;
-
-  /** Get all data across all steps */
   getAllData(): Record<string, any>;
-
-  /** Get the full list of step configurations */
   getSteps(): StepConfig[];
 }
 ```
-
-### Usage Patterns
-
-<Tabs items={['Pre-fill next step', 'Target a specific step', 'Read cross-step data']}>
-<Tab value="Pre-fill next step">
-```tsx
-onAfterValidation: async (stepData, helper) => {
-  const result = await lookupCompany(stepData.registrationNumber);
-
-  helper.setNextStepFields({
-    companyName: result.name,
-    address: result.address,
-    industry: result.sector,
-  });
-}
-```
-</Tab>
-<Tab value="Target a specific step">
-```tsx
-onAfterValidation: async (stepData, helper) => {
-  const result = await lookupCompany(stepData.registrationNumber);
-
-  // Pre-fill step 3, even though we are on step 1
-  helper.setStepFields('review', {
-    summary: `${result.name} - ${result.address}`,
-  });
-}
-```
-</Tab>
-<Tab value="Read cross-step data">
-```tsx
-onAfterValidation: async (stepData, helper, context) => {
-  const personalInfo = helper.getStepData('personal-info');
-  const allData = helper.getAllData();
-
-  // Use data from a previous step to enrich the current call
-  await enrichProfile({
-    email: personalInfo.email,
-    preferences: stepData,
-  });
-}
-```
-</Tab>
-</Tabs>
 
 ---
 
 ## Navigation Flow Summary
 
-Here is the complete flow when the user clicks "Next":
+When the user clicks Next:
 
-<Steps>
-<Step>
-### Form validation
-
-The current step's form is validated using its field validators. If validation fails, errors are shown and navigation is blocked.
-</Step>
-<Step>
-### onAfterValidation
-
-If the step defines `onAfterValidation`, it is called with the validated data and the `StepDataHelper`. If it throws, navigation is cancelled.
-</Step>
-<Step>
-### Step marked as passed
-
-The current step ID is added to the `passedSteps` set, indicating it has been successfully validated.
-</Step>
-<Step>
-### Find next visible step
-
-The workflow scans forward from the current index and finds the next step whose `visible` condition evaluates to `true` (or has no condition). Hidden steps are skipped.
-</Step>
-<Step>
-### Transition
-
-The `onStepChange` callback fires, the current step index updates, and the new step is marked as visited.
-</Step>
-</Steps>
+1. **Form validation** — the step's form validates; errors block navigation.
+2. **onAfterValidation** — called with the validated data and helper; a throw cancels navigation.
+3. **Step marked passed** — the step ID joins the `passedSteps` set.
+4. **Find next visible step** — hidden steps are skipped over.
+5. **Transition** — `onStepChange` fires, the index updates, the new step is marked visited. If no visible step remains, the workflow completes instead.

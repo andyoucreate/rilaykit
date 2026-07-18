@@ -2,96 +2,96 @@
 title: Renderers
 description: How to take full control over the HTML and layout of your forms.
 ---
-import { Callout } from 'fumadocs-ui/components/callout';
 
-While the Component Registry defines *what* is rendered for each field, **Renderers** control *how* structural elements are laid out. They give you complete control over the HTML wrappers around your fields, rows, and buttons.
+Rilaykit is headless: every pixel comes from a renderer you own. Rendering has two layers — **catalog renderers** draw registered components, tools, and parts; **structural components** provide overridable layout (body, submit, flow navigation).
 
-<Callout type="error" title="Renderers are Mandatory">
-Rilaykit does **not** provide default renderers for structural elements like rows or submit buttons. You **must** define your own renderers for these components. If a renderer is not configured for an element that needs to be rendered, Rilaykit will throw an error.
-</Callout>
+## Catalog renderers
 
-This approach ensures that Rilaykit integrates seamlessly and predictably into your existing design system or CSS framework without injecting any unwanted markup or styles.
+Attach a `renderer` when registering an entry, or later with `.renderers()`. Both are immutable and return a new instance.
 
-## Available Renderers
+```tsx title="lib/catalog.tsx"
+import { ril } from 'rilaykit';
 
-You provide custom renderers by setting them on the `ril` instance.
-
-Here are the most common renderers you **must** configure for `@rilaykit/forms`:
-- `setBodyRenderer`: Wraps the entire body of the form.
-- `setRowRenderer`: Wraps a row of one or more fields.
-- `setSubmitButtonRenderer`: Renders the main submission button.
-
-The `@rilaykit/workflow` package adds more mandatory renderers:
-- `setStepperRenderer`: Renders the progress stepper.
-- `setWorkflowNextButtonRenderer`: Renders the "Next" button.
-- `setWorkflowPreviousButtonRenderer`: Renders the "Previous" button.
-- `setWorkflowSkipButtonRenderer` (if used): Renders the "Skip" button.
-
-## Example: Configuring Mandatory Renderers
-
-Here’s how you would set up the basic renderers required for a form.
-
-### 1. Define Your Renderer Components
-
-A renderer is just a React component that receives specific props and must render `{props.children}`.
-
-```tsx title="components/renderers.tsx"
-import type { FormRowRendererProps, FormSubmitButtonRendererProps } from '@rilaykit/core';
-
-export const MyRowRenderer: React.FC<FormRowRendererProps> = ({ children, row }) => {
-  // Simple grid layout based on number of fields
-  const gridCols = `grid-cols-${row.fields.length}`;
-  return <div className={`grid ${gridCols} gap-4`}>{children}</div>;
-};
-
-export const MySubmitButtonRenderer: React.FC<FormSubmitButtonRendererProps> = (props) => {
-  return (
-    <button type="submit" disabled={!props.isValid || props.isSubmitting}>
-      {props.isSubmitting ? 'Submitting...' : props.children || 'Submit'}
-    </button>
-  );
-};
+export const catalog = ril.create().component('text', {
+  name: 'Text Input',
+  renderer: ({ id, props, field }) => (
+    <div>
+      <input
+        id={id}
+        value={(field?.value as string) ?? ''}
+        onChange={(e) => field?.onChange(e.target.value)}
+        onBlur={field?.onBlur}
+        disabled={field?.disabled}
+        aria-invalid={!!field?.error?.length}
+        {...props}
+      />
+      {field?.touched &&
+        field?.error?.map((e) => (
+          <p role="alert" key={e.message}>
+            {e.message}
+          </p>
+        ))}
+    </div>
+  ),
+});
 ```
 
-### 2. Set the Renderers on the `ril` Instance
-
-Now, register these components with your shared `ril` instance.
-
-```tsx title="lib/rilay.ts"
-import { rilay } from './rilay'; // Your existing instance
-import { MyRowRenderer, MySubmitButtonRenderer } from '@/components/renderers';
-
-// Let's assume you have a BodyRenderer as well
-// import { MyBodyRenderer } from '@/components/renderers';
-
-rilay
-  // .setBodyRenderer(MyBodyRenderer)
-  .setRowRenderer(MyRowRenderer)
-  .setSubmitButtonRenderer(MySubmitButtonRenderer);
-```
-
-Now, any form or workflow component built with this `rilay` instance knows exactly how to render its structural parts.
-
-## Overriding Renderers with `renderAs`
-
-Even with global renderers configured, you can always override the rendering for a specific component instance by using the `renderAs="children"` prop. This is perfect for one-off customizations.
+`.renderers()` attaches or overrides renderers on already-registered entries — useful when definitions live server-side and UI lives in a client file:
 
 ```tsx
-import { FormSubmitButton } from '@rilaykit/forms';
+export const uiCatalog = catalog.renderers({
+  components: { text: (ctx) => <TextInput {...ctx} /> },
+  tools: { my_tool: (ctx) => <MyToolCard {...ctx} /> },
+  parts: { text: ({ part }) => <Markdown>{part.text}</Markdown> },
+});
+```
 
-<Form ...>
-  <FormBody />
-  <FormSubmitButton renderAs="children">
-    {(props) => (
-      <button
-        className="my-special-submit-button"
-        onClick={props.onSubmit}
-        disabled={!props.isValid}
-      >
-        Send Application
+| Bag | Renders | Context |
+| --- | --- | --- |
+| `components` | form fields | `ComponentRenderContext` — `{ id, props, field, conditions, children, meta }` |
+| `tools` | agent tool calls | `ToolRenderContext` — `{ toolCallId, state, input, output, resolve, … }` |
+| `parts` | chat message parts | `PartRenderContext` — `{ part, meta }` |
+
+`ctx.field` is the binding: `value`, `onChange`, `onBlur`, `error`, `touched`, `disabled`, `isValidating`.
+
+An entry without a renderer is a valid blueprint (server-side builds, agent manifests) — `validate()` doesn't flag it; `validateAsync()` surfaces it as a warning. Rendering it through `FormField` throws, so every component a form displays needs one.
+
+## Structural components
+
+Structural components ship minimal unstyled defaults tagged with `data-*` attributes for CSS. Pass a render-prop `children` to replace the markup entirely.
+
+| Component | Default | Render-prop context |
+| --- | --- | --- |
+| `FormBody` | `<div data-form-body>`, one `<div data-form-row>` per visible row | `{ rows: VisibleRow[] }` |
+| `FormSubmit` | `<button data-form-submit>` | `{ submitting, submit }` |
+| `FlowNext` / `FlowBack` / `FlowSkip` | `<button>` (`FlowSkip` hides when not skippable) | `{ go, canGo, submitting, isLastStep, step }` |
+| `FlowProgress` | `<ol data-flow-progress>` of visible steps | `{ steps, currentIndex, goTo }` |
+
+```tsx
+import { Form, FormBody, FormField, FormList, FormSubmit } from 'rilaykit/react';
+
+<Form of={myForm} onSubmit={handleSubmit}>
+  <FormBody>
+    {({ rows }) =>
+      rows.map((row) =>
+        row.kind === 'repeatable' ? (
+          <FormList key={row.id} id={row.repeatable.id} />
+        ) : (
+          <div key={row.id} className="grid gap-4">
+            {row.fields.map((f) => (
+              <FormField key={f.id} id={f.id} />
+            ))}
+          </div>
+        )
+      )
+    }
+  </FormBody>
+  <FormSubmit>
+    {({ submitting, submit }) => (
+      <button type="button" onClick={submit} disabled={submitting}>
+        {submitting ? 'Submitting…' : 'Send'}
       </button>
     )}
-  </FormSubmitButton>
-</Form>
+  </FormSubmit>
+</Form>;
 ```
-This powerful pattern allows for both global consistency and local flexibility. 
