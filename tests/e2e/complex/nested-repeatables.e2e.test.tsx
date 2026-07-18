@@ -135,7 +135,6 @@ describe('Nested repeatables (KYC companies[] → owners[])', () => {
   // ================================================================
   describe('capability boundary', () => {
     it('the RepeatableBuilder exposes NO addRepeatable — the fluent API offers no nesting', () => {
-      // biome-ignore lint/suspicious/noExplicitAny: probing the builder surface
       let captured: any;
       form.create(rilConfig, 'probe').addRepeatable('companies', (r) => {
         captured = r;
@@ -410,7 +409,6 @@ describe('Nested repeatables (KYC companies[] → owners[])', () => {
         state._repeatableConfigs,
         state._repeatableOrder
       );
-      // biome-ignore lint/suspicious/noExplicitAny: structured payload probe
       expect((structured.companies as any[])[0].owners).toHaveLength(2);
     });
 
