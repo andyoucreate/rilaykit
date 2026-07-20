@@ -1,6 +1,6 @@
 {
   "name": "@rilaykit/playground",
-  "version": "0.0.3",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "scripts": {
