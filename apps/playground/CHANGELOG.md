@@ -1,11 +1,11 @@
 # @rilaykit/playground
 
-## 0.0.3
+## 0.0.3-beta.0
 
 ### Patch Changes
 
-- Updated dependencies [[`a539aa7`](https://github.com/andyoucreate/rilaykit/commit/a539aa7172c76b01a8d33547fe4d3a030e18ec2a)]:
-  - rilaykit@0.2.0
+- Updated dependencies [[`834234b`](https://github.com/andyoucreate/rilaykit/commit/834234b1f49fd88ad50c0cf7ff3acf1b1f195828)]:
+  - rilaykit@0.2.0-beta.0
 
 ## 0.0.2
 

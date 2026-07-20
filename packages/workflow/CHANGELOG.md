@@ -1,10 +1,10 @@
 # @rilaykit/workflow
 
-## 0.2.0
+## 0.2.0-beta.0
 
 ### Minor Changes
 
-- [#17](https://github.com/andyoucreate/rilaykit/pull/17) [`a539aa7`](https://github.com/andyoucreate/rilaykit/commit/a539aa7172c76b01a8d33547fe4d3a030e18ec2a) Thanks [@reizam](https://github.com/reizam)! - P3: agent layer, isomorphic entries, and vendor-agnostic AI SDK tools
+- [`834234b`](https://github.com/andyoucreate/rilaykit/commit/834234b1f49fd88ad50c0cf7ff3acf1b1f195828) Thanks [@reizam](https://github.com/reizam)! - P3: agent layer, isomorphic entries, and vendor-agnostic AI SDK tools
 
   **`@rilaykit/agent`** — the P3 agent layer: `manifest()` for system-prompt
   catalog descriptions, `uiTools()` and the `show_form`/`show_flow`/`show_component`
@@ -31,9 +31,11 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`a539aa7`](https://github.com/andyoucreate/rilaykit/commit/a539aa7172c76b01a8d33547fe4d3a030e18ec2a)]:
-  - @rilaykit/core@0.2.0
-  - @rilaykit/forms@0.2.0
+- [#20](https://github.com/andyoucreate/rilaykit/pull/20) [`850f391`](https://github.com/andyoucreate/rilaykit/commit/850f3914892abfaeef3e0585ea1c6ff4a50380db) Thanks [@reizam](https://github.com/reizam)! - Clear the persistence load-settle timer on unmount. `loadPersistedData` scheduled a 100ms `setIsLoadingPersisted(false)` timer that nothing cancelled; unmounting inside that window fired React state on a torn-down hook. The timer is now tracked, mount-guarded, and cancelled in the unmount cleanup.
+
+- Updated dependencies [[`834234b`](https://github.com/andyoucreate/rilaykit/commit/834234b1f49fd88ad50c0cf7ff3acf1b1f195828)]:
+  - @rilaykit/core@0.2.0-beta.0
+  - @rilaykit/forms@0.2.0-beta.0
 
 ## 0.1.6
 

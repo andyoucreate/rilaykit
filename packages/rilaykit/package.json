@@ -1,6 +1,6 @@
 {
   "name": "rilaykit",
-  "version": "0.2.0",
+  "version": "0.2.0-beta.0",
   "private": false,
   "description": "All-in-one package for RilayKit — headless forms and workflows for React",
   "main": "dist/index.js",

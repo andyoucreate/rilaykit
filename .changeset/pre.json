@@ -1,0 +1,14 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@rilaykit/docs": "0.0.1",
+    "@rilaykit/playground": "0.0.2",
+    "@rilaykit/agent": "0.1.6",
+    "@rilaykit/core": "0.1.6",
+    "@rilaykit/forms": "0.1.6",
+    "rilaykit": "0.1.6",
+    "@rilaykit/workflow": "0.1.6"
+  },
+  "changesets": ["p3-agent-and-isomorphic-split", "persistence-load-settle-timer"]
+}
