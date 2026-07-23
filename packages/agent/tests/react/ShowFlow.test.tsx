@@ -215,7 +215,7 @@ describe('show_flow built-in renderer (HITL)', () => {
   });
 
   it.each(['done', 'error'] as const)(
-    'at %s: no flow controls, no resolve — only the bare DefaultTool marker (a rehydrated part must not re-arm the HITL loop)',
+    'at %s: no flow controls, no resolve — an explicit SettledToolResult summary (a rehydrated part must not re-arm the HITL loop)',
     (state) => {
       const onResolve = vi.fn();
       showFlow(schema, onResolve, state);
@@ -223,8 +223,10 @@ describe('show_flow built-in renderer (HITL)', () => {
       expect(screen.queryByRole('button')).not.toBeInTheDocument();
       const marker = document.querySelector('[data-part="tool"]');
       expect(marker).not.toBeNull();
+      // Superset of the old DefaultTool marker: same styling hooks + a settled status.
       expect(marker?.getAttribute('data-tool-name')).toBe('show_flow');
       expect(marker?.getAttribute('data-tool-state')).toBe(state);
+      expect(marker?.hasAttribute('data-agent-settled')).toBe(true);
       expect(onResolve).not.toHaveBeenCalled();
     }
   );
