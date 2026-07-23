@@ -17,15 +17,31 @@ export function uiTools(): RilayPlugin {
       .tool('show_form', {
         description:
           'Show an interactive form to the user and wait for their answers. Use for collecting structured input.',
+        // `z.looseObject` (not `z.unknown()`): the native projection is object-typed
+        // on BOTH adapter paths, so models emit a nested object instead of a
+        // stringified JSON (issue #23). All keys optional + extra keys allowed keeps
+        // validation permissive — every valid FormSchema passes and `compileForm`
+        // still owns the real validation and its retry channel.
         inputSchema: z.object({
-          schema: z.unknown().describe('A FormSchema: { id, fields: [{ id, type, props }] }'),
+          schema: z
+            .looseObject({
+              id: z.string().optional(),
+              fields: z.array(z.unknown()).optional(),
+            })
+            .describe('A FormSchema: { id, fields: [{ id, type, props }] }'),
         }),
       })
       .tool('show_flow', {
         description:
           'Show a multi-step flow to the user. Use when input is long enough to warrant steps.',
         inputSchema: z.object({
-          schema: z.unknown().describe('A FlowSchema: { id, name, steps: [{ id, title, form }] }'),
+          schema: z
+            .looseObject({
+              id: z.string().optional(),
+              name: z.string().optional(),
+              steps: z.array(z.unknown()).optional(),
+            })
+            .describe('A FlowSchema: { id, name, steps: [{ id, title, form }] }'),
         }),
       })
       .tool('show_component', {

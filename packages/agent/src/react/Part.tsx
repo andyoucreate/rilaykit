@@ -5,6 +5,7 @@ import { Fragment, useCallback } from 'react';
 import { parsePartialJson } from '../streaming/parse-partial-json';
 import { type Part as PartType, type ToolPart, isToolPart } from '../types/part';
 import { DefaultTool } from './fallbacks/DefaultTool';
+import { SettledToolResult } from './fallbacks/SettledToolResult';
 import { ShowComponent } from './fallbacks/ShowComponent';
 import { ShowFlow } from './fallbacks/ShowFlow';
 import { ShowForm } from './fallbacks/ShowForm';
@@ -67,10 +68,11 @@ function sameJsonValue(a: unknown, b: unknown, depth = 0): boolean {
  * carries no completeness signal, so the lock then holds until `ready`.
  *
  * The interactive built-ins (`show_form`, `show_flow`) answer at `ready` ONLY:
- * at `done`/`error` they render the bare `DefaultTool` marker (its
- * `data-tool-name`/`data-tool-state` hooks carry the styling), because a
- * rehydrated conversation must not re-arm an already-answered tool call —
- * hosts override via `.renderers()` for richer settled UX.
+ * at `done`/`error` they render {@link SettledToolResult} — an explicit
+ * read-only summary of the answer (a superset of `DefaultTool`'s styling hooks),
+ * never the interactive controls, because a rehydrated conversation must not
+ * re-arm an already-answered tool call — hosts override via `.renderers()` for
+ * richer settled UX.
  */
 const BUILT_IN_TOOLS: Record<
   string,
@@ -117,7 +119,7 @@ const BUILT_IN_TOOLS: Record<
         />
       );
     }
-    if (part.state !== 'ready') return <DefaultTool part={part} />;
+    if (part.state !== 'ready') return <SettledToolResult part={part} />;
     return (
       <ShowForm
         schema={(part.input as { schema?: unknown } | undefined)?.schema}
@@ -127,7 +129,7 @@ const BUILT_IN_TOOLS: Record<
   },
   show_flow: (part, resolve) => {
     if (part.state === 'streaming') return null;
-    if (part.state !== 'ready') return <DefaultTool part={part} />;
+    if (part.state !== 'ready') return <SettledToolResult part={part} />;
     return (
       <ShowFlow
         schema={(part.input as { schema?: unknown } | undefined)?.schema}

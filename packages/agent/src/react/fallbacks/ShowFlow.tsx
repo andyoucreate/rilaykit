@@ -4,6 +4,7 @@ import { type FlowSchema, type FlowSchemaResult, compileFlow } from '@rilaykit/w
 import { FlowBack, FlowBody, FlowNext, WorkflowProvider } from '@rilaykit/workflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
+import { coerceEmittedSchema } from '../../streaming/coerce-emitted-schema';
 import { EmissionErrorView } from './EmissionErrorView';
 
 export interface ShowFlowProps {
@@ -40,8 +41,11 @@ export function ShowFlow({ schema, resolve }: ShowFlowProps) {
   const settled = useRef(false);
 
   const compiled = useMemo((): Compiled => {
+    // A model may stringify the schema despite the object-typed emission (issue
+    // #23); coerce it back before compiling so the flow still renders.
+    const emitted = coerceEmittedSchema(schema);
     try {
-      const { workflowConfig, defaultValues } = compileFlow(schema as FlowSchema, catalog, {
+      const { workflowConfig, defaultValues } = compileFlow(emitted as FlowSchema, catalog, {
         validateProps: true,
       });
       return {

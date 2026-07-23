@@ -9,6 +9,7 @@ import {
 import { FormBody, FormProvider, FormSubmit } from '@rilaykit/forms/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { type EmissionResult, toEmissionResult } from '../../errors/emission-error';
+import { coerceEmittedSchema } from '../../streaming/coerce-emitted-schema';
 import { EmissionErrorView } from './EmissionErrorView';
 
 export interface ShowFormProps {
@@ -79,9 +80,14 @@ export function ShowForm({ schema, resolve, pending = false }: ShowFormProps) {
   const pinnedFormId = useRef<string | null>(null);
 
   const compiled = useMemo((): Compiled => {
-    if (pending && !hasStableIdentity(schema)) return { result: null, error: null };
+    // A model may stringify the schema despite the object-typed emission (issue
+    // #23); coerce it back before any structural read. A stringified partial
+    // won't JSON.parse mid-stream — it stays a string, fails hasStableIdentity,
+    // and renders nothing until `ready`, where the complete string parses.
+    const emitted = coerceEmittedSchema(schema);
+    if (pending && !hasStableIdentity(emitted)) return { result: null, error: null };
     try {
-      const { formConfig, defaultValues } = compileForm(schema as FormSchema, catalog, {
+      const { formConfig, defaultValues } = compileForm(emitted as FormSchema, catalog, {
         validateProps: true,
         lenient: pending,
       });
