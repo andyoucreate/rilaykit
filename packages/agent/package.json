@@ -1,6 +1,14 @@
 {
   "name": "@rilaykit/agent",
   "version": "0.2.0-beta.1",
+  "homepage": "https://rilay.dev",
+  "bugs": {
+    "url": "https://github.com/andyoucreate/rilaykit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andyoucreate/rilaykit.git"
+  },
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
