@@ -263,3 +263,23 @@ describe('show_flow built-in renderer (HITL)', () => {
     expect(onResolve).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Issue #23 defense-in-depth: a model that stringifies the FlowSchema despite the
+ * object-typed emitted schema must still get a rendered flow, not a silent
+ * failure. `ShowFlow` coerces the stringified emission before compiling.
+ */
+describe('show_flow renders a STRINGIFIED schema (issue #23 defense-in-depth)', () => {
+  it('compiles and renders the first step when schema arrives as a JSON string', () => {
+    showFlow(JSON.stringify(schema));
+    // The first step's field mounts — proof the string was parsed and compiled.
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    // And no emission-error view replaced it.
+    expect(document.querySelector('[data-agent-error="emission"]')).toBeNull();
+  });
+
+  it('surfaces the emission error for a stringified NON-schema (garbage stays garbage)', () => {
+    showFlow('this is not json at all');
+    expect(document.querySelector('[data-agent-error="emission"]')).not.toBeNull();
+  });
+});
