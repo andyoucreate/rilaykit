@@ -10,5 +10,9 @@
     "rilaykit": "0.1.6",
     "@rilaykit/workflow": "0.1.6"
   },
-  "changesets": ["p3-agent-and-isomorphic-split", "persistence-load-settle-timer"]
+  "changesets": [
+    "p3-agent-and-isomorphic-split",
+    "persistence-load-settle-timer",
+    "show-form-hitl-emission"
+  ]
 }
