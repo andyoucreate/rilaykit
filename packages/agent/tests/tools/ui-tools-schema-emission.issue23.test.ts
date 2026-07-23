@@ -83,7 +83,9 @@ describe('issue #23 — runtime validation stays permissive (compileForm owns th
   });
 
   it('rejects a STRINGIFIED schema — the exact bug shape the model used to emit', () => {
-    expect(issuesOf(validate('show_form', { schema: '{"id":"contact","fields":[]}' }))).toBeDefined();
+    expect(
+      issuesOf(validate('show_form', { schema: '{"id":"contact","fields":[]}' }))
+    ).toBeDefined();
   });
 
   it('accepts a full FlowSchema for show_flow', () => {

@@ -2,9 +2,9 @@ import { ril } from '@rilaykit/core';
 import { Catalog } from '@rilaykit/core/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { PartState } from '../../src/types/part';
 import { Part } from '../../src/react/Part';
 import { uiTools } from '../../src/tools/ui-tools';
+import type { PartState } from '../../src/types/part';
 
 const catalog = ril.create().use(uiTools());
 
@@ -17,7 +17,15 @@ function renderSettled(
   return render(
     <Catalog value={catalog}>
       <Part
-        part={{ type: 'tool', toolCallId: 'c1', name, state, input: { schema: {} }, output, errorText }}
+        part={{
+          type: 'tool',
+          toolCallId: 'c1',
+          name,
+          state,
+          input: { schema: {} },
+          output,
+          errorText,
+        }}
       />
     </Catalog>
   );

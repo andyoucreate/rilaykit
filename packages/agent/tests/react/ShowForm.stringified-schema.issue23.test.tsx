@@ -15,7 +15,10 @@ const catalog = ril
     renderer: ({ props, field }: ComponentRenderContext) => (
       <label>
         {String(props.label)}
-        <input value={String(field?.value ?? '')} onChange={(e) => field?.onChange(e.target.value)} />
+        <input
+          value={String(field?.value ?? '')}
+          onChange={(e) => field?.onChange(e.target.value)}
+        />
       </label>
     ),
   })
@@ -30,7 +33,13 @@ function renderShowForm(schema: unknown) {
   return render(
     <Catalog value={catalog}>
       <Part
-        part={{ type: 'tool', toolCallId: 'c1', name: 'show_form', state: 'ready', input: { schema } }}
+        part={{
+          type: 'tool',
+          toolCallId: 'c1',
+          name: 'show_form',
+          state: 'ready',
+          input: { schema },
+        }}
       />
     </Catalog>
   );

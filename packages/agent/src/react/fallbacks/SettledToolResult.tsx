@@ -63,9 +63,10 @@ export function SettledToolResult({ part }: { readonly part: ToolPart }) {
         </dl>
       ) : null}
       {status === 'error' && errorText ? (
-        <p data-agent-settled-error role="status">
-          {errorText}
-        </p>
+        // `<output>` carries an implicit ARIA role="status" (a polite live
+        // region) — right for a settled, already-happened error, and never
+        // re-announced assertively like EmissionErrorView's live `role="alert"`.
+        <output data-agent-settled-error>{errorText}</output>
       ) : null}
     </div>
   );
